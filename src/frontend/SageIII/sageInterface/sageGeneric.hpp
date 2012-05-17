@@ -69,6 +69,79 @@ namespace sg
   }
 
   //
+  // non sage specific algorithms
+
+  /// \brief  applies the function object fun to each pair in the ranges [first1, last1)
+  ///         and [first2, first2 + (last1-first1) ).
+  /// \return a copy of the function object after it has completed the traversal.
+  /// \pre    Sequence2 is at least as long as Sequence1
+  /// \note   consider using boost::zip_iterator
+  template <class InputIterator, class InputIterator2, class BinaryFunction>
+  inline
+  BinaryFunction
+  zip(InputIterator first, InputIterator last, InputIterator2 first2, BinaryFunction fun)
+  {
+    while (first != last)
+    {
+      fun(*first, *first2);
+      ++first; ++first2;
+    }
+
+    return fun;
+  }
+
+  /// \brief   traverses two ordered associative containers and invokes
+  ///          binop in order of keys in [aa1, zz1) and [aa2, zz2).
+  /// \tparam  AssocIterator1 a *forward* iterator of an ordered associative container
+  /// \tparam  AssocIterator2 a *forward* iterator of an ordered associative container
+  /// \tparam  BinaryOperator an object that offers three function-call operators
+  ///          (1) void operator()(AssocIterator1::value_type, AssocIterator2::value_type)
+  ///                called if a key is in both sequences
+  ///          (2) void operator()(AssocIterator1::value_type, int)
+  ///                called if a key is only in the first sequence
+  ///          (3) void operator()(int, AssocIterator2::value_type)
+  ///                called if a key is only in the second sequence
+  /// \note    *Fails* with reverse iterators because the algorithm assumes
+  ///          increasing element order.
+  template <class AssocIterator1, class AssocIterator2, class BinaryOperator>
+  BinaryOperator
+  zip_by_key(AssocIterator1 aa1, AssocIterator1 zz1, AssocIterator2 aa2, AssocIterator2 zz2, BinaryOperator binop)
+  {
+    while (aa1 != zz1 && aa2 != zz2)
+    {
+      if ((*aa1).first < (*aa2).first)
+      {
+        binop(*aa1, 0);
+        ++aa1;
+      }
+      else if ((*aa2).first < (*aa1).first)
+      {
+        binop(0, *aa2);
+        ++aa2;
+      }
+      else
+      {
+        binop(*aa1, *aa2);
+        ++aa1; ++aa2;
+      }
+    }
+
+    while (aa1 != zz1)
+    {
+      binop(*aa1, 0);
+      ++aa1;
+    }
+
+    while (aa2 != zz2)
+    {
+      binop(0, *aa2);
+      ++aa2;
+    }
+
+    return binop;
+  }
+
+  //
   // Convenience class
 
   template <class _ReturnType>
@@ -2918,7 +2991,7 @@ namespace sg
     : res(NULL)
     {}
 
-    void handle(SgBaseNode& n) { unexpected_node(n); }
+    void handle(SgBaseNode& n) {}
     void handle(SageNode& n)   { res = &n; }
 
     operator SageNode* () { return res; }
@@ -2932,14 +3005,20 @@ namespace sg
   template <class SageNode>
   SageNode* assert_sage_type(SgNode* n)
   {
-    return sg::dispatch(TypeRecoveryHandler<SageNode>(), n);
+    SageNode* res = sg::dispatch(TypeRecoveryHandler<SageNode>(), n);
+
+    ROSE_ASSERT(res);
+    return res;
   }
 
   /// \overload
   template <class SageNode>
   const SageNode* assert_sage_type(const SgNode* n)
   {
-    return sg::dispatch(TypeRecoveryHandler<const SageNode>(), n);
+    const SageNode* res = sg::dispatch(TypeRecoveryHandler<const SageNode>(), n);
+
+    ROSE_ASSERT(res);
+    return res;
   }
 
   /// \brief swaps the parent pointer of two nodes

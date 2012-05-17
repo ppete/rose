@@ -213,6 +213,10 @@ AstAttributeMechanism::AstAttributeMechanism ()
   // Nothing to do here!
    }
 
+<<<<<<< Updated upstream
+=======
+
+>>>>>>> Stashed changes
 static
 AstAttribute* _clone_attribute(AstAttribute* attr)
 {
@@ -220,7 +224,6 @@ AstAttribute* _clone_attribute(AstAttribute* attr)
   //     but since they occur, nullptrs need to be handled.
   return (attr ? attr->copy() : attr);
 }
-
 
 AstAttributeMechanism::AstAttributeMechanism ( const AstAttributeMechanism & X )
    {
@@ -235,7 +238,9 @@ AstAttributeMechanism::AstAttributeMechanism ( const AstAttributeMechanism & X )
      for (const_iterator iter = X.begin(); iter != X.end(); iter++)
         {
        // Call the copy mechanism on the AstAttribute (virtual copy constructor)
-          this->insert(std::make_pair( iter->first , _clone_attribute(iter->second) ));
+
+          // std::pair<std::string,AstAttribute*>( iter->first , iter->second->copy() ) );
+          this->insert(std::make_pair(iter->first, _clone_attribute(iter->second)));
         }
 #else
   // ((const AttributeMechanism<std::string,AstAttribute*>*) this) = X;

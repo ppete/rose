@@ -18,16 +18,27 @@ Lattice* BoolAndLattice::copy() const
 }
 
 // overwrites the state of this Lattice with that of that Lattice
-void BoolAndLattice::copy(Lattice* that)
+void BoolAndLattice::copy(const Lattice* that)
 {
-        state = dynamic_cast<BoolAndLattice*>(that)->state;
+        *this = dynamic_cast<const BoolAndLattice&>(*that);
+        // was: state = dynamic_cast<BoolAndLattice*>(that)->state;
 }
 
 // computes the meet of this and that and saves the result in this
 // returns true if this causes this to change and false otherwise
-bool BoolAndLattice::meetUpdate(Lattice* that)
+bool BoolAndLattice::meetUpdate(const Lattice* that)
 {
-        int newState = (state > dynamic_cast<BoolAndLattice*>(that)->state ? state : dynamic_cast<BoolAndLattice*>(that)->state);
+        if (!that->isInitialized()) return false;
+
+        if (!this->isInitialized())
+        {
+          *this = dynamic_cast<const BoolAndLattice&>(*that);
+          return true;
+        }
+
+        int newState = (state > dynamic_cast<const BoolAndLattice*>(that)->state
+                                          ? state
+                                          : dynamic_cast<const BoolAndLattice*>(that)->state);
         bool ret = newState != state;
         state = newState;
         return ret;
@@ -40,25 +51,28 @@ bool BoolAndLattice::meetUpdate(Lattice* that)
         return new BoolAndLattice(newState);
 }*/
 
-bool BoolAndLattice::operator==(Lattice* that)
+bool BoolAndLattice::operator==(const Lattice* that) const
 {
-        return state == dynamic_cast<BoolAndLattice*>(that)->state;
+        if (!eq_init_state(this, that)) return false;
+
+        if (!isInitialized()) return true;
+
+        return state == dynamic_cast<const BoolAndLattice*>(that)->state;
 }
 
 // returns the current state of this object
 bool BoolAndLattice::get() const
 {
-        if(state<0)
-                return false;
-        else
-                return state;
+        if (!isInitialized()) return false;
+
+        return state;
 }
 
 // sets the state of this BoolAndLattice to the given value
 // returns true if this causes the BoolAndLattice state to change, false otherwise
 bool BoolAndLattice::set(bool state)
 {
-        if(this->state==-1)
+        if (!isInitialized())
         {
                 this->state = state;
                 return true;
@@ -76,7 +90,7 @@ bool BoolAndLattice::set(bool state)
 bool BoolAndLattice::andUpd(bool state)
 {
         //printf("BoolAndLattice::andUpd(%d) this->state=%d\n", state, this->state);
-        if(this->state==-1)
+        if (!isInitialized())
         {
                 this->state = state;
                 return true;
@@ -92,7 +106,8 @@ bool BoolAndLattice::andUpd(bool state)
 string BoolAndLattice::str(string indent)
 {
         ostringstream outs;
-        if(state==-1)
+
+        if(!isInitialized())
                 outs << indent << "?";
         else
                 outs << indent << (state ? "true" : "false");
@@ -103,7 +118,7 @@ string BoolAndLattice::str(string indent)
  ************** IntMaxLattice **************
  *******************************************/
 const int IntMaxLattice::infinity = 32768;
-        
+
 // returns a copy of this lattice
 Lattice* IntMaxLattice::copy() const
 {
@@ -111,56 +126,60 @@ Lattice* IntMaxLattice::copy() const
 }
 
 // overwrites the state of this Lattice with that of that Lattice
-void IntMaxLattice::copy(Lattice* that)
+void IntMaxLattice::copy(const Lattice* that)
 {
-        state = dynamic_cast<IntMaxLattice*>(that)->state;
+        *this = dynamic_cast<const IntMaxLattice&>(*that);
+        // \pp was: state = dynamic_cast<IntMaxLattice*>(that)->state;
 }
 
 // computes the meet of this and that and saves the result in this
 // returns true if this causes this to change and false otherwise
-bool IntMaxLattice::meetUpdate(Lattice* that)
+bool IntMaxLattice::meetUpdate(const Lattice* that)
 {
-        int newState = (state > dynamic_cast<IntMaxLattice*>(that)->state ? state : dynamic_cast<IntMaxLattice*>(that)->state);
+        if (!that->isInitialized()) return false;
+
+        int newState = (state > dynamic_cast<const IntMaxLattice*>(that)->state ? state : dynamic_cast<const IntMaxLattice*>(that)->state);
         bool ret = newState != state;
         state = newState;
         return ret;
 }
 
 /*// computes the meet of this and that and returns the result
-Lattice* IntMaxLattice::meet(Lattice* that)
+Lattice* IntMaxLattice::meetUpdate(Lattice* that)
 {
         int newState = (state > (dynamic_cast<IntMaxLattice*>(that)->state ? state : (dynamic_cast<IntMaxLattice*>(that)->state);
         return new IntMaxLattice(newState);
 }*/
 
-bool IntMaxLattice::operator==(Lattice* that)
+bool IntMaxLattice::operator==(const Lattice* that) const
 {
-        return state == dynamic_cast<IntMaxLattice*>(that)->state;
+        if (!eq_init_state(this, that)) return false;
+
+        if (!isInitialized()) return true;
+
+        return state == dynamic_cast<const IntMaxLattice*>(that)->state;
 }
 
 // widens this from that and saves the result in this
 // returns true if this causes this to change and false otherwise
-bool IntMaxLattice::widenUpdate(InfiniteLattice* that)
+bool IntMaxLattice::widenUpdate(const InfiniteLattice* that)
 {
-        if(state==-1)
+        if (!that->isInitialized()) return false;
+
+        int that_state = dynamic_cast<const IntMaxLattice*>(that)->state;
+
+        if (!isInitialized())
         {
                 //printf("IntMaxLattice::widenUpdate() widening from %d to %d\n", state, dynamic_cast<IntMaxLattice*>(that)->state);
-                state = dynamic_cast<IntMaxLattice*>(that)->state;
+                state = that_state;
                 return true;
         }
-        else if(dynamic_cast<IntMaxLattice*>(that)->state == -1)
-        {
-                //printf("IntMaxLattice::widenUpdate() not widening from %d to %d\n", state, dynamic_cast<IntMaxLattice*>(that)->state);
-                return false;
-        }
-        else
-        {
-                int newState = (state == dynamic_cast<IntMaxLattice*>(that)->state? state : infinity);
-                //printf("IntMaxLattice::widenUpdate() widening from %d to %d ==> \n", state, dynamic_cast<IntMaxLattice*>(that)->state, newState);
-                bool ret = newState != state;
-                state = newState;
-                return ret;
-        }
+
+        int newState = (state == that_state? state : infinity);
+        //printf("IntMaxLattice::widenUpdate() widening from %d to %d ==> \n", state, dynamic_cast<IntMaxLattice*>(that)->state, newState);
+        bool ret = newState != state;
+        state = newState;
+        return ret;
 }
 
 // returns the current state of this object
@@ -176,7 +195,7 @@ bool IntMaxLattice::set(int state)
         // don't set above infinity
         if(state>infinity)
                 state = infinity;
-                
+
         int oldState = state;
         this->state = state;
         return oldState != this->state;
@@ -188,7 +207,7 @@ bool IntMaxLattice::incr(int increment)
 {
         int oldState = this->state;
         this->state+=increment;
-        
+
         // don't increment past infinity
         if(this->state>infinity)
         {
@@ -203,11 +222,11 @@ bool IntMaxLattice::incr(int increment)
         }
         /*else
                 printf("IntMaxLattice::incr(%d) incrementing from %d to 0\n", increment, oldState, this->state);*/
-        
+
         return oldState != this->state;
 }
 
-// computes the maximum of the given value and the state of this lattice and saves 
+// computes the maximum of the given value and the state of this lattice and saves
 //    the result in this lattice
 // returns true if this causes the lattice's state to change, false otherwise
 bool IntMaxLattice::maximum(int value)
@@ -215,7 +234,7 @@ bool IntMaxLattice::maximum(int value)
         // don't set above infinity
         if(state>infinity)
                 state = infinity;
-        
+
         int oldState = state;
         state = (state < value? value: state);
         //printf("maximum: oldState=%d state=%d\n", oldState, state);
@@ -227,7 +246,7 @@ string IntMaxLattice::str(string indent)
         ostringstream outsNum;
         outsNum << state;
         string stateStr = outsNum.str();
-        
+
         ostringstream outs;
         outs << indent << (state==infinity? "infinity" : stateStr);
         return outs.str();
@@ -237,20 +256,19 @@ string IntMaxLattice::str(string indent)
 /*########################
   ### Utility lattices ###
   ########################*/
-  
+
 /**********************
  *** ProductLattice ***
  **********************/
 
-ProductLattice::ProductLattice() {
-        level = uninitialized;
-}
+//
+// auxiliary functions
 
-ProductLattice::ProductLattice(const vector<Lattice*>& lattices)
-{
-        level = uninitialized;
-        init(lattices);
-}
+static
+void invoke_initialize(Lattice* l) { l->initialize(); }
+
+static
+void invoke_uninitialize(Lattice* l) { l->uninitialize(); }
 
 ProductLattice::~ProductLattice()
 {
@@ -259,25 +277,26 @@ ProductLattice::~ProductLattice()
                 delete *lat;
 }
 
-void ProductLattice::init(const vector<Lattice*>& lattices)
-{
-        this->lattices = lattices;
-}
-
 // initializes this Lattice to its default state
 void ProductLattice::initialize()
 {
-        //cout << "ProductLattice::initialize() level="<<level<<"\n";
-        if(level != initialized) {
-                level = initialized;
-                for(vector<Lattice*>::iterator it = lattices.begin(); it!=lattices.end(); it++) {
-                        //cout << "ProductLattice::initialize() initializing "<<(*it)->str("    ")<<"\n";
-                        (*it)->initialize();
-                }
-        }
+        if (isInitialized()) return;
+
+        Lattice::initialize();
+        std::for_each(lattices.begin(), lattices.end(), invoke_initialize);
 }
 
-const vector<Lattice*>& ProductLattice::getLattices()
+void ProductLattice::unInitialize()
+{
+        if (!isInitialized()) return;
+
+        Lattice::uninitialize();
+        std::for_each(lattices.begin(), lattices.end(), invoke_uninitialize);
+}
+
+void ProductLattice::clear() { unInitialize(); }
+
+const vector<Lattice*>& ProductLattice::getLattices() const
 {
         return lattices;
 }
@@ -290,11 +309,13 @@ void ProductLattice::copy_lattices(vector<Lattice*>& newLattices) const
 }
 
 // overwrites the state of this Lattice with that of that Lattice
-void ProductLattice::copy(Lattice* that_arg)
+void ProductLattice::copy(const Lattice* that_arg)
 {
-        ProductLattice* that = dynamic_cast<ProductLattice*>(that_arg);
+        const ProductLattice* that = dynamic_cast<const ProductLattice*>(that_arg);
         ROSE_ASSERT(that);
+#if OBSOLETE_CODE
         level = that->level;
+#endif /* OBSOLETE_CODE */
         // Deallocate all the Lattices
         for(vector<Lattice*>::iterator lat=lattices.begin(); lat!=lattices.end(); lat++)
                 delete *lat;
@@ -304,32 +325,49 @@ void ProductLattice::copy(Lattice* that_arg)
 
 // computes the meet of this and that and saves the result in this
 // returns true if this causes this to change and false otherwise
-bool ProductLattice::meetUpdate(Lattice* that_arg)
+bool ProductLattice::meetUpdate(const Lattice* that_arg)
 {
-        ProductLattice* that = dynamic_cast<ProductLattice*>(that_arg);
-        
+        // \pp \todo discuss impl with Greg
+        if (!that_arg->isInitialized()) return false;
+
+        bool                  modified = false;
+        const ProductLattice* that = dynamic_cast<const ProductLattice*>(that_arg);
+
+#if OBSOLETE_CODE
         bool modified=false;
         int newLevel = max(level, that->level);
         modified = (newLevel != level) || modified;
         level = newLevel;
-        
-        vector<Lattice*>::iterator it, itThat;
-        for(it = lattices.begin(), itThat = that->lattices.begin(); 
-            it!=lattices.end() && itThat!=that->lattices.end(); 
+#endif /* OBSOLETE_CODE */
+
+        vector<Lattice*>::iterator       it;
+        vector<Lattice*>::const_iterator itThat;
+        for(it = lattices.begin(), itThat = that->lattices.begin();
+            it!=lattices.end() && itThat!=that->lattices.end();
             it++, itThat++)
                 modified = (*it)->meetUpdate(*itThat) || modified;
-        
+
         return modified;
 }
-        
-bool ProductLattice::operator==(Lattice* that_arg)
+
+bool ProductLattice::operator==(const Lattice* that_arg) const
 {
-        ProductLattice* that = dynamic_cast<ProductLattice*>(that_arg);
+        // \pp \todo discuss impl with Greg
+        // compare initialization state
+        if (!eq_init_state(this, that_arg)) return false;
+
+        if (!isInitialized()) return true;
+
+
+        const ProductLattice* that = dynamic_cast<const ProductLattice*>(that_arg);
+
+#if OBSOLETE_CODE
         if(level != that->level) return false;
-        
+#endif /* OBSOLETE_CODE */
+
         vector<Lattice*>::const_iterator it, itThat;
-        for(it = lattices.begin(), itThat = that->lattices.begin(); 
-            it!=lattices.end() && itThat!=that->lattices.end(); 
+        for(it = lattices.begin(), itThat = that->lattices.begin();
+            it!=lattices.end() && itThat!=that->lattices.end();
             it++, itThat++)
                 if((**it) != (**itThat)) return false;
         return true;
@@ -341,7 +379,7 @@ bool ProductLattice::operator==(Lattice* that_arg)
 string ProductLattice::str(string indent)
 {
         ostringstream outs;
-        outs << indent << "[ProductLattice: level="<<(level==uninitialized ? "uninitialized" : "initialized")<<"\n";
+        outs << indent << "[ProductLattice: level=" << Lattice::str() <<"\n";
         for(vector<Lattice*>::const_iterator it = lattices.begin(); it!=lattices.end(); it++)
                 outs << (*it)->str(indent+"    ") << "\n";
         outs << indent << "]\n";
@@ -354,12 +392,14 @@ string ProductLattice::str(string indent)
 
 // Widens this from that and saves the result in this.
 // Returns true if this causes this to change and false otherwise.
-bool InfiniteProductLattice::widenUpdate(InfiniteLattice* that)
+bool InfiniteProductLattice::widenUpdate(const InfiniteLattice* that)
 {
         bool modified=false;
-        vector<Lattice*>::iterator it, itThat;
-        for(it = lattices.begin(), itThat = (dynamic_cast<InfiniteProductLattice*>(that))->lattices.begin(); 
-            it!=lattices.end() && itThat!=(dynamic_cast<InfiniteProductLattice*>(that))->lattices.end(); 
+        vector<Lattice*>::iterator it;
+        vector<Lattice*>::const_iterator itThat;
+
+        for(it = lattices.begin(), itThat = (dynamic_cast<const InfiniteProductLattice*>(that))->lattices.begin();
+            it!=lattices.end() && itThat!=(dynamic_cast<const InfiniteProductLattice*>(that))->lattices.end();
             it++, itThat++) {
                 /*Lattice* thisLat = *it;
                 Lattice* thatLat = *itThat;*/
@@ -377,12 +417,12 @@ map<Function, map<varID, int> > VariablesProductLattice::varLatticeIndex;
 
 // creates a new VariablesProductLattice
 // includeScalars - if =true, a lattice is created for each scalar variable
-// includeArrays - if =true, a lattice is created for each array variable 
+// includeArrays - if =true, a lattice is created for each array variable
 // perVarLattice - sample lattice that will be associated with every variable in scope at node n
 //     it should be assumed that the object pointed to by perVarLattice will be either
 //     used internally by this VariablesProductLattice object or deallocated
-// constVarLattices - map of additional variables and their associated lattices, that will be 
-//     incorporated into this VariablesProductLattice in addition to any other lattices for 
+// constVarLattices - map of additional variables and their associated lattices, that will be
+//     incorporated into this VariablesProductLattice in addition to any other lattices for
 //     currently live variables (these correspond to various useful constant variables like zeroVar)
 // allVarLattice - the lattice associated with allVar (the variable that represents all of memory)
 //     if allVarLattice==NULL, no support is provided for allVar
@@ -390,7 +430,7 @@ map<Function, map<varID, int> > VariablesProductLattice::varLatticeIndex;
 // n - the dataflow node that this lattice will be associated with
 // state - the NodeState at this dataflow node
 VariablesProductLattice::VariablesProductLattice(
-          bool includeScalars, bool includeArrays, Lattice* perVarLattice, 
+          bool includeScalars, bool includeArrays, Lattice* perVarLattice,
           const map<varID, Lattice*>& constVarLattices, Lattice* allVarLattice,
           const Function& func, const DataflowNode& n, const NodeState& state) : func(func)
 {
@@ -399,30 +439,30 @@ VariablesProductLattice::VariablesProductLattice(
         this->constVarLattices = constVarLattices;
         this->allVarLattice    = allVarLattice;
         this->perVarLattice    = perVarLattice;
-        
+
         setUpVarLatticeIndex();
-        
+
         varIDSet refVars = getVisibleVars(func);
 /*printf("VariablesProductLattice: in %s(), refVars=\n", func.get_name().str());
 for(varIDSet::iterator it = refVars.begin(); it!= refVars.end(); it++)
 { printf("    %s\n", (*it).str().c_str()); }*/
-        
+
         // iterate over all the variables (arrays and/or scalars) referenced in this function
         // adding their initial lattices to initState
         for(varIDSet::iterator it = refVars.begin(); it!=refVars.end(); it++) {
                 Lattice* l = perVarLattice->copy();
                 lattices.push_back(l);
         }
-        
+
         /*// add constVarLattices to lattices
         for(map<varID, Lattice*>::iterator it = constVarLattices.begin(); it!=constVarLattices.end(); it++)
                 lattices.push_back(it->second);*/
-        // We don't add constVarLattices because they never change and thus, we don't need to 
+        // We don't add constVarLattices because they never change and thus, we don't need to
         // perform standard dataflow operations on them, such as meets and widenings
-        
+
         //printf("VariablesProductLattice() 2\n");
         //cout << str("") << "\n";
-        
+
         // allVarLattice to lattices, if we're supporting allVar
         if(allVarLattice)
                 lattices.push_back(allVarLattice);
@@ -436,9 +476,9 @@ VariablesProductLattice::VariablesProductLattice(const VariablesProductLattice& 
         this->constVarLattices = that.constVarLattices;
         this->allVarLattice    = that.allVarLattice;
         this->perVarLattice    = that.perVarLattice;
-        
+
         that.copy_lattices(lattices);
-        
+
         //printf("VariablesProductLattice() 2 this->allVarLattice=%p\n", this->allVarLattice);
         //printf("VariablesProductLattice() 2 that=%p, that.allVarLattice=%p\n", &that, that.allVarLattice);
 }
@@ -504,14 +544,14 @@ varIDSet VariablesProductLattice::getVisibleVars(Function func) const
 {
         varIDSet& locals = getLocalVars(func);
         varIDSet& globals = getGlobalVars();
-        
+
         varIDSet lgUnion;
         for(varIDSet::iterator it = locals.begin(); it!=locals.end(); it++)
                 lgUnion.insert(*it);
-        
+
         for(varIDSet::iterator it = globals.begin(); it!=globals.end(); it++)
                 lgUnion.insert(*it);
-        
+
         return lgUnion;
 }
 
@@ -556,7 +596,7 @@ for(map<varID, Lattice*>::iterator it = constVarLattices.begin(); it!=constVarLa
         {
                 // sets up the varLatticeIndex map, if necessary
                 setUpVarLatticeIndex();
-                
+
                 map<varID, int>::iterator it = (varLatticeIndex.find(func)->second).find(var);
 //printf("getVarLattice() it != (varLatticeIndex.find(func)->second).end() = %d\n", it != (varLatticeIndex.find(func)->second).end());
                 // if the given variable is mapped by this product lattice
@@ -570,7 +610,7 @@ for(map<varID, Lattice*>::iterator it = constVarLattices.begin(); it!=constVarLa
                 else
                 {
                         /*printf("getVarLattice(%s(), %s) returning NULL\n", func.get_name().str(), var.str().c_str());
-                        for(map<varID, int>::iterator it = (varLatticeIndex.find(func)->second).begin(); 
+                        for(map<varID, int>::iterator it = (varLatticeIndex.find(func)->second).begin();
                             it!=(varLatticeIndex.find(func)->second).end(); it++)
                         {
                                 printf("getVarLattice() pair <%s, %d>\n", it->first.str().c_str(), it->second);
@@ -590,7 +630,7 @@ int VariablesProductLattice::getVarIndex(const Function& func, const varID& var)
         {
                 // sets up the varLatticeIndex map, if necessary
                 setUpVarLatticeIndex();
-                
+
                 // allVar is the last index
                 return varLatticeIndex.find(func)->second.size();
         }
@@ -603,7 +643,7 @@ int VariablesProductLattice::getVarIndex(const Function& func, const varID& var)
         {
                 // sets up the varLatticeIndex map, if necessary
                 setUpVarLatticeIndex();
-                
+
                 return (varLatticeIndex.find(func)->second).find(var)->second;
         }
 }
@@ -624,28 +664,28 @@ void VariablesProductLattice::copy(Lattice* that_arg)
 }
 
 
-// Called by analyses to create a copy of this lattice. However, if this lattice maintains any 
-//    information on a per-variable basis, these per-variable mappings must be converted from 
-//    the current set of variables to another set. This may be needed during function calls, 
+// Called by analyses to create a copy of this lattice. However, if this lattice maintains any
+//    information on a per-variable basis, these per-variable mappings must be converted from
+//    the current set of variables to another set. This may be needed during function calls,
 //    when dataflow information from the caller/callee needs to be transferred to the callee/calleer.
-// varNameMap - maps all variable names that have changed, in each mapping pair, pair->first is the 
+// varNameMap - maps all variable names that have changed, in each mapping pair, pair->first is the
 //              old variable and pair->second is the new variable
 // func - the function that the copy Lattice will now be associated with
 /*Lattice**/void VariablesProductLattice::remapVars(const map<varID, varID>& varNameMap, const Function& newFunc)
 {
 //      printf("remapVars(%s()), func=%s\n", newFunc.get_name().str(), func.get_name().str());
-        
+
         //VariablesProductLattice* newVPL = dynamic_cast<VariablesProductLattice*>(Lattice::copy());
         vector<Lattice*> newLattices;
-        
-        // fill newLattices with lattices associated with variables in the new function 
+
+        // fill newLattices with lattices associated with variables in the new function
         varIDSet newRefVars = getVisibleVars(newFunc);
         for(varIDSet::iterator it = newRefVars.begin(); it!=newRefVars.end(); it++)
         {
                 varID newVar = *it;
 //              printf("remapVars() newVar = %s\n", newVar.str().c_str());
                 bool found = false;
-                
+
                 // if this variable is a copy of some variable currently in lattices
                 for(map<varID, varID>::const_iterator itR = varNameMap.begin(); itR != varNameMap.end(); itR++)
                 {
@@ -656,23 +696,23 @@ void VariablesProductLattice::copy(Lattice* that_arg)
                                 // the original variable that got mapped to newVar
                                 varID oldVar = itR->first;
 //                              printf("   oldVar = %s\n", oldVar.str().c_str());
-                                
+
                                 Lattice* l = /*newVPL->*/getVarLattice(func, oldVar);
 //                              printf("   l=%p\n", l);
                                 ROSE_ASSERT(l);
                                 //newLattices[getVarIndex(newFunc, newVar)] = l;
                                 newLattices.push_back(l->copy());
-                                
+
                                 found = true;
                         }
                 }
-                
+
                 // if this new variable is not a remapped old variable
                 if(!found)
                 {
-                        // check if this new variable is in fact an old variable 
+                        // check if this new variable is in fact an old variable
                         Lattice* l = /*newVPL->*/getVarLattice(func, newVar);
-                        
+
                         /*cout << "VariablesProductLattice::remapVars() l = "<<l->str("") << "\n";
                         cout << "      getVarIndex(newFunc, newVar)=" << getVarIndex(newFunc, newVar) << "\n";*/
                         // if it does, add it at its new index
@@ -685,7 +725,7 @@ void VariablesProductLattice::copy(Lattice* that_arg)
                                 newLattices.push_back(/*perVarLattice->copy()*/NULL);
                 }
         }
-        
+
         // replace newVPL information with the remapped information
         /*newVPL->*/func = newFunc;
         /*newVPL->*/lattices.clear();
@@ -698,11 +738,11 @@ void VariablesProductLattice::copy(Lattice* that_arg)
 // those variables, while leaving its state for other variables alone.
 // We do not force child classes to define their own versions of this function since not all
 //    Lattices have per-variable information.
-void VariablesProductLattice::incorporateVars(Lattice* that_arg)
+void VariablesProductLattice::incorporateVars(const Lattice* that_arg)
 {
         initialize();
-        
-        VariablesProductLattice* that = dynamic_cast<VariablesProductLattice*>(that_arg);
+
+        const VariablesProductLattice* that = dynamic_cast<const VariablesProductLattice*>(that_arg);
         // both lattices need to be talking about variables in the same function
         ROSE_ASSERT(func == that->func);
         ROSE_ASSERT(this->includeScalars == that->includeScalars);
@@ -724,7 +764,7 @@ void VariablesProductLattice::incorporateVars(Lattice* that_arg)
         }
 }
 
-// Functions used to inform this lattice that a given variable is now in use (e.g. a variable has entered 
+// Functions used to inform this lattice that a given variable is now in use (e.g. a variable has entered
 //    scope or an expression is being analyzed) or is no longer in use (e.g. a variable has exited scope or
 //    an expression or variable is dead).
 // It is assumed that a newly-added variable has not been added before and that a variable that is being
@@ -734,7 +774,7 @@ void VariablesProductLattice::incorporateVars(Lattice* that_arg)
 }
 void VariablesProductLattice::remVar(varID var)
 {
-        
+
 }*/
 
 // The string that represents this object
@@ -743,9 +783,9 @@ void VariablesProductLattice::remVar(varID var)
 string VariablesProductLattice::str(string indent)
 {
         //printf("VariablesProductLattice::str() this->allVarLattice=%p\n", this->allVarLattice);
-        
+
         ostringstream outs;
-        outs << indent << "[VariablesProductLattice: level="<<(getLevel()==uninitialized ? "uninitialized" : "initialized")<<"\n";
+        outs << indent << "[VariablesProductLattice: level=" << Lattice::str() <<"\n";
         varIDSet refVars = getVisibleVars(func);
         for(varIDSet::iterator it = refVars.begin(); it!=refVars.end(); it++)
         {
@@ -757,7 +797,7 @@ string VariablesProductLattice::str(string indent)
                 outs  << lattices[varIndex]->str(""); //fflush(stdout);
                 outs  << "\n";                         //fflush(stdout);
         }
-        
+
 /*      vector<Lattice*>::const_iterator it = lattices.begin();
         while(it!=lattices.end())
         {
@@ -769,7 +809,7 @@ string VariablesProductLattice::str(string indent)
         }*/
         if(allVarLattice)
                 outs << indent << "allVarLattice: \n"<<allVarLattice->str(indent)<<"\n";
-        
+
         if(constVarLattices.size()>0)
         {
                 outs << indent << "constVarLattices: \n";fflush(stdout);
@@ -778,6 +818,113 @@ string VariablesProductLattice::str(string indent)
                         outs << indent << "    " << itC->first.str() << ": " << itC->second->str("")<<"\n";fflush(stdout);
                 }
         }
-        outs << indent << "]\n";fflush(stdout);
+        outs << indent << "]\n"; // fflush(stdout);
         return outs.str();
+}
+
+
+//
+// AnyLattice implementation
+
+
+
+Lattice& AnyLattice::product_lattice_at(size_t pos)
+{
+  ProductLattice& plat = this->ref<ProductLattice>();
+  Lattice*        lat  = plat.getLattices().at(pos);
+
+  ROSE_ASSERT(lat);
+  return *lat;
+}
+
+const Lattice& AnyLattice::product_lattice_at(size_t pos) const
+{
+  const ProductLattice& plat = this->ref<ProductLattice>();
+  const Lattice*        lat  = plat.getLattices().at(pos);
+
+  ROSE_ASSERT(lat);
+  return *lat;
+}
+
+
+std::string AnyLattice::str(std::string prefix) const
+{
+  std::ostringstream os;
+
+  os << prefix << *this;
+  return os.str();
+}
+
+void AnyLattice::unProject(SgFunctionCallExp* exp, const Lattice& that)
+{
+  ptr()->unProject(exp, &that);
+}
+
+AnyLattice AnyLattice::project(SgExpression* exp) const
+{
+  return AnyLattice(ptr()->project(exp), initialized);
+}
+
+void AnyLattice::remapVars(const std::map<varID, varID>& varNameMap, const Function& newFunc)
+{
+  ptr()->remapVars(varNameMap, newFunc);
+}
+
+void AnyLattice::incorporateVars(const AnyLattice& other)
+{
+  ptr()->incorporateVars(other.ptr());
+}
+
+static
+bool lattice_equality(const Lattice* lhs, Lattice* rhs)
+{
+  return (  (lhs == rhs)  // handles nullptr case
+         || (lhs && rhs && (*lhs == rhs))
+         );
+}
+
+bool operator==(const AnyLattice& lhs, const AnyLattice& rhs)
+{
+  // two lattices are equal, if they have the same initialization status
+  // and if they are initialized, both lattice pointers are NULL or the
+  // lattices compare equal.
+
+  return (  lhs.initialized == rhs.initialized
+         && (  !lhs.initialized
+            || lattice_equality(lhs.lattice, rhs.lattice)
+            )
+          );
+}
+
+
+std::ostream& operator<<(std::ostream& os, const AnyLattice& anylattice)
+{
+  const Lattice* lat = anylattice.ptr();
+
+  os << "initialized = " << std::boolalpha << anylattice.isInitialized() << lat->str();
+  return os;
+}
+
+void swap(AnyLattice& lhs, AnyLattice& rhs)
+{
+  std::swap(lhs.initialized, rhs.initialized);
+  std::swap(lhs.lattice,     rhs.lattice);
+}
+
+bool meetUpdate(AnyLattice& lhs, const AnyLattice& rhs)
+{
+  // same type constraint
+  ROSE_ASSERT(typeid(*lhs.ptr()) == typeid(*rhs.ptr()));
+
+  return lhs.ptr()->meetUpdate(rhs.ptr());
+}
+
+bool widenUpdate(AnyLattice& lhs, const AnyLattice& rhs)
+{
+  InfiniteLattice&       llat = lhs.ref<InfiniteLattice>();
+  const InfiniteLattice& rlat = rhs.ref<InfiniteLattice>();
+
+  // same type constraint
+  ROSE_ASSERT(typeid(llat) == typeid(rlat));
+  return llat.widenUpdate(&rlat);
 }
