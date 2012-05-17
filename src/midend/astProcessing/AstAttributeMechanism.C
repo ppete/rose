@@ -213,10 +213,7 @@ AstAttributeMechanism::AstAttributeMechanism ()
   // Nothing to do here!
    }
 
-<<<<<<< Updated upstream
-=======
 
->>>>>>> Stashed changes
 static
 AstAttribute* _clone_attribute(AstAttribute* attr)
 {
