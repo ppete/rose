@@ -280,9 +280,10 @@ void IntraUniDirectionalDataflow::edge_transfer(const Function& func, const Data
             // If the next node's state gets modified as a result of the propagation,
             // add the node to the processing queue.
             if (updNextstate)
+            {
                     worklist.add(nextNode);
+            }
 
-            std::cout << "@: ";
             meetUpdate(totalNodeLattice, thisLattice);
 
             if(analysisDebugLevel>=1){
