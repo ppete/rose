@@ -2,17 +2,18 @@
 #define ROSE_RSIM_SemanticPolicy_H
 
 #include "AsmUnparser_compat.h"         /* needed for unparseInstructionWithAddress() */
-#include "VirtualMachineSemantics.h"
+#include "PartialSymbolicSemantics.h"
 
 
-#define RSIM_SEMANTIC_POLICY    VirtualMachineSemantics::Policy<VirtualMachineSemantics::State, VirtualMachineSemantics::ValueType>
-#define RSIM_SEMANTIC_VTYPE     VirtualMachineSemantics::ValueType
+#define RSIM_SEMANTICS          BinaryAnalysis::InstructionSemantics::PartialSymbolicSemantics
+#define RSIM_SEMANTIC_POLICY    RSIM_SEMANTICS::Policy<>
+#define RSIM_SEMANTIC_VTYPE     RSIM_SEMANTICS::ValueType
 
 
 
-/* We use the VirtualMachineSemantics policy. That policy is able to handle a certain level of symbolic computation, but we
+/* We use the PartialSymbolicSemantics policy. That policy is able to handle a certain level of symbolic computation, but we
  * use it because it also does constant folding, which means that its symbolic aspects are never actually used here. We only
- * have a few methods to specialize this way.   The VirtualMachineSemantics::Memory is not used -- we use a MemoryMap instead
+ * have a few methods to specialize this way.   The PartialSymbolicSemantics::Memory is not used -- we use a MemoryMap instead
  * since we're only operating on known addresses and values, and thus override all superclass methods dealing with memory. */
 class RSIM_SemanticPolicy: public RSIM_SEMANTIC_POLICY {
 public:
@@ -131,6 +132,6 @@ public:
 
 
 
-typedef X86InstructionSemantics<RSIM_SemanticPolicy, RSIM_SEMANTIC_VTYPE> RSIM_Semantics;
+typedef BinaryAnalysis::InstructionSemantics::X86InstructionSemantics<RSIM_SemanticPolicy, RSIM_SEMANTIC_VTYPE> RSIM_Semantics;
 
 #endif /* ROSE_RSIM_SemanticPolicy_H */

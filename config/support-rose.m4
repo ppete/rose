@@ -162,6 +162,8 @@ fi
 
   ROSE_SUPPORT_UPC
   ROSE_SUPPORT_COMPASS2
+  ROSE_SUPPORT_GMP
+  ROSE_SUPPORT_ISL
 
 ##
 #########################################################################################
@@ -1999,6 +2001,7 @@ projects/DatalogAnalysis/tests/Makefile
 projects/DistributedMemoryAnalysisCompass/Makefile
 projects/DocumentationGenerator/Makefile
 projects/FiniteStateModelChecker/Makefile
+projects/graphColoring/Makefile
 projects/HeaderFilesInclusion/HeaderFilesGraphGenerator/Makefile
 projects/HeaderFilesInclusion/HeaderFilesNotIncludedList/Makefile
 projects/HeaderFilesInclusion/Makefile
@@ -2031,14 +2034,10 @@ projects/RTED/Makefile
 projects/RoseQt/AstViewer/Makefile
 projects/RoseQt/Makefile
 projects/SatSolver/Makefile
-projects/SemanticSignatureVectors/Makefile
-projects/SemanticSignatureVectors/tests/Makefile
 projects/UpcTranslation/Makefile
 projects/UpcTranslation/tests/Makefile
 projects/arrayOptimization/Makefile
 projects/arrayOptimization/test/Makefile
-projects/assemblyToSourceAst/Makefile
-projects/assemblyToSourceAst/tests/Makefile
 projects/autoParallelization/Makefile
 projects/autoParallelization/tests/Makefile
 projects/autoTuning/Makefile
@@ -2096,6 +2095,8 @@ projects/compass/tools/compassVerifier/Makefile
 projects/compass/tools/sampleCompassSubset/Makefile
 projects/dataStructureGraphing/Makefile
 projects/extractMPISkeleton/Makefile
+projects/extractMPISkeleton/src/Makefile
+projects/extractMPISkeleton/tests/Makefile
 projects/haskellport/Makefile
 projects/haskellport/Setup.hs
 projects/haskellport/rose.cabal.in
@@ -2112,6 +2113,7 @@ projects/roseToLLVM/Makefile
 projects/roseToLLVM/src/Makefile
 projects/roseToLLVM/src/rosetollvm/Makefile
 projects/roseToLLVM/tests/Makefile
+projects/RosePolly/Makefile
 projects/simulator/Makefile
 projects/symbolicAnalysisFramework/Makefile
 projects/symbolicAnalysisFramework/src/chkptRangeAnalysis/Makefile

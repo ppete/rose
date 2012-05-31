@@ -7,7 +7,7 @@
 
 #include <boost/mem_fn.hpp>
 
-#include "sageGeneric.hpp"
+#include "sageGeneric.h"
 
 NodeState* IntraBWDataflow::initializeFunctionNodeState(const Function &func, NodeState *fState)
 {
@@ -406,8 +406,9 @@ bool IntraUniDirectionalDataflow::runAnalysis(const Function& func, NodeState* f
                             itA++, itP++, j++)
                         {
                                 if(analysisDebugLevel>=1){
-                                        Dbg::dbg << "    Meet Before: Lattice "<<j<<": \n        "<<(*itA)->str("            ")<<endl;
-                                        Dbg::dbg << "    Meet After: Lattice "<<j<<": \n        "<<(*itP)->str("            ")<<endl;
+                                        Dbg::dbg << " ==================================  "<<endl;
+                                        Dbg::dbg << "  Copying incoming Lattice "<<j<<": \n        "<<(*itA)->str("            ")<<endl;
+                                        Dbg::dbg << "  To outgoing Lattice "<<j<<": \n        "<<(*itP)->str("            ")<<endl;
                                 }
                                 (*itP)->copy(*itA);
                                 /*if(analysisDebugLevel>=1){
@@ -418,6 +419,11 @@ bool IntraUniDirectionalDataflow::runAnalysis(const Function& func, NodeState* f
 
 
                         // =================== TRANSFER FUNCTION ===================
+
+                        if(analysisDebugLevel>=1){
+                          Dbg::dbg << " ==================================  "<<endl;
+                          Dbg::dbg << "  Transferring the outgoing  Lattice ... "<<endl;
+                        }
                         if (isSgFunctionCallExp(sgn))
                           transferFunctionCall(func, n, state);
 
@@ -473,9 +479,9 @@ bool IntraUniDirectionalDataflow::runAnalysis(const Function& func, NodeState* f
                                  nextState->getLatticeBelow((Analysis*)this), n) || modified;
                         }
 #endif
-                        if(analysisDebugLevel>=1){
-                                Dbg::dbg << "    ------------------"<<endl;
-                        }
+                //        if(analysisDebugLevel>=1){
+                 //               Dbg::dbg << "    ------------------"<<endl;
+                  //      }
                 }
                 ROSE_ASSERT(state);
 
@@ -485,6 +491,10 @@ bool IntraUniDirectionalDataflow::runAnalysis(const Function& func, NodeState* f
                 // If this is not the last node in the function
                 if(/*modified && */*it != getUltimate(func))
                 {
+                        if(analysisDebugLevel>=1){
+                          Dbg::dbg << " ==================================  "<<endl;
+                          Dbg::dbg << " Propagating/Merging the outgoing  Lattice to all descendant nodes ... "<<endl;
+                        }
                         // iterate over all descendants
                         ConnectionContainer descendants = getDescendants(n);
                         if(analysisDebugLevel>=1) {
@@ -503,6 +513,7 @@ bool IntraUniDirectionalDataflow::runAnalysis(const Function& func, NodeState* f
                                 {
                                         SgNode*      nextSgNode = nextNode.getNode();
                                         ROSE_ASSERT  (nextSgNode != NULL);
+                                if(analysisDebugLevel>=1)
                                         Dbg::dbg << "    Descendant: "<<nextSgNode<<"["<<nextSgNode->class_name()<<" | "<<Dbg::escape(nextSgNode->unparseToString())<<"]"<<endl;
                                 }
 
@@ -531,8 +542,8 @@ bool IntraUniDirectionalDataflow::runAnalysis(const Function& func, NodeState* f
                                 }
 
                                 if(analysisDebugLevel>=1){
-                                        Dbg::dbg << "    propagated, lattice_update= " << lattice_update << endl;
-                                        Dbg::dbg << "    ^^^^^^^^^^^^^^^^^^" << endl;
+                                        Dbg::dbg << "    propagated/merged, modified="<<modified<<endl;
+                                        Dbg::dbg << "    ^^^^^^^^^^^^^^^^^^"<<endl;
                                 }
                                 // If the next node's state gets modified as a result of the propagation,
                                 // add the node to the processing queue.
