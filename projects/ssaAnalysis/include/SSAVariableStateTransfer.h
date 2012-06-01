@@ -20,20 +20,20 @@ class SSAVariableStateTransfer : public IntraDFTransferVisitor
   // TODO: FiniteVarsExprsProductLattice* prodLat;
 
   map<const SgNode*, LatticeType* > latticeMap;
- 
+
   int debugLevel;
- 
-  LatticeType *getLattice(const SgExpression *sgn) { 
+
+  LatticeType *getLattice(const SgExpression *sgn) {
     // std::cout << "getting lattice " << sgn->class_name() << std::endl;
     // TODO: return sgn ? getLattice(SgExpr2Var(sgn)) : NULL;
     return latticeMap.find(sgn) != latticeMap.end() ? latticeMap[sgn] : NULL;
   }
 
   LatticeType *getLattice__(const SgExpression *sgn) {
-    // TODO: return sgn ? getLattice(SgExpr2Var(sgn)) : NULL;       
+    // TODO: return sgn ? getLattice(SgExpr2Var(sgn)) : NULL;
     return latticeMap.find(sgn) != latticeMap.end() ? latticeMap[sgn] : NULL;
   }
- 
+
   LatticeType *getLattice_(varID var) {
     // TODO: return dynamic_cast<LatticeType *>(prodLat->getVarLattice(var));
     return NULL;
@@ -46,8 +46,8 @@ class SSAVariableStateTransfer : public IntraDFTransferVisitor
     latticeMap[sgn] = lattice;
   }
 
-  bool getLattices(const SgBinaryOp *sgn, LatticeType* &arg1Lat, LatticeType* &arg2Lat, 
-		   LatticeType* &resLat) {
+  bool getLattices(const SgBinaryOp *sgn, LatticeType* &arg1Lat, LatticeType* &arg2Lat,
+       LatticeType* &resLat) {
     arg1Lat = getLattice(sgn->get_lhs_operand());
     arg2Lat = getLattice(sgn->get_rhs_operand());
     resLat = getLattice(sgn);
@@ -56,7 +56,7 @@ class SSAVariableStateTransfer : public IntraDFTransferVisitor
       if (resLat==NULL && arg1Lat != NULL)
         resLat = arg1Lat;
     }
-    
+
     return (arg1Lat && arg2Lat && resLat);
   }
 
@@ -64,19 +64,19 @@ class SSAVariableStateTransfer : public IntraDFTransferVisitor
     arg1Lat = getLattice(sgn->get_operand());
     resLat = getLattice(sgn);
 
-    // Unary Update    
+    // Unary Update
     if(isSgMinusMinusOp(sgn) || isSgPlusPlusOp(sgn)) {
       arg2Lat = new LatticeType(1);
     }
-    
+
     return (arg1Lat && arg2Lat && resLat);
   }
 
  public:
- SSAVariableStateTransfer(const Function& func, HeapSSA* ssaInstance, 
-			  const DataflowNode& n, NodeState& state,
-			  const std::vector<Lattice*>& dfInfo, const int &debugLevel_)
-   : IntraDFTransferVisitor(func, n, state, dfInfo), ssa(ssaInstance), modified(false), 
+ SSAVariableStateTransfer(const ::Function& func, HeapSSA* ssaInstance,
+        const DataflowNode& n, NodeState& state,
+        const std::vector<Lattice*>& dfInfo, const int &debugLevel_)
+   : IntraDFTransferVisitor(func, n, state, dfInfo), ssa(ssaInstance), modified(false),
     debugLevel(debugLevel_)
     // TODO: , prodLat(dynamic_cast<FiniteVarsExprsProductLattice*>(*(dfInfo.begin())))
   {
@@ -92,7 +92,7 @@ class SSAVariableStateTransfer : public IntraDFTransferVisitor
     LatticeArith * lhsLattice = getLattice(lhsOperand);
     LatticeArith * rhsLattice = getLattice(rhsOperand);
 
-    // TODO: the lhs operand has been visited and set the lattice as its reachingDef's lattice 
+    // TODO: the lhs operand has been visited and set the lattice as its reachingDef's lattice
     // value, this is wrong, since it is defined here
     if (rhsLattice == NULL) {
       setLattice(lhsOperand, NULL);
@@ -105,10 +105,10 @@ class SSAVariableStateTransfer : public IntraDFTransferVisitor
     /*LatticeType *lhsLat, *rhsLat, *resLat;
     getLattices(sgn, lhsLat, rhsLat, resLat);
 
-    // Copy the lattice of the right-hand-side to both the left-hand-side variable and to the assignment expression itself    
-    if(resLat) // If the left-hand-side contains a live expression or variable          
+    // Copy the lattice of the right-hand-side to both the left-hand-side variable and to the assignment expression itself
+    if(resLat) // If the left-hand-side contains a live expression or variable
       { resLat->copy(rhsLat); modified = true; }
-    if(lhsLat) // If the left-hand-side contains a live expression or variable     
+    if(lhsLat) // If the left-hand-side contains a live expression or variable
       { lhsLat->copy(rhsLat); modified = true; }*/
   };
 
@@ -116,7 +116,7 @@ class SSAVariableStateTransfer : public IntraDFTransferVisitor
     LatticeType* asgnLat = getLattice(sgn->get_operand());
     // LatticeType* resLat = getLattice(sgn);
 
-    // If the result expression is live      
+    // If the result expression is live
     // if (resLat) { resLat->copy(asgnLat); modified = true; }
     if (asgnLat != NULL) {
       // SgNode* node = cfgUtils::getAssignmentLHS(sgn);
@@ -132,7 +132,7 @@ class SSAVariableStateTransfer : public IntraDFTransferVisitor
       res->copy(getLattice(inits[0]));
       modified = true;
       for (int i = 1; i < inits.size(); ++i)
-	res->meetUpdate(getLattice(inits[i]));
+  res->meetUpdate(getLattice(inits[i]));
     }
   };
 
@@ -149,7 +149,7 @@ class SSAVariableStateTransfer : public IntraDFTransferVisitor
       return;
 
     LatticeType* initLat = getLattice(initName->get_initializer());
-    // If there was no initializer, leave this in its default 'bottom' state      
+    // If there was no initializer, leave this in its default 'bottom' state
     if (initLat) {
       // varLat->copy(initLat);
       setLattice((const SgExpression*)initName, dynamic_cast<LatticeArith* >(initLat->copy()));
@@ -173,7 +173,7 @@ class SSAVariableStateTransfer : public IntraDFTransferVisitor
     getLattices(sgn, lhs, rhs, res);
     if (lhs)
       updateModified(lhs->meetUpdate(rhs));
-    // Liveness of the result implies liveness of LHS      
+    // Liveness of the result implies liveness of LHS
     if (res) {
       res->copy(lhs);
       modified = true;
@@ -196,7 +196,7 @@ class SSAVariableStateTransfer : public IntraDFTransferVisitor
       *falseLat = getLattice(sgn->get_false_exp()),
       *resLat = getLattice(sgn);
 
-    // Liveness of the result implies liveness of the input expressions     
+    // Liveness of the result implies liveness of the input expressions
     if (resLat) {
       resLat->copy(condLat);
       resLat->meetUpdate(trueLat);

@@ -54,23 +54,25 @@ public:
     }
 
     virtual LatticeArith* copyInstance() const {
-      // Rely on the copy constructor                                                            
+      // Rely on the copy constructor
       return new LatticeArithInstance<T>(*this);
     }
 
+    void clear() {}
+
     // pure function from Lattice
     // overwrites the state of "this" Lattice with "that" Lattice
-    virtual void copy(Lattice* that_) {
-        LatticeArithInstance<T>* that = dynamic_cast<LatticeArithInstance<T>*>(that_);
+    virtual void copy(const Lattice* that_) {
+        const LatticeArithInstance<T>* that = dynamic_cast<const LatticeArithInstance<T>*>(that_);
         ROSE_ASSERT((that != NULL) && "Cannot copy a LatticeArith to a LatticeArith of a different type");
         LatticeArith::copy(that);
         this->value = that->value;
     }
 
     // pure function from Lattice
-    virtual bool operator==(Lattice* that_) {
+    virtual bool operator==(const Lattice* that_) const {
         // Implementation of equality operator.
-        LatticeArithInstance<T>* that = dynamic_cast<LatticeArithInstance<T>*>(that_);
+        const LatticeArithInstance<T>* that = dynamic_cast<const LatticeArithInstance<T>*>(that_);
         ROSE_ASSERT((that != NULL) && "Cannot compare two LatticeArith having different type");
         return ((this->value == that->value) && LatticeArith::operator==(that_));
     }
@@ -167,22 +169,22 @@ public:
     }
 
     // pure function from Lattice
-    virtual bool meetUpdate(Lattice* that_) {
-        LatticeArithInstance<T>* that = dynamic_cast<LatticeArithInstance<T>*>(that_);
+    virtual bool meetUpdate(const Lattice* that_) {
+        const LatticeArithInstance<T>* that = dynamic_cast<const LatticeArithInstance<T>*>(that_);
         // ROSE_ASSERT(false && "LatticeArithInstance::meetUpdate not implemented");
-        if (isTop() != that->isTop()) { 
-	  bottom = true;
-	  return true;
-	} else if (isBottom() || that->isBottom()) {
-	  bottom = true;
-	  return true;
-	} else if (this->value == that->value) {
+        if (isTop() != that->isTop()) {
+    bottom = true;
+    return true;
+  } else if (isBottom() || that->isBottom()) {
+    bottom = true;
+    return true;
+  } else if (this->value == that->value) {
             return false;
         } else if (this->value != that->value) {
-	  bottom = true;
-	  this->value = -1;
-	  return true;
-	}
+    bottom = true;
+    this->value = -1;
+    return true;
+  }
     }
 
     T getValue() {

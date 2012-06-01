@@ -63,9 +63,10 @@ namespace scc_private
     virtual bool runAnalysis(const Function& func, NodeState* state, bool analyzeDueToCallers,
          std::set<Function> calleesUpdated);
 
-    virtual void genInitState(const Function& func, const DataflowNode& n, const NodeState& state,
-            std::vector<Lattice*>& initLattices,
-            std::vector<NodeFact*>& initFacts);
+    // \pp changed interface
+    virtual void genInitState(const ::Function& func, const DataflowNode& n, const NodeState& state,
+                              Lattice*& initLattices, std::vector<NodeFact*>& initFacts);
+
 
     bool transfer(const Function& func, const DataflowNode& n, NodeState& state,
       const std::vector<Lattice*>& dfInfo);

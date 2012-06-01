@@ -27,11 +27,11 @@ namespace scc_private
   class ValueNode;
   class Partition;
   class ValueGraph;
-  
+
   typedef boost::shared_ptr<ValueNode> ValueNodePtr;
   typedef boost::shared_ptr<Partition> PartitionPtr;
   typedef boost::shared_ptr<ValueGraph> ValueGraphPtr;
-  
+
   typedef map<SgNode *, ValueNodePtr> SgNodeValueNodeMap;
   typedef map<SgFunctionDefinition*, ValueGraphPtr> FuncValueGraphMap;
 
@@ -88,16 +88,16 @@ namespace scc_private
     vector<ValueNodePtr> valNodes;
     int partitionId;
 
-  public: 
+  public:
   Partition(int partId) : partitionId(partId) {};
-    
+
     void addValueNode(ValueNodePtr valNode) {
       valNodes.push_back(valNode);
     };
-    
+
     int getId() { return partitionId; };
     int setId(int partId) { partitionId = partId; };
-    
+
     int size() { return valNodes.size(); };
     ValueNodePtr operator[](int i) const { return valNodes[i]; };
     // Remove the ith element in current partitiion
@@ -108,23 +108,23 @@ namespace scc_private
 
   // Value graph
   class ValueGraph : public AstBottomUpProcessing<ValueNodePtr> {
-  public: 
-  ValueGraph(const Function& func, HeapSSA* ssaInstance) : function(func), ssa(ssaInstance), 
+  public:
+  ValueGraph(const ::Function& func, HeapSSA* ssaInstance) : function(func), ssa(ssaInstance),
       labelId(0) {};
 
-    /** 
-     * Called to evaluate the synthesized attribute on every node. This is the process of 
+    /**
+     * Called to evaluate the synthesized attribute on every node. This is the process of
      * constructing the value graph
-     *                                                                                           
-     * This function will handle passing all variables that are defined and used by a given 
-     * operation. 
-     * 
-     * @param node The node being evaluated.                                                     
-     * @param attr The attributes from the child nodes.                                          
-     * @return The attribute at this node.                                                       
+     *
+     * This function will handle passing all variables that are defined and used by a given
+     * operation.
+     *
+     * @param node The node being evaluated.
+     * @param attr The attributes from the child nodes.
+     * @return The attribute at this node.
      */
     virtual ValueNodePtr evaluateSynthesizedAttribute(SgNode* node,
-						      SynthesizedAttributesList attrs);
+                  SynthesizedAttributesList attrs);
 
     /**
      * Invoke traversal to build value graph
@@ -132,23 +132,23 @@ namespace scc_private
     void build();
 
     /**
-     * Using Hopcroft approach to perform partitioning and identify the congruences 
+     * Using Hopcroft approach to perform partitioning and identify the congruences
      * in value graph
      */
     void partitioning();
 
     /**
-     * Query support: Check if the two given SgNodes have same value number or not   
+     * Query support: Check if the two given SgNodes have same value number or not
      */
     bool haveSameVN(SgNode* sgn1, SgNode* sgn2);
 
   protected:
     HeapSSA* ssa;
-    const Function& function;
+    const ::Function& function;
     SgNodeValueNodeMap sgnValueNodeMap;
-  
+
     int labelId;
-  
+
   protected:
     void initializePartitions(vector<PartitionPtr>& partitions);
     void processPartition(PartitionPtr partition, vector<PartitionPtr>& newPartitions);
@@ -160,37 +160,38 @@ namespace scc_private
   class ValueNumbering : public IntraProceduralDataflow
   {
   private:
-    // The project to perform Value Numbering on. 
+    // The project to perform Value Numbering on.
     SgProject* project;
     HeapSSA* ssa;
-    
+
   public:
     ValueNumbering(SgProject* proj, HeapSSA* ssaInstance);
     ~ValueNumbering();
-    
+
     // Run the analysis
     void run(bool hierarchical);
 
     // Run the intra-procedural analysis
-    virtual bool runAnalysis(const Function& func, NodeState* state, bool analyzeDueToCallers, 
-		     std::set<Function> calleesUpdated);
+    virtual bool runAnalysis(const ::Function& func, NodeState* state, bool analyzeDueToCallers,
+         std::set< ::Function > calleesUpdated);
 
-    virtual void genInitState(const Function& func, const DataflowNode& n, const NodeState& state,
-			      std::vector<Lattice*>& initLattices, 
-			      std::vector<NodeFact*>& initFacts);
+    // \pp changed interface
+    virtual void genInitState(const ::Function& func, const DataflowNode& n, const NodeState& state,
+                              Lattice*& initLattices, std::vector<NodeFact*>& initFacts);
 
-    bool transfer(const Function& func, const DataflowNode& n, NodeState& state, 
-		  const std::vector<Lattice*>& dfInfo);
 
-    boost::shared_ptr<IntraDFTransferVisitor> 
-      getTransferVisitor(const Function& func, const DataflowNode& n, NodeState& state, 
-			 const std::vector<Lattice*>& dfInfo);
+    bool transfer(const ::Function& func, const DataflowNode& n, NodeState& state,
+      const std::vector<Lattice*>& dfInfo);
+
+    boost::shared_ptr<IntraDFTransferVisitor>
+      getTransferVisitor(const ::Function& func, const DataflowNode& n, NodeState& state,
+       const std::vector<Lattice*>& dfInfo);
 
     void dumpLattices();
 
   protected:
     // Main framework of alpern-zadeck Value Numbering
-    void VN(const Function& func);
+    void VN(const ::Function& func);
 
   protected:
     map<SgNode *, int > nodeVNMap;

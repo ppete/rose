@@ -32,15 +32,15 @@ public:
     virtual ~LatticeArith() {
     }
 
-    bool isTop() {
+    bool isTop() const {
         return top;
     }
 
-    bool isBottom() {
+    bool isBottom() const {
         return bottom;
     }
 
-    bool hasValue() {
+    bool hasValue() const {
         return !(isTop() || isBottom());
     }
 
@@ -58,20 +58,20 @@ public:
     // returns a copy of this lattice
     virtual Lattice* copy() const = 0;
     virtual LatticeArith* copyInstance() const = 0;
-     
+
     // pure function from Lattice
     // overwrites the state of "this" Lattice with "that" Lattice
-    virtual void copy(Lattice* that_) {
-        LatticeArith * that = dynamic_cast<LatticeArith*>(that_);
+    virtual void copy(const Lattice* that_) {
+        const LatticeArith * that = dynamic_cast<const LatticeArith*>(that_);
         ROSE_ASSERT(that != NULL);
         this->top = that->top;
         this->bottom = that->bottom;
     }
 
     // pure function from Lattice
-    virtual bool operator==(Lattice* that_) {
+    virtual bool operator==(const Lattice* that_) const {
         // Implementation of equality operator.
-        LatticeArith * that = dynamic_cast<LatticeArith*>(that_);
+        const LatticeArith * that = dynamic_cast<const LatticeArith*>(that_);
         ROSE_ASSERT(that != NULL);
         return ((this->top == that->top) && (this->bottom == that->bottom));
     }
