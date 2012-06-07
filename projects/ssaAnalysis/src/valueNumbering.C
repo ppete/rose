@@ -105,8 +105,8 @@ void ValueGraph::build() {
 /**
  * Construct the per-function value graph
  */
-ValueNodePtr ValueGraph::evaluateSynthesizedAttribute(SgNode* node,
-                  SynthesizedAttributesList attrs) {
+ValueNodePtr ValueGraph::evaluateSynthesizedAttribute(SgNode* node, SynthesizedAttributesList attrs)
+{
   if (SgInitializedName* initName = isSgInitializedName(node)) {
     // TODO:
   }
@@ -114,8 +114,7 @@ ValueNodePtr ValueGraph::evaluateSynthesizedAttribute(SgNode* node,
   else if (SgVarRefExp* varRef = isSgVarRefExp(node)) {
     // The variable node need to be identified by its reaching def
     const StaticSingleAssignment::VarName& varName = StaticSingleAssignment::getVarName(varRef);
-    const StaticSingleAssignment::NodeReachingDefTable& reachingDefs
-      = ssa->getReachingDefsAtNode_(varRef);
+    const StaticSingleAssignment::NodeReachingDefTable& reachingDefs = ssa->getReachingDefsAtNode_(varRef);
     SgNode* varNode;
     // Get SSA look-aside info
     if (reachingDefs.find(varName) != reachingDefs.end()) {
@@ -125,12 +124,12 @@ ValueNodePtr ValueGraph::evaluateSynthesizedAttribute(SgNode* node,
 
       // If the value node has been created for current variable ref's reaching def, then reuse it
       if (sgnValueNodeMap.find(varNode) != sgnValueNodeMap.end())
-  return sgnValueNodeMap[varNode];
+        return sgnValueNodeMap[varNode];
 
       ValueNodePtr valNode = ValueNodePtr(new ValueNode(varNode, NULL, false, labelId));
       // Check if this is a phi function, we need to store that
       if (reachingDef->isPhiFunction())
-    valNode->setPhiFunc(reachingDef.get());
+        valNode->setPhiFunc(reachingDef.get());
 
       sgnValueNodeMap[varNode] = valNode;
       return valNode;
@@ -151,33 +150,30 @@ ValueNodePtr ValueGraph::evaluateSynthesizedAttribute(SgNode* node,
   }
   // Catch all binary operations here.
   else if (SgBinaryOp * binaryOp = isSgBinaryOp(node)) {
-      ROSE_ASSERT(attrs.size() == 2 && "Error: BinaryOp without exactly 2 children.");
-      ValueNodePtr lhs = attrs[0];
-      ValueNodePtr rhs = attrs[1];
+    ROSE_ASSERT(attrs.size() == 2 && "Error: BinaryOp without exactly 2 children.");
+    ValueNodePtr lhs = attrs[0];
+    ValueNodePtr rhs = attrs[1];
 
-      switch (binaryOp->variantT())
-        {
-          // All the binary ops that define the LHS
-        case V_SgAndAssignOp:
-        case V_SgDivAssignOp:
-        case V_SgIorAssignOp:
-        case V_SgLshiftAssignOp:
-        case V_SgMinusAssignOp:
-        case V_SgModAssignOp:
-        case V_SgMultAssignOp:
-        case V_SgPlusAssignOp:
-        case V_SgPointerAssignOp:
-        case V_SgRshiftAssignOp:
-        case V_SgXorAssignOp:
-    {
+    switch (binaryOp->variantT()) {
+      // All the binary ops that define the LHS
+    case V_SgAndAssignOp:
+    case V_SgDivAssignOp:
+    case V_SgIorAssignOp:
+    case V_SgLshiftAssignOp:
+    case V_SgMinusAssignOp:
+    case V_SgModAssignOp:
+    case V_SgMultAssignOp:
+    case V_SgPlusAssignOp:
+    case V_SgPointerAssignOp:
+    case V_SgRshiftAssignOp:
+    case V_SgXorAssignOp: {
       ValueNodePtr valNode = ValueNodePtr(new ValueNode(binaryOp, binaryOp, true, labelId));
-            valNode->leftNode = lhs;
-            valNode->rightNode = rhs;
-            sgnValueNodeMap[binaryOp] = valNode;
-            return valNode;
+      valNode->leftNode = lhs;
+      valNode->rightNode = rhs;
+      sgnValueNodeMap[binaryOp] = valNode;
+      return valNode;
     }
-        case V_SgAssignOp:
-          {
+    case V_SgAssignOp: {
       // No need to create the new value node, just reuse rhs, and lhs is wasted (rhs may
       // be mathmatic operation or just a variable)
       // Reset the var node as current binary op, since this has assignment
@@ -186,25 +182,23 @@ ValueNodePtr ValueGraph::evaluateSynthesizedAttribute(SgNode* node,
       return rhs;
     }
     // All the binary ops that does not define anything
-  case V_SgAddOp:
-  case V_SgSubtractOp:
-  case V_SgMultiplyOp:
-  case V_SgDivideOp:
-  case V_SgModOp:
-  case V_SgPlusPlusOp:
-  case V_SgMinusMinusOp:
-    {
+    case V_SgAddOp:
+    case V_SgSubtractOp:
+    case V_SgMultiplyOp:
+    case V_SgDivideOp:
+    case V_SgModOp:
+    case V_SgPlusPlusOp:
+    case V_SgMinusMinusOp: {
       ValueNodePtr valNode = ValueNodePtr(new ValueNode(NULL, binaryOp, true, labelId));
       valNode->leftNode = lhs;
       valNode->rightNode = rhs;
       sgnValueNodeMap[binaryOp] = valNode;
       return valNode;
     }
-  default:
-    {
+    default: {
       return ValueNodePtr(new ValueNode(NULL, NULL, false, -1));
     }
-  }
+    }
   }
   // Catch all unary operations here.
   else if (SgUnaryOp* unaryOp = isSgUnaryOp(node)) {
