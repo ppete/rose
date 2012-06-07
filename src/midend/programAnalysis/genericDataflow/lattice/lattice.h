@@ -161,7 +161,9 @@ struct AnyLattice
 
     AnyLattice(const AnyLattice& orig)
     : initialized(orig.initialized), lattice(clone(orig))
-    {}
+    {
+      ROSE_ASSERT(!orig.lattice || lattice);
+    }
 
     ~AnyLattice()
     {
@@ -211,7 +213,7 @@ struct AnyLattice
     }
 
     // general lattice functions
-    bool isInitialized() const { return initialized == lsInitialized; }
+    bool isInitialized() const { return lattice && initialized == lsInitialized; }
     void initialize()          { ROSE_ASSERT(lattice); initialized = lsInitialized; }
     void uninitialize()        { initialized = lsUninitialized; }
 
@@ -227,7 +229,7 @@ struct AnyLattice
     void remapVars(const std::map<varID, varID>& varNameMap, const Function& newFunc);
     void incorporateVars(const AnyLattice& other);
     bool finiteLattice() const { return ptr()->finiteLattice(); }
-    void clear() { ptr()->clear(); }
+    void clear();
 
     std::string str(std::string prefix = "") const;
 

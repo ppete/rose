@@ -17,13 +17,17 @@
 #include "latticeFull.h"
 #include "heapSSA.h"
 
+// \pp added
+#include "defaultLattice.h"
+
 namespace scc_private
 {
   using namespace boost;
   using namespace std;
   using namespace hssa_private;
 
-  using ::Function;
+  using ::Function;  ///< multiple Functions are pulled in by some using namespace
+                     ///  directives in header files :(
 
   typedef StaticSingleAssignment::FilteredCfgNode FilteredCfgNode;
   typedef StaticSingleAssignment::FilteredCfgEdge FilteredCfgEdge;

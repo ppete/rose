@@ -168,7 +168,7 @@ void InitDataflowState::visit(const Function& func, const DataflowNode& n, NodeS
         ROSE_ASSERT(initLatts);
 
         // \pp \todo do we need to set the lattice to initialized?
-        state.setLattice((Analysis*)dfAnalysis, AnyLattice(initLatts));
+        state.setLattice((Analysis*)dfAnalysis, AnyLattice(initLatts, AnyLattice::lsInitialized ));
         state.setFacts((Analysis*)dfAnalysis, initFacts);
 
         if(analysisDebugLevel>=2){
@@ -493,7 +493,7 @@ bool DFStateAtReturns::mergeReturnStates(const Function& func, FunctionState* fS
         // was: if(latsRetVal.size()==0)       latsRetVal       = mars.getMergedLatsRetVal();
         latsAtFuncReturn = mars.getMergedLatsRetStmt();
         latsRetVal       = mars.getMergedLatsRetVal();
-        ROSE_ASSERT(latsRetVal.isInitialized() && latsAtFuncReturn.isInitialized());
+        // \todo ROSE_ASSERT(latsRetVal.isInitialized() && latsAtFuncReturn.isInitialized());
 
         if(analysisDebugLevel>=1) {
                 Dbg::dbg << "DFStateAtReturns final #latsAtFuncReturn=: \n";
@@ -544,7 +544,7 @@ void MergeAllReturnStates::visit(const Function& func, const DataflowNode& n, No
                 // Incorporate just the portion of the dataflow state that corresponds to the value being returned,
                 // assuming that any information is available
                 const AnyLattice& dfStateAbove = state->getLatticeAbove(analysis);
-                ROSE_ASSERT(dfStateAbove.isInitialized());
+                // \todo ROSE_ASSERT(dfStateAbove.isInitialized());
 
                 AnyLattice  exprLats = dfStateAbove.project(isSgReturnStmt(sgn)->get_expression());
 
@@ -573,7 +573,7 @@ bool MergeAllReturnStates::mergeLats(AnyLattice& mergedLat, const AnyLattice& la
           return meetUpdate(mergedLat, lats);
         }
 
-        ROSE_ASSERT(lats.isInitialized());
+        // \pp  maybe needed? ROSE_ASSERT(lats.isInitialized());
         mergedLat = lats;
         return true;
 
@@ -830,7 +830,7 @@ void ContextInsensitiveInterProceduralDataflow::visit(const CGFunction* funcCG)
                         //                        intraAnalysis->genInitState(func, cfgUtils::getFuncEndCFG(func.get_definition()),
                         //                            fState->state, initLats, initFacts);
                         // \pp \todo set the anyLattice to initialized?
-                        fState->state.setLattice(intraAnalysis, AnyLattice(initLatts));
+                        fState->state.setLattice(intraAnalysis, AnyLattice(initLatts, AnyLattice::lsInitialized));
                         fState->state.setFacts(intraAnalysis, initFacts);
                 }
 

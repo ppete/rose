@@ -75,6 +75,7 @@ void ConstantAnalysis::genInitState( const ::Function& func,
 {
   // TODO: implement this
   // std::cout << "generate init state" << std::endl;
+  initLattices = new DefaultLattice;
 }
 
 
@@ -89,6 +90,7 @@ boost::shared_ptr<IntraDFTransferVisitor>
 ConstantAnalysis::getTransferVisitor(const Function& func, const DataflowNode& n,
              NodeState& state, const std::vector<Lattice*>& dfInfo)
 {
+  assert(false);
   return boost::shared_ptr<IntraDFTransferVisitor>(new ConstantAnalysisTransfer(func, ssa, n,
                     state, dfInfo, 0));
 }
@@ -104,8 +106,8 @@ void ConstantAnalysis::SCC(const Function& func, bool edgeBased)
   NodeState dummyNodeState;
   const std::vector<Lattice*> dummyDFInfo;
   transferVisitor
-    = // boost::shared_ptr<IntraDFTransferVisitor>(
-    new ConstantAnalysisTransfer(func, ssa, dummyDFNode, dummyNodeState, dummyDFInfo, -1);
+  = // boost::shared_ptr<IntraDFTransferVisitor>(
+  new ConstantAnalysisTransfer(func, ssa, dummyDFNode, dummyNodeState, dummyDFInfo, -1);
   funcTransferMap[funcDef] = transferVisitor;
 
   // 1.) Initialize worklist
@@ -127,36 +129,36 @@ void ConstantAnalysis::SCC(const Function& func, bool edgeBased)
       EdgeList::iterator edgeIter = FlowWorkList.begin();
       FilteredCfgEdge currentEdge;
       while (edgeIter != FlowWorkList.end()) {
-  currentEdge = * edgeIter;
-  if (SgForStatement * forStmt = isSgForStatement(currentEdge.source().getNode())) {
-    if (forStmt->get_parent() == currentEdge.target().getNode()->get_parent()) {
-      edgeIter ++;
-    } else
-      break;
-  } else
-    break;
+        currentEdge = * edgeIter;
+        if (SgForStatement * forStmt = isSgForStatement(currentEdge.source().getNode())) {
+          if (forStmt->get_parent() == currentEdge.target().getNode()->get_parent()) {
+            edgeIter ++;
+          } else
+            break;
+        } else
+          break;
       }
       if (edgeIter == FlowWorkList.end()) {
-  currentEdge = * FlowWorkList.begin();
-  FlowWorkList.erase(FlowWorkList.begin());
+        currentEdge = * FlowWorkList.begin();
+        FlowWorkList.erase(FlowWorkList.begin());
       } else
-  FlowWorkList.erase(edgeIter);
+        FlowWorkList.erase(edgeIter);
 
       if (!isExecutable(executableFlags, currentEdge)) {
-  setExecutable(executableFlags, currentEdge);
+        setExecutable(executableFlags, currentEdge);
 
-  currentNode = currentEdge.target();
+        currentNode = currentEdge.target();
 
         // Visit Phi node
-  visitPhi(currentNode, executableFlags);
+        visitPhi(currentNode, executableFlags);
 
-  if (numOfExecIn(currentNode, executableFlags) == 1)
-    // No need to check number of executable in edge here, if we use Cfg Node
-    // as work list item
-    visitExpr(currentNode, FlowWorkList, SSAWorkList);
+        if (numOfExecIn(currentNode, executableFlags) == 1)
+          // No need to check number of executable in edge here, if we use Cfg Node
+          // as work list item
+          visitExpr(currentNode, FlowWorkList, SSAWorkList);
 
-  if (numOfOut(currentNode) == 1)
-    addOutEdges(FlowWorkList, currentNode);
+        if (numOfOut(currentNode) == 1)
+          addOutEdges(FlowWorkList, currentNode);
       }
     }
 
@@ -171,8 +173,8 @@ void ConstantAnalysis::SCC(const Function& func, bool edgeBased)
       // If current SSA node is executable (i.e. it is a SSA use, and one of its CFG in edge has
       // been marked as executable), then visit its expression
       if (isExecutable(executableFlags, ssaNode)) {
-  // std::cout << "visit ssa" << std::endl;
-  visitExpr(ssaNode, FlowWorkList, SSAWorkList);
+        // std::cout << "visit ssa" << std::endl;
+        visitExpr(ssaNode, FlowWorkList, SSAWorkList);
       }
     }
   }
@@ -325,32 +327,32 @@ void ConstantAnalysis::visitExpr(FilteredCfgNode& cfgNode,
       SgExprStatement* condStmt = (SgExprStatement *)ifStmt->get_conditional();
       LatticeArith * lattice = getLattice(condStmt->get_expression());
       if (lattice != NULL) {
-  LatticeArithInstance<bool>* boolLattice = dynamic_cast<LatticeArithInstance<bool>* >(lattice);
+        LatticeArithInstance<bool>* boolLattice = dynamic_cast<LatticeArithInstance<bool>* >(lattice);
 
-  if (!(boolLattice->isTop() || boolLattice->isBottom())) {
-    SgStatement* targetBody;
-    if (boolLattice->getValue())
-      targetBody = ifStmt->get_true_body();
-    else
-      targetBody = ifStmt->get_false_body();
-    reverse_foreach(const FilteredCfgEdge& edge, cfgNode.outEdges()) {
-      if (edge.target().getNode() == targetBody) {
-        FlowWorkList.insert(edge);
-        break;
-      }
-    }
-  }
+        if (!(boolLattice->isTop() || boolLattice->isBottom())) {
+          SgStatement* targetBody;
+          if (boolLattice->getValue())
+            targetBody = ifStmt->get_true_body();
+          else
+            targetBody = ifStmt->get_false_body();
+          reverse_foreach(const FilteredCfgEdge& edge, cfgNode.outEdges()) {
+            if (edge.target().getNode() == targetBody) {
+              FlowWorkList.insert(edge);
+              break;
+            }
+          }
+        }
       } else {
-  // std::cout << "no bool lattice"<< std::endl;
-  reverse_foreach(const FilteredCfgEdge edge, cfgNode.outEdges()) {
-    FlowWorkList.insert(edge);
-  }
+        // std::cout << "no bool lattice"<< std::endl;
+        reverse_foreach(const FilteredCfgEdge edge, cfgNode.outEdges()) {
+          FlowWorkList.insert(edge);
+        }
       }
       // std::cout << "visit expr can't find lattice for if stmt: " << std::endl;
     } else if (SgForStatement * forStmt = isSgForStatement(cfgNode.getNode())) {
       // reverse_
       foreach(const FilteredCfgEdge edge, cfgNode.outEdges()) {
-  FlowWorkList.insert(edge);
+        FlowWorkList.insert(edge);
       }
       // TODO: check the initization value and termination value
     }

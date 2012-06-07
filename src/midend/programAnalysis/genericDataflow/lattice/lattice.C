@@ -862,6 +862,8 @@ void AnyLattice::unProject(SgFunctionCallExp* exp, const Lattice& that)
 
 AnyLattice AnyLattice::project(SgExpression* exp) const
 {
+  if (!isInitialized()) return *this;
+
   return AnyLattice(ptr()->project(exp), initialized);
 }
 
@@ -873,6 +875,13 @@ void AnyLattice::remapVars(const std::map<varID, varID>& varNameMap, const Funct
 void AnyLattice::incorporateVars(const AnyLattice& other)
 {
   ptr()->incorporateVars(other.ptr());
+}
+
+void AnyLattice::clear()
+{
+  if (!isInitialized()) return;
+
+  ptr()->clear();
 }
 
 static
@@ -899,9 +908,15 @@ bool operator==(const AnyLattice& lhs, const AnyLattice& rhs)
 
 std::ostream& operator<<(std::ostream& os, const AnyLattice& anylattice)
 {
-  const Lattice* lat = anylattice.ptr();
+  os << "initialized: " << std::boolalpha << anylattice.isInitialized();
 
-  os << "initialized = " << std::boolalpha << anylattice.isInitialized() << lat->str();
+  if (anylattice.isInitialized())
+  {
+    const Lattice* lat = anylattice.ptr();
+
+    os << lat->str();
+  }
+
   return os;
 }
 

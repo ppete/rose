@@ -1,5 +1,7 @@
 #include "valueNumbering.h"
 
+#include "defaultLattice.h"
+
 /**
  * This is an implementation of Alpern, Wegman & Zadeck value numbering
  *
@@ -57,16 +59,19 @@ void ValueNumbering::genInitState( const ::Function& func,
                                    std::vector<NodeFact*>& initFacts
                                  )
 {
+  initLattices = new DefaultLattice;
 }
 
 bool ValueNumbering::transfer(const ::Function& func, const DataflowNode& n, NodeState& state,
             const std::vector<Lattice*>& dfInfo) {
+  ROSE_ASSERT(false); // \pp is this used anywhere?
   return false;
 }
 
 boost::shared_ptr<IntraDFTransferVisitor>
-getTransferVisitor(const ::Function& func, const DataflowNode& n, NodeState& state,
-       const std::vector<Lattice*>& dfInfo) {
+getTransferVisitor(const ::Function& func, const DataflowNode& n, NodeState& state, const std::vector<Lattice*>& dfInfo) {
+  // \pp this function is OBSOLETE
+  ROSE_ASSERT(false);
 }
 
 // Main framework of Alpern-Wegman-Zadeck'88 Value Numbering

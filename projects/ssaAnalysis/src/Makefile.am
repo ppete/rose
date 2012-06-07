@@ -21,8 +21,8 @@ ssaAnalysis_SOURCES = \
 	sccTestHarness.C
 
 #include_HEADERS = \
-#        constantAnalysis.h 
- 
+#        constantAnalysis.h
+
 noinst_LIBRARIES = libssaanalysis.a
 
 libssaanalysis_a_SOURCES = \
@@ -34,7 +34,8 @@ libssaanalysis_a_includedir = $(includedir)/src \
 # headers to install
 libssaanalysis_a_include_HEADERS = \
 	../include/constantAnalysis.h \
-        ../include/valueNumbering.h
+        ../include/valueNumbering.h \
+				../include/defaultLattice.h
 
 LDADD = \
 	$(LIBS_WITH_RPATH) \

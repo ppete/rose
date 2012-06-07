@@ -13,7 +13,7 @@
 // Provide a dummy function definition to support linking with Insure++.
 // We have not identified why this is required.  This fixes the problem of
 // a link error for the "std::ostream & operator<<()" used with "std::vector<bool>".
-std::ostream & 
+std::ostream &
 operator<<(std::basic_ostream<char, std::char_traits<char> >& os, std::vector<bool, std::allocator<bool> >& m)
    {
      printf ("Inside of std::ostream & operator<<(std::basic_ostream<char, std::char_traits<char> >& os, std::vector<bool, std::allocator<bool> >& m): A test! \n");
@@ -81,7 +81,7 @@ SgValueExp::get_constant_folded_value_as_string() const
                s = buffer;
                break;
              }
-          
+
          case V_SgLongLongIntVal:
          {
             const SgLongLongIntVal* integerValueExpression = isSgLongLongIntVal(this);
@@ -115,7 +115,7 @@ SgValueExp::get_constant_folded_value_as_string() const
                s = buffer;
                break;
           }
-          
+
           case V_SgUnsignedLongLongIntVal:
              {
                const SgUnsignedLongLongIntVal* integerValueExpression = isSgUnsignedLongLongIntVal(this);
@@ -421,7 +421,7 @@ bool roseInstallPrefix(std::string& result) {
  // This is built on the stack and initialized using the function: dladdr().
     Dl_info info;
 
- // DQ (4/8/2011): Initialize this before it is used as a argument to strdup() below. This is initialized 
+ // DQ (4/8/2011): Initialize this before it is used as a argument to strdup() below. This is initialized
  // by dladdr(), so this is likely redundant; but we can initialize it anyway.
  // info.dli_fname = NULL;
     info.dli_fname = "";
@@ -429,18 +429,18 @@ bool roseInstallPrefix(std::string& result) {
     int retval = dladdr((void*)(&roseInstallPrefix), &info);
     if (retval == 0) goto default_check;
 
- // DQ (4/9/2011): I think the issue here is that the pointer "info.dli_fname" pointer (char*) is pointing to 
+ // DQ (4/9/2011): I think the issue here is that the pointer "info.dli_fname" pointer (char*) is pointing to
  // a position inside a DLL and thus is a region of memory controled/monitored or allocated by Insure++. Thus
  // Insure++ is marking this as an issue while it is not an issue. The reported issue by Insure++ is: "READ_WILD",
  // implying that a pointer set to some wild area of memory is being read.
 #if __INSURE__
  // Debugging information. Trying to understand this insure issue and the value of "info.dli_fname" data member.
  // if (retval != 0)
- //    fprintf(stderr, "      %08p file: %s\tfunction: %s\n",info.dli_saddr, info.dli_fname ? info.dli_fname : "???", info.dli_sname ? info.dli_sname : "???"); 
+ //    fprintf(stderr, "      %08p file: %s\tfunction: %s\n",info.dli_saddr, info.dli_fname ? info.dli_fname : "???", info.dli_sname ? info.dli_sname : "???");
 
     _Insure_checking_enable(0); // disable Insure++ checking
 #endif
- // DQ (4/8/2011): Check for NULL pointer before handling it as a parameter to strdup(), 
+ // DQ (4/8/2011): Check for NULL pointer before handling it as a parameter to strdup(),
  // but I think it is always non-NULL (added assertion and put back the original code).
  // char* libroseName = (info.dli_fname == NULL) ? NULL : strdup(info.dli_fname);
     ROSE_ASSERT(info.dli_fname != NULL);
@@ -462,7 +462,7 @@ bool roseInstallPrefix(std::string& result) {
     char* prefixCS = dirname(libdirCopy2);
     if (prefixCS == NULL) {free(libroseName); goto default_check;}
     string prefix = prefixCS;
-    free(libdirCopy2); 
+    free(libdirCopy2);
     free(libroseName);
 // Liao, 12/2/2009
 // Check the librose's parent directory name to tell if it is within a build or installation tree
@@ -997,7 +997,7 @@ determineFileType ( vector<string> argv, int & nextErrorCode, SgProject* project
                                 // This a not a C++ file (assume it is a C file and don't define the __cplusplus macro, just like GNU gcc would)
                                    file->set_sourceFileUsesCppFileExtension(false);
 
-                                // Note that we can use the C++ unparser to provide output that will support inspection of 
+                                // Note that we can use the C++ unparser to provide output that will support inspection of
                                 // code from the AST, but this is a temporary solution.  The only correct setting is to use
                                 // the ongoing support within the Java specific unparser.
                                 // file->set_outputLanguage(SgFile::e_C_output_language);
@@ -1634,12 +1634,12 @@ SgProject::parse()
      // negara1 (06/23/2011): Collect information about the included files to support unparsing of those that are modified.
      //In the first step, get the include search paths, which will be used while attaching include preprocessing infos.
      //Proceed only if there are input files and they require header files unparsing.
-     if (!get_fileList().empty() && (*get_fileList().begin()) -> get_unparseHeaderFiles()) { 
+     if (!get_fileList().empty() && (*get_fileList().begin()) -> get_unparseHeaderFiles()) {
          if (SgProject::get_verbose() >= 1){
              cout << endl << "***HEADER FILES ANALYSIS***" << endl << endl;
          }
          CompilerOutputParser compilerOutputParser(this);
-         const pair<list<string>, list<string> >& includedFilesSearchPaths = compilerOutputParser.collectIncludedFilesSearchPaths();  
+         const pair<list<string>, list<string> >& includedFilesSearchPaths = compilerOutputParser.collectIncludedFilesSearchPaths();
          set_quotedIncludesSearchPaths(includedFilesSearchPaths.first);
          set_bracketedIncludesSearchPaths(includedFilesSearchPaths.second);
 
@@ -1647,7 +1647,7 @@ SgProject::parse()
              CollectionHelper::printList(get_quotedIncludesSearchPaths(), "\nQuoted includes search paths:", "Path:");
              CollectionHelper::printList(get_bracketedIncludesSearchPaths(), "\nBracketed includes search paths:", "Path:");
          }
-     }     
+     }
 
   // GB (9/4/2009): Moved the secondary pass over source files (which
   // attaches the preprocessing information) to this point. This way, the
@@ -1666,7 +1666,7 @@ SgProject::parse()
      // negara1 (06/23/2011): Collect information about the included files to support unparsing of those that are modified.
      //In the second step (after preprocessing infos are already attached), collect the including files map.
      //Proceed only if there are input files and they require header files unparsing.
-     if (!get_fileList().empty() && (*get_fileList().begin()) -> get_unparseHeaderFiles()) { 
+     if (!get_fileList().empty() && (*get_fileList().begin()) -> get_unparseHeaderFiles()) {
          CompilerOutputParser compilerOutputParser(this);
          const map<string, set<string> >& includedFilesMap = compilerOutputParser.collectIncludedFilesMap();
 
@@ -1674,13 +1674,13 @@ SgProject::parse()
          const map<string, set<PreprocessingInfo*> >& includingPreprocessingInfosMap = includingPreprocessingInfosCollector.collect();
 
          set_includingPreprocessingInfosMap(includingPreprocessingInfosMap);
-         
+
          if (SgProject::get_verbose() >= 1) {
              CollectionHelper::printMapOfSets(includedFilesMap, "\nIncluded files map:", "File:", "Included file:");
              CollectionHelper::printMapOfSets(get_includingPreprocessingInfosMap(), "\nIncluding files map:", "File:", "Including file:");
          }
      }
-     
+
      if ( get_verbose() > 0 )
         {
        // Report the error code if it is non-zero (but only in verbose mode)
@@ -1715,8 +1715,8 @@ SgProject::parse()
    }
 
 //negara1 (07/29/2011)
-//The returned file path is not normalized. 
-//TODO: Return the normalized path after the bug in ROSE is fixed. The bug manifests itself when the same header file is included in 
+//The returned file path is not normalized.
+//TODO: Return the normalized path after the bug in ROSE is fixed. The bug manifests itself when the same header file is included in
 //multiple places using different paths. In such a case, ROSE treats the same file as different files and generates different IDs for them.
 string SgProject::findIncludedFile(PreprocessingInfo* preprocessingInfo) {
     IncludeDirective includeDirective(preprocessingInfo -> getString());
@@ -2361,7 +2361,7 @@ global_build_classpath()
   // classpath += findRoseSupportPathFromSource("/src/3rdPartyLibraries/antlr-jars/stringtemplate-3.1b1.jar", "lib/stringtemplate-3.1b1.jar") + ":";
   // classpath += findRoseSupportPathFromSource("/src/3rdPartyLibraries/antlr-jars/antlr-3.2.jar", "lib/antlr-3.2.jar") + ":";
 
-     // CER (6/6/2011): Added support for OFP version 0.8.3 which requires antlr-3.3-complete.jar.  
+     // CER (6/6/2011): Added support for OFP version 0.8.3 which requires antlr-3.3-complete.jar.
      //
      ROSE_ASSERT(ROSE_OFP_MAJOR_VERSION_NUMBER >= 0);
      ROSE_ASSERT(ROSE_OFP_MINOR_VERSION_NUMBER >= 8);
@@ -2460,10 +2460,10 @@ SgSourceFile::build_Fortran_AST( vector<string> argv, vector<string> inputComman
      if (requires_C_preprocessor == true)
         {
           int errorCode;
-          
-       // If we detect that the input file requires processing via CPP (e.g. filename of form *.F??) then 
-       // we generate the command to run CPP on the input file and collect the results in a file with 
-       // the suffix "_postprocessed.f??".  Note: instead of using CPP we use the target backend fortran 
+
+       // If we detect that the input file requires processing via CPP (e.g. filename of form *.F??) then
+       // we generate the command to run CPP on the input file and collect the results in a file with
+       // the suffix "_postprocessed.f??".  Note: instead of using CPP we use the target backend fortran
        // compiler with the "-E" option.
 
           vector<string> fortran_C_preprocessor_commandLine;
@@ -3178,7 +3178,7 @@ SgSourceFile::build_Java_AST( vector<string> argv, vector<string> inputCommandLi
 
        // Use "-d ." option to force class files to be generated in the current directory (instead of the source directory.
        // this semantics matches the support of the other languages in ROSE and privents "make check" from trying to write
-       // to the source directory which is an error.  It might be different from the samantics of the SUN javac and other 
+       // to the source directory which is an error.  It might be different from the samantics of the SUN javac and other
        // java compilers.  I am unclear on this point.
 
        // Use C system function to get the current directory.
@@ -3188,7 +3188,7 @@ SgSourceFile::build_Java_AST( vector<string> argv, vector<string> inputCommandLi
           getcwd(currentDirectory, sizeof(currentDirectory));
           string currentDirectoryString = currentDirectory;
 
-       // DQ (7/20/2011): We can't build a striang with spaces, I don't know why.  Each part of the option 
+       // DQ (7/20/2011): We can't build a striang with spaces, I don't know why.  Each part of the option
        // for "-sourcepath <path>" or "-d <path>" must be pushed onto the javaCommandLine seperately.
 
           if ( get_verbose() > 2 )
@@ -3328,7 +3328,7 @@ SgSourceFile::build_Java_AST( vector<string> argv, vector<string> inputCommandLi
        }
 
   // Note that for the ECJ JVM support, the filename must appear last on the command line.
-  // I think it is only an intermediate test before actually calling ECJ that requires 
+  // I think it is only an intermediate test before actually calling ECJ that requires
   // this so it could be relaxed with a bit of work.
      vector<string> frontEndCommandLine;
 
@@ -4321,11 +4321,11 @@ SgProject::compileOutput()
        // case 3: linking at the project level (but Java codes should never be linked).
           if (get_Java_only() == false && get_Python_only() == false)
              {
-            // Liao, 11/19/2009, 
-            // I really want to just move the SgFile::compileOutput() to SgProject::compileOutput() 
+            // Liao, 11/19/2009,
+            // I really want to just move the SgFile::compileOutput() to SgProject::compileOutput()
             // and have both compilation and linking finished at the same time, just as the original command line does.
             // Then we don't have to compose compilation command line for each of the input source file
-            // or to compose the final linking command line. 
+            // or to compose the final linking command line.
             //
             // But there may be some advantages of doing the compilation and linking separately at two levels.
             // I just discussed it with Dan.
