@@ -8,8 +8,8 @@
 
 # Location of include directory after "make install"
 
-ROSE_SOURCE_DIR=/home/pirkelbauer2/sources/ROSE
-ROSE_BUILD_DIR=/home/pirkelbauer2/build/rose-bin
+ROSE_SOURCE_DIR=/home/peter/sources/ROSE
+ROSE_BUILD_DIR=/home/peter/build/rose-bin
 
 ROSE_INCLUDES = \
      -I$(ROSE_BUILD_DIR)/src/roseSupport \
