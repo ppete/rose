@@ -620,24 +620,21 @@ namespace
 
   template <class AstScopeStmt>
   inline
-  std::auto_ptr<SgExpression>
+  SgExpression&
   condition(const AstScopeStmt& s)
   {
     // \note since the returned value is not in the AST proper (all AST nodes are cloned
-    //   and for some an SgNullExpression is created), we manage the lifetime
-    //   with an auto_ptr.
-    // \todo replace with unique_ptr in C++1X
-
-    SgExpression* res = sg::dispatch(ExpressionGuard(), test_statement(s));
-
-    return std::auto_ptr<SgExpression>(res);
+    //   and for some an SgNullExpression is created), the caller is responsible
+    //   for lifetime management of the pointer
+    return sg::deref(sg::dispatch(ExpressionGuard(), test_statement(s)));
   }
 
-  std::auto_ptr<SgExpression>
+  inline
+  SgExpression&
   condition(const SgConditionalExp& n)
   {
     // see note in previous condition
-    return std::auto_ptr<SgExpression>(n.get_conditional_exp());
+    return sg::deref(SageInterface::deepCopy(n.get_conditional_exp()));
   }
 
   unsigned node_eval_index(const DataflowEdge& e)

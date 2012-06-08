@@ -464,22 +464,22 @@ namespace dfpred
   static
   void unconstrained_boolean_edge( PredicateSet<BasePredicate>&              res,
                                    const ConjunctedPredicate<BasePredicate>& cp,
-                                   const SgExpression&                       guard,
+                                   const BasePredicate&                      guard,
                                    EdgeConditionKind                         eck,
-                                   BasePredicate (*cloner) (const SgExpression&),
-                                   BasePredicate (*negater) (const SgExpression&)
+                                   BasePredicate (*cloneTrueBranch) (const BasePredicate&),
+                                   BasePredicate (*cloneFalseBranch) (const BasePredicate&)
                                  )
   {
     // \note eck can be true/false/unconditional
 
     if (eck != eckFalse)
     {
-      constrain_edge(cp, cloner(guard), eckTrue, res);
+      constrain_edge(cp, cloneTrueBranch(guard), eckTrue, res);
     }
 
     if (eck != eckTrue)
     {
-      constrain_edge(cp, negater(guard), eckFalse, res);
+      constrain_edge(cp, cloneFalseBranch(guard), eckFalse, res);
     }
   }
 
@@ -487,9 +487,9 @@ namespace dfpred
   static
   void constrain_twinedge( PredicateSet<BasePredicate>&              res,
                            const ConjunctedPredicate<BasePredicate>& cp,
-                           const SgExpression&                       lhs_guard,
-                           const SgExpression&                       rhs_guard,
-                           BasePredicate (*cloner) (const SgExpression&),
+                           const BasePredicate&                      lhs_guard,
+                           const BasePredicate&                      rhs_guard,
+                           BasePredicate (*cloner) (const BasePredicate&),
                            EdgeConditionKind                         edge_constraint
                          )
   {
@@ -520,17 +520,29 @@ namespace dfpred
   }
 
   template <class BasePredicate>
+  BasePredicate positive_clone(const BasePredicate& pred)
+  {
+    return pred;
+  }
+
+  template <class BasePredicate>
+  BasePredicate negative_clone(const BasePredicate& pred)
+  {
+    return !pred;
+  }
+
+  template <class BasePredicate>
   static
   void unconstrained_boolean_edge_twin( PredicateSet<BasePredicate>&              res,
                                         const ConjunctedPredicate<BasePredicate>& cp,
-                                        const SgExpression&                       lhs_guard,
-                                        const SgExpression&                       rhs_guard
+                                        const BasePredicate&                      lhs_guard,
+                                        const BasePredicate&                      rhs_guard
                                       )
   {
     // \note twin refers to the fact that lhs_guard and rhs_guard are in sync
     //       either (lhs_guard && rhs_guard) or (!lhs_guard && !rhs_guard)
-    constrain_twinedge(res, cp, lhs_guard, rhs_guard, BasePredicate::positive_clone, eckTrue);
-    constrain_twinedge(res, cp, lhs_guard, rhs_guard, BasePredicate::negative_clone, eckFalse);
+    constrain_twinedge(res, cp, lhs_guard, rhs_guard, positive_clone<BasePredicate>, eckTrue);
+    constrain_twinedge(res, cp, lhs_guard, rhs_guard, negative_clone<BasePredicate>, eckFalse);
   }
 
 
@@ -586,10 +598,10 @@ namespace dfpred
 
     using Base::res;
 
-    const SgExpression& assignee;
-    const SgExpression& value;
+    const BasePredicate& assignee;
+    const BasePredicate& value;
 
-    AssignPredicator(const SgExpression& lhs, const SgExpression& rhs)
+    AssignPredicator(const BasePredicate& lhs, const BasePredicate& rhs)
     : Base(), assignee(lhs), value(rhs)
     {}
 
@@ -606,9 +618,9 @@ namespace dfpred
 
     void constrained(const ConjunctedPredicate<BasePredicate>& cpred, EdgeConditionKind eckind)
     {
-      BasePredicate (*spgen) (const SgExpression&) = ( eckind == eckTrue ? BasePredicate::positive_clone
-                                                                         : BasePredicate::negative_clone
-                                                     );
+      BasePredicate (*spgen) (const BasePredicate&) = positive_clone<BasePredicate>;
+
+      if (eckind == eckFalse) spgen = negative_clone<BasePredicate>;
 
       constrain_edge(cpred, spgen(assignee), eckind, res);
     }
@@ -621,16 +633,16 @@ namespace dfpred
 
     using Base::res;
 
-    const SgExpression& exp;
+    const BasePredicate& exp;
 
     explicit
-    NotPredicator(const SgNotOp& op)
-    : Base(), exp(operand(op))
+    NotPredicator(const BasePredicate& pred)
+    : Base(), exp(pred)
     {}
 
     void unconstrained(const ConjunctedPredicate<BasePredicate>& cp)
     {
-      unconstrained_boolean_edge(res, cp, exp, eckUnconditional, BasePredicate::negative_clone, BasePredicate::positive_clone);
+      unconstrained_boolean_edge(res, cp, exp, eckUnconditional, negative_clone<BasePredicate>, positive_clone<BasePredicate>);
     }
 
     void constrained(ConjunctedPredicate<BasePredicate> cpred, EdgeConditionKind eckind)
@@ -644,27 +656,30 @@ namespace dfpred
   };
 
   template <class BasePredicate>
+  NotPredicator<BasePredicate>
+  notPredicator(const BasePredicate& op)
+  {
+    return NotPredicator<BasePredicate>(op);
+  }
+
+
+  template <class BasePredicate>
   struct ShortCircuitPredicator : ExprPredicator<BasePredicate, ShortCircuitPredicator<BasePredicate> >
   {
     typedef ExprPredicator<BasePredicate, ShortCircuitPredicator> Base;
 
     using Base::res;
 
-    static const unsigned left_expr  = 1;
-    static const unsigned right_expr = 2;
+    const BasePredicate& exp;
+    const DataflowEdge&  edge;
 
-    const unsigned      evalside; ///< added for invariant checking
-    const SgExpression& exp;
-    const DataflowEdge& edge;
-
-    ShortCircuitPredicator(const SgBinaryOp& binop, const DataflowEdge& e)
-    : Base(), evalside(node_eval_index(e)),
-      exp(evalside == left_expr? lhs_operand(binop) : rhs_operand(binop)), edge(e)
+    ShortCircuitPredicator(const BasePredicate& pred, const DataflowEdge& e)
+    : Base(), exp(pred), edge(e)
     {}
 
     void unconstrained(const ConjunctedPredicate<BasePredicate>& cp)
     {
-      unconstrained_boolean_edge(res, cp, exp, edge.condition(), BasePredicate::positive_clone, BasePredicate::negative_clone);
+      unconstrained_boolean_edge(res, cp, exp, edge.condition(), positive_clone<BasePredicate>, negative_clone<BasePredicate>);
     }
 
     void constrained(const ConjunctedPredicate<BasePredicate>& cpred, EdgeConditionKind eckind)
@@ -681,6 +696,13 @@ namespace dfpred
   };
 
   template <class BasePredicate>
+  ShortCircuitPredicator<BasePredicate>
+  shortCircuitPredicator(const BasePredicate& guard, const DataflowEdge& e)
+  {
+    return ShortCircuitPredicator<BasePredicate>(guard, e);
+  }
+
+  template <class BasePredicate>
   struct BranchPredicator : ExprPredicator<BasePredicate, BranchPredicator<BasePredicate> >
   {
     // \note the logic allows merging this class with the ShortCircuitPredicator.
@@ -690,16 +712,16 @@ namespace dfpred
 
     using Base::res;
 
-    const SgExpression& exp;
-    const DataflowEdge& edge; // \todo consider converting edge into a value
+    const BasePredicate& exp;
+    const DataflowEdge&  edge; // \todo consider converting edge into a value
 
-    BranchPredicator(const SgExpression& guard, const DataflowEdge& e)
+    BranchPredicator(const BasePredicate& guard, const DataflowEdge& e)
     : Base(), exp(guard), edge(e)
     {}
 
     void unconstrained(const ConjunctedPredicate<BasePredicate>& cp)
     {
-      unconstrained_boolean_edge(res, cp, exp, edge.condition(), BasePredicate::positive_clone, BasePredicate::negative_clone);
+      unconstrained_boolean_edge(res, cp, exp, edge.condition(), positive_clone<BasePredicate>, negative_clone<BasePredicate>);
     }
 
     void constrained(const ConjunctedPredicate<BasePredicate>& cpred, EdgeConditionKind eckind)
@@ -711,6 +733,13 @@ namespace dfpred
       res.insert(cpred);
     }
   };
+
+  template <class BasePredicate>
+  BranchPredicator<BasePredicate>
+  branchPredicator(const BasePredicate& guard, const DataflowEdge& e)
+  {
+    return BranchPredicator<BasePredicate>(guard, e);
+  }
 
   template <class BasePredicate>
   struct EdgePredicateClearer : Predicator<BasePredicate>
@@ -733,10 +762,10 @@ namespace dfpred
 
     using Base::res;
 
-    const SgExpression&     exp;
+    const BasePredicate&    exp;
     const EdgeConditionKind edegecond; // \todo consider converting edge into a value
 
-    BoolEvalPredicator(const SgExpression& cond, const DataflowEdge& e)
+    BoolEvalPredicator(const BasePredicate& cond, const DataflowEdge& e)
     : exp(cond), edegecond(e.condition())
     {}
 
@@ -746,9 +775,17 @@ namespace dfpred
 
     void operator()(const ConjunctedPredicate<BasePredicate>& cp)
     {
-      unconstrained_boolean_edge(res, cp, exp, edegecond, BasePredicate::positive_clone, BasePredicate::negative_clone);
+      unconstrained_boolean_edge(res, cp, exp, edegecond, positive_clone<BasePredicate>, negative_clone<BasePredicate>);
     }
   };
+
+  template <class BasePredicate>
+  BoolEvalPredicator<BasePredicate>
+  boolEvalPredicator(const BasePredicate& guard, const DataflowEdge& e)
+  {
+    return BoolEvalPredicator<BasePredicate>(guard, e);
+  }
+
 
   //
   // Transfer Function
@@ -858,7 +895,7 @@ namespace dfpred
     {
       trace('!');
 
-      apply_predicator(predlat, NotPredicator<predicate_type>(n));
+      apply_predicator(predlat, notPredicator(predicate_type(operand(n))));
     }
 
     void handle(const SgAssignOp& n, cat::Binary)
@@ -882,9 +919,13 @@ namespace dfpred
     template <class AstExpr>
     void handle(const AstExpr& n, cat::ShortCircuit)
     {
+      static const unsigned left_expr = 1;
+
       trace('s');
 
-      apply_predicator(predlat, ShortCircuitPredicator<predicate_type>(n, edge));
+      const SgExpression& guard = (node_eval_index(edge) == left_expr ? lhs_operand(n) : rhs_operand(n));
+
+      apply_predicator(predlat, shortCircuitPredicator(predicate_type(guard), edge));
     }
 
     template <class AstExpr>
@@ -892,7 +933,7 @@ namespace dfpred
     {
       trace('/');
 
-      apply_predicator(predlat, BoolEvalPredicator<predicate_type>(n, edge));
+      apply_predicator(predlat, boolEvalPredicator(predicate_type(n), edge));
     }
 
     template <class AstExpr>
@@ -900,9 +941,7 @@ namespace dfpred
     {
       trace('?');
 
-      std::auto_ptr<SgExpression> condition_exp = condition(n);
-
-      apply_predicator(predlat, BranchPredicator<predicate_type>(sg::deref(condition_exp.get()), edge));
+      apply_predicator(predlat, branchPredicator(predicate_type::condition(n), edge));
     }
 
     template <class AstNode>

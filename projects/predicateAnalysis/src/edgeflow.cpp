@@ -29,13 +29,13 @@ class SimplePredicate
 {
     const SgExpression* expr;
 
+  public:
     SimplePredicate(const SgExpression& exp)
     : expr(&exp)
     {
       ROSE_ASSERT(expr && !expr->get_parent());
     }
 
-  public:
     SimplePredicate(const SimplePredicate& orig)
     : expr(SageInterface::deepCopy(orig.expr))
     {
@@ -55,20 +55,27 @@ class SimplePredicate
       delete expr;
     }
 
+    /// negates the current predicate
+    SimplePredicate operator!() const;
+
     const SgExpression& expression() const
     {
       return sg::deref(expr);
     }
 
-    friend
-    std::ostream& operator<<(std::ostream& o, const SimplePredicate& obj);
+    //
+    // free standing functions required to support
+    //   - std::set membership
+    //   - finding the relationship between two SimplePredicate's
 
+    // this are strict oprators to allow SimplePredicate be used in std::sets
     friend
     bool operator==(const SimplePredicate& lhs, const SimplePredicate& rhs)
     {
       return sg::tree_compare(lhs.expr, rhs.expr) == 0;
     }
 
+    // this are strict oprators to allow SimplePredicate be used in std::sets
     friend
     bool operator<(const SimplePredicate& lhs, const SimplePredicate& rhs)
     {
@@ -79,32 +86,35 @@ class SimplePredicate
     dfpred::Relation::Kind
     relation(const SimplePredicate& lhs, const SimplePredicate& rhs);
 
-    /// external constructor, ensures that the expression is copied
-    /// \note function needs to be static b/c SimplePredicate is not part of
-    ///       the argument list (needed for argument dependent lookup)
+    /// generates a predicate from a branch-condition
     static
-    SimplePredicate positive_clone(const SgExpression&);
+    SimplePredicate condition(const SgStatement&);
 
-    /// external constructor, ensures that the expression is copied
+    /// generates a predicate from a branch-condition
     static
-    SimplePredicate negative_clone(const SgExpression&);
+    SimplePredicate condition(const SgConditionalExp&);
 };
 
-SimplePredicate SimplePredicate::positive_clone(const SgExpression& exp)
+SimplePredicate SimplePredicate::operator!() const
 {
-  const SgExpression* clone = SageInterface::deepCopy(&exp);
-
-  return SimplePredicate(sg::deref(clone));
+  return SimplePredicate(negate(expression()));
 }
 
-SimplePredicate SimplePredicate::negative_clone(const SgExpression& exp)
+SimplePredicate SimplePredicate::condition(const SgStatement& n)
 {
-  return SimplePredicate(negate(exp));
+  return SimplePredicate(condition(n));
 }
+
+
+SimplePredicate SimplePredicate::condition(const SgConditionalExp& n)
+{
+  return SimplePredicate(condition(n));
+}
+
 
 std::ostream& operator<<(std::ostream& o, const SimplePredicate& obj)
 {
-  return o << obj.expr->unparseToString();
+  return o << obj.expression().unparseToString();
 }
 
 
@@ -136,7 +146,7 @@ check_negation(const SimplePredicate& lhs, const SimplePredicate& rhs)
   // nothing skipped
   if (&expr == &lhs.expression()) return Relation::unknown;
 
-  Relation::Kind res = relation(SimplePredicate::positive_clone(expr), rhs);
+  Relation::Kind res = relation(expr, rhs);
 
   if (res == Relation::same || res == Relation::negate)
   {
@@ -157,7 +167,6 @@ relation_negation(const SimplePredicate& lhs, const SimplePredicate& rhs)
   if (res != Relation::unknown) return res;
   return check_negation(lhs, rhs);
 }
-
 
 /// \brief   returns an approximation of the relationship between
 ///          lhs and rhs.
