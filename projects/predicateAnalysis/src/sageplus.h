@@ -474,6 +474,180 @@ namespace sg
   }
 }
 
+namespace
+{
+  //
+  // functions helping negate an expression
+
+  const SgExpression& skip_negation(const SgExpression& n)
+  {
+    const SgNotOp* child = dynamic_cast<const SgNotOp*>(&n);
+    if (!child) return n;
+
+    return sg::deref(child->get_operand());
+  }
+
+  const SgExpression& negate(const SgExpression& exp)
+  {
+    namespace si = SageInterface;
+    namespace sb = SageBuilder;
+
+    const SgExpression& base  = skip_negation(exp);
+    SgExpression*       clone = si::deepCopy(&base);
+
+    if (&base == &exp) clone = sb::buildNotOp(clone);
+
+    return sg::deref(clone);
+  }
+
+  //
+  // accessory function
+
+  inline
+  const SgExpression& lhs_operand(const SgBinaryOp& binop)
+  {
+    return sg::deref(binop.get_lhs_operand());
+  }
+
+  inline
+  const SgExpression& rhs_operand(const SgBinaryOp& binop)
+  {
+    return sg::deref(binop.get_rhs_operand());
+  }
+
+  inline
+  const SgExpression& operand(const SgUnaryOp& op)
+  {
+    return sg::deref(op.get_operand());
+  }
+
+  inline
+  const SgExpression* expression(const SgUpcLocalsizeofExpression& n)
+  {
+    return n.get_expression();
+  }
+
+  inline
+  const SgExpression* expression(const SgUpcElemsizeofExpression& n)
+  {
+    return n.get_expression();
+  }
+
+  inline
+  const SgExpression* expression(const SgUpcBlocksizeofExpression& n)
+  {
+    return n.get_expression();
+  }
+
+  inline
+  const SgExpression* expression(const SgSizeOfOp& n)
+  {
+    return n.get_operand_expr();
+  }
+
+  inline
+  const SgExpression* expression(const SgTypeIdOp& n)
+  {
+    return n.get_operand_expr();
+  }
+
+  template <class AstNode>
+  inline
+  const SgType* get_type(const AstNode& typeOp)
+  {
+    const SgExpression* exp = expression(typeOp);
+    if (exp) return exp->get_type();
+
+    return typeOp.get_operand_type();
+  }
+
+  //
+  // other auxiliary functions
+
+  std::string to_string(EdgeConditionKind eck)
+  {
+    std::string res;
+
+    switch (eck)
+    {
+      case eckTrue:           res = "t"; break;
+      case eckFalse:          res = "f"; break;
+      case eckUnconditional:  res = "*"; break;
+      default:                res = "?";
+    }
+
+    return res;
+  }
+
+  EdgeConditionKind negateEdgeConditionKind(EdgeConditionKind eck)
+  {
+    if (eck == eckTrue) return eckFalse;
+
+    ROSE_ASSERT(eck == eckFalse);
+    return eckTrue;
+  }
+
+  //
+  // implements retrieval of branch controlling expressions.
+
+  // \todo contains a declaration
+  struct ExpressionGuard : sg::DispatchHandler<SgExpression*>
+  {
+    ExpressionGuard()
+    : Base(0)
+    {}
+
+    template <class AstNode>
+    static
+    AstNode* clone(const AstNode* n) { return SageInterface::deepCopy(n); }
+
+    static
+    SgNullExpression* nullref(const SgVariableDeclaration&)
+    {
+      return SageBuilder::buildNullExpression(); /* varref(vardecl.get_variables()); */
+    }
+
+    void handle(const SgNode& n)                { sg::unexpected_node(n); }
+    void handle(const SgVariableDeclaration& n) { res = nullref(n); }
+    void handle(const SgExprStatement& n)       { res = clone(n.get_expression()); }
+  };
+
+  const SgStatement* test_statement(const SgIfStmt& n)       { return n.get_conditional(); }
+  const SgStatement* test_statement(const SgForStatement& n) { return n.get_test(); }
+  const SgStatement* test_statement(const SgUpcForAllStatement& n) { return n.get_test(); }
+  const SgStatement* test_statement(const SgWhileStmt& n)    { return n.get_condition(); }
+  const SgStatement* test_statement(const SgDoWhileStmt& n)  { return n.get_condition(); }
+
+  template <class AstScopeStmt>
+  inline
+  std::auto_ptr<SgExpression>
+  condition(const AstScopeStmt& s)
+  {
+    // \note since the returned value is not in the AST proper (all AST nodes are cloned
+    //   and for some an SgNullExpression is created), we manage the lifetime
+    //   with an auto_ptr.
+    // \todo replace with unique_ptr in C++1X
+
+    SgExpression* res = sg::dispatch(ExpressionGuard(), test_statement(s));
+
+    return std::auto_ptr<SgExpression>(res);
+  }
+
+  std::auto_ptr<SgExpression>
+  condition(const SgConditionalExp& n)
+  {
+    // see note in previous condition
+    return std::auto_ptr<SgExpression>(n.get_conditional_exp());
+  }
+
+  unsigned node_eval_index(const DataflowEdge& e)
+  {
+    // \todo here we assume forward flow ...
+    unsigned res = e.source().getIndex();
+
+    return res;
+  }
+}
 
 
 #endif /* _SAGEPLUS_H */

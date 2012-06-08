@@ -19,174 +19,6 @@
 #include "sageplus.h"
 #include "predflow.h"
 
-namespace
-{
-  //
-  // functions helping negate an expression
-
-  const SgExpression& skip_negation(const SgExpression& n)
-  {
-    const SgNotOp* child = dynamic_cast<const SgNotOp*>(&n);
-    if (!child) return n;
-
-    return sg::deref(child->get_operand());
-  }
-
-  const SgExpression& negate(const SgExpression& exp)
-  {
-    namespace si = SageInterface;
-    namespace sb = SageBuilder;
-
-    const SgExpression& base  = skip_negation(exp);
-    SgExpression*       clone = si::deepCopy(&base);
-
-    if (&base == &exp) clone = sb::buildNotOp(clone);
-
-    return sg::deref(clone);
-  }
-
-  //
-  // accessory function
-
-  inline
-  const SgExpression& lhs_operand(const SgBinaryOp& binop)
-  {
-    return sg::deref(binop.get_lhs_operand());
-  }
-
-  inline
-  const SgExpression& rhs_operand(const SgBinaryOp& binop)
-  {
-    return sg::deref(binop.get_rhs_operand());
-  }
-
-  inline
-  const SgExpression& operand(const SgUnaryOp& op)
-  {
-    return sg::deref(op.get_operand());
-  }
-
-  inline
-  const SgExpression* expression(const SgUpcLocalsizeofExpression& n)
-  {
-    return n.get_expression();
-  }
-
-  inline
-  const SgExpression* expression(const SgUpcElemsizeofExpression& n)
-  {
-    return n.get_expression();
-  }
-
-  inline
-  const SgExpression* expression(const SgUpcBlocksizeofExpression& n)
-  {
-    return n.get_expression();
-  }
-
-  inline
-  const SgExpression* expression(const SgSizeOfOp& n)
-  {
-    return n.get_operand_expr();
-  }
-
-  inline
-  const SgExpression* expression(const SgTypeIdOp& n)
-  {
-    return n.get_operand_expr();
-  }
-
-  template <class AstNode>
-  inline
-  const SgType* get_type(const AstNode& typeOp)
-  {
-    const SgExpression* exp = expression(typeOp);
-    if (exp) return exp->get_type();
-
-    return typeOp.get_operand_type();
-  }
-
-  //
-  // other auxiliary functions
-
-  std::string to_string(EdgeConditionKind eck)
-  {
-    std::string res;
-
-    switch (eck)
-    {
-      case eckTrue:           res = "t"; break;
-      case eckFalse:          res = "f"; break;
-      case eckUnconditional:  res = "*"; break;
-      default:                res = "?";
-    }
-
-    return res;
-  }
-
-  EdgeConditionKind negateEdgeConditionKind(EdgeConditionKind eck)
-  {
-    if (eck == eckTrue) return eckFalse;
-
-    ROSE_ASSERT(eck == eckFalse);
-    return eckTrue;
-  }
-
-  //
-  // implements retrieval of branch controlling expressions.
-
-  // \todo contains a declaration
-  struct ExpressionGuard : sg::DispatchHandler<SgExpression*>
-  {
-    ExpressionGuard()
-    : Base(0)
-    {}
-
-    template <class AstNode>
-    static
-    AstNode* clone(const AstNode* n) { return SageInterface::deepCopy(n); }
-
-    static
-    SgNullExpression* nullref(const SgVariableDeclaration&)
-    {
-      return SageBuilder::buildNullExpression(); /* varref(vardecl.get_variables()); */
-    }
-
-    void handle(const SgNode& n)                { sg::unexpected_node(n); }
-    void handle(const SgVariableDeclaration& n) { res = nullref(n); }
-    void handle(const SgExprStatement& n)       { res = clone(n.get_expression()); }
-  };
-
-  const SgStatement* test_statement(const SgIfStmt& n)       { return n.get_conditional(); }
-  const SgStatement* test_statement(const SgForStatement& n) { return n.get_test(); }
-  const SgStatement* test_statement(const SgUpcForAllStatement& n) { return n.get_test(); }
-  const SgStatement* test_statement(const SgWhileStmt& n)    { return n.get_condition(); }
-  const SgStatement* test_statement(const SgDoWhileStmt& n)  { return n.get_condition(); }
-
-  template <class AstScopeStmt>
-  inline
-  std::auto_ptr<SgExpression>
-  condition(const AstScopeStmt& s)
-  {
-    // \note since the returned value is not in the AST proper (all AST nodes are cloned
-    //   and for some an SgNullExpression is created), we manage the lifetime
-    //   with an auto_ptr.
-    // \todo replace with unique_ptr in C++1X
-
-    SgExpression* res = sg::dispatch(ExpressionGuard(), test_statement(s));
-
-    return std::auto_ptr<SgExpression>(res);
-  }
-
-  std::auto_ptr<SgExpression>
-  condition(const SgConditionalExp& n)
-  {
-    // see note in previous condition
-    return std::auto_ptr<SgExpression>(n.get_conditional_exp());
-  }
-}
-
-
 
 
 /// \brief encapsulates a predicate expression
@@ -244,26 +76,28 @@ class SimplePredicate
     }
 
     friend
-    Relation::Kind
+    dfpred::Relation::Kind
     relation(const SimplePredicate& lhs, const SimplePredicate& rhs);
 
     /// external constructor, ensures that the expression is copied
-    friend
+    /// \note function needs to be static b/c SimplePredicate is not part of
+    ///       the argument list (needed for argument dependent lookup)
+    static
     SimplePredicate positive_clone(const SgExpression&);
 
     /// external constructor, ensures that the expression is copied
-    friend
+    static
     SimplePredicate negative_clone(const SgExpression&);
 };
 
-SimplePredicate positive_clone(const SgExpression& exp)
+SimplePredicate SimplePredicate::positive_clone(const SgExpression& exp)
 {
   const SgExpression* clone = SageInterface::deepCopy(&exp);
 
   return SimplePredicate(sg::deref(clone));
 }
 
-SimplePredicate negative_clone(const SgExpression& exp)
+SimplePredicate SimplePredicate::negative_clone(const SgExpression& exp)
 {
   return SimplePredicate(negate(exp));
 }
@@ -274,8 +108,10 @@ std::ostream& operator<<(std::ostream& o, const SimplePredicate& obj)
 }
 
 
-std::ostream& operator<<(std::ostream& o, const Relation::Kind kind)
+std::ostream& operator<<(std::ostream& o, const dfpred::Relation::Kind kind)
 {
+  using dfpred::Relation;
+
   switch (kind)
   {
     case Relation::unknown:      o << "?"; break;
@@ -290,15 +126,17 @@ std::ostream& operator<<(std::ostream& o, const Relation::Kind kind)
 }
 
 static
-Relation::Kind
+dfpred::Relation::Kind
 check_negation(const SimplePredicate& lhs, const SimplePredicate& rhs)
 {
+  using dfpred::Relation;
+
   const SgExpression& expr = skip_negation(lhs.expression());
 
   // nothing skipped
   if (&expr == &lhs.expression()) return Relation::unknown;
 
-  Relation::Kind res = relation(positive_clone(expr), rhs);
+  Relation::Kind res = relation(SimplePredicate::positive_clone(expr), rhs);
 
   if (res == Relation::same || res == Relation::negate)
   {
@@ -309,13 +147,14 @@ check_negation(const SimplePredicate& lhs, const SimplePredicate& rhs)
 }
 
 static
-Relation::Kind
+dfpred::Relation::Kind
 relation_negation(const SimplePredicate& lhs, const SimplePredicate& rhs)
 {
+  using dfpred::Relation;
+
   Relation::Kind res = check_negation(rhs, lhs);
 
   if (res != Relation::unknown) return res;
-
   return check_negation(lhs, rhs);
 }
 
@@ -325,9 +164,11 @@ relation_negation(const SimplePredicate& lhs, const SimplePredicate& rhs)
 /// \details implemented are equality and negation
 ///          not implemented are dominating relationships
 ///          such as (x < 5) dominates (x < 8) etc.
-Relation::Kind
+dfpred::Relation::Kind
 relation(const SimplePredicate& lhs, const SimplePredicate& rhs)
 {
+  using dfpred::Relation;
+
   if (lhs == rhs) { return Relation::same; }
 
   // check the relationship by negating the two arguments
@@ -352,7 +193,7 @@ int main( int argc, char * argv[] )
 
         Dbg::init("Some Test", ".", "index.html");
 
-        PredicateAnalysis<SimplePredicate> pa;
+        dfpred::PredicateAnalysis<SimplePredicate> pa;
         // LazyAnalysis<ValueDataAnalysis> lazy_vda;
 
         UnstructuredPassInterDataflow analyzer(&pa);
