@@ -8,7 +8,7 @@ AC_DEFUN([ROSE_SUPPORT_ROSE_PART_1],
 # This macro encapsulates the complexity of the tests required for ROSE
 # to understnd the machine environment and the configure command line.
 # It is represented a s single macro so that we can simplify the ROSE
-# configure.in and permit other external project to call this macro as 
+# configure.in and permit other external project to call this macro as
 # a way to set up there environment and define the many macros that an
 # application using ROSE might require.
 # *********************************************************************
@@ -184,7 +184,7 @@ else
 fi
 AM_CONDITIONAL(ROSE_BUILD_PROJECTS_DIRECTORY_SUPPORT, [test "x$support_projects_directory" = xyes])
 # ****************************************************
-# ROSE/tests directory compilation & testing 
+# ROSE/tests directory compilation & testing
 # ****************************************************
 AC_MSG_CHECKING([if we should build & test the ROSE/tests directory])
 AC_ARG_ENABLE([tests-directory],AS_HELP_STRING([--disable-tests-directory],[Disable compilation and testing of the ROSE/tests directory]),[],[enableval=yes])
@@ -244,14 +244,14 @@ fi
 #   AC_DEFINE([ROSE_USE_EDG_VERSION_4], [], [Whether to use the new EDG version 4.x])
 # fi
 
-# DQ (11/14/2011): Added new configure mode to support faster development of langauge specific 
+# DQ (11/14/2011): Added new configure mode to support faster development of langauge specific
 # frontend support (e.g. for work on new EDG 4.3 front-end integration into ROSE).
 AC_ARG_ENABLE(internalFrontendDevelopment, AS_HELP_STRING([--enable-internalFrontendDevelopment], [Enable development mode to reduce files required to support work on language frontends]))
 AM_CONDITIONAL(ROSE_USE_INTERNAL_FRONTEND_DEVELOPMENT, [test "x$enable_internalFrontendDevelopment" = xyes])
 if test "x$enable_internalFrontendDevelopment" = "xyes"; then
   AC_MSG_WARN([Using reduced set of files to support faster development of language frontend work; e.g. new EDG version 4.3 to translate EDG to ROSE (internal use only)!])
 
-# DQ (11/14/2011): It is not good enough for this to be processed here (added to the rose_config.h file) 
+# DQ (11/14/2011): It is not good enough for this to be processed here (added to the rose_config.h file)
 # since it is seen too late in the process.
 # AC_DEFINE([ROSE_USE_INTERNAL_FRONTEND_DEVELOPMENT], [], [Whether to use internal reduced mode to support integration of the new EDG version 4.x])
 fi
@@ -324,7 +324,7 @@ ROSE_EDG_MINOR_VERSION_NUMBER=$edg_minor_version_number
 AC_SUBST(ROSE_EDG_MAJOR_VERSION_NUMBER)
 AC_SUBST(ROSE_EDG_MINOR_VERSION_NUMBER)
 
-# DQ (2/3/2010): I would like to not have to use these and use the new 
+# DQ (2/3/2010): I would like to not have to use these and use the new
 # ROSE_EDG_MAJOR_VERSION_NUMBER and ROSE_EDG_MINOR_VERSION_NUMBER instead.
 AM_CONDITIONAL(ROSE_USE_NEW_EDG_INTERFACE, [test "x$enable_new_edg_interface" = xyes])
 AM_CONDITIONAL(ROSE_USE_EDG_VERSION_4, [test "x$enable_edg_version4" = xyes])
@@ -449,7 +449,7 @@ echo "CFLAGS   = $CFLAGS"
 echo "CXXFLAGS = $CXXFLAGS"
 echo "CPPFLAGS = $CPPFLAGS"
 
-# DQ: added here to see if it would be defined for the template tests and avoid placing 
+# DQ: added here to see if it would be defined for the template tests and avoid placing
 # a $(CXX_TEMPLATE_REPOSITORY_PATH) directory in the top level build directory (a minor error)
 CXX_TEMPLATE_REPOSITORY_PATH='$(top_builddir)/src'
 
@@ -554,7 +554,7 @@ AM_CONDITIONAL(ROSE_USE_MYSQL,test "$found_mysql" = yes)
 # we can make the backend selection a bit more compiler dependent. Actually we likely
 # don't need this!
 # DQ (9/17/2006): These should be the same for both C and C++ (else we will need separate macros)
-# Setup the -D<xxx> defines required to allow EDG to take the same path through the compiler 
+# Setup the -D<xxx> defines required to allow EDG to take the same path through the compiler
 # specific and system specific header files as for the backend compiler.  These depend
 # upon the selection of the back-end compiler.
 # GET_COMPILER_SPECIFIC_DEFINES
@@ -565,7 +565,7 @@ CHOOSE_BACKEND_COMPILER
 # For testing the configure script generation this link can be commented out
 # to improve performance of tests unrelated to backend compiler headr files.
 # DQ (9/17/2006): This must be done for BOTH C++ and C compilers (since the
-# compiler-specific header files for each can be different; as is the case 
+# compiler-specific header files for each can be different; as is the case
 # for GNU).
 # GENERATE_BACKEND COMPILER_SPECIFIC_HEADERS
 # GENERATE_BACKEND_CXX_COMPILER_SPECIFIC_HEADERS
@@ -585,7 +585,7 @@ AC_DEFUN([ROSE_SUPPORT_ROSE_BUILD_INCLUDE_FILES],
 rm -rf ./include-staging
 if test x$enable_new_edg_interface = xyes; then
   :
-# DQ (11/1/2011): I think that we need these for more complex header file 
+# DQ (11/1/2011): I think that we need these for more complex header file
 # requirements than we have seen in testing C code to date.  Previously
 # in testing C codes with the EDG 4.x we didn't need as many header files.
   GENERATE_BACKEND_C_COMPILER_SPECIFIC_HEADERS
@@ -616,7 +616,7 @@ AC_PROG_CXX
 echo "In configure.in ... CXX = $CXX"
 
 # DQ (9/17/2006): These should be the same for both C and C++ (else we will need separate macros)
-# Setup the -D<xxx> defines required to allow EDG to take the same path through the compiler 
+# Setup the -D<xxx> defines required to allow EDG to take the same path through the compiler
 # specific and system specific header files as for the backend compiler.  These depend
 # upon the selection of the back-end compiler.
 GET_COMPILER_SPECIFIC_DEFINES
@@ -648,7 +648,7 @@ AM_PATH_XML2(2.0.0, [with_xml="yes"])
 AM_CONDITIONAL(ROSE_USE_XML,test "$with_xml" != no)
 
 # DQ (10/17/2009): This is a bug introduced (again) into ROSE which disables the Java support.
-# See elsewhere in this file where this macro is commented out and the reason explained in 
+# See elsewhere in this file where this macro is commented out and the reason explained in
 # more details.
 # AS Check for ssl for the binary clone detection work
 # CHECK_SSL
@@ -780,7 +780,7 @@ AM_CONDITIONAL(ROSE_USE_LIBFFI,test ! "$with_libffi" = no)
 
 TEST_SMT_SOLVER=""
 AC_ARG_WITH(smt-solver,
-[  --with-smt-solver=PATH	Specify the path to an SMT-LIB compatible SMT solver.  Used only for testing.],
+[  --with-smt-solver=PATH Specify the path to an SMT-LIB compatible SMT solver.  Used only for testing.],
 if test "x$with_smt_solver" = "xcheck" -o "x$with_smt_solver" = "xyes"; then
   AC_ERROR([--with-smt-solver cannot be auto-detected])
 fi
@@ -827,7 +827,7 @@ AM_CONDITIONAL(ROSE_USE_WINDOWS_ANALYSIS_SUPPORT,test ! "$with_wine" = no)
 ROSE_SUPPORT_EDG_DEBUGGING
 
 # Call supporting macro for Omni OpenMP
-# 
+#
 ROSE_SUPPORT_OMNI_OPENMP
 
 # call supporting macro for GCC 4.4.x gomp OpenMP runtime library
@@ -1066,38 +1066,38 @@ fi
 # TV (05/25/2010): Check for Parma Polyhedral Library (PPL)
 
 AC_ARG_WITH(
-	[ppl],
-	AS_HELP_STRING([--with-ppl@<:@=DIR@:>@], [use Parma Polyhedral Library (PPL)]),
-	[
-	if test "$withval" = "no"; then
-		echo "Error: --with-ppl=PATH must be specified to use option --with-ppl (a valid Parma Polyhedral Library (PPL) intallation)"
-		exit 1
-	elif test "$withval" = "yes"; then
-		echo "Error: --with-ppl=PATH must be specified to use option --with-ppl (a valid Parma Polyhedral Library (PPL) intallation)"
-		exit 1
-	else
-		has_ppl_path="yes"
-		ppl_path="$withval"
-	fi
-	],
-	[has_ppl_path="no"]
+  [ppl],
+  AS_HELP_STRING([--with-ppl@<:@=DIR@:>@], [use Parma Polyhedral Library (PPL)]),
+  [
+  if test "$withval" = "no"; then
+    echo "Error: --with-ppl=PATH must be specified to use option --with-ppl (a valid Parma Polyhedral Library (PPL) intallation)"
+    exit 1
+  elif test "$withval" = "yes"; then
+    echo "Error: --with-ppl=PATH must be specified to use option --with-ppl (a valid Parma Polyhedral Library (PPL) intallation)"
+    exit 1
+  else
+    has_ppl_path="yes"
+    ppl_path="$withval"
+  fi
+  ],
+  [has_ppl_path="no"]
 )
 
 AC_ARG_ENABLE(
-	ppl,
-	AS_HELP_STRING(
-		[--enable-ppl],
-		[Support for Parma Polyhedral Library (PPL)]
-	)
+  ppl,
+  AS_HELP_STRING(
+    [--enable-ppl],
+    [Support for Parma Polyhedral Library (PPL)]
+  )
 )
 AM_CONDITIONAL(
-	ROSE_USE_PPL,
-	[test "x$enable_ppl" = "xyes"])
+  ROSE_USE_PPL,
+  [test "x$enable_ppl" = "xyes"])
 if test "x$enable_ppl" = "xyes"; then
-	if test "x$has_ppl_path" = "xyes"; then
-		PPL_PATH="$ppl_path"
-		AC_DEFINE([ROSE_USE_PPL], [], [Whether to use Parma Polyhedral Library (PPL) support or not within ROSE])
-	fi
+  if test "x$has_ppl_path" = "xyes"; then
+    PPL_PATH="$ppl_path"
+    AC_DEFINE([ROSE_USE_PPL], [], [Whether to use Parma Polyhedral Library (PPL) support or not within ROSE])
+  fi
 fi
 AC_SUBST(ROSE_USE_PPL)
 AC_SUBST(PPL_PATH)
@@ -1107,38 +1107,38 @@ AC_SUBST(PPL_PATH)
 # *********************************************************************************
 
 AC_ARG_WITH(
-	[cloog],
-	AS_HELP_STRING([--with-cloog@<:@=DIR@:>@], [use Cloog]),
-	[
-	if test "$withval" = "no"; then
-		echo "Error: --with-cloog=PATH must be specified to use option --with-cloog (a valid Cloog intallation)"
-		exit 1
-	elif test "$withval" = "yes"; then
-		echo "Error: --with-cloog=PATH must be specified to use option --with-cloog (a valid Cloog intallation)"
-		exit 1
-	else
-		has_cloog_path="yes"
-		cloog_path="$withval"
-	fi
-	],
-	[has_cloog_path="no"]
+  [cloog],
+  AS_HELP_STRING([--with-cloog@<:@=DIR@:>@], [use Cloog]),
+  [
+  if test "$withval" = "no"; then
+    echo "Error: --with-cloog=PATH must be specified to use option --with-cloog (a valid Cloog intallation)"
+    exit 1
+  elif test "$withval" = "yes"; then
+    echo "Error: --with-cloog=PATH must be specified to use option --with-cloog (a valid Cloog intallation)"
+    exit 1
+  else
+    has_cloog_path="yes"
+    cloog_path="$withval"
+  fi
+  ],
+  [has_cloog_path="no"]
 )
 
 AC_ARG_ENABLE(
-	cloog,
-	AS_HELP_STRING(
-		[--enable-cloog],
-		[Support for Cloog]
-	)
+  cloog,
+  AS_HELP_STRING(
+    [--enable-cloog],
+    [Support for Cloog]
+  )
 )
 AM_CONDITIONAL(
-	ROSE_USE_CLOOG,
-	[test "x$enable_cloog" = "xyes"])
+  ROSE_USE_CLOOG,
+  [test "x$enable_cloog" = "xyes"])
 if test "x$enable_cloog" = "xyes"; then
-	if test "x$has_cloog_path" = "xyes"; then
-		CLOOG_PATH="$cloog_path"
-		AC_DEFINE([ROSE_USE_CLOOG], [], [Whether to use Cloog support or not within ROSE])
-	fi
+  if test "x$has_cloog_path" = "xyes"; then
+    CLOOG_PATH="$cloog_path"
+    AC_DEFINE([ROSE_USE_CLOOG], [], [Whether to use Cloog support or not within ROSE])
+  fi
 fi
 AC_SUBST(ROSE_USE_CLOOG)
 AC_SUBST(CLOOG_PATH)
@@ -1148,38 +1148,38 @@ AC_SUBST(CLOOG_PATH)
 # **************************************************************************************
 
 AC_ARG_WITH(
-	[scoplib],
-	AS_HELP_STRING([--with-scoplib@<:@=DIR@:>@], [use ScopLib]),
-	[
-	if test "$withval" = "no"; then
-		echo "Error: --with-scoplib=PATH must be specified to use option --with-scoplib (a valid ScopLib intallation)"
-		exit 1
-	elif test "$withval" = "yes"; then
-		echo "Error: --with-scoplib=PATH must be specified to use option --with-scoplib (a valid ScopLib intallation)"
-		exit 1
-	else
-		has_scoplib_path="yes"
-		scoplib_path="$withval"
-	fi
-	],
-	[has_scoplib_path="no"]
+  [scoplib],
+  AS_HELP_STRING([--with-scoplib@<:@=DIR@:>@], [use ScopLib]),
+  [
+  if test "$withval" = "no"; then
+    echo "Error: --with-scoplib=PATH must be specified to use option --with-scoplib (a valid ScopLib intallation)"
+    exit 1
+  elif test "$withval" = "yes"; then
+    echo "Error: --with-scoplib=PATH must be specified to use option --with-scoplib (a valid ScopLib intallation)"
+    exit 1
+  else
+    has_scoplib_path="yes"
+    scoplib_path="$withval"
+  fi
+  ],
+  [has_scoplib_path="no"]
 )
 
 AC_ARG_ENABLE(
-	scoplib,
-	AS_HELP_STRING(
-		[--enable-scoplib],
-		[Support for ScopLib]
-	)
+  scoplib,
+  AS_HELP_STRING(
+    [--enable-scoplib],
+    [Support for ScopLib]
+  )
 )
 AM_CONDITIONAL(
-	ROSE_USE_SCOPLIB,
-	[test "x$enable_scoplib" = "xyes"])
+  ROSE_USE_SCOPLIB,
+  [test "x$enable_scoplib" = "xyes"])
 if test "x$enable_scoplib" = "xyes"; then
-	if test "x$has_scoplib_path" = "xyes"; then
-		SCOPLIB_PATH="$scoplib_path"
-		AC_DEFINE([ROSE_USE_SCOPLIB], [], [Whether to use ScopLib support or not within ROSE])
-	fi
+  if test "x$has_scoplib_path" = "xyes"; then
+    SCOPLIB_PATH="$scoplib_path"
+    AC_DEFINE([ROSE_USE_SCOPLIB], [], [Whether to use ScopLib support or not within ROSE])
+  fi
 fi
 AC_SUBST(ROSE_USE_SCOPLIB)
 AC_SUBST(SCOPLIB_PATH)
@@ -1189,38 +1189,38 @@ AC_SUBST(SCOPLIB_PATH)
 # *************************************************************************************
 
 AC_ARG_WITH(
-	[candl],
-	AS_HELP_STRING([--with-candl@<:@=DIR@:>@], [use Candl]),
-	[
-	if test "$withval" = "no"; then
-		echo "Error: --with-candl=PATH must be specified to use option --with-candl (a valid Candl intallation)"
-		exit 1
-	elif test "$withval" = "yes"; then
-		echo "Error: --with-candl=PATH must be specified to use option --with-candl (a valid Candl intallation)"
-		exit 1
-	else
-		has_candl_path="yes"
-		candl_path="$withval"
-	fi
-	],
-	[has_candl_path="no"]
+  [candl],
+  AS_HELP_STRING([--with-candl@<:@=DIR@:>@], [use Candl]),
+  [
+  if test "$withval" = "no"; then
+    echo "Error: --with-candl=PATH must be specified to use option --with-candl (a valid Candl intallation)"
+    exit 1
+  elif test "$withval" = "yes"; then
+    echo "Error: --with-candl=PATH must be specified to use option --with-candl (a valid Candl intallation)"
+    exit 1
+  else
+    has_candl_path="yes"
+    candl_path="$withval"
+  fi
+  ],
+  [has_candl_path="no"]
 )
 
 AC_ARG_ENABLE(
-	candl,
-	AS_HELP_STRING(
-		[--enable-candl],
-		[Support for Candl]
-	)
+  candl,
+  AS_HELP_STRING(
+    [--enable-candl],
+    [Support for Candl]
+  )
 )
 AM_CONDITIONAL(
-	ROSE_USE_CANDL,
-	[test "x$enable_candl" = "xyes"])
+  ROSE_USE_CANDL,
+  [test "x$enable_candl" = "xyes"])
 if test "x$enable_candl" = "xyes"; then
-	if test "x$has_candl_path" = "xyes"; then
-		CANDL_PATH="$candl_path"
-		AC_DEFINE([ROSE_USE_CANDL], [], [Whether to use Candl support or not within ROSE])
-	fi
+  if test "x$has_candl_path" = "xyes"; then
+    CANDL_PATH="$candl_path"
+    AC_DEFINE([ROSE_USE_CANDL], [], [Whether to use Candl support or not within ROSE])
+  fi
 fi
 AC_SUBST(ROSE_USE_CANDL)
 AC_SUBST(CANDL_PATH)
@@ -1236,7 +1236,7 @@ ROSE_SUPPORT_DOXYGEN
 # Setup Automake conditional to allow use of Doxygen Tag file to speedup
 # generation of Rose documentation this does not however provide the
 # best organized documentation so we use it as an option to speed up
-# the development of the documenation and then alternatively build the 
+# the development of the documenation and then alternatively build the
 # final documentation.
 # AM_CONDITIONAL(DOXYGEN_GENERATE_FAST_DOCS,test "$enable_doxygen_generate_fast_docs" = yes)
 # echo "In configure.in: enable_doxygen_generate_fast_docs = $enable_doxygen_generate_fast_docs"
@@ -1325,11 +1325,11 @@ AC_MSG_RESULT($CXX_ID-$CXX_VERSION)
 
 # Enable turning on purify and setting its options, etc.
 ROSE_SUPPORT_PURIFY
-# echo "In ROSE/configure: AUX_LINKER = $AUX_LINKER" 
+# echo "In ROSE/configure: AUX_LINKER = $AUX_LINKER"
 
 # Enable turning on Insure and setting its options, etc.
 ROSE_SUPPORT_INSURE
-# echo "In ROSE/configure: AUX_LINKER = $AUX_LINKER" 
+# echo "In ROSE/configure: AUX_LINKER = $AUX_LINKER"
 
 # DQ (7/8/2004): Added support for shared libraries using Brian's macros
 # ROSE_TEST_LIBS="-L`pwd`/src"
@@ -1350,27 +1350,27 @@ dnl
 dnl echo "Calling LIBS_ADD_RPATH ROSE_TEST_LIBS = $ROSE_TEST_LIBS"
 dnl # Macro copied from Brian Gummey's implementation and turned on by default.
 dnl ROSE_LIBS_ADD_RPATH(ROSE_TEST_LIBS,LIBS_WITH_RPATH,0)
-dnl 
+dnl
 dnl # This is part of support for Boost-Wave (CPP Preprocessor Library)
 dnl # Only add the Boost-Wave library to rpath if it has been set
 dnl if (test "$with_boost_wave" = yes); then
 dnl    MY_WAVE_PATH="-L$wave_libraries"
 dnl    ROSE_LIBS_ADD_RPATH(MY_WAVE_PATH,LIBS_WITH_RPATH,0)
 dnl fi
-dnl 
+dnl
 dnl echo "DONE: MY_WAVE_PATH                   = $MY_WAVE_PATH"
 dnl echo "DONE: LIBS_ADD_RPATH ROSE_TEST_LIBS  = $ROSE_TEST_LIBS"
 dnl echo "DONE: LIBS_ADD_RPATH LIBS_WITH_RPATH = $LIBS_WITH_RPATH"
-dnl 
+dnl
 dnl # exit 1
-dnl 
+dnl
 dnl # This is part of support for QRose (specification of QT Graphics Library)
 dnl # Only add the QT library to rpath if it has been set
 dnl if (test "$ac_qt_libraries"); then
 dnl    MY_QT_PATH="-L$ac_qt_libraries"
 dnl    ROSE_LIBS_ADD_RPATH(MY_QT_PATH,LIBS_WITH_RPATH,0)
 dnl fi
-dnl 
+dnl
 dnl echo "DONE: MY_QT_PATH                     = $MY_QT_PATH"
 dnl echo "DONE: LIBS_ADD_RPATH ROSE_TEST_LIBS  = $ROSE_TEST_LIBS"
 dnl echo "DONE: LIBS_ADD_RPATH LIBS_WITH_RPATH = $LIBS_WITH_RPATH"
@@ -1399,9 +1399,9 @@ AC_MSG_RESULT($CXX_STATIC_LIB_UPDATE and $CXX_DYNAMIC_LIB_UPDATE)
 # BTNG.
 AC_MSG_CHECKING(for A++P++)
 AC_ARG_WITH(AxxPxx,
-[  --with-AxxPxx=PATH	Specify the prefix where A++P++ is installed],
+[  --with-AxxPxx=PATH Specify the prefix where A++P++ is installed],
 ,
-if test "$AxxPxx_PREFIX" ; then 
+if test "$AxxPxx_PREFIX" ; then
    with_AxxPxx="$AxxPxx_PREFIX"
 else
    with_AxxPxx=no
@@ -1445,7 +1445,7 @@ AC_ARG_WITH(PERFORMANCE_TESTS,
    [  --with-PERFORMANCE_TESTS ... compile and run performance tests within both A++ and P++],, with_PERFORMANCE_TESTS=no )
 # BTNG_AC_LOG(with_PERFORMANCE_TESTS is $with_PERFORMANCE_TESTS)
 # with_PERFORMANCE_TESTS variable is exported so that other packages
-# (e.g. indirect addressing) can set 
+# (e.g. indirect addressing) can set
 # themselves up dependent upon the use/non-use of PADRE
 export with_PERFORMANCE_TESTS;
 
@@ -1476,7 +1476,7 @@ dnl    fi
 dnl    with_gcj=yes
 dnl ],[
 dnl    _AM_IF_OPTION([no-dependencies],, [_AM_DEPENDENCIES(GCJ)])
-dnl ]) 
+dnl ])
 with_gcj=no ; # JJW 5-22-2008 The code that was here before broke if gcj was not present, even if the --with-gcj flag was absent
 AM_CONDITIONAL(USE_GCJ,test "$with_gcj" = yes)
 
@@ -1500,8 +1500,8 @@ AC_SUBST(RT_LIBS)
 # AC_CONFIG_SUBDIRS(TESTS/PerformanceTests/BenchmarkBase)
 # AC_SUBST(optional_PERFORMANCE_subdirs)
 
-# DQ (12/16/2009): This option is now removed since the developersScratchSpace has been 
-# removed from the ROSE's git repository and it is a separate git repository that can be 
+# DQ (12/16/2009): This option is now removed since the developersScratchSpace has been
+# removed from the ROSE's git repository and it is a separate git repository that can be
 # checked out internally by ROSE developers.
 # Set up for Dan Quinlan's development test directory.
 # AC_ARG_ENABLE(dq-developer-tests,
@@ -1600,15 +1600,15 @@ AC_DEFUN([ROSE_SUPPORT_ROSE_PART_4],
 # Begin macro ROSE_SUPPORT_ROSE_PART_4.
 
 dnl ---------------------------------------------------------------------
-dnl (8/29/2007): This was added to provide more portable times upon the 
+dnl (8/29/2007): This was added to provide more portable times upon the
 dnl suggestion of Matt Sottile at LANL.
 dnl ---------------------------------------------------------------------
 AC_C_INLINE
 AC_HEADER_TIME
 AC_CHECK_HEADERS([sys/time.h c_asm.h intrinsics.h mach/mach_time.h])
 
-AC_CHECK_TYPE([hrtime_t],[AC_DEFINE(HAVE_HRTIME_T, 1, [Define to 1 if hrtime_t is defined in <sys/time.h>])],,[#if HAVE_SYS_TIME_H 
-#include <sys/time.h> 
+AC_CHECK_TYPE([hrtime_t],[AC_DEFINE(HAVE_HRTIME_T, 1, [Define to 1 if hrtime_t is defined in <sys/time.h>])],,[#if HAVE_SYS_TIME_H
+#include <sys/time.h>
 #endif])
 
 AC_CHECK_FUNCS([gethrtime read_real_time time_base_to_time clock_gettime mach_absolute_time])
@@ -1631,7 +1631,7 @@ AC_SUBST(top_pwd)
 absolute_path_srcdir="`cd $srcdir; pwd`"
 AC_SUBST(absolute_path_srcdir)
 
-# Liao 6/20/2011, store source path without symbolic links, used to have consistent source and compile paths for ROSE 
+# Liao 6/20/2011, store source path without symbolic links, used to have consistent source and compile paths for ROSE
 # when call graph analysis tests are used.
 res_top_src=$(cd "$srcdir" && pwd -P)
 AC_DEFINE_UNQUOTED([ROSE_SOURCE_TREE_PATH],"$res_top_src",[Location of ROSE Source Tree.])
@@ -1679,7 +1679,7 @@ AC_ARG_WITH(QRose, [  --with-QRose=PATH     prefix of QRose installation],
        exit 1
     fi
    ],
-	[with_QRose=no])
+  [with_QRose=no])
 
 AC_SUBST(QROSE_PREFIX)
 AM_CONDITIONAL(ROSE_USE_QROSE,test "x$with_QRose" != xno)
@@ -1698,7 +1698,7 @@ echo "with_QRose = $with_QRose"
 #         Support for Qt (General GUI support)
 # ****************************************************
 
-# These are defined in config/qrose_indigo_1.m4, they 
+# These are defined in config/qrose_indigo_1.m4, they
 # are not standard AC macros.
 AC_PATH_QT
 AC_PATH_QT_MOC
@@ -1745,7 +1745,7 @@ AC_ARG_WITH(ether,
                       Ether is a layer on top of Xen for accessing Windows XP OS-level data
                       structures (http://ether.gtisc.gatech.edu)],
         [AC_DEFINE(ROSE_USE_ETHER, 1, [Defined if Ether from Georgia Tech is available.])
-	 if test "$with_ether" = "yes"; then ETHER_PREFIX=/usr; else ETHER_PREFIX="$with_ether"; fi],
+   if test "$with_ether" = "yes"; then ETHER_PREFIX=/usr; else ETHER_PREFIX="$with_ether"; fi],
         [with_ether=no])
 AC_SUBST(ETHER_PREFIX)
 AM_CONDITIONAL(ROSE_USE_ETHER,test "$with_ether" != "no")
@@ -1771,9 +1771,9 @@ AC_CHECK_HEADERS(pthread.h)
 # Check for the __thread keyword.  This type qualifier creates objects that are thread local.
 AC_MSG_CHECKING([for thread local storage type qualifier])
 AC_COMPILE_IFELSE([struct S {int a, b;}; static __thread struct S x;],
-	[AC_DEFINE(ROSE_THREAD_LOCAL_STORAGE, __thread, [Define to __thread keyword for thread local storage.])
-	 AC_MSG_RESULT([__thread])],
-	[AC_MSG_RESULT([not supported])])
+  [AC_DEFINE(ROSE_THREAD_LOCAL_STORAGE, __thread, [Define to __thread keyword for thread local storage.])
+   AC_MSG_RESULT([__thread])],
+  [AC_MSG_RESULT([not supported])])
 
 # These headers and types are needed by projects/simulator [matzke 2009-07-02]
 AC_CHECK_HEADERS([asm/ldt.h elf.h linux/types.h linux/dirent.h linux/unistd.h])
@@ -1783,7 +1783,7 @@ AC_CHECK_FUNCS(pipe2)
 AC_CHECK_TYPE(user_desc,
               AC_DEFINE(HAVE_USER_DESC, [], [Defined if the user_desc type is declared in <asm/ldt.h>]),
               [],
-	      [#include <asm/ldt.h>])
+        [#include <asm/ldt.h>])
 
 # PC (7/10/2009): The Haskell build system expects a fully numeric version number.
 PACKAGE_VERSION_NUMERIC=`echo $PACKAGE_VERSION | sed -e 's/\([[a-z]]\+\)/\.\1/; y/a-i/1-9/'`
@@ -2127,6 +2127,10 @@ projects/roseToLLVM/src/Makefile
 projects/roseToLLVM/src/rosetollvm/Makefile
 projects/roseToLLVM/tests/Makefile
 projects/RosePolly/Makefile
+projects/ssaAnalysis/Makefile
+projects/ssaAnalysis/include/Makefile
+projects/ssaAnalysis/src/Makefile
+projects/ssaAnalysis/tests/Makefile
 projects/simulator/Makefile
 projects/symbolicAnalysisFramework/Makefile
 projects/symbolicAnalysisFramework/src/chkptRangeAnalysis/Makefile
@@ -2414,17 +2418,16 @@ AC_CONFIG_COMMANDS([default],[[
 
 # Generate rose_paths.C
 AC_CONFIG_COMMANDS([rose_paths.C], [[
-	make src/util/rose_paths.C
+  make src/util/rose_paths.C
 ]])
 
 # Generate public config file from private config file. The public config file adds "ROSE_" to the beginning of
 # certain symbols. See scripts/publicConfiguration.pl for details.
 AC_CONFIG_COMMANDS([rosePublicConfig.h],[[
-	make rosePublicConfig.h
+  make rosePublicConfig.h
 ]])
 
 
 # End macro ROSE_SUPPORT_ROSE_PART_7.
 ]
 )
-

@@ -25,14 +25,15 @@ void printAnalysisStates::visit(const Function& func, const DataflowNode& n, Nod
                 else
                         Dbg::dbg << indent << "    fact"<<*it<<" = None\n";
         }
-        
+
         for(vector<int>::iterator it = latticeNames.begin(); it!=latticeNames.end(); it++)
         {
-                Lattice* lat;
-                if(latSide==above) lat = state.getLatticeAbove(creator, *it);
-                else               lat = state.getLatticeBelow(creator, *it);
-                if(lat)
-                        Dbg::dbg << indent << "    lattice"<<*it<<" = \n"<<lat->str(indent+"    ")<<"\n";
+                // Lattice* lat;
+                const AnyLattice& lat = (latSide==above) ? state.getLatticeAbove(creator, *it)
+                                                         : state.getLatticeBelow(creator, *it);
+                // \pp \todo was: if lat != NULL
+                if (lat.isInitialized())
+                        Dbg::dbg << indent << "    lattice"<<*it<<" = \n"<<lat.str(indent+"    ")<<"\n";
                 else
                         Dbg::dbg << indent << "    lattice"<<*it<<" = None\n";
         }
