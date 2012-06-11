@@ -108,7 +108,8 @@ ROSE_INCLUDES = \
      -I$(ROSE_SOURCE_DIR)/src/3rdPartyLibraries/qrose/Widgets  \
      -I$(ROSE_SOURCE_DIR)/src/util/graphs \
      -I$(ROSE_SOURCE_DIR)/src/midend/astUtil/astInterface \
-     -I$(ROSE_SOURCE_DIR)/libltdl
+     -I$(ROSE_SOURCE_DIR)/libltdl \
+     -I$(ROSE_SOURCE_DIR)/projects/ssaAnalysis/include
 
 # Location of Boost include directory
 BOOST_CPPFLAGS = -pthread -I/usr/include
@@ -125,6 +126,7 @@ ROSE_LIB_DIR = $(ROSE_BUILD_DIR)/src
 
 ROSE_LIBS = $(ROSE_LIB_DIR)/librose.la
 LIBTOOL = $(ROSE_BUILD_DIR)/libtool
+SSALIB = $(ROSE_BUILD_DIR)/projects/ssaAnalysis/src/libssaanalysis.a
 
 .PHONY: default all check
 
@@ -132,7 +134,7 @@ LIBTOOL = $(ROSE_BUILD_DIR)/libtool
 default: edgeflow.exe
 	@if [ x$${ROSE_IN_BUILD_TREE:+present} = xpresent ]; then echo "ROSE_IN_BUILD_TREE should not be set" >&2; exit 1; fi
 
-all: edgeflow.exe constExperiments.exe inductionVariables.exe loopDetection.exe
+all: edgeflow.exe
 	@if [ x$${ROSE_IN_BUILD_TREE:+present} = xpresent ]; then echo "ROSE_IN_BUILD_TREE should not be set" >&2; exit 1; fi
 
 # Example suffix rule for more experienced makefile users
@@ -140,12 +142,12 @@ all: edgeflow.exe constExperiments.exe inductionVariables.exe loopDetection.exe
 #	g++ -c -I$(ROSE_INCLUDE_DIR) -o $@ $(@:.o=.C)
 
 # Compile the exampleTranslator using the file identityTranslator.C
-%.lo: %.cpp
+%.lo: %.cpp predflow.h sageplus.h sagePredicate.h
 	$(LIBTOOL) --tag=CXX --mode=compile $(CXX) $(CXXFLAGS) -ggdb -Wall $(CPPFLAGS) $(ROSE_INCLUDES) $(BOOST_CPPFLAGS) -c -o $@ $<
 
-%.exe: %.lo
-	$(LIBTOOL) --tag=CXX --mode=link $(CXX) $(CXXFLAGS) $(LDFLAGS) -o $@ $< $(ROSE_LIBS)
+edgeflow.exe: edgeflow.lo sagePredicate.lo sageplus.lo
+	$(LIBTOOL) --tag=CXX --mode=link $(CXX) $(CXXFLAGS) $(LDFLAGS) -o $@ $^ $(ROSE_LIBS) $(SSALIB)
 
 # Rule used by make installcheck to verify correctness of installed libraries
-check:
-	./inductionVariables -c $(ROSE_SOURCE_DIR)/testCode.C
+#check:
+#	./inductionVariables -c $(ROSE_SOURCE_DIR)/testCode.C

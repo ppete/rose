@@ -194,7 +194,7 @@ namespace dfpred
     // \Q should this be better done in relation?
     // \A probably not, as the conflicts function is invoked in
     //    any case before the new predicate gets added to cp
-    if (isEmpty(cand)) Relation::same;
+    if (isEmpty(cand)) return Relation::same;
 
     ConstIterator aa = cp.begin();
     ConstIterator zz = cp.end();
@@ -610,12 +610,6 @@ namespace dfpred
     : Base(), assignee(lhs), value(rhs)
     {}
 
-    // convenience ctor for SgAssignOp
-    explicit
-    AssignPredicator(const SgAssignOp& assign)
-    : Base(), assignee(lhs_operand(assign)), value(rhs_operand(assign))
-    {}
-
     void unconstrained(const ConjunctedPredicate<BasePredicate>& cp)
     {
       unconstrained_boolean_edge_twin(res, cp, assignee, value);
@@ -630,6 +624,13 @@ namespace dfpred
       constrain_edge(cpred, spgen(assignee), eckind, res);
     }
   };
+
+  template <class BasePredicate>
+  AssignPredicator<BasePredicate>
+  assignPredicator(const BasePredicate& lhs, const BasePredicate& rhs)
+  {
+    return AssignPredicator<BasePredicate>(lhs, rhs);
+  }
 
   template <class BasePredicate>
   struct NotPredicator : ExprPredicator<BasePredicate, NotPredicator<BasePredicate> >
@@ -770,12 +771,8 @@ namespace dfpred
     const BasePredicate&    exp;
     const EdgeConditionKind edegecond; // \todo consider converting edge into a value
 
-    BoolEvalPredicator(const BasePredicate& cond, const DataflowEdge& e)
-    : exp(cond), edegecond(e.condition())
-    {}
-
-    BoolEvalPredicator(const SgExpression& cond, EdgeConditionKind eck)
-    : exp(cond), edegecond(eck)
+    BoolEvalPredicator(const BasePredicate& cond, EdgeConditionKind eckind)
+    : exp(cond), edegecond(eckind)
     {}
 
     void operator()(const ConjunctedPredicate<BasePredicate>& cp)
@@ -786,11 +783,17 @@ namespace dfpred
 
   template <class BasePredicate>
   BoolEvalPredicator<BasePredicate>
-  boolEvalPredicator(const BasePredicate& guard, const DataflowEdge& e)
+  boolEvalPredicator(const BasePredicate& guard, EdgeConditionKind eckind)
   {
-    return BoolEvalPredicator<BasePredicate>(guard, e);
+    return BoolEvalPredicator<BasePredicate>(guard, eckind);
   }
 
+  template <class BasePredicate>
+  BoolEvalPredicator<BasePredicate>
+  boolEvalPredicator(const BasePredicate& guard, const DataflowEdge& edge)
+  {
+    return boolEvalPredicator(guard, edge.condition());
+  }
 
   //
   // Transfer Function
@@ -824,7 +827,7 @@ namespace dfpred
 
   template <class APredicateLattice>
   static
-  void store_predicates(const SgExpression& key, const APredicateLattice& l)
+  void store_predicates(const SgLocatedNode& key, const APredicateLattice& l)
   {
     // \todo complete function
     std::cout << "(todo)  STORE[ " << key.unparseToString() << " ] = " << l << std::endl;
@@ -844,7 +847,7 @@ namespace dfpred
     {}
 
     // handles assignments (in some ctor's and expressions)
-    void handle_assign(const SgExpression& lhs, const SgExpression& rhs);
+    void handle_assign(const predicate_type& lhs, const SgExpression& rhs, const SgLocatedNode& key);
 
     // generically handles statements
     void handle_stmt(const SgStatement& n);
@@ -887,10 +890,9 @@ namespace dfpred
       trace('d');
 
       // temporarily create an expression for the initialized name
-      std::auto_ptr<SgVarRefExp>      lhs(SageBuilder::buildVarRefExp(&var));
       const SgExpression&             rhs = sg::deref(init->get_operand());
 
-      handle_assign(*lhs, rhs);
+      handle_assign(predicate_type::create(*init), rhs, *init);
     }
 
     void handle(const SgExpression& n,      cat::Expr) { handle_expr(n); }
@@ -900,7 +902,7 @@ namespace dfpred
     {
       trace('!');
 
-      apply_predicator(predlat, notPredicator(predicate_type(operand(n))));
+      apply_predicator(predlat, notPredicator(predicate_type::create(operand(n))));
     }
 
     void handle(const SgAssignOp& n, cat::Binary)
@@ -918,7 +920,16 @@ namespace dfpred
         return;
       }
 
-      handle_assign(lhs, rhs_operand(n));
+      handle_assign(predicate_type::create(lhs), rhs_operand(n), n);
+    }
+
+    static inline
+    unsigned node_eval_index(const DataflowEdge& e)
+    {
+      // \todo here we assume forward flow ...
+      unsigned res = e.source().getIndex();
+
+      return res;
     }
 
     template <class AstExpr>
@@ -930,7 +941,7 @@ namespace dfpred
 
       const SgExpression& guard = (node_eval_index(edge) == left_expr ? lhs_operand(n) : rhs_operand(n));
 
-      apply_predicator(predlat, shortCircuitPredicator(predicate_type(guard), edge));
+      apply_predicator(predlat, shortCircuitPredicator(predicate_type::create(guard), edge));
     }
 
     template <class AstExpr>
@@ -938,7 +949,7 @@ namespace dfpred
     {
       trace('/');
 
-      apply_predicator(predlat, boolEvalPredicator(predicate_type(n), edge));
+      apply_predicator(predlat, boolEvalPredicator(predicate_type::create(n), edge));
     }
 
     template <class AstExpr>
@@ -991,24 +1002,24 @@ namespace dfpred
   }
 
   template <class APredicateLattice>
-  void PredicateTransfer<APredicateLattice>::handle_assign(const SgExpression& lhs, const SgExpression& rhs)
+  void PredicateTransfer<APredicateLattice>::handle_assign(const predicate_type& assignee, const SgExpression& rhs, const SgLocatedNode& key)
   {
     trace('=');
 
     // (1) we apply the assign-predicator to generate all possible
     //     combinations of path-predicates
-    apply_predicator(predlat, AssignPredicator<predicate_type>(lhs, rhs));
+    apply_predicator(predlat, assignPredicator(assignee, predicate_type::create(rhs)));
 
     // (2) store the resulting predicate set away in a sparse data structure
     //     so it can be retrieved later
-    store_predicates(lhs, predlat);
+    store_predicates(key, predlat);
 
     // (3) generate a reduced predicate lattice that we will continue to use
     //     as path-predicate (i.e., common path predicates)
     reduce(predlat);
 
     // (4) mixin: lhs and !lhs
-    apply_predicator(predlat, BoolEvalPredicator<predicate_type>(lhs, eckUnconditional));
+    apply_predicator(predlat, boolEvalPredicator(assignee, eckUnconditional));
   }
 
 
@@ -1024,6 +1035,7 @@ namespace dfpred
     {}
   };
 
+  static inline
   std::ostream& operator<<(std::ostream& os, const DFEdgePrinter& dfe)
   {
     DataflowNode  dfnode = dfe.edge.source();
@@ -1098,6 +1110,22 @@ namespace dfpred
         ROSE_ASSERT(false);
       }
   };
+
+  static inline
+  std::ostream& operator<<(std::ostream& o, const Relation::Kind kind)
+  {
+    switch (kind)
+    {
+      case Relation::unknown:      o << "?"; break;
+      case Relation::dominate:     o << "dom"; break;
+      case Relation::same:         o << "=="; break;
+      case Relation::incomparable: o << "#"; break;
+      case Relation::negate:       o << "!"; break;
+      default: assert(false);
+    }
+
+    return o;
+  }
 }
 
 #endif /* _PREDFLOW_H */
