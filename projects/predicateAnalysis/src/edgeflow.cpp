@@ -58,6 +58,11 @@ class SimplePredicate
     /// negates the current predicate
     SimplePredicate operator!() const;
 
+    bool isEmpty() const
+    {
+      return isSgNullExpression(expr)
+    }
+
     const SgExpression& expression() const
     {
       return sg::deref(expr);

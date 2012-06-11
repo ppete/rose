@@ -172,6 +172,11 @@ namespace dfpred
     return ConflictChecker<BasePredicate>(e);
   }
 
+  template <class BasePredicate>
+  bool isEmpty(const BasePredicate& bp)
+  {
+    return bp.isEmpty();
+  }
 
   /// \brief  tests whether cand or its negation is in cp
   /// \return
@@ -182,14 +187,14 @@ namespace dfpred
   {
     typedef typename ConjunctedPredicate<BasePredicate>::const_iterator ConstIterator;
 
-    // if the new expression is a null-expression, it does not
+    // if the new expression does not
     //   contribute any new information to the predicate set.
+    //   e.g., representing a null-Expression
     //   ==> return same;
-    //
     // \Q should this be better done in relation?
     // \A probably not, as the conflicts function is invoked in
     //    any case before the new predicate gets added to cp
-    if (isSgNullExpression(&cand.expression())) return Relation::same;
+    if (isEmpty(cand)) Relation::same;
 
     ConstIterator aa = cp.begin();
     ConstIterator zz = cp.end();
