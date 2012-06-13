@@ -239,12 +239,12 @@ namespace sg
   //
   // compare_equal is an internal function family;
 
-  template <class NodeComparator>
-  bool compare(const SgExpression* lhs, const SgExpression* rhs);
-
   /// invokes equal using the TreeComparator class
   static inline
   int tree_compare(const SgExpression* lhs, const SgExpression* rhs);
+
+  template <class NodeComparator>
+  int compare(const SgExpression* lhs, const SgExpression* rhs);
 
   template <class NodeComparator>
   int compare_children(const SgExpression& lhs, const SgExpression& rhs)
@@ -267,7 +267,7 @@ namespace sg
       const SgExpression* rrnext = isSgExpression(rr.get_traversalSuccessorByIndex(i));
       ROSE_ASSERT(llnext && rrnext);
 
-      comp = sg::dispatch(NodeComparisonHandler<NodeComparator>(*rrnext), llnext);
+      comp = compare<NodeComparator>(rrnext, llnext);
       ++i;
     }
 
@@ -483,7 +483,8 @@ namespace
     // \note since the returned value is not in the AST proper (all AST nodes are cloned
     //   and for some an SgNullExpression is created), the caller is responsible
     //   for lifetime management of the pointer
-    return sg::deref(sg::dispatch(ExpressionGuard(), test_statement(s)));
+    SgExpression* res = sg::dispatch(ExpressionGuard(), test_statement(s));
+    return sg::deref(res);
   }
 
   inline

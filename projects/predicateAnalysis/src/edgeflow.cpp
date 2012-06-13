@@ -25,6 +25,7 @@
 #include "sageplus.h"
 #include "predflow.h"
 #include "sagePredicate.h"
+#include "ssaPredicate.h"
 
 
 int main( int argc, char * argv[] )
@@ -46,12 +47,15 @@ int main( int argc, char * argv[] )
           analyzer.runAnalysis();
         }
 
-#if 0
         // running with SSA representation
+        printf("----------  S  S  A  ----------\n");
+
         {
           hssa_private::HeapSSA hssa(project);
 
           hssa.build(false, true);
+          hssa.toDOT("ssa.dot");
+
           SSAPredicate::myssa = &hssa;
 
           dfpred::PredicateAnalysis<SSAPredicate> pa;
@@ -59,7 +63,6 @@ int main( int argc, char * argv[] )
 
           analyzer.runAnalysis();
         }
-#endif
 
         printf("==========  E  N  D  ==========\n");
 

@@ -142,7 +142,7 @@ all: edgeflow.exe
 #	g++ -c -I$(ROSE_INCLUDE_DIR) -o $@ $(@:.o=.C)
 
 # Compile the exampleTranslator using the file identityTranslator.C
-%.lo: %.cpp predflow.h sageplus.h sagePredicate.h
+%.lo: %.cpp predflow.h sageplus.h sagePredicate.h ssaPredicate.h
 	$(LIBTOOL) --tag=CXX --mode=compile $(CXX) $(CXXFLAGS) -ggdb -Wall $(CPPFLAGS) $(ROSE_INCLUDES) $(BOOST_CPPFLAGS) -c -o $@ $<
 
 edgeflow.exe: edgeflow.lo sagePredicate.lo sageplus.lo
