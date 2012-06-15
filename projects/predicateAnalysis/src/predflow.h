@@ -875,9 +875,7 @@ namespace dfpred
         return;
       }
 
-      // we need the non-const version for calling buildVarRefExp
-            SgInitializedName&   var = const_cast<SgInitializedName&>(n);
-      const SgAssignInitializer* init = isSgAssignInitializer(var.get_initializer());
+      const SgAssignInitializer* init = isSgAssignInitializer(n.get_initializer());
 
       // we only consider assignment initializer
       //   (also see handle implementation for SgAssignInitializer)
@@ -890,7 +888,7 @@ namespace dfpred
       trace('d');
 
       // temporarily create an expression for the initialized name
-      const SgExpression&             rhs = sg::deref(init->get_operand());
+      const SgExpression&        rhs = sg::deref(init->get_operand());
 
       handle_assign(predicate_type::create(*init), rhs, *init);
     }

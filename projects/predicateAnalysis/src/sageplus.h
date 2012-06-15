@@ -105,7 +105,7 @@ namespace sg
   ForeachPrinter<typename Container::const_iterator, PrinterCreator>
   foreach(const Container& cont, PrinterCreator prn)
   {
-    return foreach(cont.begin(), cont.end(), prn);
+    return sg::foreach(cont.begin(), cont.end(), prn);
   }
 
   template <class Iterator, class PrinterCreator>
