@@ -145,7 +145,7 @@ all: edgeflow.exe
 %.lo: %.cpp predflow.h sageplus.h sagePredicate.h ssaPredicate.h
 	$(LIBTOOL) --tag=CXX --mode=compile $(CXX) $(CXXFLAGS) -ggdb -Wall $(CPPFLAGS) $(ROSE_INCLUDES) $(BOOST_CPPFLAGS) -c -o $@ $<
 
-edgeflow.exe: edgeflow.lo sagePredicate.lo sageplus.lo
+edgeflow.exe: edgeflow.lo sagePredicate.lo sageplus.lo ssaPredicate.lo
 	$(LIBTOOL) --tag=CXX --mode=link $(CXX) $(CXXFLAGS) $(LDFLAGS) -o $@ $^ $(ROSE_LIBS) $(SSALIB)
 
 # Rule used by make installcheck to verify correctness of installed libraries
