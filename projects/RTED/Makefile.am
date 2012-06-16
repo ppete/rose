@@ -813,7 +813,6 @@ TESTS_KNOWN_TO_FAIL = run/C/subprogram_call_errors/c_C_1_3_f \
 					  run/C++/pointer_errors/C_J_1_4_a_d \
 					  run/C++/pointer_errors/C_J_2_1_a_d \
 					  run/C++/uninitialized_variables/C_A_1_1_c_uc \
-					  run/C++/uninitialized_variables/C_A_1_2_a_d \
 					  run/C++/uninitialized_variables/C_A_1_2_a_i \
 					  run/C++/uninitialized_variables/C_A_1_3_a_d \
 					  run/C++/uninitialized_variables/C_A_1_3_a_i \
@@ -845,16 +844,6 @@ TESTS_KNOWN_TO_FAIL = run/C/subprogram_call_errors/c_C_1_3_f \
 					  run/tests/UPC/simple/test \
 					  run/tests/UPC/simple/simple \
 					  run/tests/Cxx/pointer/arrow_varref2 \
-					  run/C/uninitialized_variables/c_A_6_a_in \
-					  run/C/uninitialized_variables/c_A_6_b_in \
-					  run/C/uninitialized_variables/c_A_6_c_in \
-					  run/C/uninitialized_variables/c_A_6_d_in \
-					  run/C/uninitialized_variables/c_A_6_e_in \
-					  run/C++/uninitialized_variables/c_A_6_a_in \
-					  run/C++/uninitialized_variables/c_A_6_b_in \
-					  run/C++/uninitialized_variables/c_A_6_c_in \
-					  run/C++/uninitialized_variables/c_A_6_d_in \
-					  run/C++/uninitialized_variables/c_A_6_e_in \
 					  runupc/UPC/G_Uninit/c_G_4_a \
 					  runupc/UPC/G_Uninit/c_G_4_c \
             runupc/UPC/G_Uninit/c_G_2_g_D \
