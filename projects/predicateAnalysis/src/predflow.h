@@ -2,6 +2,8 @@
 
 #define _PREDFLOW_H
 
+#include <numeric>
+
 #include "rose.h"
 #include "sageGeneric.h"
 
