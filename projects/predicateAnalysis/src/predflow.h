@@ -342,14 +342,15 @@ namespace dfpred
   template <class BasePredicate>
   struct PredicatedLattice : FiniteLattice
   {
-      typedef BasePredicate predicate_type;
+      typedef BasePredicate               predicate_type;
+      typedef PredicateSet<BasePredicate> predicate_set;
 
       //
       // members
       // \todo make members private
 
-      PredicateSet<BasePredicate> predset;      ///< initialized to contain an unconstrained lattice
-      SgLocatedNode*              current_node; ///< for debugging
+      predicate_set  predset;      ///< initialized to contain an unconstrained lattice
+      SgLocatedNode* current_node; ///< for debugging
 
       PredicatedLattice()
       : predset(), current_node(0)
@@ -827,24 +828,66 @@ namespace dfpred
     std::cout << c << " - ";
   }
 
-  template <class APredicateLattice>
-  static
-  void store_predicates(const SgLocatedNode& key, const APredicateLattice& l)
+  // default implementation, chosen when the BasePredicate does not
+  // implement store/load functions
+  //~ template <class AnyPredicateSet>
+  //~ static
+  //~ void store_predicates(const SgLocatedNode&, const AnyPredicateSet&)
+  //~ {}
+
+  template <typename T>
+  class has_store_predicates
   {
-    // \todo complete function
-    std::cout << "(todo)  STORE[ " << key.unparseToString() << " ] = " << l << std::endl;
+      typedef char one;
+      typedef long two;
+
+      template <typename C> static one test( typeof(&C::store_predicates) ) ;
+      template <typename C> static two test(...);
+
+
+  public:
+      enum { value = sizeof(test<T>(0)) == sizeof(char) };
+  };
+
+
+  template <int x, class BasePredicate>
+  struct StorageAux
+  {
+    template <class AnyPredicateSet>
+    static
+    void store_predicates(const SgLocatedNode& key, const AnyPredicateSet& l)
+    {
+      BasePredicate::store_predicates(key, l);
+    }
+  };
+
+  template <class BasePredicate>
+  struct StorageAux<0, BasePredicate>
+  {
+    template <class AnyPredicateSet>
+    static
+    void store_predicates(const SgLocatedNode& key, const AnyPredicateSet& l)
+    {}
+  };
+
+
+  template <class BasePredicate>
+  static
+  void store_predicates(const SgLocatedNode& key, const PredicatedLattice<BasePredicate>& l)
+  {
+    StorageAux<has_store_predicates<BasePredicate>::value, BasePredicate>::store_predicates(key, l.predset);
   }
 
-
-  template <class APredicateLattice>
+  template <class BasePredicate>
   struct PredicateTransfer
   {
-    typedef typename APredicateLattice::predicate_type predicate_type;
+    typedef PredicatedLattice<BasePredicate> predicate_lattice;
+    typedef BasePredicate                    predicate_type;
 
     const DataflowEdge  edge;                // \note direction is lost here
-    APredicateLattice&  predlat;
+    predicate_lattice&  predlat;
 
-    PredicateTransfer(const DataflowEdge& e, APredicateLattice& pl)
+    PredicateTransfer(const DataflowEdge& e, predicate_lattice& pl)
     : edge(e), predlat(pl)
     {}
 
@@ -871,7 +914,7 @@ namespace dfpred
       // the number of predicates low
       // \Q shall we also restrict to bool and pointer type (pointer for
       //    including null tests)?
-      if (!sg::isCondition(n))
+      if (!sg::isCondition(n) && !sg::isBoolType(n.get_type()))
       {
         handle_expr(n);
         return;
@@ -913,7 +956,7 @@ namespace dfpred
       const SgExpression& lhs = lhs_operand(n);
 
       // \todo also check whether the lhs can be made into a memory location
-      if (!sg::isBoolType(n.get_type()))
+      if (!sg::isBoolType(lhs_operand(n).get_type()))
       {
         // handle non-bool types assignments as normal expression
         handle_expr(n);
@@ -967,15 +1010,15 @@ namespace dfpred
     }
   };
 
-  template <class APredicateLattice>
-  PredicateTransfer<APredicateLattice>
-  predicateTransfer(const DataflowEdge& e, APredicateLattice& pl)
+  template <class BasePredicate>
+  PredicateTransfer<BasePredicate>
+  predicateTransfer(const DataflowEdge& e, PredicatedLattice<BasePredicate>& pl)
   {
-    return PredicateTransfer<APredicateLattice>(e, pl);
+    return PredicateTransfer<BasePredicate>(e, pl);
   }
 
-  template <class APredicateLattice>
-  void PredicateTransfer<APredicateLattice>::handle_stmt(const SgStatement& n)
+  template <class BasePredicate>
+  void PredicateTransfer<BasePredicate>::handle_stmt(const SgStatement& n)
   {
     trace('#');
     // \Q shall we clear the edge condition of conjuncted predicates?
@@ -990,8 +1033,8 @@ namespace dfpred
     //    case for SgExprStatement where the reduction is skipped
   }
 
-  template <class APredicateLattice>
-  void PredicateTransfer<APredicateLattice>::handle_expr(const SgNode&)
+  template <class BasePredicate>
+  void PredicateTransfer<BasePredicate>::handle_expr(const SgNode&)
   {
     trace('e');
 
@@ -1001,8 +1044,8 @@ namespace dfpred
     apply_predicator(predlat, EdgePredicateClearer<predicate_type>());
   }
 
-  template <class APredicateLattice>
-  void PredicateTransfer<APredicateLattice>::handle_assign(const predicate_type& assignee, const SgExpression& rhs, const SgLocatedNode& key)
+  template <class BasePredicate>
+  void PredicateTransfer<BasePredicate>::handle_assign(const predicate_type& assignee, const SgExpression& rhs, const SgLocatedNode& key)
   {
     trace('=');
 
@@ -1055,9 +1098,11 @@ namespace dfpred
   template <class BasePredicate>
   struct PredicateAnalysis : IntraFWDataflow
   {
-      typedef BasePredicate                    predicate_type;
-      typedef std::vector<NodeFact*>           FactContainer;
-      typedef PredicatedLattice<BasePredicate> lattice_type;
+      typedef BasePredicate                        predicate_type;
+      typedef std::vector<NodeFact*>               FactContainer;
+      typedef PredicatedLattice<BasePredicate>     lattice_type;
+
+      typedef typename lattice_type::predicate_set predicate_set;
 
       template <class LatticeType>
       static

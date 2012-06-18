@@ -4,7 +4,7 @@
 #define _SAGE_PREDICATE_H
 
 #include <utility>
-#include <ios>
+#include <iosfwd>
 
 #include "rose.h"
 #include "predflow.h"
@@ -14,6 +14,10 @@
 /// \todo  currently predicates are not represented in
 ///        a canonical form, thus (a == b), (b == a) and (a > b), (b < a)
 ///        are not considered to be the same.
+/// \note  This is a WEAK PROTOTYPE implementation, that will not work on
+///        real code. To make it work with real code this analysis needs
+///        to be integrated with some liveness analysis in order to
+///        eliminate killed expressions from the lattice set!!
 class SimplePredicate
 {
     const SgExpression* expr;
@@ -78,7 +82,7 @@ class SimplePredicate
       return sg::tree_compare(lhs.expr, rhs.expr) == 0;
     }
 
-    // this are strict oprators to allow SimplePredicate be used in std::sets
+    // this are strict operators to allow SimplePredicate be used in std::sets
     friend
     bool operator<(const SimplePredicate& lhs, const SimplePredicate& rhs)
     {

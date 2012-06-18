@@ -34,10 +34,11 @@ struct SSAPredicate
     // data members
 
     bool                negated;
-    const SgExpression* expr;
+    const SgExpression* expr;     // \todo consider using boost::shared_ptr to avoid excessive copying
     SSARep              rep;
 
     // main constructor (invoke through create)
+    //   assumes ownership of exp
     SSAPredicate(bool neg, const SgExpression& exp, const SSARep& ssarep)
     : negated(neg), expr(&exp), rep(ssarep)
     {}
@@ -104,7 +105,6 @@ struct SSAPredicate
     relation(const SSAPredicate& lhs, const SSAPredicate& rhs);
 
     //
-
     static
     SSARep varsDefined(const SgNode& n)
     {
@@ -159,6 +159,11 @@ struct SSAPredicate
 
     static
     SSAPredicate create(const SgInitializedName& init);
+
+    static
+    void store_predicates(const SgLocatedNode&, const dfpred::PredicateAnalysis<SSAPredicate>::predicate_set&)
+    {
+    }
 
     friend
     std::ostream& operator<<(std::ostream& o, const SSAPredicate& obj);
