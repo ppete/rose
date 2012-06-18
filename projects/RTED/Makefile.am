@@ -798,27 +798,21 @@ endif
 
 # TODO 2: Handle these tests
 TESTS_KNOWN_TO_FAIL = run/C/subprogram_call_errors/c_C_1_3_f \
-					  run/C++/allocation_deallocation_errors/C_G_2_1_g_d \
-					  run/C++/allocation_deallocation_errors/C_G_2_1_h_ld \
-					  run/C++/allocation_deallocation_errors/C_G_2_3_a_d \
-					  run/C++/allocation_deallocation_errors/C_G_2_4_a_d \
-					  run/C++/allocation_deallocation_errors/C_G_4_1_o_f \
-					  run/C++/array_index_out_of_bound/C_E_1_7_a_o \
-					  run/C++/array_index_out_of_bound/C_E_1_7_i_f \
-					  run/C++/array_index_out_of_bound/C_E_1_7_i_sh \
-					  run/C++/memory_leaks/C_I_2_2_a_d \
-					  run/C++/memory_leaks/C_I_2_5_a_d \
-					  run/C++/memory_leaks/C_I_2_6_a_d \
-					  run/C++/memory_leaks/C_I_2_6_b_o \
-					  run/C++/pointer_errors/C_J_1_4_a_d \
-					  run/C++/pointer_errors/C_J_2_1_a_d \
-					  run/C++/uninitialized_variables/C_A_1_1_c_uc \
-					  run/C++/uninitialized_variables/C_A_1_2_a_i \
-					  run/C++/uninitialized_variables/C_A_1_3_a_d \
-					  run/C++/uninitialized_variables/C_A_1_3_a_i \
-					  run/C++/uninitialized_variables/C_A_2_1_b_uc \
-					  run/C++/uninitialized_variables/C_A_3_1_c_uc \
-					  run/C++/uninitialized_variables/C_A_3_2_c_uc \
+						run/C++/uninitialized_variables/C_A_1_2_a_i \
+						run/C++/uninitialized_variables/C_A_1_3_a_d \
+						run/C++/uninitialized_variables/C_A_1_3_a_i \
+						run/C++/allocation_deallocation_errors/C_G_2_1_h_ld \
+						run/C++/allocation_deallocation_errors/C_G_2_4_a_d \
+						run/C++/allocation_deallocation_errors/C_G_4_1_o_f \
+						run/C++/array_index_out_of_bound/C_E_1_7_a_o \
+						run/C++/array_index_out_of_bound/C_E_1_7_i_f \
+						run/C++/array_index_out_of_bound/C_E_1_7_i_sh \
+						run/C++/memory_leaks/C_I_2_2_a_d \
+						run/C++/memory_leaks/C_I_2_5_a_d \
+						run/C++/memory_leaks/C_I_2_6_a_d \
+						run/C++/memory_leaks/C_I_2_6_b_o \
+						run/C++/pointer_errors/C_J_1_4_a_d \
+						run/C++/pointer_errors/C_J_2_1_a_d \
 					  run/C++/input_output_errors/C_H_1_2_a_fs \
 					  run/C++/input_output_errors/C_H_1_2_a_ifs \
 					  run/C++/input_output_errors/C_H_1_3_a_fs \
@@ -835,15 +829,15 @@ TESTS_KNOWN_TO_FAIL = run/C/subprogram_call_errors/c_C_1_3_f \
 					  run/tests/C/memoverlap/heap_array_in_struct \
 					  run/tests/C/memoverlap/heap_array_in_struct_in_array \
 					  run/tests/C/pointer/arraytest \
-					  run/tests/Cxx/overloading/array_index \
 					  run/tests/C/types/union \
+					  run/tests/Cxx/overloading/array_index \
 					  run/tests/Cxx/pointer/arrow_star \
 					  run/tests/Cxx/pointer/C_F_3_3_a_i \
 					  run/tests/Cxx/pointer/dot_star \
+					  run/tests/Cxx/pointer/arrow_varref2 \
 					  run/tests/Cxx/pointer/nulltest \
 					  run/tests/UPC/simple/test \
 					  run/tests/UPC/simple/simple \
-					  run/tests/Cxx/pointer/arrow_varref2 \
 					  runupc/UPC/G_Uninit/c_G_4_a \
 					  runupc/UPC/G_Uninit/c_G_4_c \
             runupc/UPC/G_Uninit/c_G_2_g_D \
