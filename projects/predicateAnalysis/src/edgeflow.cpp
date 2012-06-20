@@ -132,15 +132,18 @@ struct PredicateAnalyzer
     const predicate_set* predset = lookup_predicate_set(n);
     if (!predset || (!constrainedBy(n, *predset))) return;
 
-    SSARep               defset = SSAPredicate::varsUsed(n);
-    if (defset.empty()) return;
-
     std::cout << "found interesting predicate-set for: " << n.unparseToString()
               << " in " << sg::ancestor<SgStatement>(n).unparseToString()
-              << std::endl;
+              << ": " << *predset;
 
-    ROSE_ASSERT(defset.size() == 1); // we deal only with a single variable
-    ReachingDefPtr       def = *defset.begin();
+    // we get the parent, because the uses of SSA nodes on SgVarRefExp are
+    // not always defined.
+    const SgExpression&  parentexp = sg::deref(n.get_parent());
+    SSARep               defset = SSAPredicate::varsUsed(parentexp);
+    if (defset.empty()) { std::cout << "empty" << std::endl; return; }
+
+    //ROSE_ASSERT(defset.size() == 1); // we deal only with a single variable
+    //ReachingDefPtr       def = *defset.begin();
   }
 };
 
@@ -203,6 +206,7 @@ int main( int argc, char * argv[] )
           // perform SSA/predicate based induction variable analysis
           PredicateAnalysisTraversal analysis(&pa);
 
+          std::cout << std::endl;
           analysis.traverseInputFiles(project, preorder);
         }
 

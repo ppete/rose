@@ -138,7 +138,7 @@ namespace dfpred
   {
     os << "{ " << to_string(cp.edge_condition()) << ": "
        << foreach(cp, sg::prn)
-       << "}" << std::endl;
+       << "}";
 
     return os;
   }
@@ -306,6 +306,12 @@ namespace dfpred
   void swap(PredicateSet<BasePredicate>& lhs, PredicateSet<BasePredicate>& rhs)
   {
     lhs.swap(rhs);
+  }
+
+  template <class BasePredicate>
+  std::ostream& operator<<(std::ostream& os, const PredicateSet<BasePredicate>& predset)
+  {
+    return os << "< " << foreach(predset, sg::prn) << ">" << std::endl;
   }
 
   /// generates a reduction of predicate set
@@ -827,7 +833,7 @@ namespace dfpred
   static
   void trace(char c)
   {
-    std::cout << c << " - ";
+    std::cout << '\n' << c << " - ";
   }
 
   // default implementation, chosen when the BasePredicate does not

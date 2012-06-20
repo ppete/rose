@@ -8,5 +8,5 @@ int foo(int pos, const char* in, char* out)
     out[i] = in[i];
   }
 
-  out[i] = 0;
+  return i;
 }

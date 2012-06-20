@@ -84,9 +84,6 @@ struct SSAPredicate
       return !expr || isSgNullExpression(expr) || rep.empty();
     }
 
-
-
-
     friend
     void swap(SSAPredicate& lhs, SSAPredicate& rhs)
     {
@@ -115,7 +112,7 @@ struct SSAPredicate
     {
       SgNode* constless = const_cast<SgNode*>(&n);
 
-      return validRep(ssa().getVarsDefinedInSubtree(constless), ssa().getReachingDefsAtNode_(constless));
+      return validRep(ssa().getVarsDefinedInSubtree(constless), ssa().getOutgoingDefsAtNode(constless));
     }
 
     static
@@ -123,7 +120,7 @@ struct SSAPredicate
     {
       SgNode* constless = const_cast<SgNode*>(&n);
 
-      return validRep(ssa().getVarsUsedInSubtree(constless), ssa().getOutgoingDefsAtNode(constless));
+      return validRep(ssa().getVarsUsedInSubtree(constless), ssa().getReachingDefsAtNode_(constless));
     }
 
     static
