@@ -64,7 +64,7 @@ class SimplePredicate
     /// \details  if a specific analysis cannot extract a predicate from
     ///           an AST node it can choose to return an "empty" predicate.
     ///           Empty predicates will not be added to predicate sets
-    bool isEmpty() const
+    bool valid() const
     {
       return isSgNullExpression(expr);
     }

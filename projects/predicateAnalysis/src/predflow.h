@@ -71,6 +71,7 @@ namespace dfpred
       using base::end;
       using base::empty;
       using base::size;
+      using base::value_type;
 
       /// \brief conjuncts a new SimplePredicate @elem
       /// \note  wraps the insert operation to allow for efficient switching
@@ -175,9 +176,9 @@ namespace dfpred
   }
 
   template <class BasePredicate>
-  bool isEmpty(const BasePredicate& bp)
+  bool valid(const BasePredicate& bp)
   {
-    return bp.isEmpty();
+    return bp.valid();
   }
 
   /// \brief  tests whether cand or its negation is in cp
@@ -196,7 +197,7 @@ namespace dfpred
     // \Q should this be better done in relation?
     // \A probably not, as the conflicts function is invoked in
     //    any case before the new predicate gets added to cp
-    if (isEmpty(cand)) return Relation::same;
+    if (valid(cand)) return Relation::same;
 
     ConstIterator aa = cp.begin();
     ConstIterator zz = cp.end();
@@ -222,6 +223,7 @@ namespace dfpred
       using base::begin;
       using base::end;
       using base::const_iterator;
+      using base::value_type;
 
     private:
       // convenience constructor for internal use

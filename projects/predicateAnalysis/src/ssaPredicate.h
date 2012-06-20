@@ -61,6 +61,8 @@ struct SSAPredicate
       delete expr;
     }
 
+    const SgExpression* expression() const { return expr; }
+
     SSAPredicate& operator=(const SSAPredicate& rhs)
     {
       SSAPredicate tmp(rhs);
@@ -77,10 +79,13 @@ struct SSAPredicate
       return res;
     }
 
-    bool isEmpty() const
+    bool valid() const
     {
       return !expr || isSgNullExpression(expr) || rep.empty();
     }
+
+
+
 
     friend
     void swap(SSAPredicate& lhs, SSAPredicate& rhs)
