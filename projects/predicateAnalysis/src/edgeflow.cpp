@@ -136,11 +136,12 @@ struct PredicateAnalyzer
               << " in " << sg::ancestor<SgStatement>(n).unparseToString()
               << ": " << *predset;
 
-    // we get the parent, because the uses of SSA nodes on SgVarRefExp are
+    // \todo we get the parent, because the uses of SSA nodes on SgVarRefExp are
     // not always defined.
-    const SgExpression&  parentexp = sg::deref(n.get_parent());
-    SSARep               defset = SSAPredicate::varsUsed(parentexp);
-    if (defset.empty()) { std::cout << "empty" << std::endl; return; }
+    const SgNode&        parentnode = sg::deref(n.get_parent());
+    SSARep               defset = SSAPredicate::varsUsed(parentnode);
+
+    std::cout << "|" << defset.size() << "|" << std::endl;
 
     //ROSE_ASSERT(defset.size() == 1); // we deal only with a single variable
     //ReachingDefPtr       def = *defset.begin();
