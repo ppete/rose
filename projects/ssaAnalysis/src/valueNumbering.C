@@ -84,14 +84,18 @@ void ValueNumbering::VN(const ::Function& func) {
   vg.partitioning();
 }
 
+ValueGraphPtr ValueNumbering::valueGraph(FuncValueGraphMap::key_type key) {
+  FuncValueGraphMap::iterator pos = funcValueGraphMap.find(key);
+
+  if (pos == funcValueGraphMap.end()) return ValueGraphPtr();
+  return pos->second;
+}
+
 // Query interface for checking if two SgNodes have same value number
 bool ValueNumbering::haveSameValueNumber(SgFunctionDefinition* func, SgNode* sgn1, SgNode* sgn2) {
-  if (funcValueGraphMap.find(func) == funcValueGraphMap.end())
-    return false;
+  ValueGraphPtr valGraph = valueGraph(func);
 
-  ValueGraphPtr valueGraph = funcValueGraphMap[func];
-
-  return valueGraph->haveSameVN(sgn1, sgn2);
+  return valGraph && valGraph->haveSameVN(sgn1, sgn2);
 }
 
 void ValueNumbering::dumpLattices() {

@@ -1,5 +1,8 @@
 #include "ssaPredicate.h"
 
+/*
+ * use default implementation instead
+
 dfpred::Relation::Kind
 relation(const SSAPredicate& lhs, const SSAPredicate& rhs)
 {
@@ -11,6 +14,7 @@ relation(const SSAPredicate& lhs, const SSAPredicate& rhs)
 
   return Relation::negate;
 }
+*/
 
 bool operator<(const SSAPredicate& lhs, const SSAPredicate& rhs)
 {

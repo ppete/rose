@@ -4,7 +4,6 @@
 #include <utility>
 #include "rose.h"
 #include "staticSingleAssignment.h"
-#include <boost/foreach.hpp>
 #include "LatticeArith.h"
 #include "genericDataflowCommon.h"
 #include "genUID.h"
@@ -58,7 +57,7 @@ namespace scc_private
 
   public:
   ValueNode(SgNode* var, SgBinaryOp* oper, bool isOper, int labelId)
-    : varNode(var), operNode(oper), isOperator(isOper), phiFunc(NULL), nodeLabel(labelId) {};
+    : varNode(var), operNode(oper), phiFunc(NULL), isOperator(isOper), nodeLabel(labelId) {};
 
     bool isOperNode() { return isOperator; };
     bool isPhiNode() { return phiFunc != NULL; }
@@ -77,7 +76,7 @@ namespace scc_private
     // Get the operator node
     SgBinaryOp* getOperNode() { return operNode; };
 
-    bool operator==(ValueNode that);
+    bool operator==(ValueNode);
 
     static ValueNode emptyNode;
   };
@@ -96,7 +95,7 @@ namespace scc_private
     };
 
     int getId() { return partitionId; };
-    int setId(int partId) { partitionId = partId; };
+    int setId(int partId) { return partitionId = partId; };
 
     int size() { return valNodes.size(); };
     ValueNodePtr operator[](int i) const { return valNodes[i]; };
@@ -109,7 +108,7 @@ namespace scc_private
   // Value graph
   class ValueGraph : public AstBottomUpProcessing<ValueNodePtr> {
   public:
-  ValueGraph(const ::Function& func, HeapSSA* ssaInstance) : function(func), ssa(ssaInstance),
+  ValueGraph(const ::Function& func, HeapSSA* ssaInstance) : ssa(ssaInstance), function(func),
       labelId(0) {};
 
     /**
@@ -155,6 +154,15 @@ namespace scc_private
     bool equalyPartitioned(ValueNodePtr valNode1, ValueNodePtr valNode2);
 
     int incrLabelId() { return ++ labelId; };
+
+  public:
+    ValueNode valueNode(SgNodeValueNodeMap::key_type key) const
+    {
+      SgNodeValueNodeMap::const_iterator pos = sgnValueNodeMap.find(key);
+
+      if (pos == sgnValueNodeMap.end()) return ValueNode::emptyNode;
+      return *pos->second;
+    }
   };
 
   class ValueNumbering : public IntraProceduralDataflow
@@ -194,12 +202,14 @@ namespace scc_private
     void VN(const ::Function& func);
 
   protected:
-    map<SgNode *, int > nodeVNMap;
+    // map<SgNode *, int > nodeVNMap; \pp seems not used
     unordered_set<SgFunctionDefinition*> interestingFunctions;
     FuncValueGraphMap funcValueGraphMap;
 
   public:
     // Query interface for checking if two SgNodes have same value number
     bool haveSameValueNumber(SgFunctionDefinition* func, SgNode* sgn1, SgNode* sgn2);
+
+    ValueGraphPtr valueGraph(FuncValueGraphMap::key_type key);
   };
 };

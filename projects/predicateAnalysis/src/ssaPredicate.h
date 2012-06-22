@@ -102,10 +102,6 @@ struct SSAPredicate
     friend
     bool operator<(const SSAPredicate& lhs, const SSAPredicate& rhs);
 
-    friend
-    dfpred::Relation::Kind
-    relation(const SSAPredicate& lhs, const SSAPredicate& rhs);
-
     //
     static
     SSARep varsDefined(const SgNode& n)

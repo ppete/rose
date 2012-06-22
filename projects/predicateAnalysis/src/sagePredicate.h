@@ -17,7 +17,12 @@
 /// \note  This is a WEAK PROTOTYPE implementation, that will not work on
 ///        real code. To make it work with real code this analysis needs
 ///        to be integrated with some liveness analysis in order to
-///        eliminate killed expressions from the lattice set!!
+///        eliminate predicates containing killed expressions!!!
+/// \note  the representation could be improved in the following way
+///        negation can be directly represented as a boolean flag (instead
+///        of being an explicit AST top-level node in expr.
+///        Consequently, we can store pointers to AST-owned expressions,
+///        instead of cloning them.
 class SimplePredicate
 {
     const SgExpression* expr;
@@ -89,9 +94,11 @@ class SimplePredicate
       return sg::tree_compare(lhs.expr, rhs.expr) < 0;
     }
 
+/*
     friend
     dfpred::Relation::Kind
     relation(const SimplePredicate& lhs, const SimplePredicate& rhs);
+*/
 
     /// generates a predicate from a branch-condition
     template <class SageStatement>
@@ -115,13 +122,5 @@ class SimplePredicate
 
 
 std::ostream& operator<<(std::ostream& o, const SimplePredicate& obj);
-
-/// \brief   returns an approximation of the relationship between
-///          lhs and rhs.
-/// \details implemented are equality and negation
-///          not implemented are dominating relationships
-///          such as (x < 5) dominates (x < 8) etc.
-dfpred::Relation::Kind
-relation(const SimplePredicate& lhs, const SimplePredicate& rhs);
 
 #endif /* _SAGE_PREDICATE_H */

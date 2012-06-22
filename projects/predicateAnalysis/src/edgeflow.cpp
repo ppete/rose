@@ -20,12 +20,16 @@
 
 // SSA headers
 #include "heapSSA.h"
+#include "valueNumbering.h"
 
 // predicate analysis headers
 #include "sageplus.h"
 #include "predflow.h"
 #include "sagePredicate.h"
 #include "ssaPredicate.h"
+#include "vnPredicate.h"
+
+#include "predicateConcept.h"
 
 
 namespace {
@@ -169,9 +173,59 @@ void PredicateAnalysisTraversal::visit(SgNode* n)
 }
 
 
+static inline
+void sage_predicates()
+{
+  std::cout << "----------  S a g e  ----------\n";
+
+  dfpred::PredicateAnalysis<SimplePredicate> pa;
+  UnstructuredPassInterDataflow              analyzer(&pa);
+
+  analyzer.runAnalysis();
+}
+
+static inline
+void ssa_predicates(hssa_private::HeapSSA& hssa, SgProject* proj)
+{
+  std::cout << "----------  S  S  A  ----------\n";
+
+  SSAPredicate::myssa = &hssa;
+
+  dfpred::PredicateAnalysis<SSAPredicate> pa;
+  UnstructuredPassInterDataflow           analyzer(&pa);
+
+  analyzer.runAnalysis();
+
+  // perform SSA/predicate based induction variable analysis
+  PredicateAnalysisTraversal analysis(&pa);
+
+  std::cout << std::endl;
+  analysis.traverseInputFiles(proj, preorder);
+}
+
+static inline
+void vn_predicates(hssa_private::HeapSSA& hssa, SgProject* proj)
+{
+  std::cout << "--- V a l u e n u m b e r s ---\n";
+
+  scc_private::ValueNumbering               vn(proj, &hssa);
+  ContextInsensitiveInterProceduralDataflow ciIPD1(&vn, getCallGraph());
+
+  // Invoke VN based on call graph traversal
+  ciIPD1.runAnalysis();
+
+  VNPredicate::myvn = &vn;
+
+  dfpred::PredicateAnalysis<VNPredicate>    pa;
+  UnstructuredPassInterDataflow             analyzer(&pa);
+
+  analyzer.runAnalysis();
+}
+
+
 int main( int argc, char * argv[] )
 {
-        printf("========== S T A R T ==========\n");
+        std::cout << "========== S T A R T ==========\n";
 
         // Build the AST used by ROSE
         SgProject* project = frontend(argc,argv);
@@ -179,39 +233,17 @@ int main( int argc, char * argv[] )
         initAnalysis(project);
 
         Dbg::init("Some Test", ".", "index.html");
-/*
-        // running with sage-expressions
-        {
-          dfpred::PredicateAnalysis<SimplePredicate> pa;
-          UnstructuredPassInterDataflow              analyzer(&pa);
 
-          analyzer.runAnalysis();
-        }
+        hssa_private::HeapSSA hssa(project);
 
-        // running with SSA representation
-        printf("----------  S  S  A  ----------\n");
-*/
-        {
-          hssa_private::HeapSSA hssa(project);
+        hssa.build(false, true);
+        // hssa.toDOT("ssa.dot");
 
-          hssa.build(false, true);
-          // hssa.toDOT("ssa.dot");
+        // sage_predicates();
+        // ssa_predicates(hssa, project);
+        // vn_predicates(hssa, project);
 
-          SSAPredicate::myssa = &hssa;
-
-          dfpred::PredicateAnalysis<SSAPredicate> pa;
-          UnstructuredPassInterDataflow           analyzer(&pa);
-
-          analyzer.runAnalysis();
-
-          // perform SSA/predicate based induction variable analysis
-          PredicateAnalysisTraversal analysis(&pa);
-
-          std::cout << std::endl;
-          analysis.traverseInputFiles(project, preorder);
-        }
-
-        printf("==========  E  N  D  ==========\n");
+        std::cout << "==========  E  N  D  ==========\n";
 
         // Unparse and compile the project (so this can be used for testing)
         return 0;

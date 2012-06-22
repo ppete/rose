@@ -46,6 +46,24 @@ namespace dfpred
       };
   };
 
+  /// \brief   returns an approximation of the relationship between
+  ///          lhs and rhs.
+  /// \details this is the default implementation for determining
+  ///          whether two predicates conflict. Implemented is equality and
+  ///          negation. NOT IMPLEMENTED is dominating relationships
+  ///          such as (x < 5) dominates (x < 8) etc.
+  /// \note    any specific implementation can choose to make a better
+  ///          version available that is defined on concrete predicate-types.
+  template <class BasePredicate>
+  Relation::Kind
+  relation(const BasePredicate& lhs, const BasePredicate& rhs)
+  {
+    if (lhs == rhs)  return Relation::same;
+    if (lhs == !rhs) return Relation::negate;
+
+    return Relation::incomparable;
+  }
+
 
   /// \brief represents conjunction of SimplePredicates
   ///        along specific CFG edges
@@ -964,7 +982,7 @@ namespace dfpred
       const SgExpression& lhs = lhs_operand(n);
 
       // \todo also check whether the lhs can be made into a memory location
-      if (!sg::isBoolType(lhs_operand(n).get_type()))
+      if (!sg::isBoolType(lhs.get_type()))
       {
         // handle non-bool types assignments as normal expression
         handle_expr(n);

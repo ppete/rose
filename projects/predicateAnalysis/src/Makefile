@@ -142,10 +142,10 @@ all: edgeflow.exe
 #	g++ -c -I$(ROSE_INCLUDE_DIR) -o $@ $(@:.o=.C)
 
 # Compile the exampleTranslator using the file identityTranslator.C
-%.lo: %.cpp predflow.h sageplus.h sagePredicate.h ssaPredicate.h
+%.lo: %.cpp predflow.h sageplus.h sagePredicate.h ssaPredicate.h vnPredicate.h
 	$(LIBTOOL) --tag=CXX --mode=compile $(CXX) $(CXXFLAGS) -ggdb -Wall $(CPPFLAGS) $(ROSE_INCLUDES) $(BOOST_CPPFLAGS) -c -o $@ $<
 
-edgeflow.exe: edgeflow.lo sagePredicate.lo sageplus.lo ssaPredicate.lo
+edgeflow.exe: edgeflow.lo sagePredicate.lo sageplus.lo ssaPredicate.lo vnPredicate.lo
 	$(LIBTOOL) --tag=CXX --mode=link $(CXX) $(CXXFLAGS) $(LDFLAGS) -o $@ $^ $(ROSE_LIBS) $(SSALIB)
 
 # Rule used by make installcheck to verify correctness of installed libraries
