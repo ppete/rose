@@ -350,42 +350,33 @@ string SeqStructLattice::str(string indent)
 
 // Generates the initial lattice state for the given dataflow node, in the given function, with the given NodeState
 //vector<Lattice*> DivAnalysis::genInitState(const Function& func, const DataflowNode& n, const NodeState& state)
-void SeqStructAnalysis::genInitState(const Function& func, const DataflowNode& n, const NodeState& state,
-                                     Lattice*& initLattice, vector<NodeFact*>& initFacts)
+FiniteVarsExprsProductLattice*
+SeqStructAnalysis::genLattice(const Function& func, const DataflowNode& n, const NodeState& state)
 {
-        // Get the initial state from the ConstrGraphAnalysis, which will create a constraint graph in initLattices and nothing in initFacts
-        // \pp \todo check this code against the repo code!!!!!
-        // ROSE_ASSERT(initLattices.size()==0 && dynamic_cast<ConstrGraph*>(initLattices[0]) && initFacts.size()==0);
-        ROSE_ASSERT(initLattice == 0 && initFacts.size()==0);
+        typedef std::map<varID, Lattice*> EmptyMapType;
 
-        Lattice*     cglat = 0;
-
-        cgAnalysis->genInitState(func, n, state, cglat, initFacts);
-
-        ConstrGraph* cg = dynamic_cast<ConstrGraph*>(cglat);
+        ConstrGraph*                   cg = cgAnalysis->genLattice(func, n, state);
+        Lattice*                       seqstructlat = new SeqStructLattice(cg, n);
+        FiniteVarsExprsProductLattice* res = new FiniteVarsExprsProductLattice( seqstructlat, EmptyMapType(),
+                                                                                (Lattice*)NULL, ldva, /*func, */n, state
+                                                                              );
 
         // Create a SeqStructLattice for every live variable in the application
-        map<varID, Lattice*> emptyM;
-        FiniteVarsExprsProductLattice* l = new FiniteVarsExprsProductLattice((Lattice*)new SeqStructLattice(cg, n), emptyM/*genConstVarLattices()*/,
-                                                                             (Lattice*)NULL, ldva, /*func, */n, state);
-
         // Get all the array reference expressions in the application and add a SeqStructLattice for each one
         ROSE_ASSERT(func.get_definition());
         Rose_STL_Container<SgNode*> arrayRefs = NodeQuery::querySubTree(func.get_definition()->get_body(), V_SgPntrArrRefExp);
         for(Rose_STL_Container<SgNode*>::iterator aref=arrayRefs.begin(); aref!=arrayRefs.end(); aref++) {
                 ROSE_ASSERT(isSgExpression(*aref));
-                l->addVar(SgExpr2Var(isSgExpression(*aref)));
+                res->addVar(SgExpr2Var(isSgExpression(*aref)));
         }
 
-        //printf("DivAnalysis::genInitState, returning %p\n", l);
-        initLattice = l;
+        return res;
+}
 
-        /*printf("SeqStructAnalysis::genInitState() initLattices:\n");
-        for(vector<Lattice*>::iterator it = initLattices.begin();
-            it!=initLattices.end(); it++)
-        {
-                cout << *it << ": " << (*it)->str("    ") << "\n";
-        }*/
+std::vector<NodeFact*>
+SeqStructAnalysis::genFacts(const Function& func, const DataflowNode& n, const NodeState& state)
+{
+  return cgAnalysis->genFacts(func, n, state);
 }
 
 bool SeqStructAnalysis::transfer(const Function& func, const DataflowNode& n, NodeState& state, Lattice& dfInfo)

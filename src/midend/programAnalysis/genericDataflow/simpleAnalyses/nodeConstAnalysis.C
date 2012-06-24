@@ -241,22 +241,18 @@ string nodeConstLattice::str(string indent)
 
 // generates the initial lattice state for the given dataflow node, in the given function, with the given NodeState
 //vector<Lattice*> nodeConstAnalysis::genInitState(const Function& func, const DataflowNode& n, const NodeState& state)
-void nodeConstAnalysis::genInitState(const Function& func, const DataflowNode& n, const NodeState& state,
-                        Lattice*& initLattice, vector<NodeFact*>& initFacts)
+FiniteVariablesProductLattice*
+nodeConstAnalysis::genLattice(const Function& func, const DataflowNode& n, const NodeState& state)
 {
-        //vector<Lattice*> initLattices;
-        map<varID, Lattice*> constVarLattices;
-        initLattice = new FiniteVariablesProductLattice(true, false, new nodeConstLattice(), constVarLattices, NULL, func, n, state);
-        //printf("nodeConstAnalysis::genInitState, returning %p\n", l);
+        typedef std::map<varID, Lattice*> ConstVarLatticeMap;
 
-/*printf("nodeConstAnalysis::genInitState() initLattices:\n");
-for(vector<Lattice*>::iterator it = initLattices.begin();
-    it!=initLattices.end(); it++)
+        return new FiniteVariablesProductLattice(true, false, new nodeConstLattice(), ConstVarLatticeMap(), NULL, func, n, state);
+}
+
+std::vector<NodeFact*>
+nodeConstAnalysis::genFacts(const Function& func, const DataflowNode& n, const NodeState& state)
 {
-        cout << *it << ": " << (*it)->str("    ") << "\n";
-}*/
-
-        //return initLattices;
+  return std::vector<NodeFact*>();
 }
 
 bool nodeConstAnalysis::transfer(const Function& func, const DataflowNode& n, NodeState& state, Lattice& dfInfo)

@@ -233,20 +233,27 @@ DominatorAnalysis::DominatorAnalysis( const set<DataflowNode>& allNodes, string 
 }
 
 // Generates the initial lattice state for the given dataflow node, in the given function, with the given NodeState
-void DominatorAnalysis::genInitState(const Function& func, const DataflowNode& n, const NodeState& state,
-                  Lattice*& initLattice, vector<NodeFact*>& initFacts)
+DominatorLattice*
+DominatorAnalysis::genLattice(const Function& func, const DataflowNode& n, const NodeState& state)
 {
-        //cout << "    genInitState: "<<n.getNode()->unparseToString() << " | " << n.getNode()->class_name() << "\n";;
-        // If n is the application's starting node
-        //if(func.get_name().getString() == "main" && n == func.get_definition()->cfgForBeginning()/*cfgUtils::getFuncStartCFG(func.get_definition())*/) {
+        DominatorLattice* res = NULL;
+
         if(func.get_name().getString() == "main" && n == DataflowNode(func.get_definition()->cfgForBeginning(),filter) /*cfgUtils::getFuncStartCFG(func.get_definition())*/) {
-                //cout << "        STARTING NODE\n";
-                initLattice = new DominatorLattice(n, n);
+                res = new DominatorLattice(n, n);
         } else {
-                initLattice = new DominatorLattice(n, allNodes);
+                res = new DominatorLattice(n, allNodes);
         }
-        //cout << "    "<<dLat->str("        ")<<"\n";
+
+        ROSE_ASSERT(res);
+        return res;
 }
+
+vector<NodeFact*>
+DominatorAnalysis::genFacts(const Function& func, const DataflowNode& n, const NodeState& state)
+{
+  return vector<NodeFact*>();
+}
+
 
 bool DominatorAnalysis::transfer(const Function&, const DataflowNode&, NodeState&, Lattice&)
 {

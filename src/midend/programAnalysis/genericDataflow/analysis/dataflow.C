@@ -171,17 +171,46 @@ IntraUniDirectionalDataflow::gatherDescendants(vector<DataflowEdge> edges, Dataf
 #endif /* OBSOLETE_CODE */
 
 IntraFWDataflow::ConnectionContainer
-IntraFWDataflow::getDescendants(const DataflowNode &n)
+IntraFWDataflow::getDescendants(const DataflowNode& n)
 {
   // return gatherDescendants(n.outEdges(), &DataflowEdge::target);
   return n.outEdges();
 }
 
 IntraBWDataflow::ConnectionContainer
-IntraBWDataflow::getDescendants(const DataflowNode &n)
+IntraBWDataflow::getDescendants(const DataflowNode& n)
 {
   // return gatherDescendants(n.inEdges(),  &DataflowEdge::source);
   return n.inEdges();
+}
+
+// local debugging functions
+namespace {
+  void dbg_Descendants(const IntraBWDataflow::ConnectionContainer& cont)
+  {
+    if(analysisDebugLevel>=1) {
+            Dbg::dbg << "    Descendants ("<<cont.size()<<"):" << endl;
+            Dbg::dbg << "    ~~~~~~~~~~~~"<<endl;
+    }
+  }
+
+  void dbg_NextNode(const DataflowNode& n)
+  {
+    if(analysisDebugLevel>=1)
+    {
+            SgNode* nextSgNode = n.getNode();
+            ROSE_ASSERT  (nextSgNode != NULL);
+            Dbg::dbg << "    Descendant: "<<nextSgNode<<"["<<nextSgNode->class_name()<<" | "<<Dbg::escape(nextSgNode->unparseToString())<<"]"<<endl;
+    }
+  }
+
+  void dbg_LatticeUpdate(bool p)
+  {
+    if(analysisDebugLevel>=1){
+            Dbg::dbg << "    propagated, lattice_update= " << p << endl;
+            Dbg::dbg << "    ^^^^^^^^^^^^^^^^^^" << endl;
+    }
+  }
 }
 
 DataflowNode IntraFWDataflow::getUltimate(const Function &func)
@@ -231,21 +260,67 @@ namespace {
   };
 }
 
+bool IntraUniDirectionalDataflow::edgeSensitiveAnalysis() const
+{
+  return false;
+}
+
 // virtual function implementing forwarding transfer to node-transfer
 bool IntraUniDirectionalDataflow::transfer(const Function& func, const DataflowEdge& e, NodeState& state, Lattice& lat)
 {
   return transfer(func, flowSource(e), state, lat);
 }
 
+void IntraUniDirectionalDataflow::node_transfer( const Function& func,
+                                                 const DataflowNode& n,
+                                                 NodeState& state,
+                                                 AnyLattice& lattice,
+                                                 VirtualCFG::dataflow& worklist
+                                               )
+{
+  // invoke transfer function
+  transfer(func, n, state, *lattice.ptr());
+
+  // propagate result to all children
+  ConnectionContainer descendants = getDescendants(n);
+
+  dbg_Descendants(descendants);
+  for (ConnectionContainer::const_iterator di = descendants.begin(); di != descendants.end(); ++di)
+  {
+          // The CFG node corresponding to the current descendant of n
+          DataflowEdge  thisEdge = *di;
+          DataflowNode  nextNode = flowTarget(thisEdge);
+
+          dbg_NextNode(nextNode);
+
+          // \question \pp can we have multiple states
+          //               if yes, do we need to invoke the transfer function
+          //               on each state separately?
+          NodeState* nextState = NodeState::getNodeState(nextNode, 0);
+          ROSE_ASSERT(nextState);
+
+          // Propagate the Lattices below this node to its descendant
+          // if there are multiple out edges the lattice can be reduced
+          // according to the edge.
+          const bool updNextstate = propagateStateToNextNode(lattice, n, getLatticeAnte(nextState), nextNode);
+
+          // If the next node's state gets modified as a result of the propagation,
+          // add the node to the processing queue.
+          if (updNextstate)
+          {
+                  worklist.add(nextNode);
+          }
+
+          dbg_LatticeUpdate(updNextstate);
+  }
+}
+
 void IntraUniDirectionalDataflow::edge_transfer(const Function& func, const DataflowNode& n, NodeState& state, AnyLattice& lattice, VirtualCFG::dataflow& worklist)
 {
-  ConnectionContainer descendants = getDescendants(n);
   AnyLattice          totalNodeLattice(lattice);
+  ConnectionContainer descendants = getDescendants(n);
 
-  if(analysisDebugLevel>=1) {
-          Dbg::dbg << "    Descendants ("<<descendants.size()<<"):"<<endl;
-          Dbg::dbg << "    ~~~~~~~~~~~~"<<endl;
-  }
+  dbg_Descendants(descendants);
 
   for (ConnectionContainer::const_iterator di = descendants.begin(); di != descendants.end(); ++di)
   {
@@ -259,12 +334,7 @@ void IntraUniDirectionalDataflow::edge_transfer(const Function& func, const Data
 
           if (valid_edge)
           {
-            if(analysisDebugLevel>=1)
-            {
-                    SgNode*      nextSgNode = nextNode.getNode();
-                    ROSE_ASSERT  (nextSgNode != NULL);
-                    Dbg::dbg << "    Descendant: "<<nextSgNode<<"["<<nextSgNode->class_name()<<" | "<<Dbg::escape(nextSgNode->unparseToString())<<"]"<<endl;
-            }
+            dbg_NextNode(nextNode);
 
             // \question \pp can we have multiple states
             //               if yes, do we need to invoke the transfer function
@@ -285,12 +355,7 @@ void IntraUniDirectionalDataflow::edge_transfer(const Function& func, const Data
             }
 
             meetUpdate(totalNodeLattice, thisLattice);
-
-            if(analysisDebugLevel>=1){
-                    Dbg::dbg << "    propagated, lattice_update= " << updNextstate << endl;
-                    Dbg::dbg << "    ^^^^^^^^^^^^^^^^^^" << endl;
-            }
-
+            dbg_LatticeUpdate(updNextstate);
             // \pp \todo shall we assert that there is at least one valid edge?
           }
   }
@@ -436,7 +501,10 @@ bool IntraUniDirectionalDataflow::runAnalysis(const Function& func, NodeState* f
                         // was: transfer(func, n, *state, dfInfoPost);
 #endif /* OBSOLETE_CODE */
 
-                        edge_transfer(func, n, *state, dfInfoPost, it);
+                        if (edgeSensitiveAnalysis())
+                          edge_transfer(func, n, *state, dfInfoPost, it);
+                        else
+                          node_transfer(func, n, *state, dfInfoPost, it);
 
                         // =================== TRANSFER FUNCTION ===================
                         if(analysisDebugLevel>=1)

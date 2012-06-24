@@ -313,7 +313,8 @@ class VariablesProductLattice : public virtual ProductLattice
 
         public:
 
-        Lattice* getVarLattice(const Function& func, const varID& var);
+              Lattice* getVarLattice(const Function& func, const varID& var);
+        const Lattice* getVarLattice(const Function& func, const varID& var) const;
 
         protected:
         // sets up the varLatticeIndex map, if necessary

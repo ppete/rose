@@ -141,20 +141,23 @@ string MPIRankNProcsDepLattice::str(string indent)
 //~ void MPIRankDepAnalysis::genInitState(const Function& func, const DataflowNode& n, const NodeState& state,
                                            //~ vector<Lattice*>& initLattices, vector<NodeFact*>& initFacts)
 
-void MPIRankDepAnalysis::genInitState(const Function& func, const DataflowNode& n, const NodeState& state,
-                                      Lattice*& initLattices, std::vector<NodeFact*>& initFacts)
+FiniteVarsExprsProductLattice*
+MPIRankDepAnalysis::genLattice(const Function& func, const DataflowNode& n, const NodeState& state)
 {
         //printf("MPIRankDepAnalysis::genInitState() n=%p[%s | %s]\n", n.getNode(), n.getNode()->class_name().c_str(), n.getNode()->unparseToString().c_str());
         //printf("MPIRankDepAnalysis::genInitState() state = %p\n", &state);
 
         //vector<Lattice*> initLattices;
-        map<varID, Lattice*> constVars;
+        typedef map<varID, Lattice*> ConstVarMap;
 
-        FiniteVarsExprsProductLattice* prodLat = new FiniteVarsExprsProductLattice(new MPIRankNProcsDepLattice(), constVars, NULL, NULL, n, state);
-        //Dbg::dbg << "prodLat = "<<prodLat->str("    ")<<endl;
-        initLattices = prodLat;
+        return new FiniteVarsExprsProductLattice(new MPIRankNProcsDepLattice(), ConstVarMap(), NULL, NULL, n, state);
+}
 
-        //return initLattices;
+
+std::vector<NodeFact*>
+MPIRankDepAnalysis::genFacts(const Function& func, const DataflowNode& n, const NodeState& state)
+{
+  return std::vector<NodeFact*>();
 }
 
 bool MPIRankDepAnalysis::transfer(const Function& func, const DataflowNode& n, NodeState& state, Lattice& lat)
@@ -392,7 +395,7 @@ bool isMPIRankVarDep(const Function& func, const DataflowNode& n, varID var)
         ROSE_ASSERT(rankDepAnal);
 
         NodeState* state = NodeState::getNodeState(n, 0);
-        const FiniteVarsExprsProductLattice* prodLat = &state->getLatticeBelow(rankDepAnalysis, 0).ref<FiniteVarsExprsProductLattice>();
+        FiniteVarsExprsProductLattice* prodLat = &state->getLatticeBelowMod(rankDepAnalysis, 0).ref<FiniteVarsExprsProductLattice>();
         ROSE_ASSERT(prodLat);
         MPIRankNProcsDepLattice* rnLat = dynamic_cast<MPIRankNProcsDepLattice*>(prodLat->getVarLattice(var));
         //Dbg::dbg << "isMPIRankVarDep() n.getNode()="<<Dbg::escape(n.getNode()->unparseToString())<<" var="<<var<<" rnLat="<<rnLat<<endl;

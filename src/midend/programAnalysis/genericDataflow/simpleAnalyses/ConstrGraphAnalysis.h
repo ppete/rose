@@ -47,8 +47,11 @@ class ConstrGraphAnalysis : public IntraFWDataflow
 
         // generates the initial lattice state for the given dataflow node, in the given function, with the given NodeState
         //vector<Lattice*> genInitState(const Function& func, const DataflowNode& n, const NodeState& state);
-        void genInitState(const Function& func, const DataflowNode& n, const NodeState& state,
-                          Lattice*& initLattice, vector<NodeFact*>& initFacts);
+        ConstrGraph*
+        genLattice(const Function& func, const DataflowNode& n, const NodeState& state);
+
+        std::vector<NodeFact*>
+        genFacts(const Function& func, const DataflowNode& n, const NodeState& state);
 
         // Returns a map of special constant variables (such as zeroVar) and the lattices that correspond to them
         // These lattices are assumed to be constants: it is assumed that they are never modified and it is legal to

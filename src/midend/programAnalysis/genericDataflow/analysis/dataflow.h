@@ -10,7 +10,7 @@
 #include "nodeState.h"
 #include "functionState.h"
 #include "analysis.h"
-#include "lattice.h"
+#include "latticeFull.h"
 
 #if OBSOLETE_CODE
 #include <boost/shared_ptr.hpp>
@@ -38,9 +38,26 @@ class IntraProceduralDataflow : virtual public IntraProceduralAnalysis
         // !!!       INTERPROCEDURAL ANALYSES WHERE THE SAME SgFunctionDefinition SgNode IS BOTH THE FIRST AND LAST
         // !!!       VirtualCFG NODE OF EACH FUNCTION WITH DIFFERENT INDEXES AND THE STATE BELOW IT CORRESPONDS TO THE
         // !!!       START OF THE FUNCTION AND THE STATE ABOVE IT CORRESPONDS TO THE END.
-        virtual void genInitState(const Function& func, const DataflowNode& n, const NodeState& state,
-                                  Lattice*& initLattices, std::vector<NodeFact*>& initFacts)=0;
+        //~ virtual void genInitState(const Function& func, const DataflowNode& n, const NodeState& state,
+                                  //~ Lattice*& initLattices, std::vector<NodeFact*>& initFacts)=0;
 
+/// \brief  generates the initial lattice for a given dataflow-node n
+/// \return a non-null pointer; the callee assumes ownership of the lattice
+/// \note   Specific analyses are encouraged to use co-variant return types
+///         to specify the lattice type in use.
+/// \code
+///   struct ConstantPropagator : IntraProceduralDataflow {
+///     ConstantLattice* genInitLattice(const Function& func, const DataflowNode& n, const NodeState& state);
+///     ...
+/// };
+/// \endcode
+        virtual Lattice* genLattice(const Function& func, const DataflowNode& n, const NodeState& state) = 0;
+
+
+        // \pp shall we provide an empty default implementation, which seems
+        //     to be the most common case?
+        /// generates the initial node facts
+        virtual std::vector<NodeFact*> genFacts(const Function& func, const DataflowNode& n, const NodeState& state) = 0;
 
         // Set of functions that have already been visited by this analysis, used
         // to make sure that the dataflow state of previously-visited functions is
@@ -304,9 +321,10 @@ class IntraUniDirectionalDataflow : public IntraUnitDataflow
         /// \param   dfInfo - the Lattices that this transfer function operates on. The function takes these lattices
         ///          as input and overwrites them with the result of the transfer. If data transfer along
         ///          an edge is infeasible the state of dfInfo's lattices should be set to uninitialized.
+        /// \return  true, iff the edge can be taken (lattice will get propagated to the target node)
         /// \details the default implementation calls the transfer function
         ///          defined on DataflowNode (called on the source of the
-        ///          dataflow-edge @e.
+        ///          dataflow-edge e).
         /// \note    (1) sage type sensitive implementations are encouraged to discern
         ///              sage nodes using the visitor pattern. See also the comment
         ///              for convenience functions IntraUnitDataflow::visitor_transfer.
@@ -314,9 +332,18 @@ class IntraUniDirectionalDataflow : public IntraUnitDataflow
         ///              with an edge sensitive transfer function.
         virtual bool transfer(const Function& func, const DataflowEdge& e, NodeState& state, Lattice& dfInfo);
 
-        private:
-        /// encapsulates transfer function invocation
+      private:
+
+        /// encapsulates transfer function invocation along edges
         void edge_transfer(const Function& func, const DataflowNode& n, NodeState& state, AnyLattice& dfInfo, VirtualCFG::dataflow& it);
+
+        /// encapsulates transfer function invocation for nodes
+        void node_transfer(const Function& func, const DataflowNode& n, NodeState& state, AnyLattice& dfInfo, VirtualCFG::dataflow& it);
+
+      protected:
+        /// returns true, iff the transfer functions should get invoked
+        ///   on CFG edges, false otherwise (i.e., CFG nodes)
+        virtual bool edgeSensitiveAnalysis() const;
 };
 
 /* Forward Intra-Procedural Dataflow Analysis */
@@ -423,16 +450,14 @@ class printDataflowInfoPass : public IntraFWDataflow
 {
         Analysis* analysis;
 
-        public:
+    public:
         printDataflowInfoPass(Analysis *analysis)
         {
                 this->analysis = analysis;
         }
 
-        // generates the initial lattice state for the given dataflow node, in the given function, with the given NodeState
-        //std::vector<Lattice*> genInitState(const Function& func, const DataflowNode& n, const NodeState& state);
-        void genInitState(const Function& func, const DataflowNode& n, const NodeState& state,
-                          Lattice*& initLattices, std::vector<NodeFact*>& initFacts);
+        BoolAndLattice*        genLattice (const Function& func, const DataflowNode& n, const NodeState& state);
+        std::vector<NodeFact*> genFacts   (const Function& func, const DataflowNode& n, const NodeState& state);
 
         void transfer(const Function& func, const DataflowNode& n, NodeState& state, const std::vector<Lattice*>& dfInfo);
 };

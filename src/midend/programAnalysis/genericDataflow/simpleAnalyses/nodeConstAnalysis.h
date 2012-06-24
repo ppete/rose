@@ -140,8 +140,11 @@ class nodeConstAnalysis : public IntraFWDataflow
 
         // generates the initial lattice state for the given dataflow node, in the given function, with the given NodeState
         //std::vector<Lattice*> genInitState(const Function& func, const DataflowNode& n, const NodeState& state);
-        void genInitState(const Function& func, const DataflowNode& n, const NodeState& state,
-                          Lattice*& initLattice, std::vector<NodeFact*>& initFacts);
+        FiniteVariablesProductLattice*
+        genLattice(const Function& func, const DataflowNode& n, const NodeState& state);
+
+        std::vector<NodeFact*>
+        genFacts(const Function& func, const DataflowNode& n, const NodeState& state);
 
         bool transfer(const Function& func, const DataflowNode& n, NodeState& state, Lattice& dfInfo);
 };

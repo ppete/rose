@@ -31,41 +31,21 @@ map<varID, Lattice*> ConstrGraphAnalysis::constVars;
 
 // Generates the initial lattice state for the given dataflow node, in the given function, with the given NodeState
 //vector<Lattice*> ConstrGraphAnalysis::genInitState(const Function& func, const DataflowNode& n, const NodeState& state)
-void ConstrGraphAnalysis::genInitState(const Function& func, const DataflowNode& n, const NodeState& state,
-                                       Lattice*& initLattice, vector<NodeFact*>& initFacts)
+ConstrGraph*
+ConstrGraphAnalysis::genLattice(const Function& func, const DataflowNode& n, const NodeState& state)
 {
-        //vector<Lattice*> initLattices;
-//if(isSgIntVal(n.getNode())) {
-//      printf("ConstrGraphAnalysis::genInitState() n=%p<%s | %s>\n", n.getNode(), n.getNode()->class_name().c_str(), n.getNode()->unparseToString().c_str());
-/*      printf("ConstrGraphAnalysis::genInitState() state=%p\n", &state);
-}*/
+        // \pp \todo is this const_cast needed, or would passing a const Lattice into the
+        //           ConstrGraph constructor be sufficient?
+        NodeState&  modifiable_state = const_cast<NodeState&>(state);
+        AnyLattice& divProdL = modifiable_state.getLatticeBelowMod(divAnalysis);
 
-        // Create a constraint graph from the divisiblity and sign information at this CFG node
-        AnyLattice& divProdL = const_cast<AnyLattice&>(state.getLatticeBelow(divAnalysis));
-/*if(isSgIntVal(n.getNode()))
-        cout << "    divProdL="<<divProdL->str("        ")<<"\n";*/
-        //FiniteVarsExprsProductLattice* sgnProdL = dynamic_cast<FiniteVarsExprsProductLattice*>(state.getLatticeBelow(sgnAnalysis, 0));
-        // ConstrGraph* cg = new ConstrGraph(func, n, state, ldva, &divProdL.ref<FiniteVarsExprsProductLattice>(), /* GB : 2011-03-05 (Removing Sign Lattice Dependence) sgnProdL, */false, "");
-        // initLattices.push_back(cg);
-        initLattice = new ConstrGraph(func, n, state, ldva, &divProdL.ref<FiniteVarsExprsProductLattice>(), false, "");
+        return new ConstrGraph(func, n, state, ldva, &divProdL.ref<FiniteVarsExprsProductLattice>(), false, "");
+}
 
-
-//if(isSgIntVal(n.getNode())) {
-//      cout << "cg="<<cg<<" cg->divLattices=\n";
-//      cout << "    "<<cg->DivLattices2Str("    ")<<"\n";
-//}
-        // Create a product lattice that will maintain for each variable a ConstraintGraph that stores the constraints
-        // represented by the variable
-        // ??? map<varID, Lattice*> emptyM;
-        // ??? varIDSet scalars, arrays;
-        // ??? InfiniteVarsExprsProductLattice* l =
-        // ???  new InfiniteVarsExprsProductLattice(true, false, true,
-        // ???                                      (Lattice*)new ConstrGraph(func, n, state, ldva, divProdL, sgnProdL, true, ""),
-        // ???                                      emptyM, (Lattice*)NULL, ldva, n, state);
-        // ??? //printf("DivAnalysis::genInitState, returning %p\n", l);
-        // ??? initLattices.push_back(l);
-
-        //return initState;
+std::vector<NodeFact*>
+ConstrGraphAnalysis::genFacts(const Function& func, const DataflowNode& n, const NodeState& state)
+{
+  return std::vector<NodeFact*>();
 }
 
 // Returns a map of special constant variables (such as zeroVar) and the lattices that correspond to them

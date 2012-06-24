@@ -121,9 +121,14 @@ class MPIRankDepAnalysis : public IntraFWDataflow
         //~ void genInitState(const Function& func, const DataflowNode& n, const NodeState& state,
                           //~ vector<Lattice*>& initLattices, vector<NodeFact*>& initFacts);
 
-        void genInitState(const Function& func, const DataflowNode& n, const NodeState& state,
-                                  Lattice*& initLattices, std::vector<NodeFact*>& initFacts);
+        FiniteVarsExprsProductLattice*
+        genLattice(const Function& func, const DataflowNode& n, const NodeState& state);
 
+        std::vector<NodeFact*>
+        genFacts(const Function& func, const DataflowNode& n, const NodeState& state);
+
+        //~ void genInitState(const Function& func, const DataflowNode& n, const NodeState& state,
+                                  //~ Lattice*& initLattices, std::vector<NodeFact*>& initFacts);
 
         //~ bool transfer(const Function& func, const DataflowNode& n, NodeState& state, const vector<Lattice*>& dfInfo);
         bool transfer(const Function& func, const DataflowNode& n, NodeState& state, Lattice& lat);

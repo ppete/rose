@@ -104,8 +104,6 @@ InterProceduralDataflow::InterProceduralDataflow(IntraProceduralDataflow* intraD
                         // !!!       (END OF THE FUNCTION). THE CAPABILITY TO DIFFERENTIATE THE TWO CASES NEEDS TO BE ADDED TO genInitState
                         // !!!       AND WHEN IT IS, WE'LL NEED TO CALL IT INDEPENDENTLY FOR cfgForEnd() AND cfgForBeginning() AND ALSO TO MAKE
                         // !!!       TO SET THE LATTICES ABOVE THE ANALYSIS
-                        Lattice*          initLatts = 0;
-                        vector<NodeFact*> initFacts;
 
                         /*DataflowNode end = func.get_definition()->cfgForEnd();
                         intraDataflowAnalysis->genInitState(func, func.get_definition()->cfgForEnd(), funcS->state,
@@ -121,7 +119,9 @@ InterProceduralDataflow::InterProceduralDataflow(IntraProceduralDataflow* intraD
 
                         DataflowNode begin(func.get_definition()->cfgForBeginning(), filter);
                         Dbg::dbg << "begin="<<begin.getNode()<<" = ["<<Dbg::escape(begin.getNode()->unparseToString())<<" | "<<begin.getNode()->class_name()<<"]"<<endl;
-                        intraDataflowAnalysis->genInitState(func, begin, funcS->state, initLatts, initFacts);
+
+                        Lattice*          initLatts = intraDataflowAnalysis->genLattice(func, begin, funcS->state);
+                        vector<NodeFact*> initFacts = intraDataflowAnalysis->genFacts(func, begin, funcS->state);
 
                         // Make sure that the starting lattices are initialized
                         ROSE_ASSERT(initLatts);
@@ -161,10 +161,8 @@ void InitDataflowState::visit(const Function& func, const DataflowNode& n, NodeS
 
         // generate a new initial state for this node
 
-        Lattice*          initLatts = 0;
-        vector<NodeFact*> initFacts;
-
-        dfAnalysis->genInitState(func, n, state, initLatts, initFacts);
+        Lattice*          initLatts = dfAnalysis->genLattice(func, n, state);
+        vector<NodeFact*> initFacts = dfAnalysis->genFacts(func, n, state);
         ROSE_ASSERT(initLatts);
 
         // \pp \todo do we need to set the lattice to initialized?
@@ -397,16 +395,16 @@ Lattice* IntraFWPerVariableDataflow::getVarLattice(const Function& func, const v
  ******************************************************/
 
 //vector<Lattice*> printDataflowInfoPass::genInitState(const Function& func, const DataflowNode& n, const NodeState& state)
-void printDataflowInfoPass::genInitState(const Function& func, const DataflowNode& n, const NodeState& state,
-                                         Lattice*& initLattices, vector<NodeFact*>& initFacts)
-
+BoolAndLattice*
+printDataflowInfoPass::genLattice(const Function& func, const DataflowNode& n, const NodeState& state)
 {
-        //vector<Lattice*> initState;
-        // initLattices.push_back(new BoolAndLattice);
+  return new BoolAndLattice;
+}
 
-        // \pp \todo
-        initLattices = new BoolAndLattice;
-        //return initState;
+std::vector<NodeFact*>
+printDataflowInfoPass::genFacts(const Function& func, const DataflowNode& n, const NodeState& state)
+{
+  return std::vector<NodeFact*>();
 }
 
 void printDataflowInfoPass::transfer(const Function& func, const DataflowNode& n, NodeState& state, const vector<Lattice*>& dfInfo)
@@ -820,11 +818,9 @@ void ContextInsensitiveInterProceduralDataflow::visit(const CGFunction* funcCG)
 
                 IntraProceduralDataflow *intraDataflow = dynamic_cast<IntraProceduralDataflow *>(intraAnalysis);
                 if (intraDataflow->visited.find(func) == intraDataflow->visited.end()) {
-                        Lattice*          initLatts = 0;
-                        vector<NodeFact*> initFacts;
                         DataflowNode      begin = cfgUtils::getFuncStartCFG(func.get_definition(), filter);
-
-                        intraDataflow->genInitState(func, begin, fState->state, initLatts, initFacts);
+                        Lattice*          initLatts = intraDataflow->genLattice(func, begin, fState->state);
+                        vector<NodeFact*> initFacts = intraDataflow->genFacts(func, begin, fState->state);
                         ROSE_ASSERT(initLatts);
 
                         //                        intraAnalysis->genInitState(func, cfgUtils::getFuncEndCFG(func.get_definition()),

@@ -114,8 +114,8 @@ class DominatorAnalysis : public IntraFWDataflow
         DominatorAnalysis(const set<DataflowNode>& allNodes, string indent="");
 
         // Generates the initial lattice state for the given dataflow node, in the given function, with the given NodeState
-        void genInitState(const Function& func, const DataflowNode& n, const NodeState& state,
-                          Lattice*& initLattices, vector<NodeFact*>& initFacts);
+        DominatorLattice* genLattice(const Function& func, const DataflowNode& n, const NodeState& state);
+        vector<NodeFact*> genFacts(const Function& func, const DataflowNode& n, const NodeState& state);
 
         bool transfer(const Function& func, const DataflowNode& n, NodeState& state, Lattice& dfInfo);
 };
