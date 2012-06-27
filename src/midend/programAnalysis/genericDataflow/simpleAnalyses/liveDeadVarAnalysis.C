@@ -1195,7 +1195,7 @@ FiniteVarsExprsProductLattice::FiniteVarsExprsProductLattice(const FiniteVarsExp
 }
 
 // returns a copy of this lattice
-Lattice* FiniteVarsExprsProductLattice::copy() const
+FiniteVarsExprsProductLattice* FiniteVarsExprsProductLattice::copy() const
 {
         return new FiniteVarsExprsProductLattice(*this);
 }
@@ -1244,7 +1244,7 @@ InfiniteVarsExprsProductLattice::InfiniteVarsExprsProductLattice(const FiniteVar
 }
 
 // returns a copy of this lattice
-Lattice* InfiniteVarsExprsProductLattice::copy() const
+InfiniteVarsExprsProductLattice* InfiniteVarsExprsProductLattice::copy() const
 {
         return new InfiniteVarsExprsProductLattice(*this);
 }

@@ -358,7 +358,7 @@ class FiniteVarsExprsProductLattice : public virtual VarsExprsProductLattice, pu
         FiniteVarsExprsProductLattice(const FiniteVarsExprsProductLattice& that);
 
         // returns a copy of this lattice
-        Lattice* copy() const;
+        FiniteVarsExprsProductLattice* copy() const;
 };
 
 class InfiniteVarsExprsProductLattice: public virtual VarsExprsProductLattice, public virtual InfiniteProductLattice
@@ -393,7 +393,7 @@ class InfiniteVarsExprsProductLattice: public virtual VarsExprsProductLattice, p
         InfiniteVarsExprsProductLattice(const FiniteVarsExprsProductLattice& that);
 
         // returns a copy of this lattice
-        Lattice* copy() const;
+        InfiniteVarsExprsProductLattice* copy() const;
 };
 
 // prints the Lattices set by the given LiveDeadVarsAnalysis

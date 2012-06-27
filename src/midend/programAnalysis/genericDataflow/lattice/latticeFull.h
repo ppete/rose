@@ -199,6 +199,18 @@ class ProductLattice : public virtual Lattice
 
         virtual bool operator==(const Lattice* that) const;
 
+        // convenience function to access each lattice individually
+        template <class LatticeType>
+        LatticeType& at(size_t pos)
+        {
+          return dynamic_cast<LatticeType&>(*lattices.at(pos));
+        }
+
+        template <class LatticeType>
+        const LatticeType& at(size_t pos) const
+        {
+          return dynamic_cast<const LatticeType&>(*lattices.at(pos));
+        }
 
         // Functions used to inform this lattice that a given variable is now in use (e.g. a variable has entered
         //    scope or an expression is being analyzed) or is no longer in use (e.g. a variable has exited scope or
@@ -238,7 +250,7 @@ class FiniteProductLattice : public virtual ProductLattice, public virtual Finit
         }
 
         // Returns a copy of this lattice
-        Lattice* copy() const
+        FiniteProductLattice* copy() const
         {
                 return new FiniteProductLattice(*this);
         }
@@ -257,7 +269,7 @@ class InfiniteProductLattice : public virtual ProductLattice, public virtual Inf
         {}
 
         // returns a copy of this lattice
-        Lattice* copy() const
+        InfiniteProductLattice* copy() const
         {
                 return new InfiniteProductLattice(*this);
         }
@@ -408,7 +420,7 @@ class FiniteVariablesProductLattice : public virtual VariablesProductLattice, pu
         }
 
         // returns a copy of this lattice
-        Lattice* copy() const
+        FiniteVariablesProductLattice* copy() const
         {
                 return new FiniteVariablesProductLattice(*this);
         }
@@ -443,10 +455,30 @@ class InfiniteVariablesProductLattice : public virtual VariablesProductLattice, 
         }
 
         // returns a copy of this lattice
-        Lattice* copy() const
+        InfiniteVariablesProductLattice* copy() const
         {
                 return new InfiniteVariablesProductLattice(*this);
         }
 };
+
+
+/// default lattice for analysis that use their own storage
+struct DefaultLattice : Lattice
+{
+  Lattice* copy() const { return new DefaultLattice(*this); }
+
+  const DefaultLattice& that(const Lattice* l) { return dynamic_cast<const DefaultLattice&>(*l); }
+
+  void copy(const Lattice* l) { *this = that(l); }
+
+  void clear()  { }
+
+  bool meetUpdate(const Lattice* l) {}
+
+  bool finiteLattice() const { return true; }
+
+  bool operator==(const Lattice* l) const { return true; }
+};
+
 
 #endif

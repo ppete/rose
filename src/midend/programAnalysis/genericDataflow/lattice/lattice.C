@@ -317,7 +317,7 @@ void ProductLattice::copy(const Lattice* that_arg)
         level = that->level;
 #endif /* OBSOLETE_CODE */
         // Deallocate all the Lattices
-        for(vector<Lattice*>::iterator lat=lattices.begin(); lat!=lattices.end(); lat++)
+        for(vector<Lattice*>::iterator lat=lattices.begin(); lat!=lattices.end(); ++lat)
                 delete *lat;
         lattices.clear();
         that->copy_lattices(lattices);
