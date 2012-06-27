@@ -1,10 +1,11 @@
 #include "printAnalysisStates.h"
 
-printAnalysisStates::printAnalysisStates(Analysis* creator, vector<int>& factNames, vector<int>& latticeNames, ab latSide, string indent="")
+printAnalysisStates::printAnalysisStates(Analysis* creator, vector<int>& factNames, ab latSide, string indent="")
 {
+        // vector<int>& latticeNames
         this->creator = creator;
         this->factNames = factNames;
-        this->latticeNames = latticeNames;
+        // this->latticeNames = latticeNames;
         this->latSide = latSide;
         this->indent = indent;
 }
@@ -26,17 +27,15 @@ void printAnalysisStates::visit(const Function& func, const DataflowNode& n, Nod
                         Dbg::dbg << indent << "    fact"<<*it<<" = None\n";
         }
 
-        for(vector<int>::iterator it = latticeNames.begin(); it!=latticeNames.end(); it++)
-        {
-                // Lattice* lat;
-                const AnyLattice& lat = (latSide==above) ? state.getLatticeAbove(creator, *it)
-                                                         : state.getLatticeBelow(creator, *it);
-                // \pp \todo was: if lat != NULL
-                if (lat.isInitialized())
-                        Dbg::dbg << indent << "    lattice"<<*it<<" = \n"<<lat.str(indent+"    ")<<"\n";
-                else
-                        Dbg::dbg << indent << "    lattice"<<*it<<" = None\n";
-        }
+        // Lattice* lat;
+        const AnyLattice& lat = (latSide==above) ? state.getLatticeAbove(creator)
+                                                 : state.getLatticeBelow(creator);
+        // \pp \todo was: if lat != NULL
+        if (lat.isInitialized())
+                Dbg::dbg << indent << "    lattice"<<" = \n"<<lat.str(indent+"    ")<<"\n";
+        else
+                Dbg::dbg << indent << "    lattice"<<" = None\n";
+
         //printf("    creator=%p, masterLat.size()=%lu\n", creator, (unsigned long)(masterLat->size()));
         Dbg::exitFunc(funcName.str());
 }

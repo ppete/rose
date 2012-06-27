@@ -29,10 +29,10 @@ class ChkptRangeVerifAnalysis : public UnstructuredPassIntraAnalysis
 {
         protected:
         ChkptRangeAnalysis* rangeAnalysis;
-        
+
         public:
         ChkptRangeVerifAnalysis(ChkptRangeAnalysis* rangeAnalysis) : rangeAnalysis(rangeAnalysis) {}
-        
+
         void visit(const Function& func, const DataflowNode& n, NodeState& state);
 };
 
@@ -42,11 +42,11 @@ class ChkptRangeAnalysis : public IntraFWDataflow
         static map<varID, Lattice*> constVars;
         DivAnalysis* divAnalysis;
         affineInequalitiesPlacer* affIneqPlacer;
-        
+
         // The LiveDeadVarsAnalysis that identifies the live/dead state of all application variables.
         // Needed to create a FiniteVarsExprsProductLattice.
-        LiveDeadVarsAnalysis* ldva; 
-        
+        LiveDeadVarsAnalysis* ldva;
+
         public:
         ChkptRangeAnalysis(LiveDeadVarsAnalysis* ldva, DivAnalysis* divAnalysis, affineInequalitiesPlacer* affIneqPlacer): IntraFWDataflow()
         {
@@ -55,33 +55,39 @@ class ChkptRangeAnalysis : public IntraFWDataflow
                 this->affIneqPlacer = affIneqPlacer;
                 rwAccessLabeler::addRWAnnotations(SageInterface::getProject());
         }
-        
+
         // generates the initial lattice state for the given dataflow node, in the given function, with the given NodeState
         //vector<Lattice*> genInitState(const Function& func, const DataflowNode& n, const NodeState& state);
-        void genInitState(const Function& func, const DataflowNode& n, const NodeState& state,
-                          vector<Lattice*>& initLattices, vector<NodeFact*>& initFacts);
-        
+        //~ void genInitState(const Function& func, const DataflowNode& n, const NodeState& state,
+                          //~ vector<Lattice*>& initLattices, vector<NodeFact*>& initFacts);
+
+        ConstrGraph*
+        genLattice(const Function& func, const DataflowNode& n, const NodeState& state);
+
+        std::vector<NodeFact*>
+        genFacts(const Function& func, const DataflowNode& n, const NodeState& state);
+
+
         // Returns a map of special constant variables (such as zeroVar) and the lattices that correspond to them
-        // These lattices are assumed to be constants: it is assumed that they are never modified and it is legal to 
+        // These lattices are assumed to be constants: it is assumed that they are never modified and it is legal to
         //    maintain only one copy of each lattice may for the duration of the analysis.
         map<varID, Lattice*>& genConstVarLattices() const;
-                
-        bool transfer(const Function& func, const DataflowNode& n, NodeState& state, const vector<Lattice*>& dfInfo);
-        
-        // incorporates the current node's inequality information from conditionals (ifs, fors, etc.) into the current node's 
+
+        bool transfer(const Function& func, const DataflowNode& n, NodeState& state, Lattice& dfInfo);
+
+        // incorporates the current node's inequality information from conditionals (ifs, fors, etc.) into the current node's
         // constraint graph
         // returns true if this causes the constraint graph to change and false otherwise
-        bool incorporateConditionalsInfo(const Function& func, const DataflowNode& n, 
-                                         NodeState& state, const vector<Lattice*>& dfInfo);
-        
+        bool incorporateConditionalsInfo(const Function& func, const DataflowNode& n,
+                                         NodeState& state, Lattice& dfInfo);
+
         // incorporates the current node's divisibility information into the current node's constraint graph
         // returns true if this causes the constraint graph to change and false otherwise
-        bool incorporateDivInfo(const Function& func, const DataflowNode& n, NodeState& state, const vector<Lattice*>& dfInfo);
-        
+        bool incorporateDivInfo(const Function& func, const DataflowNode& n, NodeState& state, Lattice& dfInfo);
+
         // For any variable for which we have divisibility info, remove its constraints to other variables (other than its
         // divisibility variable)
-        bool removeConstrDivVars(const Function& func, const DataflowNode& n, NodeState& state, const vector<Lattice*>& dfInfo);
+        bool removeConstrDivVars(const Function& func, const DataflowNode& n, NodeState& state, Lattice& dfInfo);
 };
 
 #endif
-

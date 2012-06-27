@@ -7,26 +7,26 @@ extern int analysisDebugLevel;
 static long gcd(long u, long v)
 {
         int shift;
-        
+
         /* GCD(0,x) := x */
         if (u == 0 || v == 0)
                 return u | v;
-        
+
         /* Let shift := lg K, where K is the greatest power of 2
         dividing both u and v. */
         for (shift = 0; ((u | v) & 1) == 0; ++shift) {
                 u >>= 1;
                 v >>= 1;
         }
-        
+
         while ((u & 1) == 0)
                 u >>= 1;
-        
+
         /* From here on, u is always odd. */
         do {
                 while ((v & 1) == 0)  /* Loop X */
                 v >>= 1;
-                
+
                 /* Now u and v are both odd, so diff(u, v) is even.
                 Let u = std::min(u, v), v = diff(u, v)/2. */
                 if (u <= v) {
@@ -38,19 +38,19 @@ static long gcd(long u, long v)
                 }
                 v >>= 1;
         } while (v != 0);
-        
+
         return u << shift;
 }
 
 /*
-class affineInequalityAttr : public AstAttribute 
+class affineInequalityAttr : public AstAttribute
 {
         public:
         set<varAffineInequality> ineqs;
-        
+
         affineInequalityAttr()
         {}
-        
+
         affineInequalityAttr(const affineInequalityAttr& that)
         {
                 this->ineqs = that.ineqs;
@@ -64,11 +64,11 @@ static void annotateSubTreeIneq(SgNode* tree, affineInequalityAttr* ineqAttr);
 // branches of the control flow guarded by the given expression. They are set to NULL if our representation
 // cannot represent one of the expressions.
 // doFalseBranch - if =true, falseIneqAttr is set to the correct false-branch condition and to NULL otherwise
-static void setTrueFalseIneq(SgExpression* expr, 
-                             affineInequalityAttr **trueIneqAttr, affineInequalityAttr **falseIneqAttr, 
+static void setTrueFalseIneq(SgExpression* expr,
+                             affineInequalityAttr **trueIneqAttr, affineInequalityAttr **falseIneqAttr,
                              bool doFalseBranch);
 
-// Looks over all the conditional statements in the application and associates appropriate 
+// Looks over all the conditional statements in the application and associates appropriate
 //    affine inequalities with the SgNodes that depend on these statements. Each inequality
 //    is a must: it must be true of the node that it is associated with.
 void initAffineIneqs(SgProject* project)
@@ -78,33 +78,33 @@ void initAffineIneqs(SgProject* project)
         {
                 SgIfStmt* ifStmt = isSgIfStmt(*it);
                 ROSE_ASSERT(isSgExprStatement(ifStmt->get_conditional()));
-                
-                // generate the inequality attributes that will be associated with this if statement's 
+
+                // generate the inequality attributes that will be associated with this if statement's
                 // true and false branches
                 affineInequalityAttr *trueIneqAttr=NULL, *falseIneqAttr=NULL;
-                
+
                 setTrueFalseIneq(isSgExprStatement(ifStmt->get_conditional())->get_expression(),
                        &trueIneqAttr, &falseIneqAttr, true);
-                
+
                 if(trueIneqAttr)  annotateSubTreeIneq(ifStmt->get_true_body(),  trueIneqAttr);
                 if(falseIneqAttr) annotateSubTreeIneq(ifStmt->get_false_body(), falseIneqAttr);
-                
+
                 if(trueIneqAttr) delete trueIneqAttr;
                 if(falseIneqAttr) delete falseIneqAttr;
         }
-        
+
         Rose_STL_Container<SgNode*> fors = NodeQuery::querySubTree(project, V_SgForStatement);
         for(Rose_STL_Container<SgNode*>::iterator it = fors.begin(); it!=fors.end(); it++)
         {
                 SgForStatement* forStmt = isSgForStatement(*it);
-                
-                // generate the inequality attributes that will be associated with this if statement's 
+
+                // generate the inequality attributes that will be associated with this if statement's
                 // true and false branches
                 affineInequalityAttr *trueIneqAttr=NULL, *falseIneqAttr=NULL;
-                
-                setTrueFalseIneq(forStmt->get_test_expr(), 
+
+                setTrueFalseIneq(forStmt->get_test_expr(),
                        &trueIneqAttr, &falseIneqAttr, false);
-                
+
                 if(trueIneqAttr)
                 {
                         annotateSubTreeIneq(forStmt->get_loop_body(), trueIneqAttr);
@@ -117,8 +117,8 @@ void initAffineIneqs(SgProject* project)
 // branches of the control flow guarded by the given expression. They are set to NULL if our representation
 // cannot represent one of the expressions.
 // doFalseBranch - if =true, falseIneqAttr is set to the correct false-branch condition and to NULL otherwise
-static void setTrueFalseIneq(SgExpression* expr, 
-                             affineInequalityAttr **trueIneqAttr, affineInequalityAttr **falseIneqAttr, 
+static void setTrueFalseIneq(SgExpression* expr,
+                             affineInequalityAttr **trueIneqAttr, affineInequalityAttr **falseIneqAttr,
                              bool doFalseBranch)
 {
         varID x, y;
@@ -126,7 +126,7 @@ static void setTrueFalseIneq(SgExpression* expr,
         long c;
         *trueIneqAttr=NULL;
         *falseIneqAttr=NULL;
-        
+
         // if this is a valid inequality condition of the form x <= y + c
         if(cfgUtils::computeTermsOfIfCondition_LTEQ(expr, x, negX, y, negY, c))
         {
@@ -135,7 +135,7 @@ static void setTrueFalseIneq(SgExpression* expr,
                 affineInequality ineqTrue(negX?-1:1, negY?-1:1, c);
                 varAffineInequality tt(x, y, ineqTrue);
                 (*trueIneqAttr)->ineqs.insert(tt);
-                
+
                 // x > y + c => y < x + -c => y <= x + -c-1
                 if(doFalseBranch)
                 {
@@ -151,13 +151,13 @@ static void setTrueFalseIneq(SgExpression* expr,
                 // for equalities only bother with the true branch, since the false branch corresponds to
                 // a disjunction of two affine inequalities and we don't support disjunctions right now
                 *trueIneqAttr = new affineInequalityAttr();
-                
+
                 // x <= y + c
                 affineInequality ineqLTEQ(negX?-1:1, negY?-1:1, c);
                 varAffineInequality tLTEQ(x, y, ineqLTEQ);
                 (*trueIneqAttr)->ineqs.insert(tLTEQ);
-                
-                // x >= y + c => y <= x -c 
+
+                // x >= y + c => y <= x -c
                 affineInequality ineqGTEQ(negY?1:-1, negX?1:-1, 0-c);
                 varAffineInequality tGTEQ(y, x, ineqGTEQ);
                 (*trueIneqAttr)->ineqs.insert(tGTEQ);
@@ -171,16 +171,16 @@ static void annotateSubTreeIneq(SgNode* tree, affineInequalityAttr* ineqAttr)
         for(Rose_STL_Container<SgNode*>::iterator it = nodes.begin(); it!=nodes.end(); it++)
         {
                 SgNode* n = *it;
-                
+
                 // if there is already an inequality attribute associated with n
                 if(n->attributeExists("affineInequality"))
                 {
                         AstAttribute *curAttr = n->getAttribute("affineInequality");
-                        
+
                         ROSE_ASSERT(curAttr);
                         affineInequalityAttr* curIneqAttr = (affineInequalityAttr*)curAttr;
                         set<varAffineInequality> newIneqs;
-                        
+
 cout << "Merging at node <"<<n->class_name()<<" | "<<n->unparseToString()<<">\n";
 cout << "    Current inequalities:\n";
 for(set<varAffineInequality>::iterator it = curIneqAttr->ineqs.begin(); it!=curIneqAttr->ineqs.end(); it++)
@@ -194,36 +194,36 @@ for(set<varAffineInequality>::iterator it = ineqAttr->ineqs.begin(); it!=ineqAtt
         varAffineInequality varIneq = *it;
         cout << varIneq.getIneq().str(varIneq.getX(), varIneq.getY(), "        ") << "\n";
 }
-                        
+
                         // initialize newIneqs with all the inequalities in curIneqAttr
-                        
+
                         // iterate over curIneqAttr's inequalities
                         for(set<varAffineInequality>::iterator itCur = curIneqAttr->ineqs.begin(); itCur!=curIneqAttr->ineqs.end(); itCur++)
                         {
                                 varAffineInequality curIneq = *itCur;
-                                
+
                                 // check if the new ineqAttr has an inequality for the same variables as curIneq
                                 set<varAffineInequality>::iterator itNew;
                                 for(itNew = ineqAttr->ineqs.begin(); itNew!=ineqAttr->ineqs.end(); itNew++)
                                 {
                                         varAffineInequality newIneq = *itNew;
-                                        
+
                                         // if we have a match
                                         if(curIneq.getX() == newIneq.getX() && curIneq.getY() == newIneq.getY())
                                         {
                                                 // replace the constraint in itCur with the intersection of the two constraints,
                                                 // since both are known to be true at this node
                                                 //curIneq.getIneq() *= newIneq.getIneq();
-                                                
+
                                                 affineInequality newi(curIneq.getIneq());
                                                 newi *= newIneq.getIneq();
                                                 varAffineInequality newVarIneq(curIneq.getX(), curIneq.getY(), newi);
                                                 newIneqs.insert(newVarIneq);
-                                                
+
                                                 break;
                                         }
                                 }
-                                
+
                                 // if there is no varAffineInequality in ineqAttr that corresponds to curIneq
                                 if(itNew == ineqAttr->ineqs.end())
                                         // add curIneq with no modifications to newIneqs
@@ -231,35 +231,35 @@ for(set<varAffineInequality>::iterator it = ineqAttr->ineqs.begin(); it!=ineqAtt
                                 cout << "    current inequality "<<curIneq.str("")<<", found match in new="<<(itNew == ineqAttr->ineqs.end())<<"\n";
                                 cout << "    newIneqs.size()="<<newIneqs.size()<<"\n";
                         }
-                        
-                        // now add to newIneqs any varAffineInequalities in ineqAttr for variable pairs that do not 
+
+                        // now add to newIneqs any varAffineInequalities in ineqAttr for variable pairs that do not
                         // appear in curIneqAttr
-                        
+
                         for(set<varAffineInequality>::iterator itNew = ineqAttr->ineqs.begin(); itNew!=ineqAttr->ineqs.end(); itNew++)
                         {
                                 varAffineInequality newIneq = *itNew;
-                                
+
                                 // check if the current ineqAttr has an inequality for the same variables as newIneq
                                 set<varAffineInequality>::iterator itCur;
                                 for(itCur = curIneqAttr->ineqs.begin(); itCur!=curIneqAttr->ineqs.end(); itCur++)
                                 {
                                         varAffineInequality curIneq = *itCur;
-                                        
+
                                         // if we have a match
                                         if(curIneq.getX() == newIneq.getX() && curIneq.getY() == newIneq.getY())
                                                 // break out
                                                 break;
                                 }
-                                
+
                                 // if there is no varAffineInequality in curIneqAttr that corresponds to newIneq
                                 if(itCur == curIneqAttr->ineqs.end())
                                         // add curIneq with no modifications to newIneqs
                                         newIneqs.insert(newIneq);
                         }
-                        
+
                         // replace this attribute's current inequalities with the new set
                         curIneqAttr->ineqs = newIneqs;
-                        
+
 cout << "    Merged inequalities:\n";
 for(set<varAffineInequality>::iterator it = curIneqAttr->ineqs.begin(); it!=curIneqAttr->ineqs.end(); it++)
 {
@@ -282,7 +282,7 @@ set<varAffineInequality>* getAffineIneq(SgNode* n)
         {
                 AstAttribute *curAttr = n->getAttribute("affineInequality");
                 ROSE_ASSERT(curAttr);
-        
+
                 return &(((affineInequalityAttr*)curAttr)->ineqs);
         }
         else
@@ -302,34 +302,34 @@ NodeFact* affineInequalityFact::copy() const
 string affineInequalityFact::str(string indent)
 {
         stringstream outs;
-        
+
         outs << "affineInequalityFact:";
         if(ineqs.size()>0); outs << "\n";
-                
+
         for(set<varAffineInequality>::const_iterator it = ineqs.begin(); it!=ineqs.end(); )
         {
                 outs << indent << "    " << (*it).str("");
                 it++;
                 if(it!=ineqs.end()) outs << "\n";
         }
-        
+
         return outs.str();
 }
 
 string affineInequalityFact::str(string indent) const
 {
         stringstream outs;
-        
+
         outs << "affineInequalityFact:";
         if(ineqs.size()>0); outs << "\n";
-                
+
         for(set<varAffineInequality>::const_iterator it = ineqs.begin(); it!=ineqs.end(); )
         {
                 outs << indent << "    " << (*it).str("");
                 it++;
                 if(it!=ineqs.end()) outs << "\n";
         }
-        
+
         return outs.str();
 }
 
@@ -341,8 +341,8 @@ string affineInequalityFact::str(string indent) const
 // branches of the control flow guarded by the given expression. They are set to NULL if our representation
 // cannot represent one of the expressions.
 // doFalseBranch - if =true, falseIneqFact is set to the correct false-branch condition and to NULL otherwise
-void setTrueFalseIneq(SgExpression* expr, 
-                      affineInequalityFact **trueIneqFact, affineInequalityFact **falseIneqFact, 
+void setTrueFalseIneq(SgExpression* expr,
+                      affineInequalityFact **trueIneqFact, affineInequalityFact **falseIneqFact,
                       bool doFalseBranch)
 {
         varID x, y;
@@ -350,7 +350,7 @@ void setTrueFalseIneq(SgExpression* expr,
         long c;
         *trueIneqFact=NULL;
         *falseIneqFact=NULL;
-        
+
         // if this is a valid inequality condition of the form x <= y + c
         if(cfgUtils::computeTermsOfIfCondition_LTEQ(expr, x, negX, y, negY, c))
         {
@@ -360,7 +360,7 @@ void setTrueFalseIneq(SgExpression* expr,
                 affineInequality ineqTrue(negX?-1:1, negY?-1:1, c, x==zeroVar, y==zeroVar, affineInequality::unknownSgn, affineInequality::unknownSgn);
                 varAffineInequality tt(x, y, ineqTrue);
                 (*trueIneqFact)->ineqs.insert(tt);
-                
+
                 //cout << "    tt="<<tt.str()<<"\n";
 
                 // x > y + c => y < x + -c => y <= x + -c-1
@@ -379,13 +379,13 @@ void setTrueFalseIneq(SgExpression* expr,
                 // for equalities only bother with the true branch, since the false branch corresponds to
                 // a disjunction of two affine inequalities and we don't support disjunctions right now
                 *trueIneqFact = new affineInequalityFact();
-                
+
                 // x <= y + c
                 affineInequality ineqLTEQ(negX?-1:1, negY?-1:1, c, x==zeroVar, y==zeroVar, affineInequality::unknownSgn, affineInequality::unknownSgn);
                 varAffineInequality tLTEQ(x, y, ineqLTEQ);
                 (*trueIneqFact)->ineqs.insert(tLTEQ);
-                
-                // x >= y + c => y <= x -c 
+
+                // x >= y + c => y <= x -c
                 if(doFalseBranch)
                 {
                         affineInequality ineqGTEQ(negY?-1:1, negX?-1:1, 0-c, y==zeroVar, x==zeroVar, affineInequality::unknownSgn, affineInequality::unknownSgn);
@@ -398,14 +398,14 @@ void setTrueFalseIneq(SgExpression* expr,
 void affineInequalitiesPlacer::visit(const Function& func, const DataflowNode& n, NodeState& state)
 {
         if(analysisDebugLevel>0)
-                printf("affineInequalitiesPlacer::visit() function %s() node=<%s | %s>\n", 
+                printf("affineInequalitiesPlacer::visit() function %s() node=<%s | %s>\n",
                        func.get_name().str(), n.getNode()->class_name().c_str(), n.getNode()->unparseToString().c_str());
-        
+
         affineInequalityFact *trueIneqFact=NULL, *falseIneqFact=NULL;
         bool doFalseBranch;
         // this conditional statement's test expression
         SgExpression* testExpr;
-        
+
         if(isSgIfStmt(n.getNode()))
         {
                 SgIfStmt* ifStmt = isSgIfStmt(n.getNode());
@@ -422,11 +422,11 @@ void affineInequalitiesPlacer::visit(const Function& func, const DataflowNode& n
         }
         else
                 return;
-                
-        // generate the inequality attributes that will be associated with this if/for statement's 
+
+        // generate the inequality attributes that will be associated with this if/for statement's
         // true and false branches
         setTrueFalseIneq(testExpr, &trueIneqFact, &falseIneqFact, doFalseBranch);
-                                
+
         // iterate over both the descendants
         vector<DataflowEdge> edges = n.outEdges();
         //printf("edges.size()=%d, trueIneqFact=%p, falseIneqFact=%p\n", edges.size(), trueIneqFact, falseIneqFact);
@@ -455,7 +455,7 @@ void affineInequalitiesPlacer::visit(const Function& func, const DataflowNode& n
 
 /*printAffineInequalities::printAffineInequalities(affineInequalitiesPlacer *placer)
 {
-        this->placer = placer;  
+        this->placer = placer;
 }
 
 void printAffineInequalities::visit(const Function& func, const DataflowNode& n, NodeState& state)
@@ -477,9 +477,12 @@ void printAffineInequalities::visit(const Function& func, const DataflowNode& n,
 void printAffineInequalities(affineInequalitiesPlacer* aip, string indent)
 {
         vector<int> factNames;
+/*
         vector<int> latticeNames;
         factNames.push_back(0);
         printAnalysisStates pas(aip, factNames, latticeNames, printAnalysisStates::below, indent);
+*/
+        printAnalysisStates pas(aip, factNames, printAnalysisStates::below, indent);
         UnstructuredPassInterAnalysis upia_pas(pas);
         upia_pas.runAnalysis();
 }
@@ -493,7 +496,7 @@ void runAffineIneqPlacer(bool printStates)
                 aip = new affineInequalitiesPlacer();
                 UnstructuredPassInterAnalysis upia_aip(*aip);
                 upia_aip.runAnalysis();
-                
+
                 if(printStates)
                         printAffineInequalities(aip, ":");
         }
@@ -517,14 +520,14 @@ const set<varAffineInequality>& getAffineIneq(const DataflowNode& n)
 list<set<varAffineInequality> > getAffineIneqDesc(const DataflowNode& n)
 {
         if(analysisDebugLevel>1) printf("getAffineIneqDesc node=<%s | %s>\n", n.getNode()->class_name().c_str(), n.getNode()->unparseToString().c_str());
-        
+
         list<set<varAffineInequality> > ineqs;
-        
+
         affineInequalityFact *trueIneqFact=NULL, *falseIneqFact=NULL;
         bool doFalseBranch;
         // this conditional statement's test expression
         SgExpression* testExpr;
-        
+
         if(isSgIfStmt(n.getNode()))
         {
                 SgIfStmt* ifStmt = isSgIfStmt(n.getNode());
@@ -541,11 +544,11 @@ list<set<varAffineInequality> > getAffineIneqDesc(const DataflowNode& n)
         }
         else
                 return ineqs;
-                
-        // Generate the inequality attributes that will be associated with this if/for statement's 
+
+        // Generate the inequality attributes that will be associated with this if/for statement's
         // true and false branches
         setTrueFalseIneq(testExpr, &trueIneqFact, &falseIneqFact, doFalseBranch);
-                                
+
         // iterate over both the descendants
         vector<DataflowEdge> edges = n.outEdges();
         //printf("edges.size()=%d, trueIneqFact=%p, falseIneqFact=%p\n", edges.size(), trueIneqFact, falseIneqFact);
@@ -580,12 +583,12 @@ varAffineInequality::varAffineInequality(const varID& x, const varID& y, const a
 {
 }
 
-varAffineInequality::varAffineInequality(const varID& x, const varID& y, int a, int b, int c, 
+varAffineInequality::varAffineInequality(const varID& x, const varID& y, int a, int b, int c,
                                               bool xZero, bool yZero)
 {
         // one of the variables must be non-zero
         ROSE_ASSERT(!xZero || !yZero);
-        
+
         if(xZero)
         {
                 a = 1;
@@ -593,7 +596,7 @@ varAffineInequality::varAffineInequality(const varID& x, const varID& y, int a, 
         }
         else
                 this->ineq.xSign = affineInequality::posZero;
-                
+
         if(yZero)
         {
                 b = 1;
@@ -601,11 +604,11 @@ varAffineInequality::varAffineInequality(const varID& x, const varID& y, int a, 
         }
         else
                 this->ineq.ySign = affineInequality::posZero;
-                
+
         // if both a and b are <0, negate the inequality
         if(a<0 && b<0)
         {
-                // -ax <= -by + c == 
+                // -ax <= -by + c ==
                 // ax >= by -c ==
                 // by <= ax + c
                 this->x = y;
@@ -647,7 +650,7 @@ const varID& varAffineInequality::getY() const
 
 int varAffineInequality::getA() const
 { return ineq.getA(); }
-        
+
 int varAffineInequality::getB() const
 { return ineq.getB(); }
 
@@ -723,7 +726,7 @@ string varAffineInequality::str(string indent) const
         if(parseExpr(expr, i, negI, j, negJ, c))
 }*/
 
-// the basic logical operations that must be supported by any implementation of 
+// the basic logical operations that must be supported by any implementation of
 // a logical condition: NOT, AND and OR
 /*void varAffineInequality::notUpd()
 {
@@ -739,7 +742,7 @@ string varAffineInequality::str(string indent) const
                 ineq.a = ineq.b;
                 ineq.b = tmp;
                 ineq.c = -1-ineq.c;
-                
+
                 varID tmpVar = x;
                 x=y;
                 y=tmpVar;
@@ -757,19 +760,19 @@ string varAffineInequality::str(string indent) const
         // The two varAffineInequalities must refer to the same pair of variables
         ROSE_ASSERT((x==that.x && y==that.y) ||
                     (x==that.y && y==that.x));
-        
+
         // a*x <= b*y + c AND a'*x <= b'*y + c'
         if(x==that.x && y==that.y)
         {
                 //ineq.andUpd(that.ineq);
                 ineq *= that.ineq;
         }
-        // a*x <= b*y + c          AND a'*y <= b'*x + c' 
+        // a*x <= b*y + c          AND a'*y <= b'*x + c'
         // a*x - c <= b*y          AND a'*y <= b'*x + c'
         // a*b'*x - c*b' <= b*b'*y AND a'*a*y <= b'*a*x + c'*a
         // a*b'*x - c*b' <= b*b'*y AND -a'*a*y >= -b'*a*x - c'*a
         // a*b'*x <= b*b'*y + c*b' AND b'*a*x <= -a'*a*y + c'*a
-        // a*b'*x <= b*b'*y + c*b' AND 
+        // a*b'*x <= b*b'*y + c*b' AND
         //        <= -a'*a*y + c'*a
         else if(x==that.y && y==that.x)
         {
@@ -782,18 +785,18 @@ string varAffineInequality::str(string indent) const
 void varAffineInequality::orUpd(LogicalCond& that_arg)
 {
         varAffineInequality& that = (varAffineInequality&)that_arg;
-        
+
         // The two varAffineInequalities must refer to the same pair of variables
         ROSE_ASSERT((x==that.x && y==that.y) ||
                     (x==that.y && y==that.x));
-        
+
         // a*x <= b*y + c OR a'*x <= b'*y + c'
         if(x==that.x && y==that.y)
         {
                 //ineq.orUpd(that.ineq);
                 ineq += that.ineq;
         }
-        // a*x <= b*y + c          OR a'*y <= b'*x + c' 
+        // a*x <= b*y + c          OR a'*y <= b'*x + c'
         // a*x - c <= b*y          OR a'*y <= b'*x + c'
         // a*a'*x - c*a' <= b*a'*y OR a'*b*y <= b'*b*x + c'*b
         else if(x==that.y && y==that.x)
@@ -847,10 +850,10 @@ affineInequality::affineInequality(const affineInequality& that)
 
 affineInequality::affineInequality(int a, int b, int c, bool xZero, bool yZero, signs xSign, signs ySign)
 {
-        ROSE_ASSERT(!xZero || !yZero); 
+        ROSE_ASSERT(!xZero || !yZero);
         if(xZero) a = 1;
         if(yZero) b = 1;
-        
+
         this->a = a;
         this->b = b;
         this->c = c;
@@ -862,7 +865,7 @@ affineInequality::affineInequality(int a, int b, int c, bool xZero, bool yZero, 
         normalize();
 }
 
-// given a constraint on x, z and a constraint on z, y, infers the corresponding constraint on x, y 
+// given a constraint on x, z and a constraint on z, y, infers the corresponding constraint on x, y
 // and sets this constraint to it
 affineInequality::affineInequality(const affineInequality& xz, const affineInequality& zy/*, bool xZero, bool yZero, DivLattice* divX, DivLattice* divY, varID z*/)
 {
@@ -871,7 +874,7 @@ affineInequality::affineInequality(const affineInequality& xz, const affineInequ
         ROSE_ASSERT(!xZero || !yZero);
         this->xSign = xz.xSign;
         this->ySign = zy.ySign;
-        
+
         if(xz.level == bottom || zy.level == bottom)
                 setToBottom();
         else if(xz.level == top || zy.level == top)
@@ -881,13 +884,13 @@ affineInequality::affineInequality(const affineInequality& xz, const affineInequ
         else
         {
                 // x*a <= y*b + c && y*a' <= z*b' + c'
-                // implies that 
+                // implies that
                 // x*a*a' <= y*b*a' + c*a' && y*a'*b <= z*b'*b + c'*b
                 // x*a*a' <= z*b'*b + c'*b + c*a'
                 a = xz.getA()*zy.getA();
                 b = xz.getB()*zy.getB();
                 c = xz.getB()*zy.getC() + xz.getC()*zy.getA();
-                
+
                 /* // if the connection is being made through Zero, incorporate the divisibility information
                 if(z == zeroVar && divX->getLevel()==DivLattice::divKnown && divX->getRem()==0 &&
                                    divY->getLevel()==DivLattice::divKnown && divY->getRem()==0 &&
@@ -896,9 +899,9 @@ affineInequality::affineInequality(const affineInequality& xz, const affineInequ
                         a*=divX->getDiv();
                         b*=divY->getDiv();
                 }*/
-        
+
                 level = constrKnown;
-                
+
                 normalize();
         }
 }
@@ -941,7 +944,7 @@ bool affineInequality::operator<(const affineInequality& that) const
 }
 
 // Semantic affineInequality ordering (partial order)
-// returns true if this affineInequality represents more information (less information is 
+// returns true if this affineInequality represents more information (less information is
 // top, more information is bottom) than that for all values of x and y and false otherwise
 //bool affineInequality::operator<<(const affineInequality& that) const
 //bool affineInequality::semLessThan(const affineInequality& that) const
@@ -956,19 +959,19 @@ bool affineInequality::semLessThan(const affineInequality& that, bool xEqZero, b
 /*              // top corresponds to an unrepresentable constraint, so we can't make judgements about how that relates to this
                 if(that.level == top) return false;
                 else return true;*/
-        
-        if(level > that.level) 
+
+        if(level > that.level)
                 return false;
-                
-        // Case 2: level == that.level but the level is not constrKnown 
+
+        // Case 2: level == that.level but the level is not constrKnown
         // (i.e. a, b and c are not used, meaning that this == that)
         if(level == bottom || level == top/* || level == falseConstr*/) return false;
-        
+
         // Case 3: level == that.level == constrKnown, so we worry about a, b and c
-        
+
         // if the two constraints are equal, then one is not strictly less than the other
         if(*this == that) return false;
-        
+
         // if both the lhs and the rhs of x*a <= y*b + c are equal to 0
         /*if(xEqZero && yEqZero)
         {
@@ -977,47 +980,47 @@ bool affineInequality::semLessThan(const affineInequality& that, bool xEqZero, b
                 // important to explicitly maintain a and b for the future
                 if(a==1 && b==1) return false;
                 if(that.a==1 && that.b==1) return true;
-                
+
                 // if both constraints have multiplier information pick the current constraint as the more informative one
                 return true;
-                
+
                 if(a==1 && b==1) return true;
                 if(that.a==1 && that.b==1) return false;
-                
+
                 // if both constraints have multiplier information pick the current constraint as the more informative one
-                return true;            
+                return true;
         }*/
-        
+
         // If neither x nor y are constants
         if(!xZero && !yZero/* && xSign!=eqZero && ySign!=eqZero*/)
         {
                 //      this                that
                 // x*a <= y*b + c AND x*a' <= y*b' + c'
                 // x*a*a' <= y*b*a' + c*a' AND x*a'*a <= y*b'*a + c'*a
-                
+
                 // if the two lines have the same slope
                 if(b*that.a == a*that.b)
                 {
         //printf("affineInequality::operator<<  c=%d, that.c=%d\n", c, that.c);
-                        // this has more information than that if its' y-intercept is lower, since it leaves x 
+                        // this has more information than that if its' y-intercept is lower, since it leaves x
                         // with fewer valid points relative to y
                         return c*that.a < that.c*a;
                 }
 
                 /*// if x*a*a' >= 0
-                if((xSign==posZero && a*that.a>0) || 
+                if((xSign==posZero && a*that.a>0) ||
                         (xSign==negZero && a*that.a<0))
                 {
-                        // if both lines have the same y-intercept, the line with the smaller slope is lower, 
+                        // if both lines have the same y-intercept, the line with the smaller slope is lower,
                         // since it leaves x with fewer valid points relative to y
                         return b*that.a < that.b*a;
-                }*/                     
+                }*/
         }
         else if(xZero/* || xSign==eqZero*/)
         {
                 // 0 <= y*b + c AND 0 <= y*b' + c'
                 // -c <= y*b        -c' <= y*b'
-                // if c == c', then the constraint with the smaller b has more info, since this inequality 
+                // if c == c', then the constraint with the smaller b has more info, since this inequality
                 // admits fewer valid values of x
                 if(c == that.c)
                         return b<that.b;
@@ -1030,7 +1033,7 @@ bool affineInequality::semLessThan(const affineInequality& that, bool xEqZero, b
         {
                 //printf("yZero, c == that.c=%d, a<that.a=%d, a==1 && that.a==1=%d, c<that.c=%d\n", c == that.c, a<that.a, a==1 && that.a==1, c<that.c);
                 // x*a <= c AND x*a' <= c'
-                // if c == c', then the constraint with the smaller a has more info, since the inequality 
+                // if c == c', then the constraint with the smaller a has more info, since the inequality
                 // admits fewer valid values of x
                 if(c == that.c)
                         return a<that.a;
@@ -1039,18 +1042,18 @@ bool affineInequality::semLessThan(const affineInequality& that, bool xEqZero, b
                 else if(a == that.a)
                         return c<that.c;
         }
-        
+
         // If the slopes are not the same, these two affineInequalities are not strictly ordered for all values of x and y
         return false;
 }
 
-bool affineInequality::semLessThan(const affineInequality& that, 
+bool affineInequality::semLessThan(const affineInequality& that,
                                    const affineInequality* xZero, const affineInequality* zeroX,
                                    const affineInequality* yZero, const affineInequality* zeroY, string indent) const
 {
         /*ROSE_ASSERT(xIsZeroVar || (xZero && zeroX));
         ROSE_ASSERT(yIsZeroVar || (yZero && zeroY));*/
-        
+
 //printf("affineInequality::operator<< this=%p that=%p\n", this, &that);
 
         // Case 1: different levels
@@ -1059,22 +1062,22 @@ bool affineInequality::semLessThan(const affineInequality& that,
 /*              // top corresponds to an unrepresentable constraint, so we can't make judgements about how that relates to this
                 if(that.level == top) return false;
                 else return true;*/
-        
-        if(level > that.level) 
+
+        if(level > that.level)
                 return false;
-                
-        // Case 2: level == that.level but the level is not constrKnown 
+
+        // Case 2: level == that.level but the level is not constrKnown
         // (i.e. a, b and c are not used, meaning that this == that)
         if(level == bottom || level == top/* || level == falseConstr*/) return false;
-        
+
         // Case 3: level == that.level == constrKnown, so we worry about a, b and c
-        
+
         // If the two constraints are equal, then one is not strictly less than the other
         if(*this == that) return false;
-        
-        bool xConst = (xZero && xZero->getA()==1 && xZero->getB()==1 && 
+
+        bool xConst = (xZero && xZero->getA()==1 && xZero->getB()==1 &&
                        zeroX && zeroX->getA()==1 && zeroX->getB()==1 && xZero->getC() == (0-zeroX->getC()));
-        bool yConst = (yZero && yZero->getA()==1 && yZero->getB()==1 && 
+        bool yConst = (yZero && yZero->getA()==1 && yZero->getB()==1 &&
                        zeroY && zeroY->getA()==1 && zeroY->getB()==1 && yZero->getC() == (0-zeroY->getC()));
 
         // If x is a constant, the constraint with the tighter lower bound on y is semantically smaller
@@ -1086,7 +1089,7 @@ bool affineInequality::semLessThan(const affineInequality& that,
                 // (xConst*a-c) / b <= y*b (xConst*a'-c') / b' <= y
                 // The constraint with the larger lhs is tighter since it admits fewer values of y
                 return (xZero->getC()*a-c)*that.b > (xZero->getC()*that.a-that.c)*b;
-                /* // if xConst*a-c == xConst*a'-c', then the constraint with the larger b has more info, since this inequality 
+                /* // if xConst*a-c == xConst*a'-c', then the constraint with the larger b has more info, since this inequality
                 // admits fewer valid values of x
                 if(xZero->getC()*a-c == xZero->getC()*that.a-that.c)
                         return b<that.b;
@@ -1105,7 +1108,7 @@ bool affineInequality::semLessThan(const affineInequality& that,
                 // x <= (yConst*b + c)/a      x <= (yConst*b + c')/a'
                 // The constraint with the smaller rhs is tighter since it admits fewer values of x
                 return (yZero->getC()*b+c)*that.a < (yZero->getC()*that.b+that.c)*a;
-                /* // if c == c', then the constraint with the smaller a has more info, since the inequality 
+                /* // if c == c', then the constraint with the smaller a has more info, since the inequality
                 // admits fewer valid values of x
                 if(c == that.c)
                         return a<that.a;
@@ -1119,14 +1122,14 @@ bool affineInequality::semLessThan(const affineInequality& that,
         {
                 //      this                       that
                 // x*a <= y*b + c          AND x*a' <= y*b' + c'
-                // x*a*a' <= y*b*a' + c*a' AND x*a'*a <= y*b'*a + c'*a  
-                
+                // x*a*a' <= y*b*a' + c*a' AND x*a'*a <= y*b'*a + c'*a
+
                 // If the two lines have the same slope (equivalent to b/a == that.b/that.a)
                 if(b*that.a == a*that.b)
                 {
         //printf("affineInequality::operator<<  c=%d, that.c=%d\n", c, that.c);
                         //cout << indent << "neither constant, slopes equal, c*that.a="<<c*that.a<<" that.c*a="<<that.c*a<<"\n";
-                        // this has more information than that if its' y-intercept is lower, since it leaves x 
+                        // this has more information than that if its' y-intercept is lower, since it leaves x
                         // with fewer valid points relative to y
                         return c*that.a < that.c*a;
                 }
@@ -1144,7 +1147,7 @@ bool affineInequality::semLessThan(const affineInequality& that,
                         double yIntersect = (that.c*a - c*that.a)/(b*that.a - that.b*a);
                         //cout << indent << "    yIntersect="<<yIntersect<<" this slope="<<(b/a)<<" that slope="<<(that.b/that.a)<<"\n";
                         //if(zeroY && yZero) cout << indent << "    zeroY="<<zeroY->str("")<<" yZero="<<yZero->str("")<<"\n";
-                        
+
                         // If the slope of This line is higher than the slope of That line (equivalent to b/a > that.b/that.a)
                         if(b*that.a > a*that.b) {
                                 // If the only valid points are above the y-intersection, This is tighter than That
@@ -1169,10 +1172,10 @@ bool affineInequality::semLessThan(const affineInequality& that,
                                         return true;
                                 }
                         }
-                        
-                        // If we don't have enough information about y to conclude anything about its relationship with the 
+
+                        // If we don't have enough information about y to conclude anything about its relationship with the
                         // y-coordinate of the intersection of the lines, try the same with the x-coordinate
-                        
+
                         // Identify the x-coordinate of the intersection of This line and THAT line
                         //      this                                        that
                         // x*a = y*b + c          AND x*a' = y*b' + c'
@@ -1187,7 +1190,7 @@ bool affineInequality::semLessThan(const affineInequality& that,
                         double xIntersect = (that.c*b - c*that.b)/(b*that.a - that.b*a);
                         //cout << indent << "    xIntersect="<<xIntersect<<" this slope="<<(b/a)<<" that slope="<<(that.b/that.a)<<"\n";
                         if(zeroX && xZero) cout << indent << "    zeroX="<<zeroX->str("")<<" xZero="<<xZero->str("")<<"\n";
-                        
+
                         // If the slope of This line is higher than the slope of That line (equivalent to b/a > that.b/that.a)
                         if(b*that.a > a*that.b) {
                                 // If the only valid points are above the x-intersection, This is tighter than That
@@ -1213,22 +1216,22 @@ bool affineInequality::semLessThan(const affineInequality& that,
                                 }
                         }
                 }
-                
-                // If the slopes are not the same and we don't have enough information about how x and y are 
+
+                // If the slopes are not the same and we don't have enough information about how x and y are
                 // related to the intersection of the lines
                 return false;
         }
 }
 
-bool affineInequality::semLessThanEq(const affineInequality& that, 
-                                   bool xIsZeroVar, 
+bool affineInequality::semLessThanEq(const affineInequality& that,
+                                   bool xIsZeroVar,
                                    const affineInequality* xZero, const affineInequality* zeroX,
                                    bool yIsZeroVar,
                                    const affineInequality* yZero, const affineInequality* zeroY, string indent) const
 {
         /*ROSE_ASSERT(xIsZeroVar || (xZero && zeroX));
         ROSE_ASSERT(yIsZeroVar || (yZero && zeroY));*/
-        
+
 //printf("affineInequality::operator<< this=%p that=%p\n", this, &that);
 
         // Case 1: different levels
@@ -1237,31 +1240,31 @@ bool affineInequality::semLessThanEq(const affineInequality& that,
 /*              // top corresponds to an unrepresentable constraint, so we can't make judgements about how that relates to this
                 if(that.level == top) return false;
                 else return true;*/
-        
-        if(level > that.level) 
+
+        if(level > that.level)
                 return false;
-                
-        // Case 2: level == that.level but the level is not constrKnown 
+
+        // Case 2: level == that.level but the level is not constrKnown
         // (i.e. a, b and c are not used, meaning that this == that)
         if(level == bottom || level == top/* || level == falseConstr*/) return true;
-        
+
         // Case 3: level == that.level == constrKnown, so we worry about a, b and c
-        
+
         // If the two constraints are equal, then one is not strictly less than the other
         if(*this == that) return true;
-        
+
                 // If neither x nor y are constants
         if(!xIsZeroVar && !yIsZeroVar)
         {
                 //      this                       that
                 // x*a <= y*b + c          AND x*a' <= y*b' + c'
-                // x*a*a' <= y*b*a' + c*a' AND x*a'*a <= y*b'*a + c'*a  
-                
+                // x*a*a' <= y*b*a' + c*a' AND x*a'*a <= y*b'*a + c'*a
+
                 // If the two lines have the same slope (equivalent to b/a == that.b/that.a)
                 if(b*that.a == a*that.b)
                 {
         //printf("affineInequality::operator<<  c=%d, that.c=%d\n", c, that.c);
-                        // this has more information than that if its' y-intercept is lower, since it leaves x 
+                        // this has more information than that if its' y-intercept is lower, since it leaves x
                         // with fewer valid points relative to y
                         return c*that.a <= that.c*a;
                 }
@@ -1279,7 +1282,7 @@ bool affineInequality::semLessThanEq(const affineInequality& that,
                         double yIntersect = (that.c*a - c*that.a)/(b*that.a - that.b*a);
                         cout << indent << "    yIntersect="<<yIntersect<<" this slope="<<(b/a)<<" that slope="<<(that.b/that.a)<<"\n";
                         if(zeroY) cout << indent << "    zeroY="<<zeroY->str("")<<" yZero="<<yZero->str("")<<"\n";
-                        
+
                         // If the slope of This line is higher than the slope of That line (equivalent to b/a > that.b/that.a)
                         if(b*that.a > a*that.b) {
                                 // If the only valid points are above the y-intersection, This is tighter than That
@@ -1304,10 +1307,10 @@ bool affineInequality::semLessThanEq(const affineInequality& that,
                                         return true;
                                 }
                         }
-                        
-                        // If we don't have enough information about y to conclude anything about its relationship with the 
+
+                        // If we don't have enough information about y to conclude anything about its relationship with the
                         // y-coordinate of the intersection of the lines, try the same with the x-coordinate
-                        
+
                         // Identify the x-coordinate of the intersection of This line and THAT line
                         //      this                                        that
                         // x*a = y*b + c          AND x*a' = y*b' + c'
@@ -1322,7 +1325,7 @@ bool affineInequality::semLessThanEq(const affineInequality& that,
                         double xIntersect = (that.c*b - c*that.b)/(b*that.a - that.b*a);
                         cout << indent << "    xIntersect="<<xIntersect<<" this slope="<<(b/a)<<" that slope="<<(that.b/that.a)<<"\n";
                         if(zeroX) cout << indent << "    zeroX="<<zeroX->str("")<<" xZero="<<xZero->str("")<<"\n";
-                        
+
                         // If the slope of This line is higher than the slope of That line (equivalent to b/a > that.b/that.a)
                         if(b*that.a > a*that.b) {
                                 // If the only valid points are above the x-intersection, This is tighter than That
@@ -1348,8 +1351,8 @@ bool affineInequality::semLessThanEq(const affineInequality& that,
                                 }
                         }
                 }
-                
-                // If the slopes are not the same and we don't have enough information about how x and y are 
+
+                // If the slopes are not the same and we don't have enough information about how x and y are
                 // related to the intersection of the lines
                 return false;
         }
@@ -1357,7 +1360,7 @@ bool affineInequality::semLessThanEq(const affineInequality& that,
         {
                 // 0 <= y*b + c AND 0 <= y*b' + c'
                 // -c <= y*b        -c' <= y*b'
-                // if c == c', then the constraint with the smaller b has more info, since this inequality 
+                // if c == c', then the constraint with the smaller b has more info, since this inequality
                 // admits fewer valid values of x
                 if(c == that.c)
                         return b<=that.b;
@@ -1371,7 +1374,7 @@ bool affineInequality::semLessThanEq(const affineInequality& that,
         {
                 //printf("yZero, c == that.c=%d, a<that.a=%d, a==1 && that.a==1=%d, c<that.c=%d\n", c == that.c, a<that.a, a==1 && that.a==1, c<that.c);
                 // x*a <= c AND x*a' <= c'
-                // if c == c', then the constraint with the smaller a has more info, since the inequality 
+                // if c == c', then the constraint with the smaller a has more info, since the inequality
                 // admits fewer valid values of x
                 if(c == that.c)
                         return a<=that.a;
@@ -1387,7 +1390,7 @@ bool affineInequality::semLessThanEq(const affineInequality& that,
 }
 
 // Semantic affineInequality ordering (partial order), focused on negated inequalities
-// Returns true if the negation of this affineInequality represents more information (less information is 
+// Returns true if the negation of this affineInequality represents more information (less information is
 // top, more information is bottom) than the nagation of that for all values of x and y and false otherwise
 //bool affineInequality::semLessThanNeg(const affineInequality& that) const
 bool affineInequality::semLessThanNeg(const affineInequality& that, bool xEqZero, bool yEqZero) const
@@ -1399,53 +1402,53 @@ bool affineInequality::semLessThanNeg(const affineInequality& that, bool xEqZero
         //         !Bottom = Bottom : no constraint in both cases
         //         !Top = Top : unrepresentable constraints in both cases
 
-        // Case 1: different levels. 
+        // Case 1: different levels.
         if(level < that.level)
                 return true;
-        if(level > that.level) 
+        if(level > that.level)
                 return false;
-                
-        // Case 2: level == that.level but the level is not constrKnown 
+
+        // Case 2: level == that.level but the level is not constrKnown
         //      (i.e. a, b and c are not used, meaning that this == that)
         // All bottom inequalities are equal since they correspond to no constraints
         // All top inequalities are incomparable since we their constraints are too complex to be represented and thus unknown
         if(level == bottom || level == top/* || level == falseConstr*/) return false;
-        
+
         // Case 3: level == that.level == constrKnown, so we worry about a, b and c
-        
+
         // if the two constraints are equal, then one is not strictly less than the other
         if(*this == that) return false;
-        
+
         // If neither x nor y are constants
         if(!xZero && !yZero/* && xSign!=eqZero && ySign!=eqZero*/)
         {
                 //      this                that
                 // x*a <= y*b + c AND x*a' <= y*b' + c'
                 // x*a*a' <= y*b*a' + c*a' AND x*a'*a <= y*b'*a + c'*a
-                
+
                 // if the two lines have the same slope
                 if(b*that.a == a*that.b)
                 {
         //printf("affineInequality::operator<<  c=%d, that.c=%d\n", c, that.c);
-                        // Neg(This) has more information than neg(that) if its' y-intercept is higher, since it leaves x 
+                        // Neg(This) has more information than neg(that) if its' y-intercept is higher, since it leaves x
                         // with fewer valid points relative to y
                         return c*that.a > that.c*a;
                 }
 
                 /*// if x*a*a' >= 0
-                if((xSign==posZero && a*that.a>0) || 
+                if((xSign==posZero && a*that.a>0) ||
                         (xSign==negZero && a*that.a<0))
                 {
-                        // If both lines have the same y-intercept, the line with the higher slope is more constrained, 
+                        // If both lines have the same y-intercept, the line with the higher slope is more constrained,
                         // since it leaves x with fewer valid points relative to y in the negated inequality
                         return b*that.a > that.b*a;
-                }*/                     
+                }*/
         }
         else if(xZero/* || xSign==eqZero*/)
         {
                 // 0 <= y*b + c AND 0 <= y*b' + c'
                 // -c <= y*b        -c' <= y*b'
-                // If c == c', then the constraint with the larger b has more info, since this negated inequality 
+                // If c == c', then the constraint with the larger b has more info, since this negated inequality
                 // admits fewer valid values of x
                 if(c == that.c)
                         return b>that.b;
@@ -1458,7 +1461,7 @@ bool affineInequality::semLessThanNeg(const affineInequality& that, bool xEqZero
         {
                 //printf("yZero, c == that.c=%d, a<that.a=%d, a==1 && that.a==1=%d, c<that.c=%d\n", c == that.c, a<that.a, a==1 && that.a==1, c<that.c);
                 // x*a <= c AND x*a' <= c'
-                // If c == c', then the constraint with the larger a has more info, since the negated inequality 
+                // If c == c', then the constraint with the larger a has more info, since the negated inequality
                 // admits fewer valid values of x
                 if(c == that.c)
                         return a > that.a;
@@ -1467,11 +1470,11 @@ bool affineInequality::semLessThanNeg(const affineInequality& that, bool xEqZero
                 else if(a == that.a)
                         return c > that.c;
         }
-        
+
         // If the slopes are not the same, these two affineInequalities are not strictly ordered for all values of x and y
         return false;
 }
-        
+
 bool affineInequality::set(const affineInequality& that)
 {
         bool modified = (this->a     != that.a) ||
@@ -1482,7 +1485,7 @@ bool affineInequality::set(const affineInequality& that)
                         (this->xSign != that.xSign) ||
                         (this->ySign != that.ySign) ||
                         (this->level != that.level);
-                        
+
         this->a = that.a;
         this->b = that.b;
         this->c = that.c;
@@ -1491,7 +1494,7 @@ bool affineInequality::set(const affineInequality& that)
         this->xSign = that.xSign;
         this->ySign = that.ySign;
         this->level = that.level;
-        
+
         return modified;
 }
 
@@ -1651,7 +1654,7 @@ bool affineInequality::normalize()
         bool modified = false;
         ROSE_ASSERT(this->level == constrKnown);
         //printf("normalize(%d, %d, %d)\n", a, b, c);
-        
+
         /*if(xSign==eqZero && ySign==eqZero)
         {
                 a=1;
@@ -1665,7 +1668,7 @@ bool affineInequality::normalize()
                 int gcd_bc = gcd(abs(b), abs(c));
                 b = b/gcd_bc;
                 c = c/gcd_bc;
-                
+
                 // if c=0 or -1, [0 <= y*b + c] implies [0 <= y + c], which is a stronger constraint
                 /*if(c==0 || c==-1)
                         b=1;*/
@@ -1677,7 +1680,7 @@ bool affineInequality::normalize()
                 int gcd_ac = gcd(abs(a), abs(c));
                 a = a/gcd_ac;
                 c = c/gcd_ac;
-                
+
                 // if c=0 or c=-1, [x*a <= c] implies [x <= c], which is a stronger constraint
                 /*if(c==0 || c==-1)
                         a=1;*/
@@ -1700,29 +1703,29 @@ bool affineInequality::normalize()
                 modified = (a == a/gcd_abc) &&
                  (b == b/gcd_abc) &&
                  (c == c/gcd_abc);
-                
+
                 a = a/gcd_abc;
                 b = b/gcd_abc;
                 c = c/gcd_abc;
                 //printf("        C(%d, %d, %d)\n", a, b, c);
         }
-        
-/*      // Now consider the fact that x and y are integers. Thus, if 
-        // if a=l*m, b=l*n, c=l*p+q 
+
+/*      // Now consider the fact that x and y are integers. Thus, if
+        // if a=l*m, b=l*n, c=l*p+q
         // then [x*a <= y*b + c] implies [x*l*m <= y*l*n + l*p] == [x*m <= y*n + p]
         long gcd_ab = gcd(a,b);
         int div, rem;
         div = c/gcd_ab;
         rem = c%gcd_ab;
         //printf("gcd_ab=%d div=%d rem=%d, c-((gcd_ab+rem)%%gcd_ab)=%d\n", gcd_ab, div, rem, c-((gcd_ab+rem)%gcd_ab));
-        
+
         //printf("normalize(%d, %d, %d) ==> ", a, b, c);
         if(gcd_ab>1)
         {
                 modified = (a == a/gcd_ab) &&
                  (b == b/gcd_ab) &&
                  (c == (c-((gcd_ab+rem)%gcd_ab))/gcd_ab);
-                
+
                 a=a/gcd_ab;
                 b=b/gcd_ab;
                 c = (c-((gcd_ab+rem)%gcd_ab))/gcd_ab;
@@ -1746,7 +1749,7 @@ void affineInequality::operator*=(const affineInequality& that)
 bool affineInequality::intersectUpd(const affineInequality& that)
 {
         bool modified=false;
-        
+
         // top -> top or top->lower
         // constrKnown -> constrKnown or constrKnown->lower
         // falseConstr -> falseConstr
@@ -1778,7 +1781,7 @@ bool affineInequality::intersectUpd(const affineInequality& that)
                 //      this                that
                 // x*a <= y*b + c AND x*a' <= y*b' + c'
                 // x*a*a' <= y*b*a' + c*a' AND x*a'*a <= y*b'*a + c'*a
-                
+
                 // the only way to lower-bound both lines is if they have the same slope
                 if(b*that.a == a*that.b)
                 {
@@ -1805,11 +1808,11 @@ bool affineInequality::intersectUpd(const affineInequality& that)
                 {
                         //setToTop();
                         // This lattice is conservative in the sense of containg no more information
-                        // than is known to be true. As such, because we know that either this' or 
+                        // than is known to be true. As such, because we know that either this' or
                         // that's constraints are true, we'll leave this with its current constraints.
                 }
         }
-        
+
         return modified;
 }
 
@@ -1832,7 +1835,7 @@ bool affineInequality::unionUpd(const affineInequality& that)
         // constrKnown -> constrKnown or constrKnown->higher
         // falseConstr -> falseConstr or higher
         // bottom -> bottom or higher
-        
+
         // If either operand is top, the result is top
         if(level == top || that.level == top)
                 modified = setToTop() || modified;
@@ -1853,7 +1856,7 @@ bool affineInequality::unionUpd(const affineInequality& that)
         { }
         // If both levels are constrKnown
         else
-        {       
+        {
                 //      this                that
                 // x*a <= y*b + c OR x*a' <= y*b' + c'
                 // x*a*a' <= y*b*a' + c*a' OR x*a'*a <= y*b'*a + c'*a
@@ -1885,14 +1888,14 @@ bool affineInequality::unionUpd(const affineInequality& that)
 // WIDEN this with that, saving the result in this
 /*void affineInequality::operator^=(const affineInequality& that)
 {
-        // if this constraint is being widened to something that has more information (higher in the lattice) 
-        // than it currently has, shift directly to top to avoid passing this constraint through an infinite 
+        // if this constraint is being widened to something that has more information (higher in the lattice)
+        // than it currently has, shift directly to top to avoid passing this constraint through an infinite
         // number of lattice steps on its way to top
         if(*this << that)
                 setToTop();
 }*/
 
-// returns true if the x-y constraint constrXY is consistent with the y-x constraint constrYX for 
+// returns true if the x-y constraint constrXY is consistent with the y-x constraint constrYX for
 // some values of x and y and false otherwise. Since affineInequalities are conservative in the
 // sense that they don't contain any more information than is definitely true, it may be
 // that the true constraints are in fact inconsistent but we do not have enough information to
@@ -1902,7 +1905,7 @@ bool affineInequality::mayConsistent(const affineInequality& constrXY, const aff
         // it is meaningless to call this function with bottom arguments
         ROSE_ASSERT(constrXY.level != bottom);
         ROSE_ASSERT(constrYX.level != bottom);
-        
+
         // x<=y+infinity and y*a<=x*b+c
         if(constrXY.level == top)
                 return constrYX.level>=constrKnown;
@@ -1912,7 +1915,7 @@ bool affineInequality::mayConsistent(const affineInequality& constrXY, const aff
         // if either constraint is false, their conjunction is inconsistent
         /*else if(constrXY.level==falseConstr || constrYX.level==falseConstr)
                 return false;*/
-        
+
         ROSE_ASSERT(constrXY.level == constrKnown && constrYX.level == constrKnown);
         // x*a <= y*b + c AND y*a' <= x*b' + c'
         // x*a*a' <= y*b*a' + c*a' AND y*a'*b <= x*b'*b + c'*b
@@ -1934,7 +1937,7 @@ bool affineInequality::mayConsistent(const affineInequality& constrXY, const aff
                 }
            return false;
         }
-        
+
         return true;
 }
 
@@ -1951,11 +1954,11 @@ string affineInequality::signToString(signs sign)
         else
                 return "???";
 }
-                
+
 string affineInequality::str(string indent)// const
 {
         ostringstream outs;
-        
+
         if(level==bottom)
                 //outs << "<constraint: ["<<y.str()<<"] bottom>";
                 outs << "[aI: bottom]";
@@ -1968,14 +1971,14 @@ string affineInequality::str(string indent)// const
         else if(level==top)
                 //outs << "<affineInequality: ["<<y.str()<<"] top>";
                 outs << "[aI: top]";
-        
+
         return Dbg::escape(outs.str());
 }
 
 string affineInequality::str(string indent) const
 {
         ostringstream outs;
-        
+
         if(level==bottom)
                 //outs << "[constraint: ["<<y.str()<<"] bottom]";
                 outs << "[aI: bottom>";
@@ -1985,14 +1988,14 @@ string affineInequality::str(string indent) const
         else if(level==top)
                 //outs << "<affineInequality: ["<<y.str()<<"] top>";
                 outs << "[aI: top]";
-        
+
         return Dbg::escape(outs.str());
 }
 
 string affineInequality::str(varID x, varID y, string indent) const
 {
         ostringstream outs;
-        
+
         if(level==bottom)
                 outs << "[aI: ["<<x.str()<<"->"<<y.str()<<"] bottom]";
         /*else if(level==falseConstr)
@@ -2001,7 +2004,7 @@ string affineInequality::str(varID x, varID y, string indent) const
                 outs << "[aI: "<<x.str()<<"*"<<a<<" <= "<<y.str()<<"*"<<b<<" + "<<c<<"]";//|"<<signToString(xSign)<<"|"<<signToString(ySign)<<">";
         else if(level==top)
                 outs << "[aI: ["<<x.str()<<"->"<<y.str()<<"] top]";
-        
+
         return Dbg::escape(outs.str());
 }
 
@@ -2009,7 +2012,7 @@ string affineInequality::str(varID x, varID y, string indent) const
 string affineInequality::strNeg(varID x, varID y, string indent) const
 {
         ostringstream outs;
-        
+
         if(level==bottom)
                 outs << "[aI: ["<<x.str()<<"->"<<y.str()<<"] bottom]";
         /*else if(level==falseConstr)
@@ -2018,11 +2021,11 @@ string affineInequality::strNeg(varID x, varID y, string indent) const
                 outs << "[aI: "<<x.str()<<"*"<<a<<" > "<<y.str()<<"*"<<b<<" + "<<c<<"]";//|"<<signToString(xSign)<<"|"<<signToString(ySign)<<">";
         else if(level==top)
                 outs << "[aI: ["<<x.str()<<"->"<<y.str()<<"] top]";
-        
+
         return Dbg::escape(outs.str());
 }
 
-/*// the basic logical operations that must be supported by any implementation of 
+/*// the basic logical operations that must be supported by any implementation of
 // a logical condition: NOT, AND and OR
 void affineInequality::notUpd()
 {
@@ -2049,4 +2052,3 @@ void affineInequality::orUpd(LogicalCond& that)
 {
         *this += (affineInequality&)that;
 }*/
-

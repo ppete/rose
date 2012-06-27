@@ -131,8 +131,8 @@ class LiveDeadVarsTransfer : public IntraDFTransferVisitor
   void used(SgExpression *);
 
 public:
-  LiveDeadVarsTransfer(const Function &f, const DataflowNode &n, NodeState &s, const std::vector<Lattice*> &d, funcSideEffectUses *fseu_)
-    : IntraDFTransferVisitor(f, n, s, d), indent("    "), liveLat(dynamic_cast<LiveVarsLattice*>(*(dfInfo.begin()))), modified(false), fseu(fseu_)
+  LiveDeadVarsTransfer(const Function& f, const DataflowNode& n, NodeState& s, Lattice& d, funcSideEffectUses* fseu_)
+    : IntraDFTransferVisitor(f, n, s, d), indent("    "), liveLat(dynamic_cast<LiveVarsLattice*>(&d)), modified(false), fseu(fseu_)
   {
         if(liveDeadAnalysisDebugLevel>=1) Dbg::dbg << indent << "liveLat="<<liveLat->str(indent + "    ")<<std::endl;
         // Make sure that all the lattice is initialized
@@ -167,12 +167,13 @@ class LiveDeadVarsAnalysis : public IntraBWDataflow
         LiveDeadVarsAnalysis(SgProject *project, funcSideEffectUses* fseu=NULL);
 
         // Generates the initial lattice state for the given dataflow node, in the given function, with the given NodeState
-        void genInitState(const Function& func, const DataflowNode& n, const NodeState& state,
-                          std::vector<Lattice*>& initLattices, std::vector<NodeFact*>& initFacts);
+        LiveVarsLattice*       genLattice(const Function& func, const DataflowNode& n, const NodeState& state);
+        std::vector<NodeFact*> genFacts(const Function& func, const DataflowNode& n, const NodeState& state);
 
-        void transfer(const Function& func, const DataflowNode& n, NodeState& state, const std::vector<Lattice*>& dfInfo)
+        bool transfer(const Function& func, const DataflowNode& n, NodeState& state, Lattice& dfInfo)
         {
           visitor_transfer(LiveDeadVarsTransfer(func, n, state, dfInfo, fseu), n);
+          return true; // \pp \todo pass return value from LiveDeadVarsTransfer
         }
 };
 

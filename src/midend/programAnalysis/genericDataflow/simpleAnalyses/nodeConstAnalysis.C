@@ -401,9 +401,12 @@ nodeConstAnalysis* runNodeConstAnalysis()
 void printNodeConstAnalysisStates(nodeConstAnalysis* nca, string indent)
 {
         vector<int> factNames;
+/*
         vector<int> latticeNames;
         latticeNames.push_back(0);
         printAnalysisStates pas(nca, factNames, latticeNames, printAnalysisStates::below, indent);
+*/
+        printAnalysisStates pas(nca, factNames, printAnalysisStates::below, indent);
         UnstructuredPassInterAnalysis upia_pas(pas);
         upia_pas.runAnalysis();
 }

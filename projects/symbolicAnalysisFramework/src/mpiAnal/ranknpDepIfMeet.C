@@ -14,7 +14,7 @@ IfMeetLat::IfMeetLat(DataflowNode parentNode): ifLeft(parentNode), ifRight(paren
 }
 
 IfMeetLat::IfMeetLat(const IfMeetLat &that): ifLeft(that.parentNode), ifRight(that.parentNode), parentNode(that.parentNode)
-{ 
+{
         this->initialized = that.initialized;
         this->ifHist      = that.ifHist;
         this->isIfMeet    = that.isIfMeet;
@@ -35,19 +35,19 @@ Lattice* IfMeetLat::copy() const
 { return new IfMeetLat(*this); }
 
 // overwrites the state of this Lattice with that of that Lattice
-void IfMeetLat::copy(Lattice* that)
+void IfMeetLat::copy(const Lattice* that)
 {
-        initialized = dynamic_cast<IfMeetLat*>(that)->initialized;
-        ifHist      = dynamic_cast<IfMeetLat*>(that)->ifHist;
-        isIfMeet    = dynamic_cast<IfMeetLat*>(that)->isIfMeet;
-        ifLeft      = dynamic_cast<IfMeetLat*>(that)->ifLeft;
-        ifRight     = dynamic_cast<IfMeetLat*>(that)->ifRight;
-        parentNode  = dynamic_cast<IfMeetLat*>(that)->parentNode;
+        initialized = dynamic_cast<const IfMeetLat*>(that)->initialized;
+        ifHist      = dynamic_cast<const IfMeetLat*>(that)->ifHist;
+        isIfMeet    = dynamic_cast<const IfMeetLat*>(that)->isIfMeet;
+        ifLeft      = dynamic_cast<const IfMeetLat*>(that)->ifLeft;
+        ifRight     = dynamic_cast<const IfMeetLat*>(that)->ifRight;
+        parentNode  = dynamic_cast<const IfMeetLat*>(that)->parentNode;
 }
 
 // computes the meet of this and that and saves the result in this
 // returns true if this causes this to change and false otherwise
-bool IfMeetLat::meetUpdate(Lattice* that)
+bool IfMeetLat::meetUpdate(const Lattice* that)
 {
         if(!initialized)
         {
@@ -57,26 +57,26 @@ bool IfMeetLat::meetUpdate(Lattice* that)
                 //Dbg::dbg << "meetUpdate Case 1, result: "<<str("")<<endl;
                 return true;
         }
-        else if(!dynamic_cast<IfMeetLat*>(that)->initialized)
+        else if(!dynamic_cast<const IfMeetLat*>(that)->initialized)
         {
                 initialized=true;
                 //Dbg::dbg << "meetUpdate Case 2, result: "<<str("")<<endl;
                 return false;
         }
-        else 
+        else
         {
                 initialized=true;
                 //printf("ifHist.size()=%d (that)->ifHist.size()=%d\n", ifHist.size(), dynamic_cast<IfMeetLat*>(that)->ifHist.size());
                 //ROSE_ASSERT(ifHist.size() == dynamic_cast<IfMeetLat*>(that)->ifHist.size());
 
-                // Only bother once we have information from both incoming branches 
-                if(ifHist.size() > 0 && dynamic_cast<IfMeetLat*>(that)->ifHist.size()>0)
+                // Only bother once we have information from both incoming branches
+                if(ifHist.size() > 0 && dynamic_cast<const IfMeetLat*>(that)->ifHist.size()>0)
                 {
                         //printf("meetUpdate Case 3, this: %s\n", str("").c_str());
                         //printf("                   that: %s\n", dynamic_cast<IfMeetLat*>(that)->str("").c_str());
-                        
+
                         // If the two lattices came from different sides of an if statement
-                        if(ifHist[ifHist.size()-1] != dynamic_cast<IfMeetLat*>(that)->ifHist[ifHist.size()-1])
+                        if(ifHist[ifHist.size()-1] != dynamic_cast<const IfMeetLat*>(that)->ifHist[ifHist.size()-1])
                         {
                                 // Record that this is a meet node for an if statement
                                 isIfMeet = true;
@@ -90,13 +90,13 @@ bool IfMeetLat::meetUpdate(Lattice* that)
                 }
                 // Else, if we have new information with a shorter ifHist list, cut the ifHist
                 // list of this lattice down to match it since this information is fresher
-                else if(dynamic_cast<IfMeetLat*>(that)->ifHist.size() < ifHist.size())
+                else if(dynamic_cast<const IfMeetLat*>(that)->ifHist.size() < ifHist.size())
                 {
-                        while(dynamic_cast<IfMeetLat*>(that)->ifHist.size() < ifHist.size())
+                        while(dynamic_cast<const IfMeetLat*>(that)->ifHist.size() < ifHist.size())
                                 ifHist.erase(ifHist.end());
                         //printf("after length cut ifHist.size()=%d (that)->ifHist.size()=%d\n", ifHist.size(), dynamic_cast<IfMeetLat*>(that)->ifHist.size());
                         return true;
-                }       
+                }
                 else
                 {
                         //printf("meetUpdate Case 4, result: %s\n", str("").c_str());
@@ -105,11 +105,11 @@ bool IfMeetLat::meetUpdate(Lattice* that)
         }
 }
 
-bool IfMeetLat::operator==(Lattice* that)
+bool IfMeetLat::operator==(const Lattice* that) const
 {
-        return initialized == dynamic_cast<IfMeetLat*>(that)->initialized && 
-               (ifHist == dynamic_cast<IfMeetLat*>(that)->ifHist) &&
-               (isIfMeet == dynamic_cast<IfMeetLat*>(that)->isIfMeet);
+        return initialized == dynamic_cast<const IfMeetLat*>(that)->initialized &&
+               (ifHist == dynamic_cast<const IfMeetLat*>(that)->ifHist) &&
+               (isIfMeet == dynamic_cast<const IfMeetLat*>(that)->isIfMeet);
 }
 
 // The string that represents this object
@@ -131,7 +131,7 @@ string IfMeetLat::str(string indent)
         return ss.str();
 }
 
-bool IfMeetLat::getIsIfMeet()
+bool IfMeetLat::getIsIfMeet() const
 {
         return isIfMeet;
 }
@@ -140,6 +140,7 @@ bool IfMeetLat::getIsIfMeet()
  * IfMeetDetector *
  ******************/
 
+#if OBSOLETE_CODE
 // generates the initial lattice state for the given dataflow node, in the given function, with the given NodeState
 //vector<Lattice*> IfMeetDetector::genInitState(const Function& func, const DataflowNode& n, const NodeState& state)
 void IfMeetDetector::genInitState(const Function& func, const DataflowNode& n, const NodeState& state,
@@ -152,26 +153,39 @@ void IfMeetDetector::genInitState(const Function& func, const DataflowNode& n, c
 //              printf("IfMeetDetector::genInitState() C\n");
         initLattices.push_back(ifml);
 //              printf("IfMeetDetector::genInitState() D\n");
-        
+
         //return initLattices;
 }
-                
+#endif /*OBSOLETE_CODE*/
+
+IfMeetLat*
+IfMeetDetector::genLattice(const Function& func, const DataflowNode& n, const NodeState& state)
+{
+  return new IfMeetLat(n);
+}
+
+std::vector<NodeFact*>
+IfMeetDetector::genFacts(const Function& func, const DataflowNode& n, const NodeState& state)
+{}
+
+
 // the transfer function that is applied to every node
 // n - the dataflow node that is being processed
-// state - the NodeState object that describes the state of the node, as established by earlier 
+// state - the NodeState object that describes the state of the node, as established by earlier
 //         analysis passes
 // dfInfo - the Lattices that this transfer function operates on. The function takes these lattices
 //          as input and overwrites them with the result of the transfer.
 // Returns true if any of the input lattices changed as a result of the transfer function and
 //    false otherwise.
-bool IfMeetDetector::transfer(const Function& func, const DataflowNode& n, NodeState& state, const vector<Lattice*>& dfInfo)
+bool
+IfMeetDetector::transfer(const Function& func, const DataflowNode& n, NodeState& state, Lattice& lat)
 {
         /*printf("-----------------------------------\n");
         printf("IfMeetDetector::transfer() function %s() node=[%s | %s]\n", func.get_name().str(), n.getNode()->class_name().c_str(), n.getNode()->unparseToString().c_str());*/
-        
+
         //bool modified = false;
-        IfMeetLat* ifml = dynamic_cast<IfMeetLat*>(dfInfo.front());
-        
+        IfMeetLat* ifml = dynamic_cast<IfMeetLat*>(&lat);
+
         // if this node is a descendant of an if statement
         if(n == ifml->ifLeft)
         {
@@ -185,7 +199,7 @@ bool IfMeetDetector::transfer(const Function& func, const DataflowNode& n, NodeS
                 // change ifRight so that we won't push 1 again in case this transfer function ever gets called again
                 ifml->ifRight = ifml->parentNode;
         }
-                
+
         if(isSgIfStmt(n.getNode()) && n.getIndex()==1)
         {
                 // iterate over both the descendants
@@ -203,19 +217,22 @@ bool IfMeetDetector::transfer(const Function& func, const DataflowNode& n, NodeS
                         }
                 }
         }
-        
+
         //printf("ifml->ifHist.size()=%d\n", ifml->ifHist.size());
         ifml->initialized = true;
         return true;
 }
 
-// prints the Lattices set by the given DivAnalysis 
+// prints the Lattices set by the given DivAnalysis
 void printIfMeetDetectorStates(IfMeetDetector* ifmd, string indent)
 {
         vector<int> factNames;
+/*
         vector<int> latticeNames;
         latticeNames.push_back(0);
         printAnalysisStates pas(ifmd, factNames, latticeNames, printAnalysisStates::below, indent);
+*/
+        printAnalysisStates pas(ifmd, factNames, printAnalysisStates::below, indent);
         UnstructuredPassInterAnalysis upia_pas(pas);
         upia_pas.runAnalysis();
 }
@@ -226,10 +243,10 @@ void runIfMeetDetector(bool printStates)
 {
         if(ifmd==NULL)
         {
-                ifmd = new IfMeetDetector();    
+                ifmd = new IfMeetDetector();
                 UnstructuredPassInterDataflow upid_ifmd(ifmd);
                 upid_ifmd.runAnalysis();
-                
+
                 if(printStates)
                         printIfMeetDetectorStates(ifmd, ":");
         }
@@ -239,8 +256,8 @@ void runIfMeetDetector(bool printStates)
 bool isIfMeetNode(const DataflowNode& n)
 {
         NodeState* state = NodeState::getNodeState(n, 0);
-        Lattice* ifmdLat = state->getLatticeBelow(ifmd, 0);
-        return dynamic_cast<IfMeetLat*>(ifmdLat)->getIsIfMeet();
+        const AnyLattice& ifmdLat = state->getLatticeBelow(ifmd);
+        return ifmdLat.ref<IfMeetLat>().getIsIfMeet();
 }
 
 
@@ -258,7 +275,7 @@ RankDepIfMeetLat::RankDepIfMeetLat(DataflowNode parentNode): ifLeft(parentNode),
 }
 
 RankDepIfMeetLat::RankDepIfMeetLat(const RankDepIfMeetLat &that): ifLeft(that.parentNode), ifRight(that.parentNode), parentNode(that.parentNode)
-{ 
+{
         this->initialized = that.initialized;
         this->ifHist      = that.ifHist;
         this->isIfMeet    = that.isIfMeet;
@@ -279,19 +296,19 @@ Lattice* RankDepIfMeetLat::copy() const
 { return new RankDepIfMeetLat(*this); }
 
 // overwrites the state of this Lattice with that of that Lattice
-void RankDepIfMeetLat::copy(Lattice* that)
+void RankDepIfMeetLat::copy(const Lattice* that)
 {
-        initialized = dynamic_cast<RankDepIfMeetLat*>(that)->initialized;
-        ifHist      = dynamic_cast<RankDepIfMeetLat*>(that)->ifHist;
-        isIfMeet    = dynamic_cast<RankDepIfMeetLat*>(that)->isIfMeet;
-        ifLeft      = dynamic_cast<RankDepIfMeetLat*>(that)->ifLeft;
-        ifRight     = dynamic_cast<RankDepIfMeetLat*>(that)->ifRight;
-        parentNode  = dynamic_cast<RankDepIfMeetLat*>(that)->parentNode;
+        initialized = dynamic_cast<const RankDepIfMeetLat*>(that)->initialized;
+        ifHist      = dynamic_cast<const RankDepIfMeetLat*>(that)->ifHist;
+        isIfMeet    = dynamic_cast<const RankDepIfMeetLat*>(that)->isIfMeet;
+        ifLeft      = dynamic_cast<const RankDepIfMeetLat*>(that)->ifLeft;
+        ifRight     = dynamic_cast<const RankDepIfMeetLat*>(that)->ifRight;
+        parentNode  = dynamic_cast<const RankDepIfMeetLat*>(that)->parentNode;
 }
 
 // computes the meet of this and that and saves the result in this
 // returns true if this causes this to change and false otherwise
-bool RankDepIfMeetLat::meetUpdate(Lattice* that)
+bool RankDepIfMeetLat::meetUpdate(const Lattice* that)
 {
         if(!initialized)
         {
@@ -301,26 +318,26 @@ bool RankDepIfMeetLat::meetUpdate(Lattice* that)
                 //printf("meetUpdate Case 1, result: %s\n", str("").c_str());
                 return true;
         }
-        else if(!dynamic_cast<RankDepIfMeetLat*>(that)->initialized)
+        else if(!dynamic_cast<const RankDepIfMeetLat*>(that)->initialized)
         {
                 initialized=true;
                 //printf("meetUpdate Case 2, result: %s\n", str("").c_str());
                 return false;
         }
-        else 
+        else
         {
                 initialized=true;
                 //printf("ifHist.size()=%d (that)->ifHist.size()=%d\n", ifHist.size(), dynamic_cast<RankDepIfMeetLat*>(that)->ifHist.size());
                 //ROSE_ASSERT(ifHist.size() == dynamic_cast<RankDepIfMeetLat*>(that)->ifHist.size());
 
-                // Only bother once we have information from both incoming branches 
-                if(ifHist.size() > 0 && dynamic_cast<RankDepIfMeetLat*>(that)->ifHist.size()>0)
+                // Only bother once we have information from both incoming branches
+                if(ifHist.size() > 0 && dynamic_cast<const RankDepIfMeetLat*>(that)->ifHist.size()>0)
                 {
                         //printf("meetUpdate Case 3, this: %s\n", str("").c_str());
                         //printf("                   that: %s\n", dynamic_cast<RankDepIfMeetLat*>(that)->str("").c_str());
-                        
+
                         // If the two lattices came from different sides of an if statement
-                        if(ifHist[ifHist.size()-1] != dynamic_cast<RankDepIfMeetLat*>(that)->ifHist[ifHist.size()-1])
+                        if(ifHist[ifHist.size()-1] != dynamic_cast<const RankDepIfMeetLat*>(that)->ifHist[ifHist.size()-1])
                         {
                                 // Record that this is a meet node for an if statement
                                 isIfMeet = true;
@@ -334,13 +351,13 @@ bool RankDepIfMeetLat::meetUpdate(Lattice* that)
                 }
                 // Else, if we have new information with a shorter ifHist list, cut the ifHist
                 // list of this lattice down to match it since this information is fresher
-                else if(dynamic_cast<RankDepIfMeetLat*>(that)->ifHist.size() < ifHist.size())
+                else if(dynamic_cast<const RankDepIfMeetLat*>(that)->ifHist.size() < ifHist.size())
                 {
-                        while(dynamic_cast<RankDepIfMeetLat*>(that)->ifHist.size() < ifHist.size())
+                        while(dynamic_cast<const RankDepIfMeetLat*>(that)->ifHist.size() < ifHist.size())
                                 ifHist.erase(ifHist.end());
                         //printf("after length cut ifHist.size()=%d (that)->ifHist.size()=%d\n", ifHist.size(), dynamic_cast<RankDepIfMeetLat*>(that)->ifHist.size());
                         return true;
-                }       
+                }
                 else
                 {
                         //printf("meetUpdate Case 4, result: %s\n", str("").c_str());
@@ -349,11 +366,11 @@ bool RankDepIfMeetLat::meetUpdate(Lattice* that)
         }
 }
 
-bool RankDepIfMeetLat::operator==(Lattice* that)
+bool RankDepIfMeetLat::operator==(const Lattice* that) const
 {
-        return initialized == dynamic_cast<RankDepIfMeetLat*>(that)->initialized && 
-               (ifHist == dynamic_cast<RankDepIfMeetLat*>(that)->ifHist) &&
-               (isIfMeet == dynamic_cast<RankDepIfMeetLat*>(that)->isIfMeet);
+        return initialized == dynamic_cast<const RankDepIfMeetLat*>(that)->initialized &&
+               (ifHist == dynamic_cast<const RankDepIfMeetLat*>(that)->ifHist) &&
+               (isIfMeet == dynamic_cast<const RankDepIfMeetLat*>(that)->isIfMeet);
 }
 
 // The string that represents this object
@@ -375,7 +392,7 @@ string RankDepIfMeetLat::str(string indent)
         return ss.str();
 }
 
-bool RankDepIfMeetLat::getIsIfMeet()
+bool RankDepIfMeetLat::getIsIfMeet() const
 {
         return isIfMeet;
 }
@@ -384,6 +401,7 @@ bool RankDepIfMeetLat::getIsIfMeet()
  * IfMeetDetector *
  ******************/
 
+#if OBSOLETE_CODE
 // generates the initial lattice state for the given dataflow node, in the given function, with the given NodeState
 //vector<Lattice*> RankDepIfMeetDetector::genInitState(const Function& func, const DataflowNode& n, const NodeState& state)
 void RankDepIfMeetDetector::genInitState(const Function& func, const DataflowNode& n, const NodeState& state,
@@ -396,27 +414,41 @@ void RankDepIfMeetDetector::genInitState(const Function& func, const DataflowNod
 //              printf("IfMeetDetector::genInitState() C\n");
         initLattices.push_back(ifml);
 //              printf("IfMeetDetector::genInitState() D\n");
-        
+
         //return initLattices;
 }
-                
+#endif /*OBSOLETE_CODE*/
+
+RankDepIfMeetLat*
+RankDepIfMeetDetector::genLattice(const Function& func, const DataflowNode& n, const NodeState& state)
+{
+  return new RankDepIfMeetLat(n);
+}
+
+std::vector<NodeFact*>
+RankDepIfMeetDetector::genFacts(const Function& func, const DataflowNode& n, const NodeState& state)
+{
+  return std::vector<NodeFact*>();
+}
+
+
 // the transfer function that is applied to every node
 // n - the dataflow node that is being processed
-// state - the NodeState object that describes the state of the node, as established by earlier 
+// state - the NodeState object that describes the state of the node, as established by earlier
 //         analysis passes
 // dfInfo - the Lattices that this transfer function operates on. The function takes these lattices
 //          as input and overwrites them with the result of the transfer.
 // Returns true if any of the input lattices changed as a result of the transfer function and
 //    false otherwise.
-bool RankDepIfMeetDetector::transfer(const Function& func, const DataflowNode& n, NodeState& state, const vector<Lattice*>& dfInfo)
+bool RankDepIfMeetDetector::transfer(const Function& func, const DataflowNode& n, NodeState& state, Lattice& lat)
 {
         /*printf("-----------------------------------\n");
         printf("IfMeetDetector::transfer() function %s() node=[%s | %s]\n", func.get_name().str(), n.getNode()->class_name().c_str(), n.getNode()->unparseToString().c_str());
-        
+
         Dbg::dbg << "dfInfo.front() = "<<dfInfo.front()->str() << endl;*/
         //bool modified = false;
-        RankDepIfMeetLat* ifml = dynamic_cast<RankDepIfMeetLat*>(dfInfo.front());
-        
+        RankDepIfMeetLat* ifml = dynamic_cast<RankDepIfMeetLat*>(&lat);
+
         // if this node is a descendant of an if statement
         if(n == ifml->ifLeft)
         {
@@ -430,7 +462,7 @@ bool RankDepIfMeetDetector::transfer(const Function& func, const DataflowNode& n
                 // change ifRight so that we won't push 1 again in case this transfer function ever gets called again
                 ifml->ifRight = ifml->parentNode;
         }
-                
+
         // If this is an if statement that depends on the process rank
         if(isSgIfStmt(n.getNode()) && n.getIndex()==1 && isMPIRankDep(func, n))
         {
@@ -449,19 +481,23 @@ bool RankDepIfMeetDetector::transfer(const Function& func, const DataflowNode& n
                         }
                 }
         }
-        
+
         //printf("ifml->ifHist.size()=%d\n", ifml->ifHist.size());
         ifml->initialized = true;
         return true;
 }
 
-// prints the Lattices set by the given DivAnalysis 
+// prints the Lattices set by the given DivAnalysis
 void printRankDepIfMeetDetectorStates(RankDepIfMeetDetector* ifmd, string indent)
 {
         vector<int> factNames;
+/*
         vector<int> latticeNames;
         latticeNames.push_back(0);
         printAnalysisStates pas(ifmd, factNames, latticeNames, printAnalysisStates::below, indent);
+*/
+        printAnalysisStates pas(ifmd, factNames, printAnalysisStates::below, indent);
+
         UnstructuredPassInterAnalysis upia_pas(pas);
         upia_pas.runAnalysis();
 }
@@ -472,10 +508,10 @@ void runRankDepIfMeetDetector(bool printStates)
 {
         if(ifmd==NULL)
         {
-                rdifmd = new RankDepIfMeetDetector();   
+                rdifmd = new RankDepIfMeetDetector();
                 UnstructuredPassInterDataflow upid_rdifmd(rdifmd);
                 upid_rdifmd.runAnalysis();
-                
+
                 if(printStates)
                         printRankDepIfMeetDetectorStates(rdifmd, ":");
         }
@@ -485,6 +521,6 @@ void runRankDepIfMeetDetector(bool printStates)
 bool isRankDepIfMeetNode(const DataflowNode& n)
 {
         NodeState* state = NodeState::getNodeState(n, 0);
-        Lattice* ifmdLat = state->getLatticeBelow(ifmd, 0);
-        return dynamic_cast<RankDepIfMeetLat*>(ifmdLat)->getIsIfMeet();
+        const AnyLattice& ifmdLat = state->getLatticeBelow(ifmd);
+        return ifmdLat.ref<RankDepIfMeetLat>().getIsIfMeet();
 }

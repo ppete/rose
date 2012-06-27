@@ -97,6 +97,8 @@ protected:
         //    reason about variables that have the same annotation. When a variable has multiple annotations
         //    only one matching product lattice will be used.
         // The annotation ""->NULL matches all variables
+        // \pp \todo since this lattice is only used to reason about variables
+        //           can we make the type "const FiniteVarsExprsProductLattice*" ???
         std::map<std::pair<std::string, void*>, FiniteVarsExprsProductLattice*> divL;
 
         // The sign lattices associated with the current CFG node

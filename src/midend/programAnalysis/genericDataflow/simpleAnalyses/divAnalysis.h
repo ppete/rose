@@ -195,7 +195,7 @@ public:
   void visit(SgMinusOp *sgn);
   bool finish() { return modified; }
 
-  DivAnalysisTransfer(const Function& func, const DataflowNode& n, NodeState& state, const std::vector<Lattice*>& dfInfo);
+  DivAnalysisTransfer(const Function& func, const DataflowNode& n, NodeState& state, Lattice& lat);
 };
 
 class DivAnalysis : public IntraFWDataflow
@@ -222,17 +222,23 @@ class DivAnalysis : public IntraFWDataflow
 
         // generates the initial lattice state for the given dataflow node, in the given function, with the given NodeState
         //std::vector<Lattice*> genInitState(const Function& func, const DataflowNode& n, const NodeState& state);
-        void genInitState(const Function& func, const DataflowNode& n, const NodeState& state,
-                          Lattice*& initLattices, std::vector<NodeFact*>& initFacts);
+        //~ void genInitState(const Function& func, const DataflowNode& n, const NodeState& state,
+                          //~ Lattice*& initLattices, std::vector<NodeFact*>& initFacts);
+
+        FiniteVarsExprsProductLattice*
+        genLattice(const Function& func, const DataflowNode& n, const NodeState& state);
+
+        std::vector<NodeFact*> genFacts(const Function& func, const DataflowNode& n, const NodeState& state);
 
         // Returns a map of special constant variables (such as zeroVar) and the lattices that correspond to them
         // These lattices are assumed to be constants: it is assumed that they are never modified and it is legal to
         //    maintain only one copy of each lattice may for the duration of the analysis.
         //std::map<varID, Lattice*>& genConstVarLattices() const;
 
-        void transfer(const Function& func, const DataflowNode& n, NodeState& state, const std::vector<Lattice*>& dfInfo)
+        bool transfer(const Function& func, const DataflowNode& n, NodeState& state, Lattice& lat)
         {
-          visitor_transfer( DivAnalysisTransfer(func, n, state, dfInfo), n );
+          visitor_transfer( DivAnalysisTransfer(func, n, state, lat), n );
+          return true; // \todo \pp \get the value from the transfer visitor?
         }
 };
 

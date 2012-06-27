@@ -2,24 +2,24 @@
 
 int MPIDepAnalysisDebugLevel = 2;
 
-void MPIDepLattice::copy(Lattice* _that)
+void MPIDepLattice::copy(const Lattice* _that)
 {
-    MPIDepLattice* that = dynamic_cast<MPIDepLattice*> (_that);
+    const MPIDepLattice* that = dynamic_cast<const MPIDepLattice*> (_that);
     this->level = that->level;
     this->MPIDep = that->MPIDep;
 }
 
-bool MPIDepLattice::operator==(Lattice* _that)
+bool MPIDepLattice::operator==(const Lattice* _that) const
 {
-    MPIDepLattice* that = dynamic_cast<MPIDepLattice*> (_that);
+    const MPIDepLattice* that = dynamic_cast<const MPIDepLattice*> (_that);
     return (that->level == this->level);
 }
 
-bool MPIDepLattice::meetUpdate(Lattice* _that)
+bool MPIDepLattice::meetUpdate(const Lattice* _that)
 {
     bool modified = false;
-    MPIDepLattice* that = dynamic_cast<MPIDepLattice*> (_that);
-    
+    const MPIDepLattice* that = dynamic_cast<const MPIDepLattice*> (_that);
+
     if(this->level == bottom && that->level != bottom) {
         this->level = that->level;
         modified = true;
@@ -39,7 +39,7 @@ bool MPIDepLattice::meetUpdate(Lattice* _that)
     else {
         // do nothing
     }
-    
+
     return modified;
 }
 
@@ -69,7 +69,7 @@ std::string MPIDepLattice::str(std::string indent)
 MPIDepAnalysisTransfer::MPIDepAnalysisTransfer (const Function& func,
                                                 const DataflowNode& n,
                                                 NodeState& state,
-                                                const std::vector<Lattice*>& dfInfo
+                                                Lattice& dfInfo
     ) : VariableStateTransfer<MPIDepLattice>(func, n, state, dfInfo, MPIDepAnalysisDebugLevel /* debug level */ )
 { }
 
@@ -79,12 +79,12 @@ bool MPIDepAnalysisTransfer::finish()
 }
 
 void MPIDepAnalysisTransfer::visit(SgFunctionCallExp* sgn)
-{    
+{
     ROSE_ASSERT(sgn != NULL);
     // Get arguments associated with function calls
     vector<SgExpression*> sgexprptrlist = (sgn->get_args())->get_expressions();
     Function callee(sgn);
-    
+
     if(callee.get_name().getString() == "MPI_Comm_rank" ||
        callee.get_name().getString() == "MPI_Comm_size") {
         //NOTE: for now look only at second argument
@@ -101,27 +101,36 @@ void MPIDepAnalysisTransfer::visit(SgFunctionCallExp* sgn)
                     res_lattice->setToYes();
                     modified = true;
                 }
-            }       
-    }           
+            }
+    }
 }
 
-void MPIDepAnalysis::genInitState(const Function& func, const DataflowNode& n, const NodeState& state,
-                                 vector<Lattice*>& initLattices, vector<NodeFact*>& initFacts)
+FiniteVarsExprsProductLattice*
+MPIDepAnalysis::genLattice(const Function& func, const DataflowNode& n, const NodeState& state)
 {
-    map<varID, Lattice*> emptyM;
-    
-    FiniteVarsExprsProductLattice *l = new FiniteVarsExprsProductLattice((Lattice*) new MPIDepLattice(), emptyM, (Lattice*) NULL, ldva, n, state);
-    initLattices.push_back(l);
+  map<varID, Lattice*> emptyM;
+
+  return new FiniteVarsExprsProductLattice(new MPIDepLattice, emptyM, (Lattice*) NULL, ldva, n, state);
 }
 
-bool MPIDepAnalysis::transfer(const Function& func, const DataflowNode& node, NodeState& state, const vector<Lattice*>& dfInfo)
+std::vector<NodeFact*>
+MPIDepAnalysis::genFacts(const Function& func, const DataflowNode& n, const NodeState& state)
 {
-    assert(0);
-    return false;
+  return std::vector<NodeFact*>();
 }
+
+bool MPIDepAnalysis::transfer(const Function& func, const DataflowNode& node, NodeState& state, Lattice& dfInfo)
+{
+    visitor_transfer(MPIDepAnalysisTransfer(func, node, state, dfInfo), node);
+    return true;
+}
+
+#if OBSOLETE_CODE
 
 boost::shared_ptr<IntraDFTransferVisitor>
 MPIDepAnalysis::getTransferVisitor(const Function& func, const DataflowNode& n, NodeState& state, const std::vector<Lattice*>& dfInfo)
 {
     return boost::shared_ptr<IntraDFTransferVisitor>(new MPIDepAnalysisTransfer(func, n, state, dfInfo));
 }
+
+#endif /* OBSOLETE_CODE */

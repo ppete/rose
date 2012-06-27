@@ -108,14 +108,14 @@ class IntraDFTransferVisitor : public ROSE_VisitorPatternDefaultBase
 {
 protected:
   // Common arguments to the underlying transfer function
-  const Function &func;
-  const DataflowNode &dfNode;
-  NodeState &nodeState;
-  const std::vector<Lattice*> &dfInfo;
+  const Function&     func;
+  const DataflowNode& dfNode;
+  NodeState&          nodeState;
+  Lattice&            dfInfo;
 
 public:
 
-  IntraDFTransferVisitor(const Function &f, const DataflowNode &n, NodeState &s, const std::vector<Lattice*> &d)
+  IntraDFTransferVisitor(const Function &f, const DataflowNode &n, NodeState &s, Lattice& d)
     : func(f), dfNode(n), nodeState(s), dfInfo(d)
   {}
 };

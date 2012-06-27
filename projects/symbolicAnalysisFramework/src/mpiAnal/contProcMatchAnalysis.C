@@ -25,29 +25,29 @@ int MPIAnalysisDebugLevel = 1;
 
 varID pCFG_contProcMatchAnalysis::rankVar("rankVar");
 varID pCFG_contProcMatchAnalysis::nprocsVar("nprocsVar");
-        
+
 contRangeProcSet pCFG_contProcMatchAnalysis::rankSet("", false);
 
 // Generates the initial lattice state for the given dataflow node, in the given function, with the given NodeState
-void pCFG_contProcMatchAnalysis::genInitState(const Function& func, const pCFGNode& n, const NodeState& state,
-                                                   vector<Lattice*>& initLattices, vector<NodeFact*>& initFacts)
+ConstrGraph*
+pCFG_contProcMatchAnalysis::genLattice(const Function& func, const pCFGNode& n, const NodeState& state)
 {
         //vector<Lattice*> initLattices;
 /*printf("pCFG_contProcMatchAnalysis::genInitState() n=%p[%s | %s]\n", n.getNode(), n.getNode()->class_name().c_str(), n.getNode()->unparseToString().c_str());
 printf("pCFG_contProcMatchAnalysis::genInitState() state=%p\n", &state);*/
-        
+
         // Create the divisibility and sign lattice maps that map each process set to its respective divisibility
         // and sign product lattice
         unsigned int curPSet=0;
-        
+
         map<pair<string, void*>, FiniteVarsExprsProductLattice*> divL;
         for(vector<DataflowNode>::const_iterator it=n.getPSetDFNodes().begin(); it!=n.getPSetDFNodes().end(); it++, curPSet++)
         {
                 NodeState* state = NodeState::getNodeState(*it);
                 pair<string, void*> annotation(getVarAnn(curPSet), (void*)1);
-                divL[annotation] = dynamic_cast<FiniteVarsExprsProductLattice*>(state->getLatticeBelow(divAnalysis, 0));
+                divL[annotation] = &(state->getLatticeBelowMod(divAnalysis)).ref<FiniteVarsExprsProductLattice>();
         }
-        
+
         // Create a constraint graph from the divisiblity and sign information at all the CFG nodes that make up this pCFG node
         set<ConstrGraph::NodeDesc> nodes;
         curPSet=0;
@@ -59,9 +59,9 @@ printf("pCFG_contProcMatchAnalysis::genInitState() state=%p\n", &state);*/
                 nodes.insert(ConstrGraph::NodeDesc(*dn, *NodeState::getNodeState(*dn), getVarAnn(curPSet), (void*)1));
         }
         ConstrGraph* cg = new ConstrGraph(func, nodes, state, ldva, divL, false, string("    ")); ROSE_ASSERT(cg);
-        
-        // Add to the constraint graph any variables that 
-        
+
+        // Add to the constraint graph any variables that
+
         // Create a copy of each function-visible variable (except zeroVar) for each process set in n
         /*set<pair<string, void*> > noCopyAnnots;
         set<varID> noCopyVars;
@@ -72,14 +72,14 @@ printf("pCFG_contProcMatchAnalysis::genInitState() state=%p\n", &state);*/
                 cg->copyAnnotVars("", (void*)1, getVarAnn(curPSet), (void*)1,
                                   noCopyAnnots, noCopyVars);
         }*/
-        
+
         // For each process set create a version of the key variables and add them to the constraint graph
         varID nprocsVarAllPSets, zeroVarAllPSets;
         annotateCommonVars(/*n, */zeroVar, zeroVarAllPSets, nprocsVar, nprocsVarAllPSets);
         //cg->addVar(/*nprocsVarAllPSets*/nprocsVarPSet);
         cg->replaceVar(zeroVar, zeroVarAllPSets);
         //cg->addVar(zeroVarAllPSets);
-        
+
         curPSet=0;
         for(vector<DataflowNode>::const_iterator it=n.getPSetDFNodes().begin(); it!=n.getPSetDFNodes().end(); it++, curPSet++)
         {
@@ -88,51 +88,58 @@ printf("pCFG_contProcMatchAnalysis::genInitState() state=%p\n", &state);*/
                 varID rankVarPSet = rankVar;            rankVarPSet.addAnnotation(getVarAnn(curPSet), (void*)1);
                 /*nprocsVarPSet=>nprocsVarAllPSets : GB-2011-05-31 : varID nprocsVarPSet = nprocsVar;        nprocsVarPSet.addAnnotation(getVarAnn(curPSet), (void*)1);*/
                 cg->addVar(nprocsVarAllPSets/*nprocsVarPSet=>nprocsVarAllPSets : GB-2011-05-31 : nprocsVarPSet*/);
-                
+
                 rankSetPSet.refreshInvariants();
                 cg->addVar(rankVarPSet);
-                
+
                 // Add the default process set invariants: [0<= lb <= ub < nprocsVar] and [lb <= rankVar <= ub]
                 assertProcSetInvariants(cg, rankSetPSet, zeroVarAllPSets, rankVarPSet, nprocsVarAllPSets /*nprocsVarPSet=>nprocsVarAllPSets : GB-2011-05-31 : nprocsVarPSet*/, true);
         }
         cg->transitiveClosure();
         cg->setToUninitialized_KeepState();
-        
-        initLattices.push_back(cg);
-        
+
+        return cg;
+
         //contRangeProcSet* nodeRankSet = new contRangeProcSet(rankSet);
         //initFacts.push_back(nodeRankSet);
 }
+
+std::vector<NodeFact*>
+pCFG_contProcMatchAnalysis::genFacts(const Function& func, const pCFGNode& n, const NodeState& state)
+{
+  return std::vector<NodeFact*>();
+}
+
 
 // Copies the dataflow information from the srcPSet to the tgtPSet and updates the copy with the
 // partitionCond (presumably using initPSetDFfromPartCond). Adds the new info directly to lattices and facts.
 // It is assumed that pCFGNode n contains both srcPSet and tgtPSet.
 // If omitRankSet==true, does not copy the constraints on srcPSet's bounds variables but
 // instead just adds them with no non-trivial constraints.
-void pCFG_contProcMatchAnalysis::copyPSetState(const Function& func, const pCFGNode& n, 
+void pCFG_contProcMatchAnalysis::copyPSetState(const Function& func, const pCFGNode& n,
                                                unsigned int srcPSet, unsigned int tgtPSet, NodeState& state,
-                                               vector<Lattice*>& lattices, vector<NodeFact*>& facts, 
+                                               AnyLattice& lattice, vector<NodeFact*>& facts,
                                                ConstrGraph* partitionCond, bool omitRankSet)
 {
-        ConstrGraph* cg = dynamic_cast<ConstrGraph*>(*(lattices.begin()));
+        ConstrGraph* cg = &lattice.ref<ConstrGraph>();
 
 if(MPIAnalysisDebugLevel>0)
-{       
+{
         Dbg::dbg << "copyPSetState(srcPSet="<<srcPSet<<", tgtPSet="<<tgtPSet<<")"<<endl;
         Dbg::dbg << "cg="<<endl;
         Dbg::dbg << cg->str() << endl;
         Dbg::dbg << "partitionCond="<<endl;
         Dbg::dbg << partitionCond->str() << endl;
-}       
+}
         //cg->beginTransaction();
-        
+
         // Add the divisibility and sign lattices to the constraint graph under the annotation that belongs to tgtPSet
-        cg->addDivL(dynamic_cast<FiniteVarsExprsProductLattice*>(state.getLatticeBelow(divAnalysis, 0)), getVarAnn(tgtPSet), (void*)1, string("    "));
+        cg->addDivL(&(state.getLatticeBelowMod(divAnalysis)).ref<FiniteVarsExprsProductLattice>(), getVarAnn(tgtPSet), (void*)1, string("    "));
 
         // For each process set create a version of the key variables and add them to the constraint graph
         varID nprocsVarAllPSets, zeroVarAllPSets;
         annotateCommonVars(/*n, */zeroVar, zeroVarAllPSets, nprocsVar, nprocsVarAllPSets);
-        
+
         // Copy the state of variables from srcPSet and associate them with tgtPSet
         // We leave the variables from other process sets and variables common to all process sets alone
         set<pair<string, void*> > noCopyAnnots;
@@ -147,7 +154,7 @@ if(MPIAnalysisDebugLevel>0)
                 noCopyVars.insert(rankSetPSet.getLB());
                 noCopyVars.insert(rankSetPSet.getUB());
         }
-        
+
         // <<<<<<<<<<<<<<<<<<<<<<<<<
         // Perform the copy srcPSet->tgtPSet copy
         cg->copyAnnotVars(getVarAnn(srcPSet), (void*)1, getVarAnn(tgtPSet), (void*)1, noCopyAnnots, noCopyVars);
@@ -159,57 +166,57 @@ if(MPIAnalysisDebugLevel>0)
                 Dbg::dbg << "After copy partitionCond="<<endl;
                 Dbg::dbg << partitionCond->str() << endl;
         }
-        
+
         if(omitRankSet)
         {
                 /*nprocsVarPSet=>nprocsVarAllPSets : GB-2011-05-31 : varID nprocsVarPSet = nprocsVar; nprocsVarPSet.addAnnotation(getVarAnn(tgtPSet), (void*)1);*/
-                
+
                 // Set up the bounds of tgtPSet as the default bounds for rank sets
                 resetPSet(tgtPSet, cg, nprocsVarAllPSets /*nprocsVarPSet=>nprocsVarAllPSets : GB-2011-05-31 : nprocsVarPSet*/, zeroVarAllPSets);
         }
-        
+
         // Update the newly-copied dataflow state with partitionCond
         //initDFfromPartCond(func, n, tgtPSet, state, lattices, facts, partitionCond);
-        
+
         // Update the state of process set tgtPSet in cg from the partition condition
-        initPSetDFfromPartCond_ex(func, n, tgtPSet, lattices, facts, partitionCond);
-        
+        initPSetDFfromPartCond_ex(func, n, tgtPSet, lattice, facts, partitionCond);
+
         // Annotate all the un-annotated variables in partitionCond to mark them
         // as belonging to process set tgtPSet
         //partitionCond->addVarAnnot("", (void*)1, getVarAnn(tgtPSet), (void*)1);
         // Add the information in partitionCond to cg
         //cg->andUpd(partitionCond);
-        
+
         //cg->endTransaction();
         cg->transitiveClosure();
 }
 
 // Removes all known bounds on pSet's process set in dfInfo and replaces them with the default
 // constraints on process set bounds.
-void pCFG_contProcMatchAnalysis::resetPSet(unsigned int pSet, vector<Lattice*>& lattices)
+void pCFG_contProcMatchAnalysis::resetPSet(unsigned int pSet, AnyLattice& lattice)
 {
-        ConstrGraph* cg = dynamic_cast<ConstrGraph*>(*(lattices.begin()));
-        
+        ConstrGraph* cg = &lattice.ref<ConstrGraph>();
+
         varID nprocsVarAllPSets, zeroVarAllPSets;
         annotateCommonVars(/*n, */zeroVar, zeroVarAllPSets, nprocsVar, nprocsVarAllPSets);
         /*nprocsVarPSet=>nprocsVarAllPSets : GB-2011-05-31 : varID nprocsVarPSet = nprocsVar; nprocsVarPSet.addAnnotation(getVarAnn(pSet), (void*)1);*/
-        
+
         resetPSet(pSet, cg, nprocsVarAllPSets /*nprocsVarPSet=>nprocsVarAllPSets : GB-2011-05-31 : nprocsVarPSet*/, zeroVarAllPSets);
 }
 
 // Helper method for resetPSet that makes it easier to call it from inside pCFG_contProcMatchAnalysis.
-void pCFG_contProcMatchAnalysis::resetPSet(unsigned int pSet, ConstrGraph* cg, 
+void pCFG_contProcMatchAnalysis::resetPSet(unsigned int pSet, ConstrGraph* cg,
                                            const varID& nprocsVarAllPSets /*nprocsVarPSet=>nprocsVarAllPSets : GB-2011-05-31 : nprocsVarPSet*/,
                                            const varID& zeroVarAllPSets)
 {
         if(MPIAnalysisDebugLevel>0)
                 Dbg::dbg << "--resetPSet ("<<pSet<<")--"<<endl;
-        
+
         // Since we did not create bounds variables for tgtPSet, create them now and
         // set up the default invariants
         contRangeProcSet rankSetPSet = rankSet; // The rankSet of the process set pSet
         rankSetPSet.setConstrAnnot(cg, getVarAnn(pSet), (void*)1);
-        
+
         if(MPIAnalysisDebugLevel>0)
         {
                 Dbg::dbg << "    Removing "<<rankSetPSet.getLB().str()<<endl;
@@ -217,51 +224,51 @@ void pCFG_contProcMatchAnalysis::resetPSet(unsigned int pSet, ConstrGraph* cg,
         }
         cg->eraseVarConstr(rankSetPSet.getLB());
         cg->eraseVarConstr(rankSetPSet.getUB());
-        
-        // adds rankSetPSet.lb, rankSetPSet.ub and 
+
+        // adds rankSetPSet.lb, rankSetPSet.ub and
         // asserts rankSetPSet.lb <= rankSetPSet.ub
         rankSetPSet.refreshInvariants();
-        
+
         if(MPIAnalysisDebugLevel>0)
                 Dbg::dbg << "    Refreshed "<<rankSetPSet.str()<<endl;
-        
+
         varID rankVarPSet = rankVar; rankVarPSet.addAnnotation(getVarAnn(pSet), (void*)1);
         cg->eraseVarConstr(rankVarPSet);
         cg->eraseVarConstr(nprocsVarAllPSets /*nprocsVarPSet=>nprocsVarAllPSets : GB-2011-05-31 : nprocsVarPSet*/);
-        
+
         // Add the default process set invariants: [0<= lb <= ub < nprocsVar] and [lb <= rankVar <= ub]
         assertProcSetInvariants(cg, rankSetPSet, zeroVarAllPSets, rankVarPSet, nprocsVarAllPSets /*nprocsVarPSet=>nprocsVarAllPSets : GB-2011-05-31 : nprocsVarPSet*/, true);
 }
 
-// Resets the state of rankVar inside the given constraint graph and re-establishes its basic 
+// Resets the state of rankVar inside the given constraint graph and re-establishes its basic
 // constraints: 0<=rankVar<nprocsVar
 /*void pCFG_contProcMatchAnalysis::resetRank(const pCFGNode& n, ConstrGraph* cg)
 {
-        // Annotate zeroVar, nprocsVar and rankVar appropriately to represent 
+        // Annotate zeroVar, nprocsVar and rankVar appropriately to represent
         // their respective sets within the pCFG node
         voidID zeroVarAllPSets, nprocsVarAllPSets;
         varID rankVarPSet = rankVar; rankVarPSet.addAnnotation(getVarAnn(curPSet), (void*)1);
         annotateCommonVars(n, zeroVar, zeroVarAllPSets, nprocsVar, nprocsVarAllPSets);
-        
+
         cg->eraseVarConstr(rankVarPSet);
         cg->addVar(rankVarPSet);
         // 0<=rankVar<nprocsVar
         cg->assertCond(zeroVarAllPSets, rankVarPSet,   1, 1, 0);
         cg->assertCond(rankVarPSet, nprocsVarAllPSets, 1, 1, -1);
-        cg->assertCond(zeroVarAllPSets, nprocsVarAllPSets, 1, 1, -1);   
+        cg->assertCond(zeroVarAllPSets, nprocsVarAllPSets, 1, 1, -1);
 }*/
 
 // Annotate the given zeroVar and nprocsVar with the annotations that identify them as being available
 // to all process sets within the given pCFG node. Specifically, these variables are annotated with
 // all the annotations of all the process sets, plus another annotation that identifies them as common.
-void pCFG_contProcMatchAnalysis::annotateCommonVars(/*pCFGNode n, */const varID& zeroVar, varID& zeroVarAllPSets, 
+void pCFG_contProcMatchAnalysis::annotateCommonVars(/*pCFGNode n, */const varID& zeroVar, varID& zeroVarAllPSets,
                                                     const varID& nprocsVar, varID& nprocsVarAllPSets)
 {
         // For each process set create a version of the key variables and add them to the constraint graph
         nprocsVarAllPSets = nprocsVar;
         zeroVarAllPSets = zeroVar;
         /*
-        // Generate the nprocsVar and zeroVar with annotations for all process sets since 
+        // Generate the nprocsVar and zeroVar with annotations for all process sets since
         // they belong to all process sets
         int curPSet=0;
         for(vector<DataflowNode>::const_iterator it=n.getPSetDFNodes().begin(); it!=n.getPSetDFNodes().end(); it++, curPSet++)
@@ -270,7 +277,7 @@ void pCFG_contProcMatchAnalysis::annotateCommonVars(/*pCFGNode n, */const varID&
                 zeroVarAllPSets.addAnnotation(getVarAnn(curPSet), (void*)1);
         }*/
         // Also give nprocsVarAllPSets and zeroVarAllPSets and special annotation that identifies them as common
-        // (this is in contrast to the situation where there is only one set and nprocsVarAllPSets and 
+        // (this is in contrast to the situation where there is only one set and nprocsVarAllPSets and
         //  zeroVarAllPSets just happen to have the same annotations the set's private variables)
         nprocsVarAllPSets.addAnnotation("pCFG_common", (void*)1);
         zeroVarAllPSets.addAnnotation("pCFG_common", (void*)1);
@@ -295,7 +302,7 @@ bool pCFG_contProcMatchAnalysis::assertProcSetInvariants(
                              bool mayBeEmpty)
 {
         bool modified = false;
-        
+
         //Dbg::dbg << "assertProcSetInvariants cg="<<cg<<endl;
         // 0<= lb <= ub < nprocsVar
         /*Dbg::dbg << "                        "<<zeroVarAllPSets.str()<<" <= "<<rankSetPSet.getLB().str()<<endl;
@@ -304,13 +311,13 @@ bool pCFG_contProcMatchAnalysis::assertProcSetInvariants(
         modified = cg->assertCond(zeroVarAllPSets,     rankSetPSet.getLB(), 1, 1, 0) || modified;
         /*GB 2011-06-01 NO-LB-UB-rankVar : modified = cg->assertCond(rankSetPSet.getLB(), rankSetPSet.getUB(), 1, 1, 0) || modified; */
         modified = cg->assertCond(rankSetPSet.getUB(), nprocsVarAllPSets /*nprocsVarPSet=>nprocsVarAllPSets : GB-2011-05-31 : nprocsVarPSet*/,   1, 1, -1) || modified;
-        
+
         // lb <= rankVar <= ub
         /*Dbg::dbg << "                        "<<rankSetPSet.getLB().str()<<" <= "<<rankVarPSet.str()<<endl;
         Dbg::dbg << "                        "<<rankSetPSet.str()<<" <= "<<rankSetPSet.getUB().str()<<endl;*/
         /*GB 2011-06-01 NO-LB-UB-rankVar : modified = cg->assertCond(rankSetPSet.getLB(), rankVarPSet,         1, 1, 0) || modified;
         modified = cg->assertCond(rankVarPSet,         rankSetPSet.getUB(), 1, 1, 0) || modified;*/
-        
+
         return modified;
 }
 
@@ -323,11 +330,11 @@ void pCFG_contProcMatchAnalysis::connectVAItoPSet(unsigned int pSet, varAffineIn
         set<string> tgtAnnotNames;
         tgtAnnotNames.insert(getVarAnn(pSet));
         tgtAnnotNames.insert("pCFG_common");
-        
+
         varID zeroVarAllPSets, nprocsVarAllPSets;
         annotateCommonVars(/*n, */zeroVar, zeroVarAllPSets, nprocsVar, nprocsVarAllPSets);
         /*nprocsVarPSet=>nprocsVarAllPSets : GB-2011-05-31 : varID nprocsVarPSet = nprocsVar; nprocsVarPSet.addAnnotation(getVarAnn(pSet), (void*)1);*/
-        
+
         // !!! Why are we using nprocsVarPSet rather than nprocsVarAllPSets? The function's comments indicate the behavior is the reverse?
         if(varIneq.getX()==zeroVar)        varIneq.setX(zeroVarAllPSets);
         else if(varIneq.getX()==nprocsVar) varIneq.setX(nprocsVarAllPSets /*nprocsVarPSet=>nprocsVarAllPSets : GB-2011-05-31 : nprocsVarPSet*/);
@@ -337,7 +344,7 @@ void pCFG_contProcMatchAnalysis::connectVAItoPSet(unsigned int pSet, varAffineIn
                 varID x = varIneq.getX(); x.addAnnotation(getVarAnn(pSet), (void*)1);
                 varIneq.setX(x);
         }
-        
+
         if(varIneq.getY()==zeroVar)        varIneq.setY(zeroVarAllPSets);
         else if(varIneq.getY()==nprocsVar) varIneq.setY(nprocsVarAllPSets /*nprocsVarPSet=>nprocsVarAllPSets : GB-2011-05-31 : nprocsVarPSet*/);
         // If varIneq.y is neither zeroVar, not nprocsVar and does not have our target annotation, add it
@@ -374,44 +381,44 @@ void printCGKeyVars(ConstrGraph* cg) {
 // n - the pCFG node that is being processed
 // pSet - the process set that is currently transitioning
 // func - the function that is currently being analyzed
-// state - the NodeState object that describes the state of the node, as established by earlier 
+// state - the NodeState object that describes the state of the node, as established by earlier
 //         analysis passes
 // dfInfo - the Lattices that this transfer function operates on. The function takes these lattices
 //          as input and overwrites them with the result of the transfer.
-// deadPSet - may be set by the call to true to indicate that the dataflow state at this node constains an 
+// deadPSet - may be set by the call to true to indicate that the dataflow state at this node constains an
 //            inconsistency that makes this an impossible execution state
 // splitPSet - set by the call to indicate if the current process set must be broken up into two process sets,
 //             each of which takes a different path as a result of a conditional or a loop.
 // splitPSetNodes - if splitPNode, splitNodes is filled with the nodes along which each new process set must advance
 // splitPNode - set by the call to indicate if the current process set must take two different paths as a result
 //             of a conditional or a loop, causing the analysis to advance along two different pCFGNodes
-// splitConditions - if splitPNode==true or splitPSet==true, splitConditions is filled with the information 
+// splitConditions - if splitPNode==true or splitPSet==true, splitConditions is filled with the information
 //             about the state along both sides of the split of pCFGNode or pSet split
-// blockPSet - set to true by the call if progress along the given dataflow node needs to be blocked 
-//             until the next send-receive matching point. If all process sets become blocked, we 
+// blockPSet - set to true by the call if progress along the given dataflow node needs to be blocked
+//             until the next send-receive matching point. If all process sets become blocked, we
 //             perform send-receive matching.
 // Returns true if any of the input lattices changed as a result of the transfer function and
 //    false otherwise.
-bool pCFG_contProcMatchAnalysis::transfer(const pCFGNode& n, unsigned int pSet, const Function& func, 
-                                          NodeState& state, const vector<Lattice*>&  dfInfo, 
+bool pCFG_contProcMatchAnalysis::transfer(const pCFGNode& n, unsigned int pSet, const Function& func,
+                                          NodeState& state, AnyLattice& dfInfo,
                                           bool& deadPSet, bool& splitPSet, vector<DataflowNode>& splitPSetNodes,
                                           bool& splitPNode, vector<ConstrGraph*>& splitConditions, bool& blockPSet)
 {
         string indent="    ";
         startProfileFunc("transfer");
-        
+
         /*printf("    -----------------------------------\n");
         printf("    pCFG_contProcMatchAnalysis::transfer() function %s() node=[%s | %s | %d]\n", func.get_name().str(), n.getNode()->class_name().c_str(), n.getNode()->unparseToString().c_str(), n.getIndex());
         */
         const DataflowNode& dfNode = n.getCurNode(pSet);
         bool modified = false;
-        ConstrGraph* cg = dynamic_cast<ConstrGraph*>(*(dfInfo.begin()));
-        
+        ConstrGraph* cg = &dfInfo.ref<ConstrGraph>();
+
         if(MPIAnalysisDebugLevel>0) {
                 Dbg::dbg << indent << "transfer() Initial cg = "<<cg->str(indent+"    ")<<endl;
                 printCGKeyVars(cg);
         }
-        
+
         //contRangeProcSet* nodeRankSet = dynamic_cast<contRangeProcSet*>(state.getFact((Analysis*)this, 0));
         // If the constraint graph is already bottom, tell the calling analysis that we're at an impossible state
         if(!cg->isSelfConsistent())
@@ -420,7 +427,7 @@ bool pCFG_contProcMatchAnalysis::transfer(const pCFGNode& n, unsigned int pSet, 
                 endProfileFunc("transfer");
                 return modified;
         }
-        
+
         // The rank variable of the given process set and the versions zeroVar and nprocsVar annotated
         // to indicate that they are used in all process sets
         varID rankVarPSet = rankVar; rankVarPSet.addAnnotation(getVarAnn(pSet), (void*)1);
@@ -428,19 +435,19 @@ bool pCFG_contProcMatchAnalysis::transfer(const pCFGNode& n, unsigned int pSet, 
         annotateCommonVars(/*n, */zeroVar, zeroVarAllPSets, nprocsVar, nprocsVarAllPSets);
         //mesgBuf* sentMesgs = dynamic_cast<mesgBuf*>(*(dfInfo.begin()+1));
         /*nprocsVarPSet=>nprocsVarAllPSets : GB-2011-05-31 : varID nprocsVarPSet = nprocsVar; nprocsVarPSet.addAnnotation(getVarAnn(pSet), (void*)1);*/
-        
+
         //Dbg::dbg << "cg->scalars = ";
         //for(varIDSet::iterator it=cg->getScalars().begin(); it!=cg->getScalars().end(); it++)
         //{ Dbg::dbg << (*it).str() << ", "; }
         //Dbg::dbg << endl;
-        
+
         cg->beginTransaction();
-        
+
         // Upgrade ial to bottom if it is currently uninitialized
         //printf("before: cg=%s\n", cg->str("").c_str());
         cg->initialize(indent+"    ");
         //printf("after: cg->mayTrue=%d cg=%s\n", cg->mayTrue(), cg->str().c_str());
-        
+
         // If this is an if statement
         if((isSgIfStmt(dfNode.getNode()) && dfNode.getIndex()==1) ||
            (isSgForStatement(dfNode.getNode()) && dfNode.getIndex()==2))
@@ -454,19 +461,19 @@ bool pCFG_contProcMatchAnalysis::transfer(const pCFGNode& n, unsigned int pSet, 
                         DataflowNode pred = (*ei).source();
                         Dbg::dbg << "Predecessor: "<<Dbg::escape(pred.getNode()->unparseToString())<<endl;
                 }*/
-                
+
                 // if this if statement depends on the process rank
                 if(isMPIRankDep(func, (*(edges.begin())).source()))
                 {
                         if(MPIAnalysisDebugLevel>0) Dbg::dbg << indent << "    If depends on MPI rank"<<endl;
                         // This analysis splits over if statements, with one sub-analysis following each branch
                         splitPSet=true;
-                        
+
                         vector<DataflowEdge> edges = dfNode.outEdges();
                         for(vector<DataflowEdge>::iterator ei = edges.begin(); ei!=edges.end(); ei++)
                                 splitPSetNodes.push_back((*ei).target());
                         fillEdgeSplits(func, n, pSet, dfNode, state, cg, splitConditions, rankVarPSet, nprocsVarAllPSets /*nprocsVarPSet=>nprocsVarAllPSets : GB-2011-05-31 : nprocsVarPSet*/, indent+"    ");
-                        
+
                         ROSE_ASSERT(splitPSetNodes.size() == splitConditions.size());
                 }
                 else
@@ -487,7 +494,7 @@ bool pCFG_contProcMatchAnalysis::transfer(const pCFGNode& n, unsigned int pSet, 
                         varID i, j, k;
                         bool negJ, negK;
                         long c;
-                        
+
                         if(cfgUtils::parseAssignment(dfNode.getNode(), op, i, j, negJ, k, negK, c))
                         {
                                 //Dbg::dbg << "i("<<i.str()<<") == zeroVar("<<zeroVar.str()<<" = "<<(i == zeroVar)<<endl;
@@ -548,30 +555,30 @@ if(MPIAnalysisDebugLevel>0)
         Dbg::dbg << indent << "transfer SgFunctionCallExp"<<endl;
                         SgFunctionCallExp* fnCall = isSgFunctionCallExp(dfNode.getNode());
                         Function calledFunc(fnCall);
-                        
+
                         //Dbg::dbg << "calledFunc.get_name().getString() = "<<calledFunc.get_name().getString()<<endl;
                         if(calledFunc.get_name().getString() == "MPI_Init")
                         {
                                 /*cg->addVar(nprocsVar);
                                 // 0<=rankVar<nprocsVar
                                 resetRank(cg, n);*/
-                                
+
                                 contRangeProcSet rankSetPSet = rankSet; // The rankSet of the process set pSet
-                                
+
                                 // rankSet_{pSet} = [0, nprocsVar-1]
                                 modified = rankSetPSet.setConstrAnnot(cg, getVarAnn(pSet), (void*)1) || modified;
                                 if(MPIAnalysisDebugLevel>0) Dbg::dbg << indent << "Initialized rankSetPSet: cg = "<<cg->str()<<endl;
                                 modified = rankSetPSet.assignLB(zeroVarAllPSets) || modified;
                                 modified = rankSetPSet.assignUB(nprocsVarAllPSets /*nprocsVarPSet=>nprocsVarAllPSets : GB-2011-05-31 : nprocsVarPSet*/, 1, 1, -1) || modified;
-                                
+
                                 if(MPIAnalysisDebugLevel>0) Dbg::dbg << indent << "Assigned LB/UB cg = "<<cg<<" = "<<cg->str()<<endl;
-                                
+
                                 // lb <= rankVar <= ub
                                 /*GB 2011-06-01 NO-LB-UB-rankVar : modified = cg->assertCond(rankSetPSet.getLB(), rankVarPSet,         1, 1, 0) || modified;
                                 modified = cg->assertCond(rankVarPSet,         rankSetPSet.getUB(), 1, 1, 0) || modified;*/
-                                
+
                                 rankSetPSet.refreshInvariants();
-                                
+
                                 if(MPIAnalysisDebugLevel>0) Dbg::dbg << indent << "Asserted LB&lt;=rankVar&lt;=UB, refreshed, cg = "<<cg->str()<<endl;
                         }
                         else if(calledFunc.get_name().getString() == "MPI_Comm_rank")
@@ -581,7 +588,7 @@ if(MPIAnalysisDebugLevel>0)
                                 // args[1]
                                 SgExpression* arg1 = *(++(args.begin()));
                                 //printf("arg1 = [%s | %s]\n", arg1->class_name().c_str(), arg1->unparseToString().c_str(), varID::isValidVarExp(isSgAddressOfOp(arg1)->get_operand()));
-                                
+
                                 // Look at MPI_Comm_rank's second argument and add the constraint
                                 // that it is now equal to the global rank variable
                                 if(isSgAddressOfOp(arg1) && varID::isValidVarExp(isSgAddressOfOp(arg1)->get_operand()))
@@ -601,7 +608,7 @@ if(MPIAnalysisDebugLevel>0)
                                 SgExpressionPtrList& args = fnCall->get_args()->get_expressions();
                                 // args[1]
                                 SgExpression* arg1 = *(++(args.begin()));
-                                
+
                                 // look at MPI_Comm_size's second argument and record that it depends on the number of processes
                                 if(isSgAddressOfOp(arg1) && varID::isValidVarExp(isSgAddressOfOp(arg1)->get_operand()))
                                 {
@@ -626,14 +633,14 @@ if(MPIAnalysisDebugLevel>0)
         }
         if(MPIAnalysisDebugLevel>0)
                 Dbg::dbg << indent << "~~~"<<endl;
-        
+
         /*Dbg::dbg << "mid-Transfer Function:"<<endl;
         Dbg::dbg << cg->str("    ") << endl;*/
-        
+
         // !!! Don't think this is needed !!! // If this is not the meet node of an if statement, incorporate information from
         // !!! Don't think this is needed !!! //    conditionals. The reason for this is that if one branch of an if statement is missing,
         // !!! Don't think this is needed !!! //    its condition gets placed on the meet node of the if statement, and if we didn't do this
-        // !!! Don't think this is needed !!! //    this condition get picked up by dataflow that is coming down the other branch of the 
+        // !!! Don't think this is needed !!! //    this condition get picked up by dataflow that is coming down the other branch of the
         // !!! Don't think this is needed !!! //    if statement.
         // !!! Don't think this is needed !!! if(MPIAnalysisDebugLevel>0)
         // !!! Don't think this is needed !!! {
@@ -644,17 +651,17 @@ if(MPIAnalysisDebugLevel>0)
         // !!! Don't think this is needed !!! if(!isSgIfStmt(dfNode.getNode()) || dfNode.getIndex()!=2)
         // !!! Don't think this is needed !!!   // Incorporate this node's inequalities from conditionals
         // !!! Don't think this is needed !!!   incorporateConditionalsInfo(n, pSet, func, dfNode, state, dfInfo);
-        
+
         /*Dbg::dbg << "mid2-Transfer Function:"<<endl;
         Dbg::dbg << cg->str("    ") << endl;*/
-        
+
         // incorporate this node's divisibility information
         // noDivVars incorporateDivInfo(func, n, state, dfInfo);
 
         /*Dbg::dbg << "late-Transfer Function:"<<endl;
         Dbg::dbg << cg->str("    ") << endl;*/
         cg->endTransaction();
-        
+
         //cg->beginTransaction();
         /* noDivVars removeConstrDivVars(func, n, state, dfInfo);
         cg->divVarsClosure();*/
@@ -669,12 +676,12 @@ if(MPIAnalysisDebugLevel>0)
         for(varIDSet::iterator it=cg->getScalars().begin(); it!=cg->getScalars().end(); it++)
         { Dbg::dbg << (*it).str() << ", "; }
         Dbg::dbg << endl;*/
-        
+
         // If this transfer function causes the constraint graph to become bottom,
         // tell the calling analysis that we're at an impossible state
         if(!cg->isSelfConsistent())
                 deadPSet = true;
-        
+
         endProfileFunc("transfer");
 
         return modified;
@@ -683,16 +690,16 @@ if(MPIAnalysisDebugLevel>0)
 // Iterates over the outgoing edges of a given node and fills splitConditions with the actual split conditions
 // of these edges. It is specifically designed to look for how each edge condition relates to tgtVar
 // and adds those conditions to splitConditions as well
-void pCFG_contProcMatchAnalysis::fillEdgeSplits(const Function& func, const pCFGNode& n, unsigned int splitPSet, 
-                                                     const DataflowNode& dfNode, NodeState& state, ConstrGraph* cg, 
+void pCFG_contProcMatchAnalysis::fillEdgeSplits(const Function& func, const pCFGNode& n, unsigned int splitPSet,
+                                                     const DataflowNode& dfNode, NodeState& state, ConstrGraph* cg,
                                                      vector<ConstrGraph*>& splitConditions, const varID& tgtVar, const varID& nprocsVarAllPSets /*nprocsVarPSet=>nprocsVarAllPSets : GB-2011-05-31 : nprocsVarPSet*/, string indent)
 {
         // Iterate over both the descendants, adding their logical conditions to splitConditions
         vector<DataflowEdge> edges = dfNode.outEdges();
         list<set<varAffineInequality> > ineqs = getAffineIneqDesc(dfNode);
-        if(MPIAnalysisDebugLevel>0) 
+        if(MPIAnalysisDebugLevel>0)
                 Dbg::dbg << indent<<"pCFG_contProcMatchAnalysis::fillEdgeSplits(): n.outEdges().size()="<<dfNode.outEdges().size()<<endl;
-        
+
         int i=0;
         list<set<varAffineInequality> >::iterator ineqsI = ineqs.begin();
         for(vector<DataflowEdge>::iterator ei = edges.begin(); ei!=edges.end(); ei++, i++, ineqsI++)
@@ -700,7 +707,7 @@ void pCFG_contProcMatchAnalysis::fillEdgeSplits(const Function& func, const pCFG
                 if(MPIAnalysisDebugLevel>0)
                         Dbg::dbg << indent << "Descendant "<<i<<": "<<Dbg::escape((*ei).target().str())<<endl;
                 //const set<varAffineInequality>& ineqs = getAffineIneq((*ei).target());
-                
+
                 /*FiniteVarsExprsProductLattice* divProdL = dynamic_cast<FiniteVarsExprsProductLattice*>(state.getLatticeBelow(divAnalysis, 0));
                 FiniteVarsExprsProductLattice* sgnProdL = dynamic_cast<FiniteVarsExprsProductLattice*>(state.getLatticeBelow(sgnAnalysis, 0));
                 ConstrGraph* edgeCG = new ConstrGraph(func, divProdL, sgnProdL, false);*/
@@ -716,7 +723,7 @@ void pCFG_contProcMatchAnalysis::fillEdgeSplits(const Function& func, const pCFG
                         ROSE_ASSERT(ineq.getX()!=nprocsVar && ineq.getY()!=nprocsVar);
                         // If either variable in the inequality is zeroVar or nprocsVar, set up their
                         //    annotations appropriately since these are shared variables. The other variables
-                        //    will be handled by initDFfromPartCond() when we know which process set 
+                        //    will be handled by initDFfromPartCond() when we know which process set
                         //    this partition condition will belong to.
                         // !!! Actually, it shouldn't be possible for either variable to be
                         // !!! nprocsVar since nprocsVar is not a real application variable.
@@ -725,20 +732,20 @@ void pCFG_contProcMatchAnalysis::fillEdgeSplits(const Function& func, const pCFG
                         {
                                 varID zeroVarAllPSets, nprocsVarAllPSets;
                                 annotateCommonVars(/*n, */zeroVar, zeroVarAllPSets, nprocsVar, nprocsVarAllPSets);
-                                
+
                                 if(ineq.getX()==zeroVar)        ineq.setX(zeroVarAllPSets);
                                 else if(ineq.getX()==nprocsVar) ineq.setX(nprocsVarAllPSets /*nprocsVarPSet=>nprocsVarAllPSets : GB-2011-05-31 : nprocsVarPSet*/);
-                                
+
                                 if(ineq.getY()==zeroVar)        ineq.setY(zeroVarAllPSets);
                                 else if(ineq.getY()==nprocsVar) ineq.setY(nprocsVarAllPSets /*nprocsVarPSet=>nprocsVarAllPSets : GB-2011-05-31 : nprocsVarPSet*/);
                         }
-                        
+
                         if(MPIAnalysisDebugLevel>0) Dbg::dbg << indent << "    ineq="<<ineq.str()<<", tgtVar="<<tgtVar.str()<<endl;
                         // Assert the current inequality in this edge's constraint graph
                         edgeCG->assertCond(ineq);
                         Dbg::dbg << indent << "    edgeCG="<<endl;
                         Dbg::dbg << edgeCG->str() << endl;
-                        
+
                         // --------------------------------------------------------------------------------
                         // Check to see if either variable is equal to nprocsVar. If so, we need to
                         // propagate these constrains to the nprocsVars of other process sets since
@@ -748,7 +755,7 @@ void pCFG_contProcMatchAnalysis::fillEdgeSplits(const Function& func, const pCFG
                         if(cg->isEqVars(xPSet, nprocsVarAllPSets /*nprocsVarPSet=>nprocsVarAllPSets : GB-2011-05-31 : nprocsVarPSet*/, a, b, c) && a==1 && b==1)
                         {
                                 if(MPIAnalysisDebugLevel>0) Dbg::dbg << indent << "    xPSet="<<xPSet.str()<<" = nprocsVar="<<nprocsVarAllPSets/*nprocsVarPSet=>nprocsVarAllPSets : GB-2011-05-31 : nprocsVarPSet*/<<" + "<<c<<endl;
-                                        
+
                                 varAffineInequality ineqNprocsVar(ineq);
                                 int curPSet=0;
                                 // x == nprocsVar + c for splitPset, so copy this fact to all other pSets
@@ -764,9 +771,9 @@ void pCFG_contProcMatchAnalysis::fillEdgeSplits(const Function& func, const pCFG
                                 }
                         }
                         else if(MPIAnalysisDebugLevel>0) Dbg::dbg << indent << "    xPSet="<<xPSet.str()<<" != nprocsVar="<<nprocsVarAllPSets/*nprocsVarPSet=>nprocsVarAllPSets : GB-2011-05-31 : nprocsVarPSet*/<<endl;
-                        
+
                         varID yPSet(ineq.getY()); yPSet.addAnnotation(getVarAnn(splitPSet), (void*)1);
-                        
+
                         if(cg->isEqVars(yPSet, nprocsVarAllPSets/*nprocsVarPSet=>nprocsVarAllPSets : GB-2011-05-31 : nprocsVarPSet*/, a, b, c) && a==1 && b==1)
                         {
                                 if(MPIAnalysisDebugLevel>0) Dbg::dbg << indent << "    yPSet="<<yPSet.str()<<" = nprocsVar="<<nprocsVarAllPSets/*nprocsVarPSet=>nprocsVarAllPSets : GB-2011-05-31 : nprocsVarPSet*/<<" + "<<c<<endl;
@@ -785,19 +792,19 @@ void pCFG_contProcMatchAnalysis::fillEdgeSplits(const Function& func, const pCFG
                                 }
                         }
                         else if(MPIAnalysisDebugLevel>0) Dbg::dbg << indent << "    yPSet="<<yPSet.str()<<" != nprocsVar="<<nprocsVarAllPSets/*nprocsVarPSet=>nprocsVarAllPSets : GB-2011-05-31 : nprocsVarPSet*/<<endl;
-                        
+
                         //const varAffineInequality& ineq = *it;
                         //varAffineInequality* rankIneq;
                         if(MPIAnalysisDebugLevel>0) {
                                 Dbg::dbg << indent << "edgeCG="<<endl;
                                 Dbg::dbg << edgeCG->str() << endl;
                         }
-                        
+
                         // If possible, connect the current inequality to an inequality about tgtVar
                         // and assert that new inequality
                         //connectIneqToVar(cg, edgeCG, ineq, tgtVar, (*ei).target());
                         // Iterate over all the variables that are <= LB
-                        //!!!! NEED A COPY OF THE PROCESS SET TO GET EVERYTHING <= lbConstrGraph::leIterator(cg, 
+                        //!!!! NEED A COPY OF THE PROCESS SET TO GET EVERYTHING <= lbConstrGraph::leIterator(cg,
                 }
 
                 //Dbg::dbg << "(*ei).target() = "<<(*ei).target().getNode()->unparseToString()<<endl;
@@ -807,17 +814,17 @@ void pCFG_contProcMatchAnalysis::fillEdgeSplits(const Function& func, const pCFG
         }
 }
 
-// If possible according to the inequalities in cg, connect the given inequality to an 
+// If possible according to the inequalities in cg, connect the given inequality to an
 // inequality about tgtVar and assert that new inequality in newCG.
 // Returns true if this causes cg to change, false otherwise.
-bool pCFG_contProcMatchAnalysis::connectIneqToVar(ConstrGraph* cg, ConstrGraph* newCG, const varAffineInequality& ineq, 
+bool pCFG_contProcMatchAnalysis::connectIneqToVar(ConstrGraph* cg, ConstrGraph* newCG, const varAffineInequality& ineq,
                                                   const varID& tgtVar, DataflowNode n)
 {
         int xa, xb, xc, ya, yb, yc;
-        
+
         if(MPIAnalysisDebugLevel>0)
                 Dbg::dbg << "        cg->isEqVars("<<ineq.getX().str()<<", "<<tgtVar.str()<<", xa, xb, xc)="<<cg->isEqVars(ineq.getX(), tgtVar, xa, xb, xc)<<", cg->isEqVars("<<ineq.getY().str()<<", "<<tgtVar.str()<<", ya, yb, yc)="<<cg->isEqVars(ineq.getY(), tgtVar, ya, yb, yc)<<endl;
-        
+
         // x*a <= y*b + c && x*xa = tgtVar*xb + xc and y not equal to tgtVar
         if(cg->isEqVars(ineq.getX(), tgtVar, xa, xb, xc) && !cg->isEqVars(ineq.getY(), tgtVar, ya, yb, yc))
         {
@@ -830,9 +837,9 @@ bool pCFG_contProcMatchAnalysis::connectIneqToVar(ConstrGraph* cg, ConstrGraph* 
                         Dbg::dbg << "ERROR: rank expression "<<Dbg::escape(n.getNode()->unparseToString())<< " too complex!"<<endl;
                         ROSE_ASSERT(0);
                 }
-                
+
                 // tgtVar <= y + c*xa - xc*a
-                /*rankIneq = new varAffineInequality(tgtVar, ineq.getY(), 
+                /*rankIneq = new varAffineInequality(tgtVar, ineq.getY(),
                                                    1, 1, ineq.getC()*xa - xc*ineq.getA(), false, false);*/
                 return newCG->assertCond(tgtVar, ineq.getY(), 1, 1, ineq.getC()*xa - xc*ineq.getA());
         }
@@ -847,9 +854,9 @@ bool pCFG_contProcMatchAnalysis::connectIneqToVar(ConstrGraph* cg, ConstrGraph* 
                         Dbg::dbg << "ERROR: rank expression "<<Dbg::escape(n.getNode()->unparseToString())<< " too complex!"<<endl;
                         ROSE_ASSERT(0);
                 }
-                
+
                 // x <= tgtVar + yc*b + c*ya
-                /*rankIneq = new varAffineInequality(ineq.getX(), tgtVar, 
+                /*rankIneq = new varAffineInequality(ineq.getX(), tgtVar,
                                                    1, 1, yc*ineq.getB() - ineq.getC()*ya, false, false);*/
                 return newCG->assertCond(ineq.getX(), tgtVar, 1, 1, yc*ineq.getB() + ineq.getC()*ya);
         }
@@ -858,13 +865,13 @@ bool pCFG_contProcMatchAnalysis::connectIneqToVar(ConstrGraph* cg, ConstrGraph* 
 
 // Called when a partition is created to allow a specific analysis to initialize
 // its dataflow information from the partition condition
-/*void pCFG_contProcMatchAnalysis::initDFfromPartCond(const Function& func, const pCFGNode& n, unsigned int pSet, NodeState& state, 
+/*void pCFG_contProcMatchAnalysis::initDFfromPartCond(const Function& func, const pCFGNode& n, unsigned int pSet, NodeState& state,
                                                          const vector<Lattice*>& dfInfo, const vector<NodeFact*>& facts,
                                                          ConstrGraph* partitionCond)
 {
         ConstrGraph* cg = dynamic_cast<ConstrGraph*>(dfInfo.front());
         //contRangeProcSet* nodeRankSet = dynamic_cast<contRangeProcSet*>(facts.front());
-        
+
         ROSE_ASSERT(partitionCond);
 
         cg->beginTransaction();
@@ -876,9 +883,9 @@ bool pCFG_contProcMatchAnalysis::connectIneqToVar(ConstrGraph* cg, ConstrGraph* 
                 // Annotate all the un-annotated variables in partitionCond to mark them
                 // as belonging to process set pSet
                 partitionCond->addVarAnnot("", (void*)1, getVarAnn(pSet), (void*)1);
-                
+
                 printf("      && partitionCond: %p %s\n", partitionCond, partitionCond->str("").c_str());
-                
+
                 // -----------------------------------------------------------------------------------------------
                 // Update this partition's constraint graph with the new constraints from partitionCond
                 // We first compute the conjunction of this constraint graph with the partitionCond and then
@@ -887,23 +894,23 @@ bool pCFG_contProcMatchAnalysis::connectIneqToVar(ConstrGraph* cg, ConstrGraph* 
                 //cg->meetUpdateLimitToThat(partitionCond);
                 ConstrGraph* conjCG = new ConstrGraph(cg);
                 conjCG->andUpd(partitionCond);
-                
+
                 printf("      conjCG = %s\n", cg->str("").c_str());
-                
+
                 cg->widenUpdate(conjCG);
                 delete(conjCG);
-                
+
                 printf("      => %s\n", cg->str("").c_str());
-                
+
                 printf("      Updated rankSet:\n", cg->str("").c_str());
                 printf("      ~~~~~~\n");
 
                 inferBoundConstraints(func, n, pSet, cg);
-                
+
                 //printf("      ~~~~~> %s\n", cg->str("", false).c_str());
                 printf("      => %s\n", cg->str("").c_str());
         }
-        
+
         cg->endTransaction();
 }*/
 
@@ -911,32 +918,32 @@ bool pCFG_contProcMatchAnalysis::connectIneqToVar(ConstrGraph* cg, ConstrGraph* 
 // dataflow state for that process set with the set's specific condition.
 // Returns true if this causes the dataflow state to change and false otherwise
 bool pCFG_contProcMatchAnalysis::initPSetDFfromPartCond(
-                                    const Function& func, const pCFGNode& n, unsigned int pSet, 
-                                    const vector<Lattice*>& dfInfo, const vector<NodeFact*>& facts,
+                                    const Function& func, const pCFGNode& n, unsigned int pSet,
+                                    AnyLattice& dfInfo, const vector<NodeFact*>& facts,
                                     ConstrGraph* partitionCond)
 {
         bool modified = false;
-        ConstrGraph* cg = dynamic_cast<ConstrGraph*>(dfInfo.front());
+        ConstrGraph* cg = &dfInfo.ref<ConstrGraph>();
 //      cg->beginTransaction();
-        
+
         modified = initPSetDFfromPartCond_ex(func, n, pSet, dfInfo, facts, partitionCond) || modified;
-        
+
         //cg->endTransaction();
         cg->transitiveClosure();
-        
+
         return modified;
 }
 
 // Version of initPSetDFfromPartCond that doesn't perform a transitive closure at the end
 bool pCFG_contProcMatchAnalysis::initPSetDFfromPartCond_ex(
-                                    const Function& func, const pCFGNode& n, unsigned int pSet, 
-                                    const vector<Lattice*>& dfInfo, const vector<NodeFact*>& facts,
+                                    const Function& func, const pCFGNode& n, unsigned int pSet,
+                                    AnyLattice& dfInfo, const vector<NodeFact*>& facts,
                                     ConstrGraph* partitionCond)
 {
         string indent="        ";
         bool modified = false;
-        ConstrGraph* cg = dynamic_cast<ConstrGraph*>(dfInfo.front());
-        
+        ConstrGraph* cg = &dfInfo.ref<ConstrGraph>();
+
         if(MPIAnalysisDebugLevel>0)
         {
                 Dbg::dbg << indent<<"======================================"<<endl;
@@ -944,20 +951,20 @@ bool pCFG_contProcMatchAnalysis::initPSetDFfromPartCond_ex(
                 Dbg::dbg << indent<<"         CG = "<<endl;
                 Dbg::dbg << cg->str() << endl;
         }
-        
+
         // Annotate all the un-annotated variables in partitionCond to mark them
         // as belonging to process set pSet
         modified = partitionCond->addVarAnnot("", (void*)1, getVarAnn(pSet), (void*)1) || modified;
-        
+
         if(MPIAnalysisDebugLevel>0)
                 Dbg::dbg << indent<<"      && partitionCond: "<<endl;
                 Dbg::dbg << partitionCond->str() << endl;
-        
+
         // Update the constraint graph with the partition condition
         modified = cg->andUpd(partitionCond, indent+"    ") || modified;
-        
+
         cg->transitiveClosure();
-        
+
         if(MPIAnalysisDebugLevel>0)
         {
                 Dbg::dbg << indent<<"      =&gt;"<<endl;
@@ -966,42 +973,42 @@ bool pCFG_contProcMatchAnalysis::initPSetDFfromPartCond_ex(
                 Dbg::dbg << cg->str() << endl;
                 Dbg::dbg << indent<<"      ~~~~~~"<<endl;
         }
-        
+
         // Infer constraints on the process set's bounds from the constraints on its rankVars
         modified = inferBoundConstraints(func, n, pSet, cg) || modified;
-        
+
         // Transfer constraints from other process set's nprocsVar to this process set's nprocsVar
-        /*nprocsVarPSet=>nprocsVarAllPSets : GB-2011-05-31 : 
+        /*nprocsVarPSet=>nprocsVarAllPSets : GB-2011-05-31 :
         modified = forceNProcsUnity(func, n, pSet, cg) || modified;*/
-        
+
         if(MPIAnalysisDebugLevel>0) {
                 Dbg::dbg << indent<<"      =&gt;"<<endl;
                 Dbg::dbg << cg->str() << endl;
         }
-        
+
         return modified;
 }
 
-// Merge the dataflow information of two process sets. The space of process set IDs will be 
+// Merge the dataflow information of two process sets. The space of process set IDs will be
 // compressed to remove the holes left by the removal.
 // pSetMigrations (initially assumed empty) is set to indicate which process sets have moved
 //    to new ids, with the key representing the process set's original id and the value entry
 //    representing the new id.
 // It is assumed that pSetsToMerge is a sorted list.
 void pCFG_contProcMatchAnalysis::mergePCFGStates(
-                     const list<unsigned int>& pSetsToMerge, const pCFGNode& n, const Function& func, 
-                     NodeState& state, const vector<Lattice*>& dfInfo, map<unsigned int, unsigned int>& pSetMigrations)
+                     const list<unsigned int>& pSetsToMerge, const pCFGNode& n, const Function& func,
+                     NodeState& state, AnyLattice& dfInfo, map<unsigned int, unsigned int>& pSetMigrations)
 {
         startProfileFunc("mergePCFGStates");
-        
+
         ROSE_ASSERT(pSetsToMerge.size()>=2);
-        ConstrGraph* cg = dynamic_cast<ConstrGraph*>(dfInfo.front());
-        
+        ConstrGraph* cg = &dfInfo.ref<ConstrGraph>();
+
         if(MPIAnalysisDebugLevel>0) {
                 Dbg::dbg << "mergePCFGStates() initial"<<endl;
                 Dbg::dbg << cg->str() << endl;
         }
-        
+
         list<unsigned int>::const_iterator it=pSetsToMerge.begin();
         string rootPSetAnnot = getVarAnn(*it);
         it++;
@@ -1020,17 +1027,17 @@ void pCFG_contProcMatchAnalysis::mergePCFGStates(
                 Dbg::dbg << "mergePCFGStates() post-merge cg="<<endl;
                 Dbg::dbg << cg->str() << endl;
         }
-        
+
         // Compress any holes that result from the merging
         it=pSetsToMerge.begin();
         it++;
         unsigned int freePSet=*it;
         unsigned int usedPSet=freePSet;
         while(freePSet<(n.getPSetDFNodes().size() - (pSetsToMerge.size()-1)))
-        {       
+        {
                 if(MPIAnalysisDebugLevel>0)
                         Dbg::dbg << "mergePCFGStates() A freePSet="<<freePSet<<", usedPSet="<<usedPSet<<endl;
-                
+
                 // Find the next process set id that is still going to be used
                 unsigned int nextHole;
                 do
@@ -1040,12 +1047,12 @@ void pCFG_contProcMatchAnalysis::mergePCFGStates(
                         if(it==pSetsToMerge.end()) nextHole = n.getPSetDFNodes().size();
                         else                       nextHole = *it;
                 } while(usedPSet==nextHole);
-                
+
                 if(MPIAnalysisDebugLevel>0)
                         Dbg::dbg << "mergePCFGStates() B freePSet="<<freePSet<<", usedPSet="<<usedPSet<<endl;
-                
+
                 // usedPSet now refers to the next process set id that will be used
-                
+
                 // Move the next few used process set ids to the free spots left by merged process sets
                 for(; usedPSet<nextHole; usedPSet++, freePSet++)
                 {
@@ -1057,10 +1064,10 @@ void pCFG_contProcMatchAnalysis::mergePCFGStates(
                                 Dbg::dbg << "mergePCFGStates() Replacing annotation "<<usedPSetAnnot<<" with "<<freePSetAnnot<<endl;
                         }
                         cg->replaceVarAnnot(usedPSetAnnot, (void*)1, freePSetAnnot, (void*)1);
-                        
+
                         pSetMigrations[usedPSet] = freePSet;
                 }
-                
+
                 if(MPIAnalysisDebugLevel>0)
                         Dbg::dbg << "mergePCFGStates() C freePSet="<<freePSet<<", usedPSet="<<usedPSet<<endl;
         }
@@ -1068,32 +1075,32 @@ void pCFG_contProcMatchAnalysis::mergePCFGStates(
                 Dbg::dbg << "mergePCFGStates() post-replace cg=";
                 Dbg::dbg << cg->str() << endl;
         }
-        
+
         endProfileFunc("mergePCFGStates");
 }
-                            
+
 // GB 2011-05-24 START : better bounds inference that treats the relationship between rankVar and the process set's lower and upper bounds as tight
-// Infers the best possible constraints on the upper and lower bounds of the process set from 
-// the constraints on rankVar by inferring that any rankVar <= ??? constraints imply UB == ??? 
+// Infers the best possible constraints on the upper and lower bounds of the process set from
+// the constraints on rankVar by inferring that any rankVar <= ??? constraints imply UB == ???
 // if ??? is tighter than the previous bound on UB and ??? <= rankVar implies ??? <= LB if ?? is also tighter.
-// This is important for partitionConds from splits that were caused by IfStmts that depend 
+// This is important for partitionConds from splits that were caused by IfStmts that depend
 // on process rank and not important for splits that happened due to send-receive matching.
 // Returns true if this causes the dataflow state to change and false otherwise
 bool pCFG_contProcMatchAnalysis::inferBoundConstraints(const Function& func, const pCFGNode& n, unsigned int pSet, ConstrGraph* cg)
 {
         bool modified = false;
-        
+
         Dbg::enterFunc("inferBoundConstraints");
-                
+
         // We only want to infer information from variables that belong to pSet or that are common
         set<string> tgtAnnotNames;
         tgtAnnotNames.insert(getVarAnn(pSet));
         tgtAnnotNames.insert("pCFG_common");
-        
+
         varID rankVarPSet = rankVar; rankVarPSet.addAnnotation(getVarAnn(pSet), (void*)1);
         contRangeProcSet rankSetPSet = rankSet; // The rankSet of the process set pSet
         rankSetPSet.setConstrAnnot(cg, getVarAnn(pSet), (void*)1);
-        
+
         // First, try to find a non-rank-dependent variable that is equal to rankVar.
         // If one is found, set the LB and UB to that since this variable pins the bounds on rankVar very precisely
         // The variables that are equal to rankVar
@@ -1103,16 +1110,16 @@ bool pCFG_contProcMatchAnalysis::inferBoundConstraints(const Function& func, con
                 // Set both LB and UB equal to it (but don't set them to each other or to rank-dependent variables)
                 for(map<varID, affineInequality>::iterator eqVar=rankVarEqVars.begin(); eqVar!=rankVarEqVars.end(); eqVar++) {
                         // Version of var with no annotations to get the right result from isMPIRankVarDep()
-                        varID varNoAnnot(eqVar->first); varNoAnnot.remAllAnnotations();         
-                        if(eqVar->first != rankSetPSet.getLB() && eqVar->first != rankSetPSet.getUB() && 
+                        varID varNoAnnot(eqVar->first); varNoAnnot.remAllAnnotations();
+                        if(eqVar->first != rankSetPSet.getLB() && eqVar->first != rankSetPSet.getUB() &&
                            eqVar->first!=rankVarPSet && !isMPIRankVarDep(func, n.getCurNode(pSet), varNoAnnot)) {
                                 Dbg::dbg << "Variable "<<eqVar->first<<" equal to "<<rankVarPSet<<" != "<<rankSetPSet.getLB()<<" and != "<<rankSetPSet.getUB()<<" and isMPIRankVarDep(func, n.getCurNode(pSet), "<<varNoAnnot<<")="<<isMPIRankVarDep(func, n.getCurNode(pSet), varNoAnnot)<<" eqVar-&gt;second="<<eqVar->second.str("")<<endl;
-                                cout << "Variable "<<eqVar->first<<" equal to "<<rankVarPSet<<" != "<<rankSetPSet.getLB()<<" and != "<<rankSetPSet.getUB()<<" and isMPIRankVarDep(func, n.getCurNode(pSet), "<<varNoAnnot<<")="<<isMPIRankVarDep(func, n.getCurNode(pSet), varNoAnnot)<<" eqVar-&gt;second="<<eqVar->second.str("")<<endl;      
-                                
+                                cout << "Variable "<<eqVar->first<<" equal to "<<rankVarPSet<<" != "<<rankSetPSet.getLB()<<" and != "<<rankSetPSet.getUB()<<" and isMPIRankVarDep(func, n.getCurNode(pSet), "<<varNoAnnot<<")="<<isMPIRankVarDep(func, n.getCurNode(pSet), varNoAnnot)<<" eqVar-&gt;second="<<eqVar->second.str("")<<endl;
+
                                 // rankVar*a = eqVar->first * b + c
                                 /*bool eq = isEqVars(rankVarPSet, const varID& v2, int& a, int& b, int& c, string indent="");
                                 ROSE_ASSERT(eq);*/
-                                
+
                                 modified = cg->assign(rankSetPSet.getUB(), eqVar->first, eqVar->second.getA(), eqVar->second.getB(), eqVar->second.getC()) || modified;
                                 modified = cg->assign(rankSetPSet.getLB(), eqVar->first, eqVar->second.getA(), eqVar->second.getB(), eqVar->second.getC()) || modified;
                                 Dbg::exitFunc("inferBoundConstraints");
@@ -1120,11 +1127,11 @@ bool pCFG_contProcMatchAnalysis::inferBoundConstraints(const Function& func, con
                         }
                 }
         }
-        
+
         // If we couldn't find a variable that rankVar is equal to
         // The additions that we'll be making to cg.
         set<varAffineInequality> cgUpdates;
-        
+
         Dbg::dbg << "<b><u>Upper Bound</u></b>\n";
         // Identify the current bound on UB
         varID curUBndVar;
@@ -1140,27 +1147,27 @@ bool pCFG_contProcMatchAnalysis::inferBoundConstraints(const Function& func, con
                 newUBndC   = curUBndC   = (ubEqVars.begin())->second.getC();
                 setNewUBnd = true;
         }
-        
-        // Iterate through all constraints rankVar*a <= var*b + c and determine if any one of them represents 
+
+        // Iterate through all constraints rankVar*a <= var*b + c and determine if any one of them represents
         // a tighter bound on UB than newUBndVar;
         for(ConstrGraph::leIterator leIt=cg->leBegin(rankVarPSet); leIt!=cg->leEnd(); leIt++)
         {
                 varAffineInequality ineq = *leIt;
                 const varID& var = ineq.getY();
-                
+
                 // Skip the rankSet bounds since we're currently trying to reset them and they're not real variables anyhow
                 if(var==rankSetPSet.getUB() || var==rankSetPSet.getLB()) continue;
 
                 // Skip any rankVar-dependent variables
                 // Version of var with no annotations to get the right result from isMPIRankVarDep()
-                varID varNoAnnot(var); varNoAnnot.remAllAnnotations(); 
+                varID varNoAnnot(var); varNoAnnot.remAllAnnotations();
                 Dbg::dbg << "rankVar &lt= var = "<<var.str()<<" (mpidep)="<<isMPIRankVarDep(func, n.getCurNode(pSet), varNoAnnot)<<" ineq = "<<ineq.str()<<endl;
                 if(var==rankVarPSet || isMPIRankVarDep(func, n.getCurNode(pSet), varNoAnnot)) continue;
-                
-                // rankVar <= var + c ===> UB <= var + c 
+
+                // rankVar <= var + c ===> UB <= var + c
                 if(ineq.getA()==1 && ineq.getB()==1) {
                         if(MPIAnalysisDebugLevel>0) Dbg::dbg << "    "<<var<<"+"<<ineq.getC()<<" vs "<<newUBndVar<<"+"<<newUBndC<<": setNewUBnd="<<setNewUBnd<<" cg-&gt;lteVars("<<var<<", "<<newUBndVar<<", 1, 1, "<<newUBndC<<" - "<<ineq.getC()<<"-1 = "<<(newUBndC - ineq.getC())<<")="<<cg->ltVars(var, newUBndVar, 1, 1, newUBndC - ineq.getC())<<"\n";
-                        
+
                         // If rankVar<=var+c && rankSet.UB=curBnd+d && var+c<newUBndVar+d (var is tighter than newUBndVar)
                         // Then rankSet.UB = var+c
                         // If this constraint is a tighter upper bound than newUBndVar+c: var+c<newUBndVar+d
@@ -1173,7 +1180,7 @@ bool pCFG_contProcMatchAnalysis::inferBoundConstraints(const Function& func, con
                         }
                 }
         }
-        
+
         Dbg::dbg << "<b><u>Lower Bound</u></b>\n";
         // Identify the current bound on LB
         varID curLBndVar;
@@ -1190,27 +1197,27 @@ bool pCFG_contProcMatchAnalysis::inferBoundConstraints(const Function& func, con
                 setNewLBnd = true;
                 if(MPIAnalysisDebugLevel>0) Dbg::dbg << "    Initializing newLBnd to "<<newLBndVar<<"+"<<newLBndC<<endl;
         }
-        
-        // Iterate through all constraints var*a <= rankVar*b + c and determine if any one of them represents 
+
+        // Iterate through all constraints var*a <= rankVar*b + c and determine if any one of them represents
         // a tighter bound on LB than newLBndVar;
         for(ConstrGraph::geIterator geIt=cg->geBegin(rankVarPSet); geIt!=cg->geEnd(); geIt++)
         {
                 varAffineInequality ineq = *geIt;
                 const varID& var = ineq.getX();
-                
+
                 // Skip the rankSet bounds since we're currently trying to reset them and they're not real variables anyhow
                 if(var==rankSetPSet.getLB() || var==rankSetPSet.getLB()) continue;
 
                 // Skip any rankVar-dependent variables
                 // Version of var with no annotations to get the right result from isMPIRankVarDep()
-                varID varNoAnnot(var); varNoAnnot.remAllAnnotations(); 
+                varID varNoAnnot(var); varNoAnnot.remAllAnnotations();
                 Dbg::dbg << "rankVar &gt= var = "<<var<<" (mpidep)="<<isMPIRankVarDep(func, n.getCurNode(pSet), varNoAnnot)<<" ineq = "<<ineq.str()<<endl;
                 if(var==rankVarPSet || isMPIRankVarDep(func, n.getCurNode(pSet), varNoAnnot)) continue;
-                
+
                 // var <= rankVar + c ===> var - c <= LB
                 if(ineq.getA()==1 && ineq.getB()==1) {
                         if(MPIAnalysisDebugLevel>0) Dbg::dbg << "    "<<var<<"+"<<ineq.getC()<<" vs: "<<newLBndVar<<"+"<<newLBndC<<": setNewLBnd="<<setNewLBnd<<" cg-&gt;lteVars("<<newLBndVar<<", "<<var<<", 1, 1, ("<<(- newLBndC) <<" - "<<ineq.getC()<<" = "<<(- newLBndC - ineq.getC())<<")="<<cg->ltVars(newLBndVar, var, 1, 1, - newLBndC - ineq.getC())<<"\n";
-                        
+
                         // If var<=rankVar+c && rankSet.LB=newLBndVar+d && newLBndVar+d<var-c (var is tighter than newLBndVar)
                         // Then rankSet.LB = var-c
                         // If this constraint is a tighter lower bound than newLBndVar+c: var+c<newLBndVar+d
@@ -1223,37 +1230,37 @@ bool pCFG_contProcMatchAnalysis::inferBoundConstraints(const Function& func, con
                         }
                 }
         }
-        
+
         Dbg::dbg << "<b><u>Assign</u></b>\n";
         // Update rankSetPSet.getUB() and rankSetPSet.getLB() to newUBndVar/newUBndC and newLBndVar/newLBndC,
         // respectively if these new bounds are different from the original bounds
         if(setNewUBnd) modified = cg->assign(rankSetPSet.getUB(), newUBndVar, 1, 1, newUBndC) || modified;
         if(setNewLBnd) modified = cg->assign(rankSetPSet.getLB(), newLBndVar, 1, 1, newLBndC) || modified;
-        
+
         Dbg::exitFunc("inferBoundConstraints");
         return modified;
 }
 
-//! // Infers the best possible constraints on the upper and lower bounds of the process set from 
+//! // Infers the best possible constraints on the upper and lower bounds of the process set from
 //! // the constraints on rankVar
 //! // Returns true if this causes the dataflow state to change and false otherwise
 //! bool pCFG_contProcMatchAnalysis::inferBoundConstraints(const Function& func, const pCFGNode& n, unsigned int pSet, ConstrGraph* cg)
 //! {
 //!     bool modified = false;
-//!     
-//!     // Update rankSet from rankVar's current constraints. 
-//!     // This is important for partitionConds from splits that were caused by IfStmts that depend 
+//!
+//!     // Update rankSet from rankVar's current constraints.
+//!     // This is important for partitionConds from splits that were caused by IfStmts that depend
 //!     // on process rank and not important for splits that happened due to send-receive matching.
-//!     
+//!
 //!     // We only want to infer information from variables that belong to pSet or that are common
 //!     set<string> tgtAnnotNames;
 //!     tgtAnnotNames.insert(getVarAnn(pSet));
 //!     tgtAnnotNames.insert("pCFG_common");
-//!     
+//!
 //!     varID rankVarPSet = rankVar; rankVarPSet.addAnnotation(getVarAnn(pSet), (void*)1);
 //!     contRangeProcSet rankSetPSet = rankSet; // The rankSet of the process set pSet
 //!     rankSetPSet.setConstrAnnot(cg, getVarAnn(pSet), (void*)1);
-//!     
+//!
 //!     // ====
 //!     // rankVar <= var + c && !(var*a' <= rankVar*b' + c')
 //!     // The additions that we'll be making to cg. Each entry <var, c> corresponds ub*1 = var*1 + c.
@@ -1265,9 +1272,9 @@ bool pCFG_contProcMatchAnalysis::inferBoundConstraints(const Function& func, con
 //!                     varAffineInequality ineq = *leIt;
 //!                     const varID& var=ineq.getY();
 //!                     // Version of var with no annotations to get the right result from isMPIRankVarDep()
-//!                     varID varNoAnnot(var); varNoAnnot.remAllAnnotations(); 
+//!                     varID varNoAnnot(var); varNoAnnot.remAllAnnotations();
 //!                     //Dbg::dbg << "rankVar <= var = "<<var.str()<<" (mpidep)="<<isMPIRankVarDep(func, n.getCurNode(pSet), var)<<" ineq = "<<ineq.str()<<endl;
-//!                     
+//!
 //!                     // Skip the rankSet bounds since we're currently trying to reset them and they're not real variables anyhow
 //!                     if(ineq.getY()==rankSetPSet.getUB() || var==rankSetPSet.getLB()) continue;
 //! //Dbg::dbg << "var = "<<var.str()<<endl;
@@ -1275,7 +1282,7 @@ bool pCFG_contProcMatchAnalysis::inferBoundConstraints(const Function& func, con
 //!                     if(isMPIRankVarDep(func, n.getCurNode(pSet), varNoAnnot)) continue;
 //!                     // Skip variables that are not related to this process set
 //!                     //if(!var.hasAnyAnnotation(tgtAnnotNames)) continue;
-//!                     
+//!
 //!                     // Variables varUB s.t. varUB*a = rankSet.ub*b + d (a==1, b==1)
 //!                     map<varID, affineInequality> ubEqVars = cg->getEqVars(rankSetPSet.getUB());
 //!                     for(map<varID, affineInequality>::iterator it=ubEqVars.begin(); it!=ubEqVars.end(); it++)
@@ -1283,7 +1290,7 @@ bool pCFG_contProcMatchAnalysis::inferBoundConstraints(const Function& func, con
 //!                             //Dbg::dbg << "          ineq="<<ineq.str()<<" ub="<<it->first.str()<<" : "<<it->second.str()<<endl;
 //!                             //Dbg::dbg << "              it->second.getA()=="<<it->second.getA()<<" && it->second.getB()="<<it->second.getB()<<" cg->lteVars("<<
 //!                             //        var.str()<<", "<<it->first.str()<<", 1, 1, "<<(it->second.getC() - ineq.getC())<<")="<<cg->lteVars(var, it->first, 1, 1, it->second.getC() - ineq.getC())<<endl;
-//!                             
+//!
 //!                             // If rankVar <= var + c && var+c<=q+d == var<=q+d-c && ub=q+d Then ub = var+c
 //!                             if(it->second.getA()==1 && it->second.getB()==1 &&
 //!                                cg->lteVars(var, it->first, 1, 1, it->second.getC() - ineq.getC()))
@@ -1298,7 +1305,7 @@ bool pCFG_contProcMatchAnalysis::inferBoundConstraints(const Function& func, con
 //!             }
 //!             modified = (ubUpdates.size()>0) || modified;
 //!     }
-//!                     
+//!
 //!     if(MPIAnalysisDebugLevel>0) Dbg::dbg << "      ~~~ = ~~~"<<endl;
 //!     // ====
 //!     // var <= rankVar + c && !(rankVar*a' <= var*b' + c')
@@ -1306,24 +1313,24 @@ bool pCFG_contProcMatchAnalysis::inferBoundConstraints(const Function& func, con
 //!     map<varID, int> lbUpdates;
 //!     {
 //!             //Dbg::dbg << "LB: rankVarPSet="<<rankVarPSet.str()<<endl;
-//!             
+//!
 //!             // Iterate through all constraints var*a <= rankVar*b + c
 //!             for(ConstrGraph::geIterator geIt=cg->geBegin(rankVarPSet); geIt!=cg->geEnd(); geIt++)
 //!             {
 //!                     varAffineInequality ineq = *geIt;
 //!                     const varID& var=ineq.getX();
 //!                     // Version of var with no annotations to get the right result from isMPIRankVarDep()
-//!                     varID varNoAnnot(var); varNoAnnot.remAllAnnotations(); 
+//!                     varID varNoAnnot(var); varNoAnnot.remAllAnnotations();
 //!                     if(MPIAnalysisDebugLevel>0)
 //!                             Dbg::dbg << "var = "<<var.str()<<" &lt;= rankVar + ineq = "<<ineq.str()<<endl;
-//!                     
+//!
 //!                     // Skip the rankSet bounds since we're currently trying to reset them and they're not real variables anyhow
 //!                     if(var==rankSetPSet.getUB() || var==rankSetPSet.getLB()) continue;
 //!                     // Skip any rankVar-dependent variables
 //!                     if(isMPIRankVarDep(func, n.getCurNode(pSet), varNoAnnot)) continue;
 //!                     // Skip variables that are not related to this process set
 //!                     //if(!var.hasAnyAnnotation(tgtAnnotNames)) continue;
-//!                     
+//!
 //!                     // Variables varLB s.t. varLB*a = rankSet.lb*b + d (a==1, b==1)
 //!                     map<varID, affineInequality> lbEqVars = cg->getEqVars(rankSetPSet.getLB());
 //!                     for(map<varID, affineInequality>::iterator it=lbEqVars.begin(); it!=lbEqVars.end(); it++)
@@ -1343,29 +1350,29 @@ bool pCFG_contProcMatchAnalysis::inferBoundConstraints(const Function& func, con
 //!                     }
 //!             }
 //!             modified = (lbUpdates.size()>0) || modified;
-//!             
+//!
 //!     }
-//!     
+//!
 //!     // Perform the updates to the upper bound
 //!     performBoundUpdates(cg, ubUpdates, rankSetPSet.getUB());
-//!     
+//!
 //!     // Perform the updates to the lower bound
 //!     performBoundUpdates(cg, lbUpdates, rankSetPSet.getLB());
-//! 
+//!
 //!     // lb <= ub
 //!     modified = cg->assertCond(rankSetPSet.getLB(), rankSetPSet.getUB(), 1, 1, 0) || modified;
-//!     
+//!
 //!     return modified;
 //! }
-//! 
-/*nprocsVarPSet=>nprocsVarAllPSets : GB-2011-05-31 : 
+//!
+/*nprocsVarPSet=>nprocsVarAllPSets : GB-2011-05-31 :
 // Transfer constraints from other process set's nprocsVar to this process set's nprocsVar
 // Returns true if this causes the dataflow state to change and false otherwise
 bool pCFG_contProcMatchAnalysis::forceNProcsUnity(const Function& func, const pCFGNode& n, unsigned int pSet, ConstrGraph* cg)
 {
         bool modified = false;
         varID nprocsVarPSet = nprocsVar; nprocsVarPSet.addAnnotation(getVarAnn(pSet), (void*)1);
-        
+
         // Look at the constraints on the nprocsVars of other sets. For any constraint
         // nprocsVarOtherSet <= var, intersect this constraint with the nprocsVarPSet <= var constraint (if any)
         unsigned int otherPSet=0;
@@ -1374,40 +1381,40 @@ bool pCFG_contProcMatchAnalysis::forceNProcsUnity(const Function& func, const pC
                 if(otherPSet != pSet)
                 {
                         varID nprocsVarOtherSet = nprocsVar; nprocsVarOtherSet.addAnnotation(getVarAnn(otherPSet), (void*)1);
-                        
+
                         // Iterate through all constraints of the form nprocsVarOtherSet <= var
                         for(ConstrGraph::leIterator leIt=cg->leBegin(nprocsVarOtherSet); leIt!=cg->leEnd(); leIt++)
                         {
                                 varAffineInequality ineq = *leIt;
                                 ROSE_ASSERT(ineq.getX() == nprocsVarOtherSet);
-                                
+
                                 if(ineq.getY() != nprocsVarPSet)
                                 {
                                         // Modify the current inequality to refer to nprocsVarPSet instead of nprocsVarOtherSet
                                         ineq.setX(nprocsVarPSet);
-                                                                        
+
                                         if(MPIAnalysisDebugLevel>0)
                                                 Dbg::dbg << "||| Transferring "<<ineq.str()<<" from pSet "<<otherPSet<<" to pSet "<<pSet<<endl;
-                                        
+
                                         // Update the constraint graph with the new info about nprocsVarPSet
                                         modified = cg->assertCond(ineq) || modified;
                                 }
                         }
                 }
         }
-        
+
         return modified;
 }
 */
-//! 
-//! 
+//!
+//!
 //! // Inserts the given var + c value into the updates map. This map contains expressions var + c to which we'll
 //! // assign the process set upper or lower bound (upper if ub=true, lower if ub=false).
 //! void pCFG_contProcMatchAnalysis::addToBoundUpdatesMap(ConstrGraph* cg, map<varID, int>& updates, const varID& var, int c, bool ub)
 //! {
 //!     // Identify the relationships between var+c and the expressions in updates
 //!     bool allEq = true;   // true if var+c is equal to the expressions in updates, false otherwise
-//!     bool allIneq = true; // true if var+c is tighter than the expressions in updates (var <= others if ub=true, 
+//!     bool allIneq = true; // true if var+c is tighter than the expressions in updates (var <= others if ub=true,
 //!                          // var >= others if ub=false), false otherwise
 //!     for(map<varID, int>::iterator itUpd=updates.begin(); itUpd!=updates.end(); itUpd++)
 //!     {
@@ -1419,7 +1426,7 @@ bool pCFG_contProcMatchAnalysis::forceNProcsUnity(const Function& func, const pC
 //!                     allIneq = false;
 //!     }
 //!     // If the current variable is equal to all the other variables that we'll be assigning ub to, add it to the list
-//!     if(allEq) 
+//!     if(allEq)
 //!     {
 //!             if(MPIAnalysisDebugLevel>0)
 //!                     Dbg::dbg << "    Equal to others. Accept."<<endl;
@@ -1440,7 +1447,7 @@ bool pCFG_contProcMatchAnalysis::forceNProcsUnity(const Function& func, const pC
 //!                     Dbg::dbg << "    Not Equal to or Tighter than others. Reject."<<endl;
 //!     }
 //! }
-//! 
+//!
 //! // Perform the given updates to the given node set bound variable. The updates are expressed
 //! // as a list of <x, c> pairs (a map) and the updates to cg will be:
 //! //    - erase boundVar's constraints in cg
@@ -1470,7 +1477,7 @@ bool pCFG_contProcMatchAnalysis::forceNProcsUnity(const Function& func, const pC
 
 /*
 // Inserts the given <varA, varB, ineq> tuple into the given map
-void pCFG_contProcMatchAnalysis::addVarVarIneqMap(map<varID, map<varID, affineInequality> >& vvi, 
+void pCFG_contProcMatchAnalysis::addVarVarIneqMap(map<varID, map<varID, affineInequality> >& vvi,
                                                  const varID& varA, const varID& varB, const affineInequality& ineq)
 {
         //Dbg::dbg << "addVarVarIneqMap("<<varA.str()<<", "<<varB.str()<<", "<<ineq.str()<<endl;
@@ -1499,15 +1506,15 @@ void pCFG_contProcMatchAnalysis::addVarVarIneqMap(map<varID, map<varID, affineIn
         }
 }*/
 
-// Incorporates the current node's inequality information from conditionals (ifs, fors, etc.) into the current node's 
+// Incorporates the current node's inequality information from conditionals (ifs, fors, etc.) into the current node's
 // constraint graph.
 // returns true if this causes the constraint graph to change and false otherwise
-bool pCFG_contProcMatchAnalysis::incorporateConditionalsInfo(const pCFGNode& n, unsigned int pSet, const Function& func, const DataflowNode& dfNode, 
-                                                             NodeState& state, const vector<Lattice*>& dfInfo)
+bool pCFG_contProcMatchAnalysis::incorporateConditionalsInfo(const pCFGNode& n, unsigned int pSet, const Function& func, const DataflowNode& dfNode,
+                                                             NodeState& state, AnyLattice& dfInfo)
 {
         bool modified = false;
-        ConstrGraph* cg = dynamic_cast<ConstrGraph*>(dfInfo.front());
-        
+        ConstrGraph* cg = &dfInfo.ref<ConstrGraph>();
+
         const set<varAffineInequality>& ineqs = getAffineIneq(dfNode);
         if(MPIAnalysisDebugLevel>0)
                 Dbg::dbg << "    incorporateConditionalsInfo(), ineqs.size()="<<ineqs.size()<<endl;
@@ -1515,16 +1522,16 @@ bool pCFG_contProcMatchAnalysis::incorporateConditionalsInfo(const pCFGNode& n, 
         for(set<varAffineInequality>::const_iterator it = ineqs.begin(); it!=ineqs.end(); it++)
         {
                 varAffineInequality varIneq = *it;
-                
+
                 // Update varIneq's variables with the annotations that connect them to pSet
                 connectVAItoPSet(pSet, varIneq);
-                
+
                 //Dbg::dbg << "        it="<<(*it).str()<<endl;
                 if(MPIAnalysisDebugLevel>0)
                         Dbg::dbg << "incorporateConditionalsInfo() Asserting "<<varIneq.getIneq().str(varIneq.getX(), varIneq.getY(), "    ") << endl;
-                modified = cg->assertCond(varIneq.getX(), varIneq.getY(), varIneq.getIneq().getA(), 
+                modified = cg->assertCond(varIneq.getX(), varIneq.getY(), varIneq.getIneq().getA(),
                                           varIneq.getIneq().getB(), varIneq.getIneq().getC()) || modified;
-                
+
                 // If this inequality says something about nprocsVar, assert this nprocsVar inequality in vs
                 modified = connectIneqToVar(cg, cg, varIneq, nprocsVar, dfNode) || modified;
         }
@@ -1537,12 +1544,12 @@ bool pCFG_contProcMatchAnalysis::incorporateConditionalsInfo(const pCFGNode& n, 
 // noDivVars{
 // noDivVars    bool modified = false;
 // noDivVars    ConstrGraph* cg = dynamic_cast<ConstrGraph*>(dfInfo.front());
-// noDivVars    
+// noDivVars
 // noDivVars    Dbg::dbg << "    incorporateDivInfo("<<func.get_name().getString()<<")"<<endl;
 // noDivVars    FiniteVarsExprsProductLattice* prodL = dynamic_cast<FiniteVarsExprsProductLattice*>(state.getLatticeBelow(divAnalysis, 0));
 // noDivVars    //varIDSet liveVars = prodL->getVisibleVars(func);
 // noDivVars    set<varID> liveVars = getAllLiveVarsAt(ldva, n, state, "    ");
-// noDivVars    
+// noDivVars
 // noDivVars    for(varIDSet::iterator it = liveVars.begin(); it!=liveVars.end(); it++)
 // noDivVars    {
 // noDivVars            varID var = *it;
@@ -1552,12 +1559,12 @@ bool pCFG_contProcMatchAnalysis::incorporateConditionalsInfo(const pCFGNode& n, 
 // noDivVars            // divisibility variable changed from one CFG node to the next (i.e. from var=divvar to var = b*divvar),
 // noDivVars            // we would not be able to capture this change.
 // noDivVars            cg->addDivVar(var, true);
-// noDivVars            
-// noDivVars            /* // create the divisibility variable for the current variable 
+// noDivVars
+// noDivVars            /* // create the divisibility variable for the current variable
 // noDivVars            varID divVar = ConstrGraph::getDivScalar(var);*/
-// noDivVars            
+// noDivVars
 // noDivVars            /*DivLattice* varDivL = dynamic_cast<DivLattice*>(prodL->getVarLattice(func, var));
-// noDivVars            
+// noDivVars
 // noDivVars            // incorporate this variable's divisibility information (if any)
 // noDivVars            if(varDivL->getLevel() == DivLattice::divKnown && !(varDivL->getDiv()==1 && varDivL->getRem()==0))
 // noDivVars            {
@@ -1568,19 +1575,19 @@ bool pCFG_contProcMatchAnalysis::incorporateConditionalsInfo(const pCFGNode& n, 
 // noDivVars                    modified = cg->addDivVar(var, 1, 0) || modified;
 // noDivVars            }*/
 // noDivVars    }
-// noDivVars    
+// noDivVars
 // noDivVars    return modified;
 // noDivVars}
 
 // For any variable for which we have divisibility info, remove its constraints to other variables (other than its
-// divisibility variable)                                        
+// divisibility variable)
 // noDivVars bool pCFG_contProcMatchAnalysis::removeConstrDivVars(const Function& func, const DataflowNode& n, NodeState& state, const vector<Lattice*>& dfInfo)
 // noDivVars {
 // noDivVars    bool modified = false;
 // noDivVars    ConstrGraph* cg = dynamic_cast<ConstrGraph*>(dfInfo.front());
-// noDivVars    
+// noDivVars
 // noDivVars    Dbg::dbg << "    removeConstrDivVars()"<<endl;
-// noDivVars    
+// noDivVars
 // noDivVars    FiniteVarsExprsProductLattice* prodL = dynamic_cast<FiniteVarsExprsProductLattice*>(state.getLatticeBelow(divAnalysis, 0));
 // noDivVars    //varIDSet liveVars = prodL->getVisibleVars(func);
 // noDivVars    set<varID> liveVars = getAllLiveVarsAt(ldva, n, state, "    ");
@@ -1589,7 +1596,7 @@ bool pCFG_contProcMatchAnalysis::incorporateConditionalsInfo(const pCFGNode& n, 
 // noDivVars            varID var = *it;
 // noDivVars            cg->disconnectDivOrigVar(var);
 // noDivVars            /*DivLattice* varDivL = dynamic_cast<DivLattice*>(prodL->getVarLattice(func, var));
-// noDivVars            
+// noDivVars
 // noDivVars            // incorporate this variable's divisibility information (if any)
 // noDivVars            if(varDivL->getLevel() == DivLattice::divKnown && !(varDivL->getDiv()==1 && varDivL->getRem()==0))
 // noDivVars            {
@@ -1600,10 +1607,10 @@ bool pCFG_contProcMatchAnalysis::incorporateConditionalsInfo(const pCFGNode& n, 
 // noDivVars                    cg->disconnectDivOrigVar(var, 1, 0);
 // noDivVars            }*/
 // noDivVars    }
-// noDivVars    
+// noDivVars
 // noDivVars    if(MPIAnalysisDebugLevel>0)
 // noDivVars            Dbg::dbg << cg->str() << endl;
-// noDivVars    
+// noDivVars
 // noDivVars    return modified;
 // noDivVars }
 
@@ -1614,20 +1621,20 @@ bool pCFG_contProcMatchAnalysis::incorporateConditionalsInfo(const pCFGNode& n, 
         return new pCFG_contProcMatchAnalysis(*this);
 }*/
 
-// Performs send-receive matching on a fully-blocked analysis partition. 
+// Performs send-receive matching on a fully-blocked analysis partition.
 // If some process sets need to be split, returns the set of checkpoints that corresponds to this pCFG node's descendants.
 // Otherwise, returns an empty set.
 // Even if no split is required, matchSendsRecvs may modify activePSets and blockedPSets to release some process sets
 //    that participated in a successful send-receive matching.
 /*set<pCFG_Checkpoint*> pCFG_contProcMatchAnalysis::matchSendsRecvs(
-                                                     const pCFGNode& n, NodeState* state, 
+                                                     const pCFGNode& n, NodeState* state,
                                                      set<int>& activePSets, set<int>& blockedPSets, set<int>& releasedPSets,
                                                      const Function& func, NodeState* fState)*/
 void pCFG_contProcMatchAnalysis::matchSendsRecvs(
-                             const pCFGNode& n, const vector<Lattice*>& dfInfo, NodeState* state, 
+                             const pCFGNode& n, const AnyLattice& dfInfo, NodeState* state,
                              // Set by analysis to identify the process set that was split
                              unsigned int& splitPSet,
-                             vector<ConstrGraph*>& splitConditions, 
+                             vector<ConstrGraph*>& splitConditions,
                              vector<DataflowNode>& splitPSetNodes,
                              // for each split process set, true if its active and false if it is blocked
                              vector<bool>&         splitPSetActive,
@@ -1640,19 +1647,19 @@ void pCFG_contProcMatchAnalysis::matchSendsRecvs(
         Dbg::enterFunc("matchSendsRecvs");
         //ROSE_ASSERT(activePSets.size()==0);
         //ROSE_ASSERT(blockedPSets.size()==n.getPSetDFNodes().size());
-        
+
         /*map<IntraPartitionDataflow*, OneDmesgExpr> sends;
         map<IntraPartitionDataflow*, OneDmesgExpr> recvs;*/
         map<unsigned int, pair<OneDmesgExpr, DataflowNode> > sends;
         map<unsigned int, pair<OneDmesgExpr, DataflowNode> > recvs;
-        
+
         DataflowNode funcCFGEnd = cfgUtils::getFuncEndCFG(func.get_definition());
 
-        ConstrGraph* cg = dynamic_cast<ConstrGraph*>(state->getLatticeAbove((pCFG_FWDataflow*)this, 0));
+        ConstrGraph* cg = &(state->getLatticeAboveMod((pCFG_FWDataflow*)this)).ref<ConstrGraph>();
         // We operate on a copy of cg since we don't want to modify the original with
         // the temporaty process sets that we create
         cg = new ConstrGraph(cg);
-        
+
         if(MPIAnalysisDebugLevel>0)
         {
                 Dbg::dbg << "============================"<<endl;
@@ -1661,38 +1668,38 @@ void pCFG_contProcMatchAnalysis::matchSendsRecvs(
                 Dbg::dbg << cg->str() << endl;
                 printCGKeyVars(cg);
         }
-        
+
         // -------------------------------------------------------------------------------------------------
-        // Look over all the partitions in this split set to see whether all the active dataflow nodes 
+        // Look over all the partitions in this split set to see whether all the active dataflow nodes
         // in the partition are blocked on a send or receive and record their respective message expressions
         // in sends and recvs.
         int curPSet=0;
         for(vector<DataflowNode>::const_iterator it=n.getPSetDFNodes().begin(); it!=n.getPSetDFNodes().end(); it++, curPSet++)
         {
                 const DataflowNode&  dfNode = *it;
-                
+
                 if(MPIAnalysisDebugLevel>0)
                         Dbg::dbg << "Process set "<<curPSet << " : \n";
-                
-                // Records whether all the DataflowNodes on which the current partition is blocked are all sends, all receives 
+
+                // Records whether all the DataflowNodes on which the current partition is blocked are all sends, all receives
                 // or some mixture, in which case we have a conflict
                 //bool allSends=false, allRecvs=false;
-                
+
                 if(MPIAnalysisDebugLevel>0)
                         Dbg::dbg << "    matchSendsRecvs() n = "<<Dbg::escape(dfNode.str())<<endl;
                 ROSE_ASSERT(cg->isSelfConsistent());
-                
+
                 // Skip over process sets that are blocked on the end of the function
                 if(dfNode == funcCFGEnd)
                 {
-                        if(MPIAnalysisDebugLevel>0) Dbg::dbg << "blocked on function end"<<endl; 
+                        if(MPIAnalysisDebugLevel>0) Dbg::dbg << "blocked on function end"<<endl;
                         continue;
                 }
-                
+
                 SgFunctionCallExp* fnCall = isSgFunctionCallExp(dfNode.getNode());
                 ROSE_ASSERT(fnCall);
                 Function calledFunc(fnCall);
-                
+
                 if(calledFunc.get_name().getString() == "MPI_Send" || calledFunc.get_name().getString() == "MPI_Recv")
                 {
                         SgExpressionPtrList& args = fnCall->get_args()->get_expressions();
@@ -1727,19 +1734,19 @@ void pCFG_contProcMatchAnalysis::matchSendsRecvs(
                         ROSE_ASSERT(calledFunc.get_name().getString() == "MPI_Send" ||
                                     calledFunc.get_name().getString() == "MPI_Recv");
                 }
-                
+
                 /*
                 // Look at the dataflow state at the end of the function to check for any previously sent messages
                 {
                         DataflowNode funcCFGEnd = cfgUtils::getFuncEndCFG(s->func.get_definition());
                         NodeState* ns = NodeState::getNodeState(funcCFGEnd);
                         ConstrGraph* cg = dynamic_cast<ConstrGraph*>(ns->getLatticeAbove(analysis, 0));
-                        
+
                 }*/
         }
-        
+
         // -------------------------------------------------------------------------------
-        // If we're not yet finished with the current function because some dataflow nodes 
+        // If we're not yet finished with the current function because some dataflow nodes
         // are blocked on a send or receive
         if(sends.size()>0 || recvs.size()>0)
         {
@@ -1751,7 +1758,7 @@ void pCFG_contProcMatchAnalysis::matchSendsRecvs(
                         //ROSE_ASSERT(recvs.size()>0);
                         endProfileFunc("matchSendsRecvs");
                         Dbg::exitFunc("matchSendsRecvs");
-                        return; 
+                        return;
                 }
                 // If we only have receives, we have a definite deadlock
                 else if(sends.size()==0)
@@ -1765,13 +1772,13 @@ void pCFG_contProcMatchAnalysis::matchSendsRecvs(
                         Dbg::exitFunc("matchSendsRecvs");
                         return;
                 }
-                
+
                 if(MPIAnalysisDebugLevel>0)
                         Dbg::dbg << "sends.size()="<<sends.size()<<"  recvs.size()="<<recvs.size()<<endl;
-                
+
                 // ---------------------------------------------------------
                 // Now match all send expressions to all receive expressions
-                
+
                 // Iterate over all pairs of sender and receiver partitions to identify any possible
                 // matches. Whenever a given sender/receiver pair successfully matches, the corresponding
                 // matches are removed from their respective message expressions and will not be used for
@@ -1790,14 +1797,14 @@ void pCFG_contProcMatchAnalysis::matchSendsRecvs(
                                 Dbg::dbg << "    sMesg="<<sMesg.str()<<endl;
                                 Dbg::dbg << "    sRank="<<sRank.str()<<endl;
                         }
-                        
+
                         for(map<unsigned int, pair<OneDmesgExpr, DataflowNode> >::iterator rIt=recvs.begin(); rIt!=recvs.end(); )
                         {
                                 int receiver = rIt->first;
-                                contRangeProcSet rRank = rankSet; 
+                                contRangeProcSet rRank = rankSet;
                                 rRank.setConstr(cg);
                                 rRank.addAnnotation(getVarAnn(receiver), (void*)1);
-                                
+
                                 const OneDmesgExpr& rMesg = rIt->second.first;
                                 const DataflowNode& receiverDF = rIt->second.second;
                                 if(MPIAnalysisDebugLevel>0)
@@ -1810,13 +1817,13 @@ void pCFG_contProcMatchAnalysis::matchSendsRecvs(
                                         Dbg::dbg << "rRank.getConstr()="<<rRank.getConstr()<<endl;
                                         Dbg::dbg << "rMesg.getConstr()="<<rMesg.getConstr()<<endl;*/
                                 }
-                                
+
                                 ROSE_ASSERT(sender != receiver);
-                                
+
                                 // The sets of successful/unsuccessful senders and receivers
                                 contRangeProcSet *senders=NULL,   *nonSenders=NULL;
                                 contRangeProcSet *receivers=NULL, *nonReceivers=NULL;
-                                
+
                                 // -------------------------------------------------------------
                                 // Compute the set of processes that successfully sent a message
                                 senders = dynamic_cast<contRangeProcSet*>(&(sMesg.getIdentityDomain(rMesg, sMesg, sRank)));
@@ -1829,13 +1836,13 @@ void pCFG_contProcMatchAnalysis::matchSendsRecvs(
                                         if(MPIAnalysisDebugLevel>0)
                                                 Dbg::dbg << "    nonSenders="<<nonSenders->str()<<endl;
                                         ROSE_ASSERT(nonSenders->validSet());
-                                        
+
                                         // Processes that successfully received the message
                                         receivers = dynamic_cast<contRangeProcSet*>(&(sMesg.getImage(*senders)));
                                         if(MPIAnalysisDebugLevel>0)
                                                 Dbg::dbg << "    receivers="<<receivers->str()<<endl;
                                         ROSE_ASSERT(receivers->validSet());
-                
+
                                         // Processes that did not receive the message
                                         nonReceivers = dynamic_cast<contRangeProcSet*>(&(rRank.rem(*receivers)));
                                         if(MPIAnalysisDebugLevel>0)
@@ -1849,25 +1856,25 @@ void pCFG_contProcMatchAnalysis::matchSendsRecvs(
                                         receivers    = new contRangeProcSet(); receivers->emptify();
                                         nonReceivers = new contRangeProcSet(); nonReceivers->emptify();
                                 }
-                                
+
                                 // Only bother if some senders got matched to some receivers
                                 if(!senders->emptySet())
                                 {
                                         ROSE_ASSERT(!receivers->emptySet());
-                                        
+
                                         if(MPIAnalysisDebugLevel>0)
                                                 Dbg::dbg << "nonSenders-&gt;emptySet()="<<nonSenders->emptySet()<<" nonReceivers-&gt;emptySet()="<<nonReceivers->emptySet()<<endl;
-                                        
+
                                         // Process sets that will not be used to define the process sets that result from the split
                                         set<contRangeProcSet> otherProcs;
                                         otherProcs.insert(sMesg.mRange);
                                         otherProcs.insert(rMesg.mRange);
-                                        
+
                                         // Perform appropriate set splits (if senders/receivers and nonSenders/nonReceivers are both !=emptySet)
                                         // Members of senders/receivers get released from the join and deleted from sends/recvs
                                         // Members of nonSenders/nonReceivers stay in the join and will see be candidates for subsequent matches.
-                                        
-                                        // If all senders in sRank were matched but not all receivers in rRank were, 
+
+                                        // If all senders in sRank were matched but not all receivers in rRank were,
                                         // split the set of receivers, move on to the next set of senders
                                         if(nonSenders->emptySet() && !nonReceivers->emptySet())
                                         {
@@ -1876,18 +1883,18 @@ void pCFG_contProcMatchAnalysis::matchSendsRecvs(
                                                                      func, fState);*/
                   otherProcs.insert(*senders);
                                                 otherProcs.insert(*nonSenders);
-                                                
-                                                splitProcs(n, cg, receiverDF, receiver, 
-                                                           splitConditions, splitPSetNodes, splitPSetActive, 
+
+                                                splitProcs(n, cg, receiverDF, receiver,
+                                                           splitConditions, splitPSetNodes, splitPSetActive,
                                                            *receivers, *nonReceivers, otherProcs);
-                                                
+
                                                 // Identify the set of receiver processes as the set that was split
                                                 splitPSet = receiver;
                   // Release the senders set and leave the other process sets alone
                   unsigned int curPSet=0;
                   if(MPIAnalysisDebugLevel>0)
                         Dbg::dbg << "matchSendsRecvs: Adding to pSetActive, sender="<<sender<<", pSetActive.size()="<<pSetActive.size()<<" n.getPSetDFNodes().size()="<<n.getPSetDFNodes().size()<<endl;
-                                                for(vector<DataflowNode>::const_iterator it=n.getPSetDFNodes().begin(); 
+                                                for(vector<DataflowNode>::const_iterator it=n.getPSetDFNodes().begin();
                                                     it!=n.getPSetDFNodes().end(); it++, curPSet++)
                                                 {
                                                         if(curPSet == sender)  pSetActive.push_back(true);
@@ -1902,31 +1909,31 @@ void pCFG_contProcMatchAnalysis::matchSendsRecvs(
                                                 Dbg::exitFunc("matchSendsRecvs");
                                                 return;
                                         }
-                                        // If all receivers were matched but not all senders in sRank, 
+                                        // If all receivers were matched but not all senders in sRank,
                                         // split the set of senders, move on to the next set of receivers in rRank
                                         else if(nonReceivers->emptySet() && !nonSenders->emptySet())
                                         {
-                                                /*set<pCFG_Checkpoint*> partitionChkpts = splitProcs(n, cg, sender, senderDF, activePSets, blockedPSets, releasedPSets, 
-                                                                     *senders, *nonSenders, *receivers, *nonReceivers, 
+                                                /*set<pCFG_Checkpoint*> partitionChkpts = splitProcs(n, cg, sender, senderDF, activePSets, blockedPSets, releasedPSets,
+                                                                     *senders, *nonSenders, *receivers, *nonReceivers,
                                                                      func, fState);*/
                   otherProcs.insert(*receivers);
                                                 otherProcs.insert(nonReceivers);
-                                                
-                  splitProcs(n, cg, senderDF, sender, 
-                             splitConditions, splitPSetNodes, splitPSetActive, 
+
+                  splitProcs(n, cg, senderDF, sender,
+                             splitConditions, splitPSetNodes, splitPSetActive,
                              *senders, *nonSenders, otherProcs);
-                                                
+
                                                 // Identify the set of sender processes as the set that was split
                                                 splitPSet = sender;
                                                 // Release the receivers set and leave the other process sets alone
                   unsigned int curPSet=0;
-                                                for(vector<DataflowNode>::const_iterator it=n.getPSetDFNodes().begin(); 
+                                                for(vector<DataflowNode>::const_iterator it=n.getPSetDFNodes().begin();
                                                     it!=n.getPSetDFNodes().end(); it++, curPSet++)
                                                 {
                                                         if(curPSet == receiver) pSetActive.push_back(true);
                                                         else                    pSetActive.push_back(false);
                                                 }
-                                                
+
                                                 // !!! Currently do not support making more than one match per call to matchSendsRecvs()
                                                 //return partitionChkpts;
                                                 delete cg;
@@ -1934,7 +1941,7 @@ void pCFG_contProcMatchAnalysis::matchSendsRecvs(
                                                 Dbg::exitFunc("matchSendsRecvs");
                                                 return;
                                         }
-                                        // If a subset of senders in sRank was matched to a subset of receivers in rRank, 
+                                        // If a subset of senders in sRank was matched to a subset of receivers in rRank,
                                         // split both sets into all four combinations
                                         else if(!nonSenders->emptySet() && !nonReceivers->emptySet())
                                         {
@@ -1947,7 +1954,7 @@ void pCFG_contProcMatchAnalysis::matchSendsRecvs(
                                                 // Release both the sender and the receiver process sets
                                                 //releasePSet(sender, activePSets, blockedPSets, releasedPSets);
                                                 //releasePSet(receiver, activePSets, blockedPSets, releasedPSets);
-                                                
+
                                                 // !!! Currently do not support making more than one match per call to matchSendsRecvs()
                                                 /*set<pCFG_Checkpoint*> noChkpts;
                                                 return noChkpts;*/
@@ -1967,14 +1974,14 @@ void pCFG_contProcMatchAnalysis::matchSendsRecvs(
                                 Dbg::dbg << "Done with Sender "<<sender<<endl; fflush(stdout);
                 } // for(sIt=sends.begin(); sIt!=sends.end(); sIt++)
         } // if(sends.size()>0 || recvs.size()>0)
-        
+
         if(MPIAnalysisDebugLevel>0)
                 Dbg::dbg << "matchSendsRecvs made no matches"<<endl;
         /*set<pCFG_Checkpoint*> noChkpts;
         return noChkpts;*/
-        
+
         delete cg;
-        
+
         endProfileFunc("matchSendsRecvs");
         Dbg::exitFunc("matchSendsRecvs");
 }
@@ -1993,15 +2000,15 @@ void pCFG_contProcMatchAnalysis::releasePSet(unsigned int pSet, set<unsigned int
 // Returns the set of checkpoints for partitions that result from this split
 /*set<pCFG_Checkpoint*> void pCFG_contProcMatchAnalysis::splitProcs(
                               const pCFGNode& n, ConstrGraph* cg, int splitPSet, const DataflowNode& dfNode,
-                              set<int>& activePSets, set<int>& blockedPSets, set<int>& releasedPSets, 
+                              set<int>& activePSets, set<int>& blockedPSets, set<int>& releasedPSets,
                               int splitPSet,
-                              vector<ConstrGraph*> splitConditions, 
+                              vector<ConstrGraph*> splitConditions,
                               vector<DataflowNode> splitPSetNodes,
-                              const contRangeProcSet& releasedProcs, const contRangeProcSet& blockedProcs, 
+                              const contRangeProcSet& releasedProcs, const contRangeProcSet& blockedProcs,
                               const contRangeProcSet& otherProcs1, const contRangeProcSet& otherProcs2,
                               const Function& func, NodeState* fState)*/
 void pCFG_contProcMatchAnalysis::splitProcs(
-                              const pCFGNode& n, ConstrGraph* cg, const DataflowNode& dfNode, unsigned int splitPSet, 
+                              const pCFGNode& n, ConstrGraph* cg, const DataflowNode& dfNode, unsigned int splitPSet,
                               vector<ConstrGraph*>& splitConditions, vector<DataflowNode>& splitPSetNodes,
                               // for each split process set, true if its active and false if it is blocked
                                         vector<bool>&         splitPSetActive,
@@ -2009,11 +2016,11 @@ void pCFG_contProcMatchAnalysis::splitProcs(
                               const set<contRangeProcSet>& otherProcs)
 {
         if(MPIAnalysisDebugLevel>0) Dbg::enterFunc("splitProcs");
-        
-   // Remove the splitPSet's process set bounds, as well as the the rankVar and 
-   //    nprocsVar variables from the constraint graph because we're about 
+
+   // Remove the splitPSet's process set bounds, as well as the the rankVar and
+   //    nprocsVar variables from the constraint graph because we're about
    //    to split this process set into the set of released and blocked processes
-   //    and we don't want to drag the constraints on the original process 
+   //    and we don't want to drag the constraints on the original process
    //    set's rank bounds into the new split process sets.
    varID zeroVarAllPSets, nprocsVarAllPSets;
         annotateCommonVars(/*n, */zeroVar, zeroVarAllPSets, nprocsVar, nprocsVarAllPSets);
@@ -2024,7 +2031,7 @@ void pCFG_contProcMatchAnalysis::splitProcs(
         varID nprocsVarSplitPSet = nprocsVar; nprocsVarSplitPSet.addAnnotation(getVarAnn(splitPSet), (void*)1);
    cg->removeVar(rankVarSplitPSet);
    //cg->removeVar(nprocsVarSplitPSet);
-        
+
         if(MPIAnalysisDebugLevel>0)
         {
                 Dbg::dbg << "releasedProcs="<<releasedProcs.str()<<endl;
@@ -2032,7 +2039,7 @@ void pCFG_contProcMatchAnalysis::splitProcs(
                 /*Dbg::dbg << "otherProcs1="<<otherProcs1.str()<<endl;
                 Dbg::dbg << "otherProcs2="<<otherProcs2.str()<<endl;*/
         }
-        
+
         // Create the partition condition for both the released and blocked process sets
         if(MPIAnalysisDebugLevel>0) Dbg::dbg << "Released: "<<endl;
         ConstrGraph* relCG_proj = createPSetCondition(cg, splitPSet, releasedProcs, blockedProcs, otherProcs, false);
@@ -2040,49 +2047,49 @@ void pCFG_contProcMatchAnalysis::splitProcs(
         if(MPIAnalysisDebugLevel>0) Dbg::dbg << "Blocked:"<<endl;
         ConstrGraph* blockCG_proj = createPSetCondition(cg, splitPSet, blockedProcs, releasedProcs, otherProcs, true);
         if(MPIAnalysisDebugLevel>0) Dbg::dbg << "    blockCG_proj = "<<blockCG_proj->str("")<<endl;
-                
+
         // Both process sets will start at the same DataflowNodes
         splitPSetNodes.push_back(dfNode);
         splitPSetNodes.push_back(dfNode);
-        
+
         // Record the partition conditions the blocked and released process sets
         splitConditions.push_back(relCG_proj);
         splitConditions.push_back(blockCG_proj);
-        
+
         // The released process set becomes active, the blocked one will be blocked
         splitPSetActive.push_back(true);
         splitPSetActive.push_back(false);
         if(MPIAnalysisDebugLevel>0) Dbg::exitFunc("splitProcs");
 }
 
-// Create the partition condition constraint graph for process splitPSet's rank bounds being turned 
+// Create the partition condition constraint graph for process splitPSet's rank bounds being turned
 //    into then tgtProcs set and return it.
-// otherProcs and otherProcsSet contain the other relevant process sets whose bounds need to be removed 
+// otherProcs and otherProcsSet contain the other relevant process sets whose bounds need to be removed
 //    from the partition condition's constraint graph.
 // mayBeEmpty indicates whether the new process set may be empty, in which case we add the constraint UB < nprocsVar
 //    or may not be empty, in which case we add UB <= nprocsVar
 ConstrGraph* pCFG_contProcMatchAnalysis::createPSetCondition(
-                                 ConstrGraph* cg, 
-                                 unsigned int splitPSet, const contRangeProcSet& tgtProcs, 
+                                 ConstrGraph* cg,
+                                 unsigned int splitPSet, const contRangeProcSet& tgtProcs,
                                  const contRangeProcSet& otherProcs, const set<contRangeProcSet>& otherProcsSet, bool mayBeEmpty)
 {
         varID zeroVarAllPSets, nprocsVarAllPSets;
         annotateCommonVars(/*n, */zeroVar, zeroVarAllPSets, nprocsVar, nprocsVarAllPSets);
-        
+
         // Get a version of cg that only contains the constraints that relate to the releasedProcs set
         varIDSet rankSetVars;
         rankSetVars.insert(tgtProcs.getLB());
         rankSetVars.insert(tgtProcs.getUB());
         ConstrGraph* projCG = cg->getProjection(rankSetVars);
-        
+
         projCG->beginTransaction();
-        
+
         // Replace the bounds variables of the tgtProcs set with the standard rankSet.
         // This way, when we use projCG as a partition condition, we'll be making a statement
         // about rankSet rather than some random set.
         projCG->replaceVar(tgtProcs.getLB(), rankSet.getLB());
         projCG->replaceVar(tgtProcs.getUB(), rankSet.getUB());
-        
+
         // Clean out all references to the original split set by removing its annotations
         // from its variables. initPSetDFfromPartCond() will later add these appropriately
         // when we pick the process set ID that this partition will go to.
@@ -2094,15 +2101,15 @@ ConstrGraph* pCFG_contProcMatchAnalysis::createPSetCondition(
         projCG->addVar(rankVar);
         projCG->addVar(nprocsVar);
         assertProcSetInvariants(projCG, rankSet, zeroVarAllPSets, rankVar, nprocsVar, mayBeEmpty);
-        
+
         otherProcs.cgDisconnect(projCG);
         for(set<contRangeProcSet>::iterator it=otherProcsSet.begin(); it!=otherProcsSet.end(); it++)
-        {       
+        {
                 if(!(*it).emptySet() && (*it).validSet())
                         (*it).cgDisconnect(projCG);
         }
         projCG->endTransaction();
-        
+
         if(MPIAnalysisDebugLevel>0) {
                 Dbg::dbg << "projCG ="<<endl;
                 Dbg::dbg << projCG->str() << endl;
@@ -2113,9 +2120,9 @@ ConstrGraph* pCFG_contProcMatchAnalysis::createPSetCondition(
 // Replaces the upper and lower bounds of goodSet with those of rank set so that some partition can
 //     assume the identity of the ranks in goodSet.
 // Removes the upper and lower bounds of the badSets from the given constraint graph.
-void pCFG_contProcMatchAnalysis::cleanProcSets(ConstrGraph* cg, 
+void pCFG_contProcMatchAnalysis::cleanProcSets(ConstrGraph* cg,
                                      const contRangeProcSet& rankSetPSet, const contRangeProcSet& goodSet,
-                                const contRangeProcSet& badSet1, const contRangeProcSet& badSet2, 
+                                const contRangeProcSet& badSet1, const contRangeProcSet& badSet2,
                                 const contRangeProcSet& badSet3)
 {
         //if(MPIAnalysisDebugLevel>0)
@@ -2126,19 +2133,19 @@ void pCFG_contProcMatchAnalysis::cleanProcSets(ConstrGraph* cg,
         //      Dbg::dbg << "cleanProcSets badSet2="<<badSet2.str()<<endl;
         //      Dbg::dbg << "cleanProcSets badSet3="<<badSet3.str()<<endl;
         //}
-        
+
 //Dbg::dbg << "cleanProcSets Before cg="<<cg->str()<<endl;
         // Assign the rankSet to be the same as the goodSet
         cg->replaceVar(goodSet.getLB(), rankSetPSet.getLB());
         cg->replaceVar(goodSet.getUB(), rankSetPSet.getUB());
-        
+
 //Dbg::dbg << "cleanProcSets rankVar = "<<pCFG_contProcMatchAnalysis::rankVar.str()<<endl;
         // Reset rankVar to be strictly inside the bounds of the rankSet: rankSet.lb <= rankVar <= rankSet.ub
         cg->eraseVarConstr(pCFG_contProcMatchAnalysis::rankVar);
         cg->addVar(pCFG_contProcMatchAnalysis::rankVar);
         cg->assertCond(rankSetPSet.getLB(), pCFG_contProcMatchAnalysis::rankVar, 1, 1, 0);
         cg->assertCond(pCFG_contProcMatchAnalysis::rankVar, rankSetPSet.getUB(), 1, 1, 0);
-        
+
         if(!badSet1.emptySet() && badSet1.validSet())
         {
                 cg->removeVar(badSet1.getLB());

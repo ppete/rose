@@ -184,11 +184,15 @@ class NodeState
         void setLatticeAbove(const Analysis* analysis, const AnyLattice& lattices);
         void setLatticeBelow(const Analysis* analysis, const AnyLattice& lattices);
 
+        // convenience function
+        void setLattice(const Analysis* analysis, Lattice* a);
+
+#if OBSOLETE_CODE
         // returns the given lattice from above the node that is owned by the given analysis
         const AnyLattice& getLatticeAbove(const Analysis* analysis, int latticeName) const;
         // returns the given lattice from below the node that is owned by the given analysis
         const AnyLattice& getLatticeBelow(const Analysis* analysis, int latticeName) const;
-
+#endif /* OBSOLETE_CODE */
         // returns the map containing all the lattices from above the node that are owned by the given analysis
         // (read-only access)
         const AnyLattice& getLatticeAbove(const Analysis* analysis) const;
@@ -230,9 +234,11 @@ class NodeState
         void addLattice_ex(std::map<Analysis*, std::vector<Lattice*> >& dfMap,
                           const  Analysis* analysis, int latticeName, Lattice* l);
         */
+#if OBSOLETE_CODE
         // returns the given lattice, which owned by the given analysis
         AnyLattice& getLattice_ex(const LatticeMap& dfMap,
                           const Analysis* analysis, int latticeName) const;
+#endif /* OBSOLETE_CODE */
 
         /*// removes the given lattice, owned by the given analysis
         // returns true if the given lattice was found and removed and false if it was not found
@@ -288,7 +294,7 @@ class NodeState
         //returns the NodeState object associated with a given SgNode
         //index is used when multiple Control flow nodes (and consequently multiple NodeStates) are associated with a given node
         static NodeState* getNodeState(SgNode * n, int index=0);
-        
+
         // returns a vector of NodeState objects associated with the given dataflow node.
         static const std::vector<NodeState*> getNodeStates(const DataflowNode& n);
 

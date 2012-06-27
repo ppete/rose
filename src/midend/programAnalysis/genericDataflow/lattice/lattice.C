@@ -926,17 +926,18 @@ void swap(AnyLattice& lhs, AnyLattice& rhs)
   std::swap(lhs.lattice,     rhs.lattice);
 }
 
-bool meetUpdate(AnyLattice& lhs, const AnyLattice& rhs)
+bool AnyLattice::meetUpdate(const AnyLattice& rhs)
 {
   // same type constraint
-  ROSE_ASSERT(typeid(*lhs.ptr()) == typeid(*rhs.ptr()));
+  Lattice* lhs_ptr = this->ptr();
 
-  return lhs.ptr()->meetUpdate(rhs.ptr());
+  ROSE_ASSERT(lhs_ptr && typeid(*lhs_ptr) == typeid(*rhs.ptr()));
+  return lhs_ptr->meetUpdate(rhs.ptr());
 }
 
-bool widenUpdate(AnyLattice& lhs, const AnyLattice& rhs)
+bool AnyLattice::widenUpdate(const AnyLattice& rhs)
 {
-  InfiniteLattice&       llat = lhs.ref<InfiniteLattice>();
+  InfiniteLattice&       llat = this->ref<InfiniteLattice>();
   const InfiniteLattice& rlat = rhs.ref<InfiniteLattice>();
 
   // same type constraint

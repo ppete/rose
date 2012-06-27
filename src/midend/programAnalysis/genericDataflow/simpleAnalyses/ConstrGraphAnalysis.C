@@ -687,10 +687,13 @@ bool ConstrGraphAnalysis::removeConstrDivVars(const Function& func, const Datafl
 void printConstrGraphAnalysisStates(ConstrGraphAnalysis* cga, string indent)
 {
         vector<int> factNames;
+/*
         vector<int> latticeNames;
         latticeNames.push_back(0);
         latticeNames.push_back(1);
         printAnalysisStates pas(cga, factNames, latticeNames, printAnalysisStates::below, indent);
+*/
+        printAnalysisStates pas(cga, factNames, printAnalysisStates::below, indent);
         UnstructuredPassInterAnalysis upia_pas(pas);
         upia_pas.runAnalysis();
 }

@@ -53,8 +53,8 @@ protected:
   }
 
 public:
-  VariableStateTransfer(const Function& func, const DataflowNode& n, NodeState& state, const std::vector<Lattice*>& dfInfo, const int &debugLevel_)
-    : IntraDFTransferVisitor(func, n, state, dfInfo), modified(false), debugLevel(debugLevel_), prodLat(dynamic_cast<FiniteVarsExprsProductLattice*>(*(dfInfo.begin())))
+  VariableStateTransfer(const Function& func, const DataflowNode& n, NodeState& state, Lattice& dfInfo, const int &debugLevel_)
+    : IntraDFTransferVisitor(func, n, state, dfInfo), modified(false), debugLevel(debugLevel_), prodLat(dynamic_cast<FiniteVarsExprsProductLattice*>(&dfInfo))
   {
     //Dbg::dbg << "transfer A prodLat="<<prodLat<<"="<<prodLat->str("    ")<<"\n";
     // Make sure that all the lattices are initialized
@@ -68,7 +68,7 @@ public:
   {
     LatticeType *lhsLat, *rhsLat, *resLat;
     getLattices(sgn, lhsLat, rhsLat, resLat);
-                
+
     if(debugLevel>=1) {
       if(resLat) Dbg::dbg << "resLat=\n    "<<resLat->str("    ")<<"\n";
       if(lhsLat) Dbg::dbg << "lhsLat=\n    "<<lhsLat->str("    ")<<"\n";
@@ -159,7 +159,7 @@ public:
   {
     LatticeType *lhsLat, *rhsLat, *resLat;
     getLattices(sgn, lhsLat, rhsLat, resLat);
-                
+
     if (resLat) {
       resLat->copy(rhsLat);
       modified = true;

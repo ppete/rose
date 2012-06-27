@@ -339,9 +339,13 @@ bool dominates(const DataflowNode& a, const DataflowNode& b, string indent)
 void printDominatorAnalysisStates(DominatorAnalysis* da, string indent)
 {
         vector<int> factNames;
+/*
         vector<int> latticeNames;
         latticeNames.push_back(0);
         printAnalysisStates pas(da, factNames, latticeNames, printAnalysisStates::above, indent);
+*/
+
+        printAnalysisStates pas(da, factNames, printAnalysisStates::above, indent);
         UnstructuredPassInterAnalysis upia_pas(pas);
         upia_pas.runAnalysis();
 }

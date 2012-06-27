@@ -1031,21 +1031,21 @@ bool IntraPartitionFWDataflow::propagateFWStateToNextNode(
         // must also perform widening to ensure convergence.
         if (nextNodeState.finiteLattice())
         {
-                modified = meetUpdate(nextNodeState, curNodeState) || modified;
+                modified = nextNodeState.meetUpdate(curNodeState) || modified;
         }
         else
         {
                 //InfiniteLattice* meetResult = (InfiniteLattice*)itN->second->meet(itC->second);
                 AnyLattice meetResult(nextNodeState);
 
-                meetUpdate(meetResult, curNodeState);
+                meetResult.meetUpdate(curNodeState);
 
                 cout << "nextNodeState: " << nextNodeState.str("") << "\n";
                 cout << "curNodeState: " << curNodeState.str("") << "\n";
                 cout << "meetResult: " << meetResult.str("") << "\n";
 
                 // widen the resulting meet
-                modified =  widenUpdate(nextNodeState, meetResult);
+                modified =  nextNodeState.widenUpdate(meetResult);
         }
 
         if(analysisDebugLevel>=1){

@@ -568,7 +568,7 @@ void MergeAllReturnStates::visit(const Function& func, const DataflowNode& n, No
 bool MergeAllReturnStates::mergeLats(AnyLattice& mergedLat, const AnyLattice& lats) {
         if (mergedLat.isInitialized())
         {
-          return meetUpdate(mergedLat, lats);
+          return mergedLat.meetUpdate(lats);
         }
 
         // \pp  maybe needed? ROSE_ASSERT(lats.isInitialized());
@@ -743,7 +743,7 @@ bool ContextInsensitiveInterProceduralDataflow::transfer(
                         //Dbg::dbg << "      remappedL=["<<calleeL<<"] "<<remappedL->str("        ")<<endl;
 
                         // update the callee's Lattice with the new information at the call site
-                        modified = meetUpdate(funcLatticesBefore, remappedL) || modified;
+                        modified = funcLatticesBefore.meetUpdate(remappedL) || modified;
 
                         if(analysisDebugLevel>=1)
                                 Dbg::dbg << "      After modified = "<<modified << "calleeL=["<<funcLatticesBefore.ptr()<<"] "<<funcLatticesBefore.str("        ")<<endl;

@@ -110,6 +110,11 @@ void NodeState::setLattice(const Analysis* analysis, const AnyLattice& lattice)
         initialized((Analysis*)analysis);
 }
 
+void NodeState::setLattice(const Analysis* analysis, Lattice* a)
+{
+  setLattice(analysis, AnyLattice(a));
+}
+
 void NodeState::setLatticeAbove(const Analysis* analysis, const AnyLattice& lattice)
 {
         // if the analysis currently has a mapping in dfInfoAbove
@@ -200,11 +205,13 @@ void NodeState::setLatticeBelow(const Analysis* analysis, const AnyLattice& latt
 // static vector<Lattice*> emptyLatVec;
 static AnyLattice emptyLattice;
 
+#if OBSOLETE_CODE
 // returns the given lattice from above the node, which owned by the given analysis
 const AnyLattice& NodeState::getLatticeAbove(const Analysis* analysis, int latticeName) const
 {
         return getLattice_ex(dfInfoAbove, analysis, latticeName);
 }
+#endif /* OBSOLETE_CODE */
 
 // returns the map containing all the lattices from above the node that are owned by the given analysis
 // (read-only access)
@@ -246,11 +253,13 @@ AnyLattice& NodeState::getLatticeAboveMod(const Analysis* analysis)
                         return emptyLattice;
 }
 
+#if OBSOLETE_CODE
 // returns the given lattice from below the node, which owned by the given analysis
 const AnyLattice& NodeState::getLatticeBelow(const Analysis* analysis, int latticeName) const
 {
         return getLattice_ex(dfInfoBelow, analysis, latticeName);
 }
+#endif /* OBSOLETE_CODE */
 
 // returns the map containing all the lattices from below the node that are owned by the given analysis
 // (read-only access)
@@ -385,8 +394,8 @@ void NodeState::unionLattices(set<Analysis*>& unionSet, const Analysis* master)
 
                         // All the analyses in unionSet must have the same number of lattices
 
-                        meetUpdate(masterLatAbv, curLatAbv);
-                        meetUpdate(masterLatBel, curLatBel);
+                        masterLatAbv.meetUpdate(curLatAbv);
+                        masterLatBel.meetUpdate(curLatBel);
                 }
         }
 }
@@ -426,11 +435,11 @@ void NodeState::addLattice_ex(map <Analysis*, vector<Lattice*> >& dfMap,
         //printf("NodeState::addLattice_ex() dfMap.size()=%d\n", dfMap.size());
 }*/
 
+#if OBSOLETE_CODE
 // returns the given lattice, which owned by the given analysis
 AnyLattice& NodeState::getLattice_ex(const LatticeMap& dfMap,
                                   const Analysis* analysis, int latticeName) const
 {
-#if OBSOLETE_CODE
         #ifdef THREADED
                 LatticeMap::const_accessor dfLattices;
                 // if this analysis has registered some Lattices at this node
@@ -456,9 +465,9 @@ AnyLattice& NodeState::getLattice_ex(const LatticeMap& dfMap,
                                 return emptyLattice; // was: NULL \pp \todo
                 }
         #endif
-#endif /* OBSOLETE_CODE */
         return emptyLattice; // was: NULL \pp \todo
 }
+#endif /* OBSOLETE_CODE */
 
 /*// removes the given lattice, owned by the given analysis
 // returns true if the given lattice was found and removed and false if it was not found

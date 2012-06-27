@@ -384,7 +384,7 @@ bool SeqStructAnalysis::transfer(const Function& func, const DataflowNode& n, No
         bool modified=false; // \todo \pp variable no longer needed
 
         // \pp \todo should we not extract this info from the lattice that we got passed???
-        const ConstrGraph* cg = &(state.getLatticeAbove(cgAnalysis, 0).ref<ConstrGraph>());
+        const ConstrGraph* cg = &(state.getLatticeAbove(cgAnalysis).ref<ConstrGraph>());
         FiniteVarsExprsProductLattice* prodLat = &dynamic_cast<FiniteVarsExprsProductLattice&>(dfInfo);
 
         // Make sure that all the lattices are initialized
@@ -449,10 +449,13 @@ bool SeqStructAnalysis::transfer(const Function& func, const DataflowNode& n, No
 void printSeqStructAnalysisStates(SeqStructAnalysis* ssa, string indent)
 {
         vector<int> factNames;
+/*
         vector<int> latticeNames;
         latticeNames.push_back(0);
         latticeNames.push_back(1);
         printAnalysisStates pas(ssa, factNames, latticeNames, printAnalysisStates::below, indent);
+*/
+        printAnalysisStates pas(ssa, factNames, printAnalysisStates::below, indent);
         UnstructuredPassInterAnalysis upia_pas(pas);
         upia_pas.runAnalysis();
 }

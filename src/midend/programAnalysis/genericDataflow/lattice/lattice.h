@@ -231,6 +231,9 @@ struct AnyLattice
     bool finiteLattice() const { return ptr()->finiteLattice(); }
     void clear();
 
+    bool meetUpdate(const AnyLattice& rhs);
+    bool widenUpdate(const AnyLattice& rhs);
+
     std::string str(std::string prefix = "") const;
 
     //
@@ -264,8 +267,5 @@ struct AnyLattice
 
 /// prints @lat on @os
 std::ostream& operator<<(std::ostream& os, const AnyLattice& lat);
-
-bool meetUpdate(AnyLattice& lhs, const AnyLattice& rhs);
-bool widenUpdate(AnyLattice& lhs, const AnyLattice& rhs);
 
 #endif

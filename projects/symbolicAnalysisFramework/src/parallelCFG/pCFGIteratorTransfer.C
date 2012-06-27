@@ -11,9 +11,9 @@ bool pCFGIteratorTransfer::isMpiDepCond(SgIfStmt* sgif)
     // get dataflow node, node state corresponding to mpidep analysis
     NodeState* mpidep_state = NodeState::getNodeState( pcfg_node.getCurNode(pSet), 0);
     ROSE_ASSERT(mpidep_state != NULL);
-    vector<Lattice*>& mpi_dfInfo = mpidep_state->getLatticeBelowMod(mda);
+    AnyLattice& mpi_dfInfo = mpidep_state->getLatticeBelowMod(mda);
 
-    FiniteVarsExprsProductLattice* prodLat = dynamic_cast<FiniteVarsExprsProductLattice*> (*(mpi_dfInfo.begin()));
+    FiniteVarsExprsProductLattice* prodLat = &(mpi_dfInfo.ref<FiniteVarsExprsProductLattice>());
     MPIDepLattice* dep_lattice = dynamic_cast<MPIDepLattice*> (prodLat->getVarLattice(cond_expr_var));
 
     ROSE_ASSERT(dep_lattice != NULL);
@@ -28,7 +28,7 @@ bool pCFGIteratorTransfer::isMpiDepCond(SgIfStmt* sgif)
 
 void pCFGIteratorTransfer::visit(SgIfStmt* sgif)
 {
-    
+
     if(isMpiDepCond(sgif)) {
         // pcfgSplitAnnotation* annotation = dynamic_cast<pcfgSplitAnnotation*> (sgif->getAttribute("pCFGAnnotation"));
         //TODO: stick this annotation to pCFGState maybe ??
@@ -50,9 +50,9 @@ void pCFGIteratorTransfer::visit(SgIfStmt* sgif)
         for(dfEdgeI = dfEdges.begin(); dfEdgeI != dfEdges.end(); dfEdgeI++) {
             DataflowNode splitTarget = (*dfEdgeI).target();
             splitPSetNodes.push_back(splitTarget);
-        }        
+        }
     }
-  
+
 }
 
 void pCFGIteratorTransfer::visit(SgFunctionCallExp* sgfcexp)
@@ -61,7 +61,7 @@ void pCFGIteratorTransfer::visit(SgFunctionCallExp* sgfcexp)
     //TODO: add other mpi blocking calls
     if(callee.get_name().getString() == "MPI_Send" ||
        callee.get_name().getString() == "MPI_Recv") {
-        isBlockPSet = true;        
+        isBlockPSet = true;
     }
 }
 

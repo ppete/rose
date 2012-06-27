@@ -19,7 +19,7 @@ class IntraPCFGTransferVisitor : public ROSE_VisitorPatternDefaultBase
     unsigned int pSet;
     const Function& func;
     NodeState& state;
-    const vector<Lattice*>& dfInfo;
+    AnyLattice& dfInfo;
     bool& isDeadPSet;
     bool& isSplitPSet;
     vector<DataflowNode>& splitPSetNodes;
@@ -28,18 +28,18 @@ class IntraPCFGTransferVisitor : public ROSE_VisitorPatternDefaultBase
     bool& isMergePSet;
 
     public:
-    IntraPCFGTransferVisitor(const pCFGNode& pn, 
-                             unsigned int ps, 
+    IntraPCFGTransferVisitor(const pCFGNode& pn,
+                             unsigned int ps,
                              const Function& f,
-                             NodeState& s, 
-                             const vector<Lattice*>& dfI, 
+                             NodeState& s,
+                             AnyLattice& dfI,
                              bool& dPS,
-                             bool& sPS, 
-                             vector<DataflowNode>& sPSN, 
+                             bool& sPS,
+                             vector<DataflowNode>& sPSN,
                              bool& sPN,
                              bool& bPS,
-                             bool& mPS) 
-        : pcfg_node(pn), pSet(ps), func(f), state(s), dfInfo(dfI), isDeadPSet(dPS), 
+                             bool& mPS)
+        : pcfg_node(pn), pSet(ps), func(f), state(s), dfInfo(dfI), isDeadPSet(dPS),
         isSplitPSet(sPS), splitPSetNodes(sPSN), isSplitPNode(sPN), isBlockPSet(bPS), isMergePSet(mPS)
     { }
 
@@ -56,7 +56,7 @@ class pCFGIteratorTransfer : public IntraPCFGTransferVisitor
                          unsigned int pset,
                          const Function& func,
                          NodeState& state,
-                         const vector<Lattice*>& dfI,
+                         AnyLattice& dfI,
                          bool& deadpset,
                          bool& splitpset,
                          vector<DataflowNode>& splitpsetnodes,

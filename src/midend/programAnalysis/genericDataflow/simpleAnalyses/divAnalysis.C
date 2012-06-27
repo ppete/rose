@@ -461,27 +461,21 @@ Lattice* DivAnalysis::genInitNonVarState(const Function& func, const DataflowNod
 
 // generates the initial lattice state for the given dataflow node, in the given function, with the given NodeState
 //vector<Lattice*> DivAnalysis::genInitState(const Function& func, const DataflowNode& n, const NodeState& state)
-void DivAnalysis::genInitState(const Function& func, const DataflowNode& n, const NodeState& state,
-                               Lattice*& initLattice, vector<NodeFact*>& initFacts)
+FiniteVarsExprsProductLattice*
+DivAnalysis::genLattice(const Function& func, const DataflowNode& n, const NodeState& state)
 {
-        //vector<Lattice*> initLattices;
-        map<varID, Lattice*> emptyM;
-        initLattice = new FiniteVarsExprsProductLattice((Lattice*)new DivLattice(), emptyM/*genConstVarLattices()*/,
-                                                                             (Lattice*)NULL, ldva, /*func, */n, state);
-        //Dbg::dbg << "DivAnalysis::genInitState, returning l="<<l<<" n=<"<<Dbg::escape(n.getNode()->unparseToString())<<" | "<<n.getNode()->class_name()<<" | "<<n.getIndex()<<">\n";
-        //Dbg::dbg << "    l="<<l->str("    ")<<"\n";
-        // initLattices.push_back(l);
+        typedef std::map<varID, Lattice*> EmptyMap;
 
-
-/*printf("DivAnalysis::genInitState() initLattices:\n");
-for(vector<Lattice*>::iterator it = initLattices.begin();
-    it!=initLattices.end(); it++)
-{
-        Dbg::dbg << *it << ": " << (*it)->str("    ") << "\n";
-}*/
-
-        //return initLattices;
+        return new FiniteVarsExprsProductLattice((Lattice*)new DivLattice(), EmptyMap()/*genConstVarLattices()*/,
+                                                 (Lattice*)NULL, ldva, /*func, */n, state);
 }
+
+std::vector<NodeFact*>
+DivAnalysis::genFacts(const Function& func, const DataflowNode& n, const NodeState& state)
+{
+  return std::vector<NodeFact*>();
+}
+
 
 // Returns a map of special constant variables (such as zeroVar) and the lattices that correspond to them
 // These lattices are assumed to be constants: it is assumed that they are never modified and it is legal to
@@ -512,8 +506,8 @@ for(vector<Lattice*>::iterator it = initLattices.begin();
         return constVars;
 }*/
 
-DivAnalysisTransfer::DivAnalysisTransfer(const Function& func, const DataflowNode& n, NodeState& state, const vector<Lattice*>& dfInfo)
-  : VariableStateTransfer<DivLattice>(func, n, state, dfInfo, divAnalysisDebugLevel)
+DivAnalysisTransfer::DivAnalysisTransfer(const Function& func, const DataflowNode& n, NodeState& state, Lattice& dflat)
+  : VariableStateTransfer<DivLattice>(func, n, state, dflat, divAnalysisDebugLevel)
 { }
 
 // Integral Numeric Constants
@@ -752,9 +746,12 @@ void DivAnalysisTransfer::visit(SgModAssignOp *sgn) { transferArith(sgn, &DivAna
 void printDivAnalysisStates(DivAnalysis* da, string indent)
 {
         vector<int> factNames;
+/*
         vector<int> latticeNames;
         latticeNames.push_back(0);
         printAnalysisStates pas(da, factNames, latticeNames, printAnalysisStates::below, indent);
+*/
+        printAnalysisStates pas(da, factNames, printAnalysisStates::below, indent);
         UnstructuredPassInterAnalysis upia_pas(pas);
         upia_pas.runAnalysis();
 }

@@ -354,7 +354,7 @@ void IntraUniDirectionalDataflow::edge_transfer(const Function& func, const Data
                     worklist.add(nextNode);
             }
 
-            meetUpdate(totalNodeLattice, thisLattice);
+            totalNodeLattice.meetUpdate(thisLattice);
             dbg_LatticeUpdate(updNextstate);
             // \pp \todo shall we assert that there is at least one valid edge?
           }

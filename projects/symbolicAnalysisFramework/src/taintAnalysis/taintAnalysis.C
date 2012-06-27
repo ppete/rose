@@ -15,16 +15,16 @@ Lattice* TaintLattice::copy() const
 }
 
 // copy that lattice into this
-void TaintLattice::copy(Lattice *that_arg)
+void TaintLattice::copy(const Lattice* that_arg)
 {
-    TaintLattice *that = dynamic_cast<TaintLattice*>(that_arg);
+    const TaintLattice *that = dynamic_cast<const TaintLattice*>(that_arg);
     this->level = that->level;
 }
 
 // compute the meet of this and that
-bool TaintLattice::meetUpdate(Lattice *that_arg)
+bool TaintLattice::meetUpdate(const Lattice *that_arg)
 {
-    TaintLattice* that = dynamic_cast<TaintLattice*>(that_arg);    
+    const TaintLattice* that = dynamic_cast<const TaintLattice*>(that_arg);
     bool modified = false;
     /*
     if(this->level == bottom) {
@@ -72,7 +72,7 @@ bool TaintLattice::meetUpdate(Lattice *that_arg)
         // really do nothing
     }
     */
-    
+
     if(that->level == bottom && this->level == bottom) {
         // do nothing
     }
@@ -98,10 +98,10 @@ bool TaintLattice::meetUpdate(Lattice *that_arg)
         // do nothing
     }
 
-    return modified;    
+    return modified;
 }
 
-TaintLattice::latticeLevel TaintLattice::getLevel()
+TaintLattice::latticeLevel TaintLattice::getLevel() const
 {
     return this->level;
 }
@@ -131,9 +131,9 @@ void TaintLattice::setLevel(latticeLevel _level)
     this->level = _level;
 }
 
-bool TaintLattice::operator==(Lattice *that_arg)
+bool TaintLattice::operator==(const Lattice *that_arg) const
 {
-    TaintLattice *that = dynamic_cast<TaintLattice*>(that_arg);
+    const TaintLattice *that = dynamic_cast<const TaintLattice*>(that_arg);
     return (that->level == this->level);
 }
 
@@ -159,7 +159,8 @@ std::string TaintLattice::str(std::string indent)
  ****** TaintAnalysisTransfer **********
  **************************************/
 
-TaintAnalysisTransfer::TaintAnalysisTransfer(const Function& func, const DataflowNode& n, NodeState& state, const std::vector<Lattice*>& dfInfo) : VariableStateTransfer<TaintLattice>(func, n, state, dfInfo, taintanalysis_debug_level)
+TaintAnalysisTransfer::TaintAnalysisTransfer(const Function& func, const DataflowNode& n, NodeState& state, Lattice& dfInfo)
+: VariableStateTransfer<TaintLattice>(func, n, state, dfInfo, taintanalysis_debug_level)
 {
 }
 
@@ -200,7 +201,7 @@ bool TaintAnalysisTransfer::evaluateAndSetTaint(TaintLattice* _this, TaintLattic
 
     return modified;
 }
-    
+
 
 bool TaintAnalysisTransfer::transferTaint(SgBinaryOp* sgn)
 {
@@ -209,7 +210,7 @@ bool TaintAnalysisTransfer::transferTaint(SgBinaryOp* sgn)
     TaintLattice* lhs_lat = getLattice(dynamic_cast<SgExpression*> (sgn->get_lhs_operand()));      // unsafe ??
     TaintLattice* rhs_lat = getLattice(dynamic_cast<SgExpression*> (sgn->get_rhs_operand()));
     TaintLattice* res_lattice = getLattice(dynamic_cast<SgExpression*> (sgn));
-    // not a simple copy - do a meet to copy lattice information from right - left    
+    // not a simple copy - do a meet to copy lattice information from right - left
     if(lhs_lat) {
         modified = evaluateAndSetTaint(lhs_lat, rhs_lat);
         /*
@@ -266,7 +267,7 @@ void TaintAnalysisTransfer::visit(SgValueExp* sgn)
     modified = true;
     res_lattice->setUntainted();
 }
-    
+
 
 void TaintAnalysisTransfer::visit(SgAssignOp* sgn)
 {
@@ -342,30 +343,28 @@ void TaintAnalysisTransfer::visit(SgXorAssignOp* sgn)
 /***************************************
  ******* taint Analysis ****************
  **************************************/
-
-void TaintAnalysis::genInitState(const Function& func, const DataflowNode& n, const NodeState& state,
-                                 vector<Lattice*>& initLattices, vector<NodeFact*>& initFacts)
+FiniteVarsExprsProductLattice*
+TaintAnalysis::genLattice(const Function& func, const DataflowNode& n, const NodeState& state)
 {
-    map<varID, Lattice*> emptyM;
-    //FiniteVariablesProductLattice *l = new FiniteVariablesProductLattice(true, true, (Lattice*) new TaintLattice(), emptyM, (Lattice*) NULL,
-    //                                                                     func, n, state);
-    FiniteVarsExprsProductLattice *l = new FiniteVarsExprsProductLattice((Lattice*) new TaintLattice(), emptyM, (Lattice*) NULL, ldva, n, state);
-    initLattices.push_back(l);
+  typedef std::map<varID, Lattice*> EmptyMap;
+
+  return new FiniteVarsExprsProductLattice(new TaintLattice, EmptyMap(), (Lattice*) NULL, ldva, n, state);
 }
+
+std::vector<NodeFact*>
+TaintAnalysis::genFacts(const Function& func, const DataflowNode& n, const NodeState& state)
+{
+  return std::vector<NodeFact*>();
+}
+
 
 
 // identity transfer function for now
-bool TaintAnalysis::transfer(const Function& func, const DataflowNode& node, NodeState& state, const vector<Lattice*>& dfInfo)
+bool TaintAnalysis::transfer(const Function& func, const DataflowNode& node, NodeState& state, Lattice& dfInfo)
 {
-    assert(0);
-    return false;
+    visitor_transfer(TaintAnalysisTransfer(func, node, state, dfInfo), node);
+    return true;
 }
-
-boost::shared_ptr<IntraDFTransferVisitor>
-TaintAnalysis::getTransferVisitor(const Function& func, const DataflowNode& n, NodeState& state, const std::vector<Lattice*>& dfInfo)
-{
-    return boost::shared_ptr<IntraDFTransferVisitor>(new TaintAnalysisTransfer(func, n, state, dfInfo));
-}    
 
 /*****************************************
  ******** FuntionType Annotation *********
@@ -384,8 +383,8 @@ void SecureFunctionTypeTraversal::visit(SgNode* sgn)
             bool isSecure;
             if(untrustedFunctions.find(fndecl->get_name().getString()) != untrustedFunctions.end()) {
                 isSecure = false;
-            }                 
-                
+            }
+
             else if(classification.isLibraryCode() || classification.isUserCode()) {
                 isSecure = true;
             }
@@ -394,7 +393,7 @@ void SecureFunctionTypeTraversal::visit(SgNode* sgn)
                 isSecure = false;
             }
             AstAttribute* attr = dynamic_cast<AstAttribute*> ( new SecureFunctionType(isSecure) );
-            sgn->setAttribute("SECURE_TYPE", attr);            
+            sgn->setAttribute("SECURE_TYPE", attr);
         }
     }
 }

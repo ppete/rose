@@ -174,12 +174,20 @@ LiveDeadVarsAnalysis::LiveDeadVarsAnalysis(SgProject *project, funcSideEffectUse
 {
 }
 
-// Generates the initial lattice state for the given dataflow node, in the given function, with the given NodeState
-void LiveDeadVarsAnalysis::genInitState(const Function& func, const DataflowNode& n, const NodeState& state,
-                  vector<Lattice*>& initLattices, vector<NodeFact*>& initFacts)
+
+LiveVarsLattice*
+LiveDeadVarsAnalysis::genLattice(const Function& func, const DataflowNode& n, const NodeState& state)
 {
-        initLattices.push_back(new LiveVarsLattice());
+  return new LiveVarsLattice;
 }
+
+std::vector<NodeFact*>
+LiveDeadVarsAnalysis::genFacts(const Function& func, const DataflowNode& n, const NodeState& state)
+{
+  return std::vector<NodeFact*>();
+}
+
+
 
 /// Visits live expressions - helper to LiveDeadVarsTransfer
 class LDVAExpressionTransfer : public ROSE_VisitorPatternDefaultBase
@@ -1248,9 +1256,12 @@ Lattice* InfiniteVarsExprsProductLattice::copy() const
 void printLiveDeadVarsAnalysisStates(LiveDeadVarsAnalysis* ldva, string indent)
 {
         vector<int> factNames;
+/*
         vector<int> latticeNames;
         latticeNames.push_back(0);
         printAnalysisStates pas(ldva, factNames, latticeNames, printAnalysisStates::above, indent);
+*/
+        printAnalysisStates pas(ldva, factNames, printAnalysisStates::above, indent);
         UnstructuredPassInterAnalysis upia_pas(pas);
         upia_pas.runAnalysis();
 }
