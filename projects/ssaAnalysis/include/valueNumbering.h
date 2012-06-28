@@ -184,12 +184,15 @@ namespace scc_private
          std::set< ::Function > calleesUpdated);
 
     // \pp changed interface
+/*
     virtual void genInitState(const ::Function& func, const DataflowNode& n, const NodeState& state,
                               Lattice*& initLattices, std::vector<NodeFact*>& initFacts);
+*/
 
+    Lattice* genLattice(const ::Function& func, const DataflowNode& n, const NodeState& state);
+    std::vector<NodeFact*> genFacts(const ::Function& func, const DataflowNode& n, const NodeState& state);
 
-    bool transfer(const ::Function& func, const DataflowNode& n, NodeState& state,
-      const std::vector<Lattice*>& dfInfo);
+    bool transfer(const ::Function& func, const DataflowNode& n, NodeState& state, Lattice& dfInfo);
 
     boost::shared_ptr<IntraDFTransferVisitor>
       getTransferVisitor(const ::Function& func, const DataflowNode& n, NodeState& state,

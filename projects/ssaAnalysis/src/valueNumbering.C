@@ -51,6 +51,7 @@ bool ValueNumbering::runAnalysis(const ::Function& func, NodeState* state, bool 
   return false;
 }
 
+/*
 // \pp changed interface
 void ValueNumbering::genInitState( const ::Function& func,
                                    const DataflowNode& n,
@@ -61,18 +62,32 @@ void ValueNumbering::genInitState( const ::Function& func,
 {
   initLattices = new DefaultLattice;
 }
+*/
 
-bool ValueNumbering::transfer(const ::Function& func, const DataflowNode& n, NodeState& state,
-            const std::vector<Lattice*>& dfInfo) {
-  ROSE_ASSERT(false); // \pp is this used anywhere?
+Lattice* ValueNumbering::genLattice(const ::Function& func, const DataflowNode& n, const NodeState& state)
+{
+  return new DefaultLattice;
+}
+
+std::vector<NodeFact*>
+ValueNumbering::genFacts(const ::Function& func, const DataflowNode& n, const NodeState& state)
+{
+  return std::vector<NodeFact*>();
+}
+
+
+bool ValueNumbering::transfer(const ::Function& func, const DataflowNode& n, NodeState& state, Lattice& dfInfo)
+{
+  ROSE_ASSERT(false);
   return false;
 }
 
+/*
 boost::shared_ptr<IntraDFTransferVisitor>
 getTransferVisitor(const ::Function& func, const DataflowNode& n, NodeState& state, const std::vector<Lattice*>& dfInfo) {
-  // \pp this function is OBSOLETE
   ROSE_ASSERT(false);
 }
+*/
 
 // Main framework of Alpern-Wegman-Zadeck'88 Value Numbering
 void ValueNumbering::VN(const ::Function& func) {

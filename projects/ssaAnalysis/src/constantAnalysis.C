@@ -66,6 +66,7 @@ bool ConstantAnalysis::runAnalysis(const Function& func, NodeState* state,
 }
 
 // \pp changed interface
+/*
 void ConstantAnalysis::genInitState( const ::Function& func,
                                      const DataflowNode& n,
                                      const NodeState& state,
@@ -77,15 +78,28 @@ void ConstantAnalysis::genInitState( const ::Function& func,
   // std::cout << "generate init state" << std::endl;
   initLattices = new DefaultLattice;
 }
+*/
+
+Lattice*
+ConstantAnalysis::genLattice(const ::Function& func, const DataflowNode& n, const NodeState& state)
+{
+  return new DefaultLattice;
+}
+
+std::vector<NodeFact*>
+ConstantAnalysis::genFacts(const ::Function& func, const DataflowNode& n, const NodeState& state)
+{
+  return std::vector<NodeFact*>();
+}
 
 
-bool ConstantAnalysis::transfer(const Function& func, const DataflowNode& n, NodeState& state,
-        const std::vector<Lattice*>& dfInfo)
+bool ConstantAnalysis::transfer(const Function& func, const DataflowNode& n, NodeState& state, Lattice& dfInfo)
 {
   assert(0);
   return false;
 }
 
+/*
 boost::shared_ptr<IntraDFTransferVisitor>
 ConstantAnalysis::getTransferVisitor(const Function& func, const DataflowNode& n,
              NodeState& state, const std::vector<Lattice*>& dfInfo)
@@ -94,6 +108,7 @@ ConstantAnalysis::getTransferVisitor(const Function& func, const DataflowNode& n
   return boost::shared_ptr<IntraDFTransferVisitor>(new ConstantAnalysisTransfer(func, ssa, n,
                     state, dfInfo, 0));
 }
+*/
 
 /**
  * Main process of SCC, i.e. Wegman-Zadeck algorithm
@@ -104,7 +119,8 @@ void ConstantAnalysis::SCC(const Function& func, bool edgeBased)
   // Create a per-procedure based transfer class
   const DataflowNode dummyDFNode(funcDef->cfgForBeginning(), VirtualCFG::defaultFilter);
   NodeState dummyNodeState;
-  const std::vector<Lattice*> dummyDFInfo;
+  DefaultLattice dummyDFInfo;
+
   transferVisitor
   = // boost::shared_ptr<IntraDFTransferVisitor>(
   new ConstantAnalysisTransfer(func, ssa, dummyDFNode, dummyNodeState, dummyDFInfo, -1);

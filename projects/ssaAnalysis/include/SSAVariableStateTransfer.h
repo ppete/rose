@@ -75,7 +75,7 @@ class SSAVariableStateTransfer : public IntraDFTransferVisitor
  public:
  SSAVariableStateTransfer(const ::Function& func, HeapSSA* ssaInstance,
         const DataflowNode& n, NodeState& state,
-        const std::vector<Lattice*>& dfInfo, const int &debugLevel_)
+        Lattice& dfInfo, const int &debugLevel_)
    : IntraDFTransferVisitor(func, n, state, dfInfo), ssa(ssaInstance), modified(false),
     debugLevel(debugLevel_)
     // TODO: , prodLat(dynamic_cast<FiniteVarsExprsProductLattice*>(*(dfInfo.begin())))

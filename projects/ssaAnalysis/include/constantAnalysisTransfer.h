@@ -14,7 +14,7 @@ class ConstantAnalysisTransfer : public SSAVariableStateTransfer<LatticeArith>
  public:
  ConstantAnalysisTransfer(const ::Function& func, HeapSSA* ssaInstance,
         const DataflowNode& n, NodeState& state,
-        const std::vector<Lattice*>& dfInfo, const int &debugLevel_)
+        Lattice& dfInfo, const int &debugLevel_)
    : SSAVariableStateTransfer<LatticeArith>(func, ssaInstance, n, state, dfInfo, debugLevel_)
   {
     // Make sure that all the lattices are initialize
