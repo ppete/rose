@@ -42,7 +42,7 @@ class IntraProceduralDataflow : virtual public IntraProceduralAnalysis
                                   //~ Lattice*& initLattices, std::vector<NodeFact*>& initFacts)=0;
 
 /// \brief  generates the initial lattice for a given dataflow-node n
-/// \return a non-null pointer; the callee assumes ownership of the lattice
+/// \return a non-null pointer; the caller assumes ownership of the lattice
 /// \note   Specific analyses are encouraged to use co-variant return types
 ///         to specify the lattice type in use.
 /// \code

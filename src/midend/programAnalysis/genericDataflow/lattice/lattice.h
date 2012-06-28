@@ -14,9 +14,13 @@ class Lattice : public printable
         : good_state(false)
         {}
 
-        // returns a copy of this lattice
+        /// returns a copy of this lattice
+        /// \note   derived classes can use co-variant return types to return more
+        ///         specific information on the lattice type.
+        ///         e.g., MyLattice* MyLattice::copy() const {}
         virtual Lattice* copy() const=0;
-        // overwrites the state of this Lattice with that of that Lattice
+
+        /// overwrites the state of this Lattice with that of that Lattice
         virtual void copy(const Lattice* that)=0;
 
         /// sets lattice to initialized

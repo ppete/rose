@@ -93,7 +93,7 @@ class IntMaxLattice : public InfiniteLattice
         // initializes this Lattice to its default state
         void clear()
         {
-                Lattice::initialize();
+                Lattice::uninitialize();
                 state = -1;
         }
 
