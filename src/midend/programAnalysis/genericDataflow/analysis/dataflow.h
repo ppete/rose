@@ -47,7 +47,7 @@ class IntraProceduralDataflow : virtual public IntraProceduralAnalysis
 ///         to specify the lattice type in use.
 /// \code
 ///   struct ConstantPropagator : IntraProceduralDataflow {
-///     ConstantLattice* genInitLattice(const Function& func, const DataflowNode& n, const NodeState& state);
+///     ConstantLattice* genLattice(const Function& func, const DataflowNode& n, const NodeState& state);
 ///     ...
 /// };
 /// \endcode
@@ -132,44 +132,53 @@ class IntraUnitDataflow : virtual public IntraProceduralDataflow
         ///          analysis passes
         /// \param   lat - the Lattices that this transfer function operates on. The function takes these lattices
         ///                as input and overwrites them with the result of the transfer.
+        /// \return  true, iff the result should be propagated to its children
         /// \note    sage type sensitive implementations are encouraged to discern
         ///          sage nodes using the visitor pattern (see convenience functions @visitor_transfer.
         virtual bool transfer(const Function& func, const DataflowNode& n, NodeState& state, Lattice& lat) = 0;
 
         private:
         /// \brief   calls the visitor based transfer functions for valid visitors
+        /// \return   return a reference to the same object that was passsed in.
         /// \details function family discerns valid visitors from invalid ones
         /// \todo    add auxiliary overload to print clear error message for non-visitor objects
         /// \note    FOR INTERNAL USE ONLY
         void _vis_transfer(ROSE_VisitorPattern& visitor, const DataflowNode& n)
         {
-          visitor_transfer(visitor, n);
+          n.getNode()->accept(vis);
         }
 
         protected:
 
         /// \brief calls the visitor object @vis with the sage node wrapped by @n.
-        void visitor_transfer(ROSE_VisitorPattern& vis, const DataflowNode& n)
-        {
-          n.getNode()->accept(vis);
-        }
-
-        /// \brief   calls the visitor object @vis with the sage node wrapped by @n.
-        /// \tparam  RoseVisitor a type derived from ROSE_VisitorPattern
-        /// \details convenience function that allows constructing the visitor
-        ///          in the argument list.
-        /// \code
-        ///          void YourAnalysisClass::transfer(...) {
-        ///            visitor_transfer( YourVisitorClass(...), n );
-        ///          }
-        /// \endcode
-        ///
-        /// \todo \c++11 unify both visitor_transfer functions into one taking the
-        ///              visitor as rvalue
         template <class RoseVisitor>
-        void visitor_transfer(RoseVisitor vis, const DataflowNode& n)
+        RoseVisitor& visitor_transfer(RoseVisitor& vis, const DataflowNode& n)
         {
           _vis_transfer(vis, n);
+          return vis;
+        }
+
+/// \brief   calls the visitor object @vis with the sage node wrapped by @n.
+/// \tparam  RoseVisitor a type derived from ROSE_VisitorPattern
+/// \return  A copy of the visitor object, including the modified state (to be
+///          read within the transfer function if needed (compare std::for_each).
+/// \details convenience function that allows constructing the visitor
+///          in the argument list.
+/// \code
+///          void YourAnalysisClass::transfer(...) {
+///            visitor_transfer( YourVisitorClass(...), n );
+///          }
+/// \endcode
+///
+/// \todo \c++11 unify both visitor_transfer functions into one taking the
+///              visitor as rvalue
+        template <class RoseVisitor>
+        RoseVisitor visitor_transfer(const RoseVisitor& vis, const DataflowNode& n)
+        {
+          RoseVisitor vis_copy(vis);
+
+          _vis_transfer(vis_copy, n);
+          return vis_copy;
         }
 
 #if OBSOLETE_CODE
@@ -193,16 +202,6 @@ class IntraUnitDataflow : virtual public IntraProceduralDataflow
     //           Users wanting to write the analysis based on visitors can do so
     //           in the transfer function. (This safes one memory allocation, deallocation,
     //           and boost::shared_pointer management overhead per transfer).
-    //           A transfer function using the visitor would look like (if desired this can be
-    //           simplified by providing a convenience function taking a visitor as argument):
-    // \code
-    //           virtual bool transfer(const Function& func, const DataflowNode& n, NodeState& state, const std::vector<Lattice*>& dfInfo, std::vector<Lattice*>** retState, bool fw)
-    //           {
-    //             MyTransferVisitor visitor(myarguments, func, n, ...);
-    //             n.getNode().accept(visitor);
-    //             return visitor.finish();
-    //           }
-    // \endcode
     virtual boost::shared_ptr<IntraDFTransferVisitor> getTransferVisitor(const Function& func, const DataflowNode& n,
                                                                   NodeState& state, const std::vector<Lattice*>& dfInfo)
   { return boost::shared_ptr<IntraDFTransferVisitor>(new DefaultTransfer(func, n, state, dfInfo, this)); }

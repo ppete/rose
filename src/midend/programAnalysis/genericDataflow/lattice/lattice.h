@@ -72,8 +72,7 @@ class Lattice : public printable
         virtual
         bool meetUpdate(const Lattice* that) = 0;
 
-        // computes the meet of this and that and returns the result
-        //virtual Lattice* meet(Lattice* that)=0;
+        // returns true for finite domains
         virtual bool finiteLattice() const = 0;
 
         static
@@ -94,7 +93,7 @@ class Lattice : public printable
         }
 
         bool operator!=(const Lattice& that) const {
-                return this->operator==(&that);
+                return this->operator!=(&that);
         }
 
         // Functions used to inform this lattice that a given variable is now in use (e.g. a variable has entered
