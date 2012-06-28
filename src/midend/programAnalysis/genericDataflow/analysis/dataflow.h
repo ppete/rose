@@ -143,7 +143,7 @@ class IntraUnitDataflow : virtual public IntraProceduralDataflow
         /// \details function family discerns valid visitors from invalid ones
         /// \todo    add auxiliary overload to print clear error message for non-visitor objects
         /// \note    FOR INTERNAL USE ONLY
-        void _vis_transfer(ROSE_VisitorPattern& visitor, const DataflowNode& n)
+        void _vis_transfer(ROSE_VisitorPattern& vis, const DataflowNode& n)
         {
           n.getNode()->accept(vis);
         }
