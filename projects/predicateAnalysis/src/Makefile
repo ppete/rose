@@ -145,6 +145,9 @@ all: edgeflow.exe
 %.lo: %.cpp predflow.h sageplus.h sagePredicate.h ssaPredicate.h vnPredicate.h
 	$(LIBTOOL) --tag=CXX --mode=compile $(CXX) $(CXXFLAGS) -ggdb -Wall $(CPPFLAGS) $(ROSE_INCLUDES) $(BOOST_CPPFLAGS) -c -o $@ $<
 
+ssadump.exe: ssadump.lo
+  $(LIBTOOL) --tag=CXX --mode=link $(CXX) $(CXXFLAGS) $(LDFLAGS) -o $@ $^ $(ROSE_LIBS) $(SSALIB)
+
 edgeflow.exe: edgeflow.lo sagePredicate.lo sageplus.lo ssaPredicate.lo vnPredicate.lo
 	$(LIBTOOL) --tag=CXX --mode=link $(CXX) $(CXXFLAGS) $(LDFLAGS) -o $@ $^ $(ROSE_LIBS) $(SSALIB)
 

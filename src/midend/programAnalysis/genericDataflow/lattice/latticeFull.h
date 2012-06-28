@@ -473,7 +473,7 @@ struct DefaultLattice : Lattice
 
   void clear()  { }
 
-  bool meetUpdate(const Lattice* l) {}
+  bool meetUpdate(const Lattice* l) { return false; }
 
   bool finiteLattice() const { return true; }
 
