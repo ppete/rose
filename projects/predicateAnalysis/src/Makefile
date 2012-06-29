@@ -131,10 +131,10 @@ SSALIB = $(ROSE_BUILD_DIR)/projects/ssaAnalysis/src/libssaanalysis.a
 .PHONY: default all check
 
 # Default make rule to use
-default: edgeflow.exe
+default: ssadump.exe
 	@if [ x$${ROSE_IN_BUILD_TREE:+present} = xpresent ]; then echo "ROSE_IN_BUILD_TREE should not be set" >&2; exit 1; fi
 
-all: edgeflow.exe
+all: ssadump.exe
 	@if [ x$${ROSE_IN_BUILD_TREE:+present} = xpresent ]; then echo "ROSE_IN_BUILD_TREE should not be set" >&2; exit 1; fi
 
 # Example suffix rule for more experienced makefile users
@@ -146,7 +146,8 @@ all: edgeflow.exe
 	$(LIBTOOL) --tag=CXX --mode=compile $(CXX) $(CXXFLAGS) -ggdb -Wall $(CPPFLAGS) $(ROSE_INCLUDES) $(BOOST_CPPFLAGS) -c -o $@ $<
 
 ssadump.exe: ssadump.lo
-  $(LIBTOOL) --tag=CXX --mode=link $(CXX) $(CXXFLAGS) $(LDFLAGS) -o $@ $^ $(ROSE_LIBS) $(SSALIB)
+	echo "XZ"
+	$(LIBTOOL) --tag=CXX --mode=link $(CXX) $(CXXFLAGS) $(LDFLAGS) -o $@ $^ $(ROSE_LIBS) $(SSALIB)
 
 edgeflow.exe: edgeflow.lo sagePredicate.lo sageplus.lo ssaPredicate.lo vnPredicate.lo
 	$(LIBTOOL) --tag=CXX --mode=link $(CXX) $(CXXFLAGS) $(LDFLAGS) -o $@ $^ $(ROSE_LIBS) $(SSALIB)

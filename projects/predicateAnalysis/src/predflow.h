@@ -1148,6 +1148,22 @@ namespace dfpred
         initLattice = mylat;
       }
 
+      // Generates the initial lattice state for the given dataflow node, in the given function, with the given NodeState
+      lattice_type* genLattice(const Function& f, const DataflowNode& n, const NodeState& nstate)
+      {
+        lattice_type* mylat = new lattice_type;
+
+        mylat->initialize(); // \todo what to do here?
+        mylat->current_node = isSgLocatedNode(n.getNode());
+
+        return mylat;
+      }
+
+      FactContainer genFacts(const Function& f, const DataflowNode& n, const NodeState& nstate)
+      {
+        return FactContainer();
+      }
+
       bool transfer(const Function& func, const DataflowEdge& e, NodeState& state, Lattice& dfInfo)
       {
         static bool first = true;

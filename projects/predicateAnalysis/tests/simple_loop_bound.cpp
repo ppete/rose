@@ -1,12 +1,7 @@
 
-int foo(int pos, const char* in, char* out)
+void foo(int pos, char* out)
 {
   int i = 0;
 
-  for (; i < pos; ++i)
-  {
-    out[i] = in[i];
-  }
-
-  return i;
+  out[i] = 0;
 }
