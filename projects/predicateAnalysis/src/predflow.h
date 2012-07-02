@@ -892,7 +892,7 @@ namespace dfpred
   {
     template <class AnyPredicateSet>
     static
-    void store_predicates(const SgLocatedNode& key, const AnyPredicateSet& l)
+    void store_predicates(const SgLocatedNode&, const AnyPredicateSet&)
     {}
   };
 
@@ -932,7 +932,7 @@ namespace dfpred
 
     void handle(const SgNode& n,                cat::Node) { sg::unexpected_node(n); }
     void handle(const SgStatement& n,           cat::Stmt) { handle_stmt(n); }
-    void handle(const SgVariableDeclaration& n, cat::Stmt) {} // pass through initName -> do nothing
+    void handle(const SgVariableDeclaration&,   cat::Stmt) {} // pass through initName -> do nothing
 
     void handle(const SgInitializedName& n, cat::Expr)
     {
@@ -1044,7 +1044,7 @@ namespace dfpred
   }
 
   template <class BasePredicate>
-  void PredicateTransfer<BasePredicate>::handle_stmt(const SgStatement& n)
+  void PredicateTransfer<BasePredicate>::handle_stmt(const SgStatement&)
   {
     trace('#');
     // \Q shall we clear the edge condition of conjuncted predicates?
@@ -1149,7 +1149,7 @@ namespace dfpred
       }
 
       // Generates the initial lattice state for the given dataflow node, in the given function, with the given NodeState
-      lattice_type* genLattice(const Function& f, const DataflowNode& n, const NodeState& nstate)
+      lattice_type* genLattice(const Function&, const DataflowNode& n, const NodeState&)
       {
         lattice_type* mylat = new lattice_type;
 
@@ -1159,12 +1159,12 @@ namespace dfpred
         return mylat;
       }
 
-      FactContainer genFacts(const Function& f, const DataflowNode& n, const NodeState& nstate)
+      FactContainer genFacts(const Function&, const DataflowNode&, const NodeState&)
       {
         return FactContainer();
       }
 
-      bool transfer(const Function& func, const DataflowEdge& e, NodeState& state, Lattice& dfInfo)
+      bool transfer(const Function&, const DataflowEdge& e, NodeState&, Lattice& dfInfo)
       {
         static bool first = true;
 
@@ -1191,11 +1191,13 @@ namespace dfpred
         return !l.predset.infeasible();
       }
 
-      bool transfer(const Function& func, const DataflowNode& n, NodeState& state, Lattice& dfInfo)
+      bool transfer(const Function&, const DataflowNode&, NodeState&, Lattice&)
       {
         // no longer needed as we calculate the transfer for each edge specifically
         ROSE_ASSERT(false);
       }
+
+      bool edgeSensitiveAnalysis() const { return true; }
   };
 
   static inline

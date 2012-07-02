@@ -316,7 +316,7 @@ namespace sg
   bool isCondition(const SgExpression& n)          { return isCondition_aux(n); }
 
   static inline
-  bool isCondition(const SgInitializedName& n)
+  bool isCondition(const SgInitializedName&)
   {
     return false; // \todo isCondition_aux(n.get_parent());
   }

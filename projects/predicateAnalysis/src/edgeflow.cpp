@@ -87,6 +87,72 @@ namespace {
   };
 }
 
+struct SSAVariableAnalyzer
+{
+  enum ReachingDefKind
+  {
+    rdkVisiting = 0,
+    rdkVisited  = 1,
+    rdkLoop     = 2
+  };
+
+  typedef std::map<ReachingDefPtr, ReachingDefKind> LoopDataMap;
+  typedef std::pair<LoopDataMap::iterator, bool>    insert_result_type;
+
+  LoopDataMap loopdata;
+
+  ReachingDefKind cycle_detector(ReachingDefPtr rdef)
+  {
+    insert_result_type          ins = loopdata.insert( LoopDataMap::value_type(rdef, rdkVisiting) );
+    LoopDataMap::iterator       pos = ins.first;
+
+    // if the entry was already inside the map, we are done and can return
+    if (ins.second)
+    {
+      // if we already know the status
+      if (pos.second == rdkVisiting) { pos.second = rdkLoop; }
+
+      return pos.second;
+    }
+
+    std::vector<ReachingDefPtr> worklist;
+
+    // if this is the first visit, go through all reaching definitions
+    if (isPhiNode(rdef))
+    {
+      std::copy( aaa, zzz, std::back_inserter(worklist) );
+    }
+    else
+    {
+      // what are the requirements that we want to enforce?
+      worklist = find_reaching_defs(rdef);
+    }
+
+
+
+    ReachingDefKind tmpres = pos.second;
+
+    // first time visiting the node
+    for-all xdef all_successors
+    {
+      // do not yet update the entry as it can be modified during recursion
+      tmpres = max(tmpres, cycle_detector(xdef));
+    }
+
+    // store back the result
+    pos.second = tmpres;
+    return tmpres;
+  }
+
+  void analzye(ReachingDefPtr rdef)
+  {
+    if (loopdata.find(rdef) != loopdata.end()) return;
+
+    cycle_detector(rdef);
+  }
+};
+
+
 struct PredicateAnalyzer
 {
   typedef SSAPredicate::SSARep                    SSARep;
@@ -94,11 +160,12 @@ struct PredicateAnalyzer
   typedef predicate_analysis::lattice_type        lattice_type;
   typedef predicate_analysis::predicate_set       predicate_set;
 
-  predicate_analysis* analysisKey;
+  SSAVariableAnalyzer&   ssaanalyzer;
+  hssa_private::HeapSSA& hssa;
+  predicate_analysis*    analysisKey;
 
-  explicit
-  PredicateAnalyzer(predicate_analysis* ansyskey)
-  : analysisKey(ansyskey)
+  PredicateAnalyzer(predicate_analysis* ansyskey, SSAVariableAnalyzer& analyzer)
+  : analysisKey(ansyskey), ssaanalyzer(analzyer)
   {}
 
   const predicate_set* lookup_predicate_set(const SgVarRefExp& n)
@@ -123,7 +190,7 @@ struct PredicateAnalyzer
     return zz != std::find_if(predset.begin(), zz, PredicateFinder<predicate_set>(n));
   }
 
-  void handle(const SgNode& n) {}
+  void handle(const SgNode&) {}
 
   void handle(const SgVarRefExp& n)
   {
@@ -140,15 +207,12 @@ struct PredicateAnalyzer
               << " in " << sg::ancestor<SgStatement>(n).unparseToString()
               << ": " << *predset;
 
-    // \todo we get the parent, because the uses of SSA nodes on SgVarRefExp are
-    // not always defined.
-    const SgNode&        parentnode = sg::deref(n.get_parent());
-    SSARep               defset = SSAPredicate::varsUsed(parentnode);
+    SSARep               defset = SSAPredicate::varsUsed(n);
 
     std::cout << "|" << defset.size() << "|" << std::endl;
 
-    //ROSE_ASSERT(defset.size() == 1); // we deal only with a single variable
-    //ReachingDefPtr       def = *defset.begin();
+    ROSE_ASSERT(defset.size() == 1); // we deal only with a single variable
+    ssaanalyzer.analzye(*defset.begin());
   }
 };
 
@@ -239,8 +303,8 @@ int main( int argc, char * argv[] )
         hssa.build(false, true);
         // hssa.toDOT("ssa.dot");
 
-        // sage_predicates();
-        // ssa_predicates(hssa, project);
+        sage_predicates();
+        ssa_predicates(hssa, project);
         // vn_predicates(hssa, project);
 
         std::cout << "==========  E  N  D  ==========\n";

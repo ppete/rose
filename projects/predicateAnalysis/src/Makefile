@@ -14,102 +14,102 @@ ROSE_SOURCE_DIR=$(HOME)/sources/ROSE
 ROSE_BUILD_DIR=$(HOME)/build/rose-bin
 
 ROSE_INCLUDES = \
-     -I$(ROSE_BUILD_DIR)/src/roseSupport \
-     -I$(ROSE_BUILD_DIR)/src/frontend/SageIII \
-     -I$(ROSE_SOURCE_DIR)/src \
-     -I$(ROSE_BUILD_DIR) \
-     -I$(ROSE_SOURCE_DIR)/src/frontend/SageIII \
-     -I$(ROSE_SOURCE_DIR)/src/frontend/SageIII/astFixup \
-     -I$(ROSE_SOURCE_DIR)/src/frontend/SageIII/astPostProcessing \
-     -I$(ROSE_SOURCE_DIR)/src/frontend/SageIII/astMerge \
-     -I$(ROSE_SOURCE_DIR)/src/frontend/SageIII/astVisualization \
-     -I$(ROSE_SOURCE_DIR)/src/frontend/SageIII/astFileIO \
-     -I$(ROSE_SOURCE_DIR)/src/frontend/SageIII/sageInterface \
-     -I$(ROSE_SOURCE_DIR)/src/frontend/SageIII/virtualCFG \
-     -I$(ROSE_SOURCE_DIR)/src/frontend/SageIII/astTokenStream \
-     -I$(ROSE_SOURCE_DIR)/src/frontend/SageIII/astHiddenTypeAndDeclarationLists \
-     -I$(ROSE_BUILD_DIR)/src/frontend/SageIII/astFileIO \
-     -I$(ROSE_SOURCE_DIR)/src/frontend/SageIII/astFromString \
-     -I$(ROSE_SOURCE_DIR)/src/frontend/SageIII/includeDirectivesProcessing \
-     -I$(ROSE_SOURCE_DIR)/src/frontend/OpenFortranParser_SAGE_Connection \
-     -I$(ROSE_SOURCE_DIR)/src/frontend/ECJ_ROSE_Connection \
-     -I$(ROSE_SOURCE_DIR)/src/frontend/PHPFrontend \
-     -I$(ROSE_SOURCE_DIR)/src/frontend/PythonFrontend \
-     -I$(ROSE_SOURCE_DIR)/src/frontend/BinaryDisassembly \
-     -I$(ROSE_SOURCE_DIR)/src/frontend/BinaryFormats \
-     -I$(ROSE_SOURCE_DIR)/src/frontend/BinaryLoader \
-     -I$(ROSE_SOURCE_DIR)/src/frontend/Disassemblers \
-     -I$(ROSE_SOURCE_DIR)/src/backend/unparser \
-     -I$(ROSE_SOURCE_DIR)/src/backend/unparser/formatSupport \
-     -I$(ROSE_SOURCE_DIR)/src/backend/unparser/languageIndependenceSupport \
-     -I$(ROSE_SOURCE_DIR)/src/backend/unparser/CxxCodeGeneration \
-     -I$(ROSE_SOURCE_DIR)/src/backend/unparser/JavaCodeGeneration \
-     -I$(ROSE_SOURCE_DIR)/src/backend/unparser/FortranCodeGeneration \
-     -I$(ROSE_SOURCE_DIR)/src/backend/unparser/PHPCodeGeneration \
-     -I$(ROSE_SOURCE_DIR)/src/backend/unparser/PythonCodeGeneration \
-     -I$(ROSE_SOURCE_DIR)/src/backend/asmUnparser \
-     -I$(ROSE_SOURCE_DIR)/src/util \
-     -I$(ROSE_SOURCE_DIR)/src/util/support \
-     -I$(ROSE_SOURCE_DIR)/src/util/graphs  \
-     -I$(ROSE_SOURCE_DIR)/src/util/stringSupport \
-     -I$(ROSE_SOURCE_DIR)/src/util/commandlineProcessing \
-     -I$(ROSE_SOURCE_DIR)/src/midend/abstractHandle \
-     -I$(ROSE_SOURCE_DIR)/src/midend/abstractMemoryObject \
-     -I$(ROSE_SOURCE_DIR)/src/midend/astDiagnostics \
-     -I$(ROSE_SOURCE_DIR)/src/midend/programTransformation/astInlining \
-     -I$(ROSE_SOURCE_DIR)/src/midend/programTransformation/astOutlining  \
-     -I$(ROSE_SOURCE_DIR)/src/midend/astProcessing \
-     -I$(ROSE_SOURCE_DIR)/src/midend/astQuery \
-     -I$(ROSE_SOURCE_DIR)/src/midend/astRewriteMechanism \
-     -I$(ROSE_SOURCE_DIR)/src/midend/astUtil/annotation \
-     -I$(ROSE_SOURCE_DIR)/src/midend/astUtil/astInterface \
-     -I$(ROSE_SOURCE_DIR)/src/midend/astUtil/astSupport \
-     -I$(ROSE_SOURCE_DIR)/src/midend/astUtil/symbolicVal \
-     -I$(ROSE_SOURCE_DIR)/src/midend/binaryAnalyses \
-     -I$(ROSE_SOURCE_DIR)/src/midend/binaryAnalyses/dataflowanalyses \
-     -I$(ROSE_SOURCE_DIR)/src/midend/binaryAnalyses/instructionSemantics \
-     -I$(ROSE_SOURCE_DIR)/src/midend/programAnalysis \
-     -I$(ROSE_SOURCE_DIR)/src/midend/programAnalysis/genericDataflow \
-     -I$(ROSE_SOURCE_DIR)/src/midend/programAnalysis/genericDataflow/simpleAnalyses \
-     -I$(ROSE_SOURCE_DIR)/src/midend/programAnalysis/genericDataflow/cfgUtils \
-     -I$(ROSE_SOURCE_DIR)/src/midend/programAnalysis/genericDataflow/variables \
-     -I$(ROSE_SOURCE_DIR)/src/midend/programAnalysis/genericDataflow/analysis \
-     -I$(ROSE_SOURCE_DIR)/src/midend/programAnalysis/genericDataflow/lattice \
-     -I$(ROSE_SOURCE_DIR)/src/midend/programAnalysis/genericDataflow/state \
-     -I$(ROSE_SOURCE_DIR)/src/midend/programAnalysis/annotationLanguageParser \
-     -I$(ROSE_SOURCE_DIR)/src/midend/programTransformation/ompLowering \
-     -I$(ROSE_SOURCE_DIR)/src/midend/programAnalysis/CFG \
-     -I$(ROSE_SOURCE_DIR)/src/midend/programAnalysis/staticSingleAssignment \
-     -I$(ROSE_SOURCE_DIR)/src/midend/programAnalysis/ssaUnfilteredCfg \
-     -I$(ROSE_SOURCE_DIR)/src/midend/programAnalysis/systemDependenceGraph \
-     -I$(ROSE_SOURCE_DIR)/src/midend/programAnalysis/systemDependenceGraph \
-     -I$(ROSE_SOURCE_DIR)/src/midend/programAnalysis/CallGraphAnalysis \
-     -I$(ROSE_SOURCE_DIR)/src/midend/programAnalysis/OAWrap \
-     -I$(ROSE_SOURCE_DIR)/src/midend/programAnalysis/bitvectorDataflow \
-     -I$(ROSE_SOURCE_DIR)/src/midend/programAnalysis/VirtualFunctionAnalysis \
-     -I$(ROSE_SOURCE_DIR)/src/midend/programAnalysis/defUseAnalysis \
-     -I$(ROSE_SOURCE_DIR)/src/midend/programAnalysis/distributedMemoryAnalysis \
-     -I$(ROSE_SOURCE_DIR)/src/midend/programAnalysis/dominanceAnalysis \
-     -I$(ROSE_SOURCE_DIR)/src/midend/programAnalysis/graphAnalysis \
-     -I$(ROSE_SOURCE_DIR)/src/midend/programAnalysis/pointerAnal \
-     -I$(ROSE_SOURCE_DIR)/src/midend/programAnalysis/staticInterproceduralSlicing \
-     -I$(ROSE_SOURCE_DIR)/src/midend/programAnalysis/valuePropagation \
-     -I$(ROSE_SOURCE_DIR)/src/midend/programAnalysis/variableRenaming \
-     -I$(ROSE_SOURCE_DIR)/src/midend/programTransformation/partialRedundancyElimination \
-     -I$(ROSE_SOURCE_DIR)/src/midend/programTransformation/finiteDifferencing \
-     -I$(ROSE_SOURCE_DIR)/src/midend/programTransformation/functionCallNormalization \
-     -I$(ROSE_SOURCE_DIR)/src/midend/programTransformation/constantFolding \
-     -I$(ROSE_SOURCE_DIR)/src/midend/programTransformation/implicitCodeGeneration \
-     -I$(ROSE_SOURCE_DIR)/src/roseSupport \
-     -I$(ROSE_SOURCE_DIR)/src/3rdPartyLibraries/MSTL \
-     -I$(ROSE_SOURCE_DIR)/src/3rdPartyLibraries/libharu-2.1.0/include \
-     -I$(ROSE_BUILD_DIR)/src/3rdPartyLibraries/libharu-2.1.0/include \
-     -I$(ROSE_SOURCE_DIR)/src/3rdPartyLibraries/qrose/Framework \
-     -I$(ROSE_SOURCE_DIR)/src/3rdPartyLibraries/qrose/Widgets  \
-     -I$(ROSE_SOURCE_DIR)/src/util/graphs \
-     -I$(ROSE_SOURCE_DIR)/src/midend/astUtil/astInterface \
-     -I$(ROSE_SOURCE_DIR)/libltdl \
-     -I$(ROSE_SOURCE_DIR)/projects/ssaAnalysis/include
+     -isystem $(ROSE_BUILD_DIR)/src/roseSupport \
+     -isystem $(ROSE_BUILD_DIR)/src/frontend/SageIII \
+     -isystem $(ROSE_SOURCE_DIR)/src \
+     -isystem $(ROSE_BUILD_DIR) \
+     -isystem $(ROSE_SOURCE_DIR)/src/frontend/SageIII \
+     -isystem $(ROSE_SOURCE_DIR)/src/frontend/SageIII/astFixup \
+     -isystem $(ROSE_SOURCE_DIR)/src/frontend/SageIII/astPostProcessing \
+     -isystem $(ROSE_SOURCE_DIR)/src/frontend/SageIII/astMerge \
+     -isystem $(ROSE_SOURCE_DIR)/src/frontend/SageIII/astVisualization \
+     -isystem $(ROSE_SOURCE_DIR)/src/frontend/SageIII/astFileIO \
+     -isystem $(ROSE_SOURCE_DIR)/src/frontend/SageIII/sageInterface \
+     -isystem $(ROSE_SOURCE_DIR)/src/frontend/SageIII/virtualCFG \
+     -isystem $(ROSE_SOURCE_DIR)/src/frontend/SageIII/astTokenStream \
+     -isystem $(ROSE_SOURCE_DIR)/src/frontend/SageIII/astHiddenTypeAndDeclarationLists \
+     -isystem $(ROSE_BUILD_DIR)/src/frontend/SageIII/astFileIO \
+     -isystem $(ROSE_SOURCE_DIR)/src/frontend/SageIII/astFromString \
+     -isystem $(ROSE_SOURCE_DIR)/src/frontend/SageIII/includeDirectivesProcessing \
+     -isystem $(ROSE_SOURCE_DIR)/src/frontend/OpenFortranParser_SAGE_Connection \
+     -isystem $(ROSE_SOURCE_DIR)/src/frontend/ECJ_ROSE_Connection \
+     -isystem $(ROSE_SOURCE_DIR)/src/frontend/PHPFrontend \
+     -isystem $(ROSE_SOURCE_DIR)/src/frontend/PythonFrontend \
+     -isystem $(ROSE_SOURCE_DIR)/src/frontend/BinaryDisassembly \
+     -isystem $(ROSE_SOURCE_DIR)/src/frontend/BinaryFormats \
+     -isystem $(ROSE_SOURCE_DIR)/src/frontend/BinaryLoader \
+     -isystem $(ROSE_SOURCE_DIR)/src/frontend/Disassemblers \
+     -isystem $(ROSE_SOURCE_DIR)/src/backend/unparser \
+     -isystem $(ROSE_SOURCE_DIR)/src/backend/unparser/formatSupport \
+     -isystem $(ROSE_SOURCE_DIR)/src/backend/unparser/languageIndependenceSupport \
+     -isystem $(ROSE_SOURCE_DIR)/src/backend/unparser/CxxCodeGeneration \
+     -isystem $(ROSE_SOURCE_DIR)/src/backend/unparser/JavaCodeGeneration \
+     -isystem $(ROSE_SOURCE_DIR)/src/backend/unparser/FortranCodeGeneration \
+     -isystem $(ROSE_SOURCE_DIR)/src/backend/unparser/PHPCodeGeneration \
+     -isystem $(ROSE_SOURCE_DIR)/src/backend/unparser/PythonCodeGeneration \
+     -isystem $(ROSE_SOURCE_DIR)/src/backend/asmUnparser \
+     -isystem $(ROSE_SOURCE_DIR)/src/util \
+     -isystem $(ROSE_SOURCE_DIR)/src/util/support \
+     -isystem $(ROSE_SOURCE_DIR)/src/util/graphs  \
+     -isystem $(ROSE_SOURCE_DIR)/src/util/stringSupport \
+     -isystem $(ROSE_SOURCE_DIR)/src/util/commandlineProcessing \
+     -isystem $(ROSE_SOURCE_DIR)/src/midend/abstractHandle \
+     -isystem $(ROSE_SOURCE_DIR)/src/midend/abstractMemoryObject \
+     -isystem $(ROSE_SOURCE_DIR)/src/midend/astDiagnostics \
+     -isystem $(ROSE_SOURCE_DIR)/src/midend/programTransformation/astInlining \
+     -isystem $(ROSE_SOURCE_DIR)/src/midend/programTransformation/astOutlining  \
+     -isystem $(ROSE_SOURCE_DIR)/src/midend/astProcessing \
+     -isystem $(ROSE_SOURCE_DIR)/src/midend/astQuery \
+     -isystem $(ROSE_SOURCE_DIR)/src/midend/astRewriteMechanism \
+     -isystem $(ROSE_SOURCE_DIR)/src/midend/astUtil/annotation \
+     -isystem $(ROSE_SOURCE_DIR)/src/midend/astUtil/astInterface \
+     -isystem $(ROSE_SOURCE_DIR)/src/midend/astUtil/astSupport \
+     -isystem $(ROSE_SOURCE_DIR)/src/midend/astUtil/symbolicVal \
+     -isystem $(ROSE_SOURCE_DIR)/src/midend/binaryAnalyses \
+     -isystem $(ROSE_SOURCE_DIR)/src/midend/binaryAnalyses/dataflowanalyses \
+     -isystem $(ROSE_SOURCE_DIR)/src/midend/binaryAnalyses/instructionSemantics \
+     -isystem $(ROSE_SOURCE_DIR)/src/midend/programAnalysis \
+     -isystem $(ROSE_SOURCE_DIR)/src/midend/programAnalysis/genericDataflow \
+     -isystem $(ROSE_SOURCE_DIR)/src/midend/programAnalysis/genericDataflow/simpleAnalyses \
+     -isystem $(ROSE_SOURCE_DIR)/src/midend/programAnalysis/genericDataflow/cfgUtils \
+     -isystem $(ROSE_SOURCE_DIR)/src/midend/programAnalysis/genericDataflow/variables \
+     -isystem $(ROSE_SOURCE_DIR)/src/midend/programAnalysis/genericDataflow/analysis \
+     -isystem $(ROSE_SOURCE_DIR)/src/midend/programAnalysis/genericDataflow/lattice \
+     -isystem $(ROSE_SOURCE_DIR)/src/midend/programAnalysis/genericDataflow/state \
+     -isystem $(ROSE_SOURCE_DIR)/src/midend/programAnalysis/annotationLanguageParser \
+     -isystem $(ROSE_SOURCE_DIR)/src/midend/programTransformation/ompLowering \
+     -isystem $(ROSE_SOURCE_DIR)/src/midend/programAnalysis/CFG \
+     -isystem $(ROSE_SOURCE_DIR)/src/midend/programAnalysis/staticSingleAssignment \
+     -isystem $(ROSE_SOURCE_DIR)/src/midend/programAnalysis/ssaUnfilteredCfg \
+     -isystem $(ROSE_SOURCE_DIR)/src/midend/programAnalysis/systemDependenceGraph \
+     -isystem $(ROSE_SOURCE_DIR)/src/midend/programAnalysis/systemDependenceGraph \
+     -isystem $(ROSE_SOURCE_DIR)/src/midend/programAnalysis/CallGraphAnalysis \
+     -isystem $(ROSE_SOURCE_DIR)/src/midend/programAnalysis/OAWrap \
+     -isystem $(ROSE_SOURCE_DIR)/src/midend/programAnalysis/bitvectorDataflow \
+     -isystem $(ROSE_SOURCE_DIR)/src/midend/programAnalysis/VirtualFunctionAnalysis \
+     -isystem $(ROSE_SOURCE_DIR)/src/midend/programAnalysis/defUseAnalysis \
+     -isystem $(ROSE_SOURCE_DIR)/src/midend/programAnalysis/distributedMemoryAnalysis \
+     -isystem $(ROSE_SOURCE_DIR)/src/midend/programAnalysis/dominanceAnalysis \
+     -isystem $(ROSE_SOURCE_DIR)/src/midend/programAnalysis/graphAnalysis \
+     -isystem $(ROSE_SOURCE_DIR)/src/midend/programAnalysis/pointerAnal \
+     -isystem $(ROSE_SOURCE_DIR)/src/midend/programAnalysis/staticInterproceduralSlicing \
+     -isystem $(ROSE_SOURCE_DIR)/src/midend/programAnalysis/valuePropagation \
+     -isystem $(ROSE_SOURCE_DIR)/src/midend/programAnalysis/variableRenaming \
+     -isystem $(ROSE_SOURCE_DIR)/src/midend/programTransformation/partialRedundancyElimination \
+     -isystem $(ROSE_SOURCE_DIR)/src/midend/programTransformation/finiteDifferencing \
+     -isystem $(ROSE_SOURCE_DIR)/src/midend/programTransformation/functionCallNormalization \
+     -isystem $(ROSE_SOURCE_DIR)/src/midend/programTransformation/constantFolding \
+     -isystem $(ROSE_SOURCE_DIR)/src/midend/programTransformation/implicitCodeGeneration \
+     -isystem $(ROSE_SOURCE_DIR)/src/roseSupport \
+     -isystem $(ROSE_SOURCE_DIR)/src/3rdPartyLibraries/MSTL \
+     -isystem $(ROSE_SOURCE_DIR)/src/3rdPartyLibraries/libharu-2.1.0/include \
+     -isystem $(ROSE_BUILD_DIR)/src/3rdPartyLibraries/libharu-2.1.0/include \
+     -isystem $(ROSE_SOURCE_DIR)/src/3rdPartyLibraries/qrose/Framework \
+     -isystem $(ROSE_SOURCE_DIR)/src/3rdPartyLibraries/qrose/Widgets  \
+     -isystem $(ROSE_SOURCE_DIR)/src/util/graphs \
+     -isystem $(ROSE_SOURCE_DIR)/src/midend/astUtil/astInterface \
+     -isystem $(ROSE_SOURCE_DIR)/libltdl \
+     -isystem $(ROSE_SOURCE_DIR)/projects/ssaAnalysis/include
 
 # Location of Boost include directory
 BOOST_CPPFLAGS = -pthread -I/usr/include
@@ -118,7 +118,7 @@ CC                    = gcc
 CXX                   = g++
 CPPFLAGS              =
 #CXXCPPFLAGS           = @CXXCPPFLAGS@
-CXXFLAGS              = -Wall
+CXXFLAGS              = -Wall -Wextra
 LDFLAGS               =
 
 # Location of library directory after "make install"
@@ -131,22 +131,21 @@ SSALIB = $(ROSE_BUILD_DIR)/projects/ssaAnalysis/src/libssaanalysis.a
 .PHONY: default all check
 
 # Default make rule to use
-default: ssadump.exe
+default: edgeflow.exe
 	@if [ x$${ROSE_IN_BUILD_TREE:+present} = xpresent ]; then echo "ROSE_IN_BUILD_TREE should not be set" >&2; exit 1; fi
 
-all: ssadump.exe
+all: edgeflow.exe
 	@if [ x$${ROSE_IN_BUILD_TREE:+present} = xpresent ]; then echo "ROSE_IN_BUILD_TREE should not be set" >&2; exit 1; fi
 
 # Example suffix rule for more experienced makefile users
 # .C.o:
-#	g++ -c -I$(ROSE_INCLUDE_DIR) -o $@ $(@:.o=.C)
+#	g++ -c -isystem $(ROSE_INCLUDE_DIR) -o $@ $(@:.o=.C)
 
 # Compile the exampleTranslator using the file identityTranslator.C
 %.lo: %.cpp predflow.h sageplus.h sagePredicate.h ssaPredicate.h vnPredicate.h
 	$(LIBTOOL) --tag=CXX --mode=compile $(CXX) $(CXXFLAGS) -ggdb -Wall $(CPPFLAGS) $(ROSE_INCLUDES) $(BOOST_CPPFLAGS) -c -o $@ $<
 
 ssadump.exe: ssadump.lo
-	echo "XZ"
 	$(LIBTOOL) --tag=CXX --mode=link $(CXX) $(CXXFLAGS) $(LDFLAGS) -o $@ $^ $(ROSE_LIBS) $(SSALIB)
 
 edgeflow.exe: edgeflow.lo sagePredicate.lo sageplus.lo ssaPredicate.lo vnPredicate.lo
