@@ -101,48 +101,7 @@ struct SSAVariableAnalyzer
 
   LoopDataMap loopdata;
 
-  ReachingDefKind cycle_detector(ReachingDefPtr rdef)
-  {
-    insert_result_type          ins = loopdata.insert( LoopDataMap::value_type(rdef, rdkVisiting) );
-    LoopDataMap::iterator       pos = ins.first;
-
-    // if the entry was already inside the map, we are done and can return
-    if (ins.second)
-    {
-      // if we already know the status
-      if (pos.second == rdkVisiting) { pos.second = rdkLoop; }
-
-      return pos.second;
-    }
-
-    std::vector<ReachingDefPtr> worklist;
-
-    // if this is the first visit, go through all reaching definitions
-    if (isPhiNode(rdef))
-    {
-      std::copy( aaa, zzz, std::back_inserter(worklist) );
-    }
-    else
-    {
-      // what are the requirements that we want to enforce?
-      worklist = find_reaching_defs(rdef);
-    }
-
-
-
-    ReachingDefKind tmpres = pos.second;
-
-    // first time visiting the node
-    for-all xdef all_successors
-    {
-      // do not yet update the entry as it can be modified during recursion
-      tmpres = max(tmpres, cycle_detector(xdef));
-    }
-
-    // store back the result
-    pos.second = tmpres;
-    return tmpres;
-  }
+  ReachingDefKind cycle_detector(ReachingDefPtr rdef);
 
   void analzye(ReachingDefPtr rdef)
   {
@@ -151,6 +110,95 @@ struct SSAVariableAnalyzer
     cycle_detector(rdef);
   }
 };
+
+
+template <class Iterator>
+static
+typename std::iterator_traits<Iterator>::value_type::first_type
+select_first(typename Iterator::iterator it)
+{
+  return it->first;
+}
+
+typedef std::vector<ReachingDefPtr> ReachingDefList;
+
+struct AncestorDefFinder : sg::DispatchHandler< ReachingDefList >
+{
+
+  void handle(const SgExpression&)      {} // cannot handle
+
+  void handle(const SgInitializedName&) {}
+
+  void handle(const SgPlusPlus&) {}        // continue with use
+  void handle(const SgMinusMinus&) {}      // cannot
+  void handle(const Sg
+
+};
+
+static
+std::vector<ReachingDefPtr>
+find_reaching_defs(rdef)
+{
+  return sg::dispatch(ReachingDefFinder(), rdef.getDefinitionNode());
+}
+
+static
+std::vector<ReachingDefPtr>
+get_preceding_defs(ReachingDefPtr rdef)
+{
+  typedef const std::map<ReachingDefPtr, std::set<FilteredCfgEdge> > PhiNodeExpansion;
+
+  std::vector<ReachingDefPtr> res;
+
+  // if this is the first visit, go through all reaching definitions
+  if (rdef->isPhiFunction())
+  {
+    PhiNodeExpansion& originialdefs = rdef->getJoinedDefs();
+
+    std::transform( originialdefs.begin(), originialdefs.end(), select_first, std::back_inserter(res) );
+  }
+  else
+  {
+    // what are the requirements that we want to enforce?
+    res = find_reaching_defs(rdef);
+  }
+
+  return res;
+}
+
+
+
+ReachingDefKind SSAVariableAnalyzer::cycle_detector(ReachingDefPtr rdef);
+{
+  insert_result_type          ins = loopdata.insert( LoopDataMap::value_type(rdef, rdkVisiting) );
+  LoopDataMap::iterator       pos = ins.first;
+
+  // if the entry was already inside the map, we are done and can return
+  if (ins.second)
+  {
+    // if we already know the status
+    if (pos.second == rdkVisiting) { pos.second = rdkLoop; }
+
+    return pos.second;
+  }
+
+  std::vector<ReachingDefPtr> worklist = get_preceding_defs(rdef);
+  ReachingDefKind             tmpres = pos.second;
+
+  // first time visiting the node
+  while (!worklist.empty())
+  {
+    // do not yet update the entry as it can be modified during recursion
+    tmpres = max(tmpres, cycle_detector(worklist.back()));
+
+    worklist.pop_back();
+  }
+
+  // store back the result
+  pos.second = tmpres;
+  return tmpres;
+}
+
 
 
 struct PredicateAnalyzer

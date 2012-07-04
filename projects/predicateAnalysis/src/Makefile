@@ -13,6 +13,9 @@
 ROSE_SOURCE_DIR=$(HOME)/sources/ROSE
 ROSE_BUILD_DIR=$(HOME)/build/rose-bin
 
+# -isystem avoid warning in header files by declaring them to be system header files
+# This allows to effictively use -Wall -Wextra for client code
+
 ROSE_INCLUDES = \
      -isystem $(ROSE_BUILD_DIR)/src/roseSupport \
      -isystem $(ROSE_BUILD_DIR)/src/frontend/SageIII \
