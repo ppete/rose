@@ -90,30 +90,76 @@ namespace {
   };
 }
 
-struct SSAVariableAnalyzer
+struct HasSecondaryPhiNode
 {
-  enum ReachingDefKind
+  ReachingDefPtr masterphi;
+
+  explicit
+  HasSecondaryPhiNode(ReachingDefPtr phi)
+  : masterphi(phi)
+  {}
+
+  bool operator()(ReachingDefPtr ssanode) const
+  {
+    return ssanode->isPhiFunction && (masterphi != ssanode);
+  }
+};
+
+struct InductionEquation
+{
+  SgNode* init;
+  int     increment;
+};
+
+struct InductionVariableAnalyzer
+{
+  enum Status
   {
     rdkVisiting = 0,
     rdkVisited  = 1,
     rdkLoop     = 2
   };
 
-  typedef ReachingDef::ReachingDefPtr               ReachingDefPtr;
-  typedef std::map<ReachingDefPtr, ReachingDefKind> LoopDataMap;
-  typedef std::pair<LoopDataMap::iterator, bool>    insert_result_type;
+  typedef ReachingDef::ReachingDefPtr            ReachingDefPtr;
+  typedef std::map<ReachingDefPtr, Status>       LoopDataMap;
+  typedef std::pair<LoopDataMap::iterator, bool> insert_result_type;
 
-  LoopDataMap loopdata;
+  typedef std::set<ReachingDefPtr>               VertexSet;
+  typedef std::pair<VertexSet, Status>           DetectionResult;
 
-  ReachingDefKind detect_cycles(ReachingDefPtr rdef);
+  LoopDataMap               loopdata;
+
+  DetectionResult
+  detectCycles(ReachingDefPtr rdef, ReachingDefPtr startpoint);
 
   void analzye(ReachingDefPtr rdef)
   {
+    // already handled
     if (loopdata.find(rdef) != loopdata.end()) return;
 
-    detect_cycles(rdef);
+    // we are interested to find induction variables, thus
+    //   we start only from phis
+    if (!rdef->isPhiFunction()) return;
+
+    VertexSet res = detectCycles(rdef, rdef).first;
+
+    if (!validateLoopModel(res, startpoint)) return;
+
+    InductionEquation ivar = getInductionDefinition(res, startpoint);
+  }
+
+  static
+  InductionEquation getInductionEquation(const VertexSet& vs, ReachingDefPtr startpoint);
+
+  static
+  bool validateLoopModel(const VertexSet& vs, ReachingDefPtr startpoint)
+  {
+    VertexSet::const_iterator zz  = vs.end();
+
+    return std::find_if(vs.begin(), zz, hasSecondaryPhiNode(startpoint)) == zz;
   }
 };
+
 
 
 template <class X, class Y>
@@ -245,36 +291,31 @@ struct AncestorDefFinder : sg::DispatchHandler< InductionVariableUpdate >
 };
 #endif
 
-static
-ReachingDefList
-find_reaching_def(ReachingDef::ReachingDefPtr rdef)
-{
-  const SgNode*        defnode = rdef->getDefinitionNode();
-  // return sg::dispatch(ReachingDefFinder(), rdef.getDefinitionNode());
-  const SgExpression*  expbase = sg::dispatch(DefinitionBase(), defnode);
-  SSAPredicate::SSARep defset;
-
-  if (expbase)
-  {
-    defset = SSAPredicate::varsUsed(*expbase);
-  }
-
-  ReachingDefList      res;
-
-  if (defset.size() == 1)
-  {
-    std::copy(defset.begin(), defset.end(), std::back_inserter(res));
-  }
-
-  return res;
-}
-
 struct DefinitionBase : sg::DispatchHandler<const SgExpression*>
 {
   void handle(const SgNode& n)            { sg::unexpected_node(n); }
   void handle(const SgExpression& n)      { res = &n; }
   void handle(const SgInitializedName& n) { res = n.get_initializer(); }
 };
+
+static
+ReachingDefList
+find_reaching_defs(ReachingDef::ReachingDefPtr rdef)
+{
+  const SgNode*        defnode = rdef->getDefinitionNode();
+  // return sg::dispatch(ReachingDefFinder(), rdef.getDefinitionNode());
+  const SgExpression*  expbase = sg::dispatch(DefinitionBase(), defnode);
+  SSAPredicate::SSARep defset;
+  ReachingDefList      res;
+
+  if (expbase)
+  {
+    defset = SSAPredicate::varsUsed(*expbase);
+  }
+
+  std::copy(defset.begin(), defset.end(), std::back_inserter(res));
+  return res;
+}
 
 static
 ReachingDefList
@@ -308,43 +349,61 @@ get_preceding_defs(ReachingDef::ReachingDefPtr rdef)
 }
 
 
-SSAVariableAnalyzer::ReachingDefKind
-SSAVariableAnalyzer::detect_cycles(ReachingDefPtr rdef)
+InductionEquation
+InductionVariableAnalyzer::getInductionEquation(const VertexSet& vs, ReachingDefPtr def)
 {
-  insert_result_type    ins = loopdata.insert( LoopDataMap::value_type(rdef, rdkVisiting) );
+  ReachingDefList worklist = get_preceding_defs(def);
+
+  while (!worklist.empty())
+  {
+
+  }
+}
+
+
+
+InductionVariableAnalyzer::DetectionResult
+InductionVariableAnalyzer::detectCycles(ReachingDefPtr rdef, ReachingDefPtr startnode)
+{
+  VertexSet             res;
+  insert_result_type    ins = loopdata.insert(LoopDataMap::value_type(rdef, rdkVisiting));
   LoopDataMap::iterator pos = ins.first;
 
-  // if the entry was already in the map, we are done and can return
+  // if the entry was already discovered, we are done and can return
   if (!ins.second)
   {
-    // if we already know the status
-    if (pos->second == rdkVisiting)
+    // if this is the loop
+    if (rdef == startnode)
     {
-      std::cerr << "LOOP detection successful" << std::endl;
-      std::cerr << rdef.get() << "  =  " << pos->second << " <- " << rdkLoop << std::endl;
-
       pos->second = rdkLoop;
+      res.insert(rdef);
     }
 
-    return pos->second;
+    return DetectionResult(res, pos->second);
   }
 
   ReachingDefList       worklist = get_preceding_defs(rdef);
-  ReachingDefKind       tmpres = pos->second;
+  Status                tmpstt = pos->second;
 
   // first time visiting the node
   while (!worklist.empty())
   {
     // do not yet update the entry as it can be modified during recursion
-    tmpres = std::max(tmpres, detect_cycles(worklist.back()));
+    DetectionResult sub = detectCycles(worklist.back(), startnode);
+
+    res.insert(sub.first.begin(), sub.first.end());
+    tmpstt = std::max(tmpstt, sub.second);
 
     worklist.pop_back();
   }
 
   // store back the result
-  std::cerr << rdef.get() << "  =  " << pos->second << " <- " << tmpres << std::endl;
-  pos->second = tmpres;
-  return tmpres;
+  pos->second = tmpstt;
+
+  // return the new vertices in the loop
+  if (tmpstt == rdkLoop) res.insert(rdef);
+
+  return DetectionResult(res, pos->second);
 }
 
 
@@ -356,11 +415,11 @@ struct PredicateAnalyzer
   typedef predicate_analysis::lattice_type        lattice_type;
   typedef predicate_analysis::predicate_set       predicate_set;
 
-  predicate_analysis*    analysisKey;
-  hssa_private::HeapSSA& hssa;
-  SSAVariableAnalyzer&   ssaanalyzer;
+  predicate_analysis*        analysisKey;
+  hssa_private::HeapSSA&     hssa;
+  InductionVariableAnalyzer& ssaanalyzer;
 
-  PredicateAnalyzer(predicate_analysis* ansyskey, hssa_private::HeapSSA& ssacomp, SSAVariableAnalyzer& loopmem)
+  PredicateAnalyzer(predicate_analysis* ansyskey, hssa_private::HeapSSA& ssacomp, InductionVariableAnalyzer& loopmem)
   : analysisKey(ansyskey), hssa(ssacomp), ssaanalyzer(loopmem)
   {}
 
@@ -416,9 +475,9 @@ struct PredicateAnalysisTraversal : public AstSimpleProcessing
 {
     typedef dfpred::PredicateAnalysis<SSAPredicate> predicate_analysis;
 
-    predicate_analysis*    analysisKey;
-    hssa_private::HeapSSA& hssa;
-    SSAVariableAnalyzer    ssaanalyzer;
+    predicate_analysis*       analysisKey;
+    hssa_private::HeapSSA&    hssa;
+    InductionVariableAnalyzer ssaanalyzer;
 
     explicit
     PredicateAnalysisTraversal(predicate_analysis* ansyskey, hssa_private::HeapSSA& ssacomp)
