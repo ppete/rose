@@ -105,10 +105,44 @@ struct HasSecondaryPhiNode
   }
 };
 
+struct IncrementType
+{
+  typedef int                        constant_type;
+  typedef std::vector<SgExpression*> variable_increment;
+
+  IncrementType()
+  : valid(false), base(0), summands()
+  {}
+
+  IncrementType& operator+=(const IncrementType& rhs)
+  {
+    valid = valid && rhs.valid;
+    base += rhs.base;
+
+    std::copy(rhs.summands.begin(), rhs.summands.end(), std::back_inserter(summands));
+  }
+
+  friend
+  IncrementType operator+(const IncrementType& lhs, const IncrementType& rhs)
+  {
+    IncrementType tmp(lhs);
+
+    tmp += rhs;
+    return tmp;
+  }
+
+  bool                valid;
+  constant_type       base;
+  variable_increment  summands;
+};
+
 struct InductionEquation
 {
-  SgNode* init;
-  int     increment;
+  typedef ReachingDef::ReachingDefPtr ReachingDefPtr;
+  typedef int                         increment_type;
+
+  ReachingDefPtr init;
+  increment_type increment;
 };
 
 struct InductionVariableAnalyzer
@@ -172,23 +206,10 @@ select_first(const std::pair<X, Y>& pairval)
 
 typedef std::vector<ReachingDef::ReachingDefPtr> ReachingDefList;
 
-struct InductionVariableUpdate
-{
-  typedef ReachingDef::ReachingDefPtr ReachingDefPtr;
-
-  InductionVariableUpdate ()
-  : valid(false), yintercept(0), prevdef()
-  {}
-
-  // int            slope;
-  bool           valid;
-  int            yintercept;
-  ReachingDefPtr prevdef;
-};
-
 #if NEXTGEN_CODE
 
-struct AncestorDefFinder : sg::DispatchHandler< InductionVariableUpdate >
+
+struct AncestorDefFinder : sg::DispatchHandler< InductionEquation::increment_type >
 {
   void handle_ReachingDefs(const SgNode& n)
   {
@@ -256,13 +277,25 @@ struct AncestorDefFinder : sg::DispatchHandler< InductionVariableUpdate >
     handle_ReachingDefs(n);
   }
 
+      InductionVariableUpdate lres = sg::dispatch(AncestorDefFinder(), n.get_lhs_operand());
+    InductionVariableUpdate rres = sg::dispatch(AncestorDefFinder(), n.get_lhs_operand());
+
+};
+#endif
+
+struct SymbolicEvalhandler : sg::DispatchHandler< InductionEquation::increment_type >
+{
+  void handle(const SgNode& n) { sg::unexpected_node(n); }
+
   template <class VarType, class ValType>
   void handle_constant_value(VarType& val, ValType n)
   {
     ROSE_ASSERT(res.valid);
 
-    if (std::numeric_limits<VarType>::min() > n) { res.valid = false; return; }
-    if (std::numeric_limits<VarType>::max() < n) { res.valid = false; return; }
+    // test whether the used constant representation can hold the
+    //   constant value
+    if (std::numeric_limits<VarType>::min() > n) return;
+    if (std::numeric_limits<VarType>::max() < n) return;
 
     val = n;
   }
@@ -270,7 +303,12 @@ struct AncestorDefFinder : sg::DispatchHandler< InductionVariableUpdate >
   template <class AstNode>
   void handle_constant(const AstNode& n)
   {
-    handle_constant_value(res.yintercept, n.get_value());
+    handle_constant_value(res.base, n.get_value());
+  }
+
+  ReturnType recurse(const SgNode* n)
+  {
+     return sg::dispatch(*this, n);
   }
 
   void handle(const SgCharVal& n)                { handle_constant(n); }
@@ -284,12 +322,35 @@ struct AncestorDefFinder : sg::DispatchHandler< InductionVariableUpdate >
   void handle(const SgUnsignedLongVal& n)        { handle_constant(n); }
   void handle(const SgUnsignedShortVal& n)       { handle_constant(n); }
 
+  void handle(const SgAssignOp& n)
+  {
+    res = sg::dispatch(*this, n.get_rhs_operand());
+  }
 
-      InductionVariableUpdate lres = sg::dispatch(AncestorDefFinder(), n.get_lhs_operand());
-    InductionVariableUpdate rres = sg::dispatch(AncestorDefFinder(), n.get_lhs_operand());
+  void handle(const SgVarRefExp& n)
+  {
+    if (n.isUsedAsLValue())
+    {
+
+    }
+    else
+    {
+
+    }
+  }
+
+  void handle(const SgPlusOp& n)
+  {
+    res = recurse(n.get_lhs_operand()) + recurse(n.get_rhs_operand());
+  }
+
+  void handle(const SgPlusPlusOp& n)
+  {
+
+  }
 
 };
-#endif
+
 
 struct DefinitionBase : sg::DispatchHandler<const SgExpression*>
 {
@@ -349,14 +410,59 @@ get_preceding_defs(ReachingDef::ReachingDefPtr rdef)
 }
 
 
+static
+increment_type
+symbolic_eval(ReachingDefPtr cand, ReachingDefPtr def, increment_type)
+{
+  assert(!def->isPhiFunction());
+
+  return sg::dispatch( def.get_node());
+}
+
+
 InductionEquation
 InductionVariableAnalyzer::getInductionEquation(const VertexSet& vs, ReachingDefPtr def)
 {
-  ReachingDefList worklist = get_preceding_defs(def);
+  ReachingDefList   worklist = get_preceding_defs(def);
+  InductionEquation res;
 
   while (!worklist.empty())
   {
+    ReachingDefPtr cand = worklist.back();
 
+    worklist.pop_back();
+
+    if (def->isPhiFunction())
+    {
+      if (vs.contains(cand))
+      {
+        res.increment = getInductionEquation(vs, worklist.back()).increment;
+      }
+      else
+      {
+        res.initial = cand;
+      }
+    }
+    else
+    {
+      if (vs.contains(cand))
+      {
+        if (cand.isPhiFunction())
+        {
+          assert(res.increment == 0);
+        }
+        else
+        {
+          res.increment = getInductionEquation(vs, worklist.back());
+        }
+
+        res.increment = symbolic_eval(cand, def, res.increment);
+      }
+      else
+      {
+        // do nothing
+      }
+    }
   }
 }
 
