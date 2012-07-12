@@ -157,6 +157,12 @@ struct IncrementType
     return lhs + (-rhs);
   }
 
+  friend
+  bool operator==(const IncrementType& lhs, const IncrementType& rhs)
+  {
+    return lhs.valid == rhs.valid && lhs.base == rhs.base && lhs.summands == rhs.summands;
+  }
+
   bool                valid;
   constant_type       base;
   variable_increment  summands;
@@ -454,12 +460,18 @@ get_preceding_defs(ReachingDef::ReachingDefPtr rdef)
 
 
 static
-increment_type
-symbolic_eval(ReachingDefPtr cand, ReachingDefPtr def, increment_type)
+InductionEquation::increment_type
+symbolic_eval(ReachingDef::ReachingDefPtr cand, ReachingDef::ReachingDefPtr def)
 {
   assert(!def->isPhiFunction());
 
-  return sg::dispatch( def.get_node());
+  return sg::dispatch( SymbolicEvalHandler(), cand->getDefinitionNode() );
+}
+
+static
+bool contains(const InductionVariableAnalyzer::VertexSet& vs, const InductionVariableAnalyzer::VertexSet::value_type& elem)
+{
+  return vs.find(elem) != vs.end();
 }
 
 
@@ -472,41 +484,32 @@ InductionVariableAnalyzer::getInductionEquation(const VertexSet& vs, ReachingDef
   while (!worklist.empty())
   {
     ReachingDefPtr cand = worklist.back();
+    const bool     defCycleMember = contains(vs, cand);
 
     worklist.pop_back();
 
     if (def->isPhiFunction())
     {
-      if (vs.contains(cand))
+      if (!defCycleMember)
       {
-        res.increment = getInductionEquation(vs, worklist.back()).increment;
-      }
-      else
-      {
-        res.initial = cand;
+        res.init = cand;
       }
     }
     else
     {
-      if (vs.contains(cand))
+      if (defCycleMember)
       {
-        if (cand.isPhiFunction())
+        if (!cand->isPhiFunction())
         {
-          assert(res.increment == 0);
-        }
-        else
-        {
-          res.increment = getInductionEquation(vs, worklist.back());
+          res.increment += getInductionEquation(vs, cand).increment;
         }
 
-        res.increment = symbolic_eval(cand, def, res.increment);
-      }
-      else
-      {
-        // do nothing
+        res.increment += symbolic_eval(cand, def);
       }
     }
   }
+
+  return res;
 }
 
 
