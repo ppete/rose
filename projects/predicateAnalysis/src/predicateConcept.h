@@ -29,7 +29,7 @@ namespace concept
 
       /// condition generates a predicate from C/C++ statements and
       ///   conditional operator (x?a:b).
-      /// condition always invokes with a most derived type (SgWhile, SgIfStmt, ...)
+      /// condition is always invoked with a most derived type (SgWhile, SgIfStmt, ...)
       ///   thus a template function does not have to perform type recovery.
       template <class SageStatement>
       static

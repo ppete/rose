@@ -92,6 +92,8 @@ namespace {
 
 struct HasSecondaryPhiNode
 {
+  typedef ReachingDef::ReachingDefPtr ReachingDefPtr;
+
   ReachingDefPtr masterphi;
 
   explicit
@@ -101,18 +103,30 @@ struct HasSecondaryPhiNode
 
   bool operator()(ReachingDefPtr ssanode) const
   {
-    return ssanode->isPhiFunction && (masterphi != ssanode);
+    return ssanode->isPhiFunction() && (masterphi != ssanode);
   }
 };
 
 struct IncrementType
 {
-  typedef int                        constant_type;
-  typedef std::vector<SgExpression*> variable_increment;
+  typedef int                              constant_type;
+  typedef std::vector<const SgExpression*> variable_increment;
 
   IncrementType()
   : valid(false), base(0), summands()
   {}
+
+  IncrementType operator-() const
+  {
+    IncrementType tmp;
+
+    tmp.valid = this->valid;
+    tmp.base  = -this->base;
+
+    // cannot handle yet negation of SgExpression nodes
+    assert(this->summands.empty());
+    return tmp;
+  }
 
   IncrementType& operator+=(const IncrementType& rhs)
   {
@@ -120,6 +134,12 @@ struct IncrementType
     base += rhs.base;
 
     std::copy(rhs.summands.begin(), rhs.summands.end(), std::back_inserter(summands));
+    return *this;
+  }
+
+  IncrementType& operator-=(const IncrementType& rhs)
+  {
+    return *this += -rhs;
   }
 
   friend
@@ -131,6 +151,12 @@ struct IncrementType
     return tmp;
   }
 
+  friend
+  IncrementType operator-(const IncrementType& lhs, const IncrementType& rhs)
+  {
+    return lhs + (-rhs);
+  }
+
   bool                valid;
   constant_type       base;
   variable_increment  summands;
@@ -139,7 +165,7 @@ struct IncrementType
 struct InductionEquation
 {
   typedef ReachingDef::ReachingDefPtr ReachingDefPtr;
-  typedef int                         increment_type;
+  typedef IncrementType               increment_type;
 
   ReachingDefPtr init;
   increment_type increment;
@@ -177,9 +203,9 @@ struct InductionVariableAnalyzer
 
     VertexSet res = detectCycles(rdef, rdef).first;
 
-    if (!validateLoopModel(res, startpoint)) return;
+    if (!validateLoopModel(res, rdef)) return;
 
-    InductionEquation ivar = getInductionDefinition(res, startpoint);
+    InductionEquation ivar = getInductionEquation(res, rdef);
   }
 
   static
@@ -190,7 +216,7 @@ struct InductionVariableAnalyzer
   {
     VertexSet::const_iterator zz  = vs.end();
 
-    return std::find_if(vs.begin(), zz, hasSecondaryPhiNode(startpoint)) == zz;
+    return std::find_if(vs.begin(), zz, HasSecondaryPhiNode(startpoint)) == zz;
   }
 };
 
@@ -206,149 +232,166 @@ select_first(const std::pair<X, Y>& pairval)
 
 typedef std::vector<ReachingDef::ReachingDefPtr> ReachingDefList;
 
-#if NEXTGEN_CODE
-
-
-struct AncestorDefFinder : sg::DispatchHandler< InductionEquation::increment_type >
+struct SymbolicEvalHandler : sg::DispatchHandler< InductionEquation::increment_type >
 {
-  void handle_ReachingDefs(const SgNode& n)
+  ReturnType invalid()
   {
-
+    return ReturnType();
   }
 
-  void handle_Value(const SgNode& n);
-
-  void handle_linearExpression(const SgExpression& n, int ydelta);
-  void handle_linearCompoundOp(const SgExpression& n, int sign);
-  void handle_linearCombination(const SgExpression& n, int sign);
-
-  void handle(const SgNode& n)          { sg::unexpected_node(n); }
-  void handle(const SgCommaOpExp& n)    { sg::unexpected_node(n); }
-
-  void handle(const SgExpression&)      { /* keep result invalid */ }
-
-
-  void handle(const SgInitializedName& n)
+  ReturnType eval(const SgExpression&)
   {
-    const SgInitializer* init = n.get_initializer();
-
-    if (init) handleReachingDefs(*init);
+    return invalid();
   }
-
-  void handle(const SgPlusPlusOp& n)
-  {
-    handle_linearExpression(n, 1);
-  }
-
-  void handle(const SgMinusMinusOp& n)
-  {
-    handle_linearExpression(n, -1);
-  }
-
-  void handle(const SgPlusAssignOp& n)
-  {
-    handle_linearCompoundOp(n, 1);
-  }
-
-  void handle(const SgMinusAssignOp&)
-  {
-    handle_linearCompoundOp(n, -1);
-  }
-
-  void handle(const SgAssignOp& n);
-  {
-    res = sg::dispatch(AncestorDefFinder(), n.get_rhs_operand());
-  }
-
-  void handle(const SgPlusOp& n);
-  {
-    handle_linearCombination(n, 1);
-  }
-
-  void handle(const SgMinusOp& n);
-  {
-    handle_linearCombination(n, -1);
-  }
-
-  void handle(const SgVarRefExp& n)
-  {
-    // only called for rhs of assignment expressions
-    ROSE_ASSERT(!n.isLValue());
-    handle_ReachingDefs(n);
-  }
-
-      InductionVariableUpdate lres = sg::dispatch(AncestorDefFinder(), n.get_lhs_operand());
-    InductionVariableUpdate rres = sg::dispatch(AncestorDefFinder(), n.get_lhs_operand());
-
-};
-#endif
-
-struct SymbolicEvalhandler : sg::DispatchHandler< InductionEquation::increment_type >
-{
-  void handle(const SgNode& n) { sg::unexpected_node(n); }
 
   template <class VarType, class ValType>
-  void handle_constant_value(VarType& val, ValType n)
+  void eval_constant_value(VarType& val, bool& valid, ValType n)
   {
-    ROSE_ASSERT(res.valid);
+    ROSE_ASSERT(!valid);
 
     // test whether the used constant representation can hold the
     //   constant value
+    //   \todo raise/report error if not?
     if (std::numeric_limits<VarType>::min() > n) return;
     if (std::numeric_limits<VarType>::max() < n) return;
 
+    valid = true;
     val = n;
   }
 
-  template <class AstNode>
-  void handle_constant(const AstNode& n)
+  template <class SageValueNode>
+  ReturnType eval_constant(const SageValueNode& n)
   {
-    handle_constant_value(res.base, n.get_value());
+    ReturnType res;
+
+    eval_constant_value(res.base, res.valid, n.get_value());
+
+    return res;
   }
+
+  ReturnType eval(const SgCharVal& n)                { return eval_constant(n); }
+  ReturnType eval(const SgUnsignedLongLongIntVal& n) { return eval_constant(n); }
+  ReturnType eval(const SgIntVal& n)                 { return eval_constant(n); }
+  ReturnType eval(const SgLongIntVal& n)             { return eval_constant(n); }
+  ReturnType eval(const SgLongLongIntVal& n)         { return eval_constant(n); }
+  ReturnType eval(const SgShortVal& n)               { return eval_constant(n); }
+  ReturnType eval(const SgUnsignedCharVal& n)        { return eval_constant(n); }
+  ReturnType eval(const SgUnsignedIntVal& n)         { return eval_constant(n); }
+  ReturnType eval(const SgUnsignedLongVal& n)        { return eval_constant(n); }
+  ReturnType eval(const SgUnsignedShortVal& n)       { return eval_constant(n); }
 
   ReturnType recurse(const SgNode* n)
   {
      return sg::dispatch(*this, n);
   }
 
-  void handle(const SgCharVal& n)                { handle_constant(n); }
-  void handle(const SgUnsignedLongLongIntVal& n) { handle_constant(n); }
-  void handle(const SgIntVal& n)                 { handle_constant(n); }
-  void handle(const SgLongIntVal& n)             { handle_constant(n); }
-  void handle(const SgLongLongVal& n)            { handle_constant(n); }
-  void handle(const SgShortVal& n)               { handle_constant(n); }
-  void handle(const SgUnsignedCharVal& n)        { handle_constant(n); }
-  void handle(const SgUnsignedIntVal& n)         { handle_constant(n); }
-  void handle(const SgUnsignedLongVal& n)        { handle_constant(n); }
-  void handle(const SgUnsignedShortVal& n)       { handle_constant(n); }
-
-  void handle(const SgAssignOp& n)
+  // other terms are not interpreted
+  ReturnType term(const SgExpression& n, const SgExpression&)
   {
-    res = sg::dispatch(*this, n.get_rhs_operand());
+    ReturnType res;
+
+    res.valid = true;
+    res.summands.push_back(&n);
+    return res;
   }
 
-  void handle(const SgVarRefExp& n)
+  // value nodes are handled as constants
+  template <class SageValueNode>
+  ReturnType term(const SageValueNode& n, const SgValueExp&)
   {
-    if (n.isUsedAsLValue())
-    {
-
-    }
-    else
-    {
-
-    }
+    return eval(n);
   }
 
-  void handle(const SgPlusOp& n)
+
+  ReturnType increment(ReturnType::constant_type val)
   {
-    res = recurse(n.get_lhs_operand()) + recurse(n.get_rhs_operand());
+    ReturnType res;
+
+    res.valid = true;
+    res.base = val;
+    return res;
   }
 
-  void handle(const SgPlusPlusOp& n)
+  ReturnType eval(const SgAssignOp& n)
   {
-
+    return recurse(n.get_rhs_operand());
   }
 
+  ReturnType eval(const SgMinusAssignOp& n)
+  {
+    ReturnType tmp;
+
+    tmp -= recurse(n.get_rhs_operand());
+    return tmp;
+  }
+
+  ReturnType eval(const SgPlusAssignOp& n)
+  {
+    ReturnType tmp;
+
+    tmp += recurse(n.get_rhs_operand());
+    return tmp;
+  }
+
+  ReturnType eval(const SgAddOp& n)
+  {
+    return recurse(n.get_lhs_operand()) + recurse(n.get_rhs_operand());
+  }
+
+  ReturnType eval(const SgSubtractOp& n)
+  {
+    return recurse(n.get_lhs_operand()) + recurse(n.get_rhs_operand());
+  }
+
+  ReturnType eval(const SgPlusPlusOp&)
+  {
+    // the underlying expression has to be a reaching definition
+
+    // \todo check post-increment in the loop header
+    return increment(1);
+  }
+
+  ReturnType eval(const SgMinusMinusOp&)
+  {
+    // the underlying expression has to be a reaching definition
+
+    // \todo check post-decrement in the loop header
+    return increment(-1);
+  }
+
+  ReturnType eval(const SgMinusOp& n)
+  {
+    return -recurse(n.get_operand());
+  }
+
+  ReturnType eval(const SgVarRefExp&)
+  {
+    // we can only get here if this is a relevant definition
+    //   since those are handled outside, we can just return 0.
+    return increment(0);
+  }
+
+  void handle(const SgNode&, const SgNode&) {} // base case \todo do not think we can get here
+
+
+  bool hasRelevantDefs(const SgNode&)
+  {
+    return true;
+  }
+
+  template <class SageNode>
+  void handle(const SageNode& n, const SgExpression&)
+  {
+    res = hasRelevantDefs(n) ? eval(n)     // evaluate the node
+                             : term(n, n)  // if there is no relevant definition, we store the whole term
+                             ;
+  }
+
+  template <class SageNode>
+  void handle(const SageNode& n)
+  {
+    handle(n, n);
+  }
 };
 
 
