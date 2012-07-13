@@ -275,59 +275,20 @@ struct SymbolicEvalHandler : sg::DispatchHandler< InductionEquation::increment_t
   : Base(), vs(vertexset)
   {}
 
-  ReturnType invalid()
+  /// get result for sub-tree below
+  ReturnType recurse(const SgNode* child)
   {
-    return ReturnType();
+     return sg::dispatch(*this, child);
   }
 
-  ReturnType eval(const SgExpression&)
-  {
-    return invalid();
-  }
+  //
+  // result value constructors
 
-  template <class VarType, class ValType>
-  void eval_constant_value(VarType& val, bool& valid, ValType n)
-  {
-    ROSE_ASSERT(!valid);
+  /// constructs an invalid result-type
+  ReturnType invalid() { return ReturnType(); }
 
-    // test whether the used constant representation can hold the
-    //   constant value
-    //   \todo raise/report error if not?
-    if (std::numeric_limits<VarType>::min() > n) return;
-    if (std::numeric_limits<VarType>::max() < n) return;
-
-    valid = true;
-    val = n;
-  }
-
-  template <class SageValueNode>
-  ReturnType eval_constant(const SageValueNode& n)
-  {
-    ReturnType res;
-
-    eval_constant_value(res.base, res.valid, n.get_value());
-
-    return res;
-  }
-
-  ReturnType eval(const SgCharVal& n)                { return eval_constant(n); }
-  ReturnType eval(const SgUnsignedLongLongIntVal& n) { return eval_constant(n); }
-  ReturnType eval(const SgIntVal& n)                 { return eval_constant(n); }
-  ReturnType eval(const SgLongIntVal& n)             { return eval_constant(n); }
-  ReturnType eval(const SgLongLongIntVal& n)         { return eval_constant(n); }
-  ReturnType eval(const SgShortVal& n)               { return eval_constant(n); }
-  ReturnType eval(const SgUnsignedCharVal& n)        { return eval_constant(n); }
-  ReturnType eval(const SgUnsignedIntVal& n)         { return eval_constant(n); }
-  ReturnType eval(const SgUnsignedLongVal& n)        { return eval_constant(n); }
-  ReturnType eval(const SgUnsignedShortVal& n)       { return eval_constant(n); }
-
-  ReturnType recurse(const SgNode* n)
-  {
-     return sg::dispatch(*this, n);
-  }
-
-  // other terms are not interpreted
-  ReturnType term(const SgExpression& n, const SgExpression&)
+  /// construct result for un-interpreted nodes
+  ReturnType term(const SgExpression& n)
   {
     ReturnType res;
 
@@ -336,14 +297,7 @@ struct SymbolicEvalHandler : sg::DispatchHandler< InductionEquation::increment_t
     return res;
   }
 
-  // value nodes are handled as constants
-  template <class SageValueNode>
-  ReturnType term(const SageValueNode& n, const SgValueExp&)
-  {
-    return eval(n);
-  }
-
-
+  /// return constant increment
   ReturnType increment(ReturnType::constant_type val)
   {
     ReturnType res;
@@ -351,6 +305,38 @@ struct SymbolicEvalHandler : sg::DispatchHandler< InductionEquation::increment_t
     res.valid = true;
     res.base = val;
     return res;
+  }
+
+  //
+  // literal storage
+
+  /// handle literal values
+  /// (ensure that n can stored in val without loss of information)
+  template <class VarType, class ValType>
+  void literal_value(VarType& val, bool& valid, ValType n)
+  {
+    ROSE_ASSERT(!valid);
+
+    // test whether the used constant representation can hold the
+    //   constant value
+    //   \todo raise/report error if not?
+    // if (std::numeric_limits<VarType>::min() > n) return;
+    // if (std::numeric_limits<VarType>::max() < n) return;
+
+    val   = n;
+
+    // check whether val can hold the value n
+    // \todo is this check sufficient for mixed signed/unsigned arithmetic
+    valid = (n - val == 0);
+  }
+
+  //
+  // evaluator functions
+
+  /// general expression (returns invalid if not handled otherwise)
+  ReturnType eval(const SgExpression&)
+  {
+    return invalid();
   }
 
   ReturnType eval(const SgAssignOp& n)
@@ -412,9 +398,45 @@ struct SymbolicEvalHandler : sg::DispatchHandler< InductionEquation::increment_t
     return increment(0);
   }
 
-  void handle(const SgNode&, const SgNode&) {} // base case \todo do not think we can get here
+  //
+  // all node hanldings
 
+  /// base case
+  void handle(const SgNode&, const SgNode&) {} // \todo do not think we can get here
 
+  /// handle all integral literals
+  template <class SageNode>
+  void handle(const SageNode& n, const SgValueExp&)
+  {
+    literal_value(res.base, res.valid, n.get_value());
+  }
+
+  //
+  // special SgValueExp cases
+
+  /// forward call to regular expression handling
+  template <class SageNode>
+  void as_expression(const SageNode& n)
+  {
+    const SgExpression& expr = n;
+
+    handle(n, expr);
+  }
+
+  /// non-integral literals
+  void handle(const SgComplexVal& n, const SgComplexVal&) { as_expression(n); }
+  void handle(const SgStringVal& n,  const SgStringVal&)  { as_expression(n); }
+  void handle(const SgWcharVal& n,   const SgWcharVal&)   { as_expression(n); }
+
+  void handle(const SgValueExp&, const SgValueExp&)
+  {
+    assert(false);
+    // can never be invoked, but needs to exist as SgValueExp does not have
+    // a get_value function
+    // \todo remove SgValueExp from sg::dispatch
+  }
+
+  /// return true, iff any reaching definition is a member of the induction variable cycle
   bool hasRelevantDefs(const SgNode& n)
   {
     ReachingDefList           deflist = find_reaching_defs(&n);
@@ -423,17 +445,20 @@ struct SymbolicEvalHandler : sg::DispatchHandler< InductionEquation::increment_t
     return std::find_if(deflist.begin(), zz, IsVertexSetMember(vs)) != zz;
   }
 
+  /// handle all common expression
   template <class SageNode>
   void handle(const SageNode& n, const SgExpression&)
   {
-    res = hasRelevantDefs(n) ? eval(n)     // evaluate the node
-                             : term(n, n)  // if there is no relevant definition, we store the whole term
+    res = hasRelevantDefs(n) ? eval(n)  // evaluate the node
+                             : term(n)  // if there is no relevant definition, we store the whole term
                              ;
   }
 
+  /// select appropriate handler function based on Sage hierarchy
   template <class SageNode>
   void handle(const SageNode& n)
   {
+    // \todo replace hierarchical overload resolution with categories
     handle(n, n);
   }
 };
