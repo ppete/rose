@@ -238,8 +238,43 @@ select_first(const std::pair<X, Y>& pairval)
 
 typedef std::vector<ReachingDef::ReachingDefPtr> ReachingDefList;
 
+static
+ReachingDefList find_reaching_defs(const SgNode* defnode);
+
+static
+bool contains(const InductionVariableAnalyzer::VertexSet& vs, const InductionVariableAnalyzer::VertexSet::value_type& elem)
+{
+  return vs.find(elem) != vs.end();
+}
+
+struct IsVertexSetMember
+{
+  typedef InductionVariableAnalyzer::VertexSet VertexSet;
+
+  const VertexSet& vs;
+
+  explicit
+  IsVertexSetMember(const VertexSet& vertexset)
+  : vs(vertexset)
+  {}
+
+  bool operator()(const VertexSet::value_type& elem)
+  {
+    return contains(vs, elem);
+  }
+};
+
 struct SymbolicEvalHandler : sg::DispatchHandler< InductionEquation::increment_type >
 {
+  typedef InductionVariableAnalyzer::VertexSet VertexSet;
+
+  const VertexSet& vs;
+
+  explicit
+  SymbolicEvalHandler(const VertexSet& vertexset)
+  : Base(), vs(vertexset)
+  {}
+
   ReturnType invalid()
   {
     return ReturnType();
@@ -380,9 +415,12 @@ struct SymbolicEvalHandler : sg::DispatchHandler< InductionEquation::increment_t
   void handle(const SgNode&, const SgNode&) {} // base case \todo do not think we can get here
 
 
-  bool hasRelevantDefs(const SgNode&)
+  bool hasRelevantDefs(const SgNode& n)
   {
-    return true;
+    ReachingDefList           deflist = find_reaching_defs(&n);
+    ReachingDefList::iterator zz = deflist.end();
+
+    return std::find_if(deflist.begin(), zz, IsVertexSetMember(vs)) != zz;
   }
 
   template <class SageNode>
@@ -408,12 +446,11 @@ struct DefinitionBase : sg::DispatchHandler<const SgExpression*>
   void handle(const SgInitializedName& n) { res = n.get_initializer(); }
 };
 
-static
+
+// declared static by preceding definition
 ReachingDefList
-find_reaching_defs(ReachingDef::ReachingDefPtr rdef)
+find_reaching_defs(const SgNode* defnode)
 {
-  const SgNode*        defnode = rdef->getDefinitionNode();
-  // return sg::dispatch(ReachingDefFinder(), rdef.getDefinitionNode());
   const SgExpression*  expbase = sg::dispatch(DefinitionBase(), defnode);
   SSAPredicate::SSARep defset;
   ReachingDefList      res;
@@ -425,6 +462,13 @@ find_reaching_defs(ReachingDef::ReachingDefPtr rdef)
 
   std::copy(defset.begin(), defset.end(), std::back_inserter(res));
   return res;
+}
+
+static
+ReachingDefList
+find_reaching_defs(ReachingDef::ReachingDefPtr rdef)
+{
+  return find_reaching_defs(rdef->getDefinitionNode());
 }
 
 static
@@ -461,19 +505,12 @@ get_preceding_defs(ReachingDef::ReachingDefPtr rdef)
 
 static
 InductionEquation::increment_type
-symbolic_eval(ReachingDef::ReachingDefPtr cand, ReachingDef::ReachingDefPtr def)
+symbolic_eval(ReachingDef::ReachingDefPtr def, const SymbolicEvalHandler::VertexSet& vs)
 {
-  assert(!def->isPhiFunction());
+  if (def->isPhiFunction()) return InductionEquation::increment_type();
 
-  return sg::dispatch( SymbolicEvalHandler(), cand->getDefinitionNode() );
+  return sg::dispatch( SymbolicEvalHandler(vs), def->getDefinitionNode() );
 }
-
-static
-bool contains(const InductionVariableAnalyzer::VertexSet& vs, const InductionVariableAnalyzer::VertexSet::value_type& elem)
-{
-  return vs.find(elem) != vs.end();
-}
-
 
 InductionEquation
 InductionVariableAnalyzer::getInductionEquation(const VertexSet& vs, ReachingDefPtr def)
@@ -481,31 +518,39 @@ InductionVariableAnalyzer::getInductionEquation(const VertexSet& vs, ReachingDef
   ReachingDefList   worklist = get_preceding_defs(def);
   InductionEquation res;
 
+  res.increment = symbolic_eval(def, vs);
+
   while (!worklist.empty())
   {
     ReachingDefPtr cand = worklist.back();
-    const bool     defCycleMember = contains(vs, cand);
+    const bool     cycleMember = contains(vs, cand);
 
     worklist.pop_back();
 
-    if (def->isPhiFunction())
+    if (cycleMember)
     {
-      if (!defCycleMember)
+      if (!cand->isPhiFunction())
       {
-        res.init = cand;
+        res.increment += getInductionEquation(vs, cand).increment;
       }
+      else
+      {
+        // if cand is a phi-node, then we completed processing the circle
+        //   return the default case (do nothing)
+      }
+    }
+    else if (def->isPhiFunction())
+    {
+      // if def is a phi-node
+      //   then we get two ancestors, one being the initializer
+      //   (which is not part of the cycle-vertex-list).
+      //   the second is the definition in the loop body (which
+      //   will be handled above).
+      res.init = cand;
     }
     else
     {
-      if (defCycleMember)
-      {
-        if (!cand->isPhiFunction())
-        {
-          res.increment += getInductionEquation(vs, cand).increment;
-        }
-
-        res.increment += symbolic_eval(cand, def);
-      }
+      // all other definitions are handled by symbolic_eval
     }
   }
 
