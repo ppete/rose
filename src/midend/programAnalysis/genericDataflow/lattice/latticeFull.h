@@ -72,6 +72,13 @@ class BoolAndLattice : public FiniteLattice
         /*void addVar(varID var) {};
         void remVar(varID var) {};*/
         
+  // Set this Lattice object to represent the set of all possible execution prefixes.
+  // Return true if this causes the object to change and false otherwise.
+  bool setToFull();
+  // Set this Lattice object to represent the of no execution prefixes (empty set).
+  // Return true if this causes the object to change and false otherwise.
+  bool setToEmpty();
+  
         std::string str(std::string indent="");
 };
 
@@ -142,6 +149,13 @@ class IntMaxLattice : public InfiniteLattice
         /*void addVar(varID var) {};
         void remVar(varID var) {};*/
         
+  // Set this Lattice object to represent the set of all possible execution prefixes.
+  // Return true if this causes the object to change and false otherwise.
+  bool setToFull();
+  // Set this Lattice object to represent the of no execution prefixes (empty set).
+  // Return true if this causes the object to change and false otherwise.
+  bool setToEmpty();
+  
         std::string str(std::string indent="");
 };
 
@@ -196,6 +210,13 @@ class ProductLattice : public virtual Lattice
         /*void addVar(varID var) {};
         void remVar(varID var) {};*/
         
+  // Set this Lattice object to represent the set of all possible execution prefixes.
+  // Return true if this causes the object to change and false otherwise.
+  bool setToFull();
+  // Set this Lattice object to represent the of no execution prefixes (empty set).
+  // Return true if this causes the object to change and false otherwise.
+  bool setToEmpty();
+  
         // The string that represents this object
         // If indent!="", every line of this string must be prefixed by indent
         // The last character of the returned string should not be '\n', even if it is a multi-line string.
