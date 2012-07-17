@@ -167,7 +167,7 @@ int dbgBuf::overflow(int c)
 int dbgBuf::printString(string s)
 {
         int r = baseBuf->sputn(s.c_str(), s.length());
-        if(r!=s.length()) return -1;
+        if(r!=(int)s.length()) return -1;
         return 0;
 }
 
@@ -764,7 +764,7 @@ void dbgStream::addDOT(string imgFName, string graphName, string dot, ostream& r
         std::string escape(std::string s)
         {
                 string out;
-                for(int i=0; i<s.length(); i++) {
+                for(unsigned int i=0; i<s.length(); i++) {
                         // Manage HTML tags
                              if(s[i] == '<') out += "&lt;";
                         else if(s[i] == '>') out += "&gt;";
