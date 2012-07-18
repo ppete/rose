@@ -55,7 +55,9 @@ protected:
     return prodLat->insert(o, lat);
   }
 
-  bool getLattices(SgBinaryOp *sgn, LatticePtr &arg1Lat, LatticePtr &arg2Lat, LatticePtr &resLat) {
+
+  //! create three lattices from a binary operation: lhs, rhs, and result lattices
+  bool getLattices(const SgBinaryOp *sgn, LatticeType* &arg1Lat, LatticeType* &arg2Lat, LatticeType* &resLat) {
     arg1Lat = getLattice(sgn->get_lhs_operand());
     arg2Lat = getLattice(sgn->get_rhs_operand());
     resLat = getLattice(sgn);
@@ -65,7 +67,9 @@ protected:
     return (arg1Lat && arg2Lat && resLat);
   }
   
-  bool getLattices(SgUnaryOp *sgn, LatticePtr &arg1Lat, LatticePtr &arg2Lat, LatticePtr &resLat) {
+
+
+  bool getLattices(const SgUnaryOp *sgn,  LatticeType* &arg1Lat, LatticeType* &arg2Lat, LatticeType* &resLat) {
     arg1Lat = getLattice(sgn->get_operand());
     resLat = getLattice(sgn);
 

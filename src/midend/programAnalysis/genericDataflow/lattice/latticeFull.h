@@ -163,6 +163,7 @@ class IntMaxLattice : public InfiniteLattice
   ### Utility lattices ###
   ########################*/
 
+// A container lattice to store other lattices
 class ProductLattice : public virtual Lattice
 {
         public:
@@ -278,14 +279,14 @@ class InfiniteProductLattice : public virtual ProductLattice, public virtual Inf
 
 class VariablesProductLattice : public virtual ProductLattice
 {
-        protected:
+    protected:
         // if =true, a lattice is created for each scalar variable
         bool includeScalars;
         // if =true, a lattice is created for each array variable 
         bool includeArrays;
         // the function that this lattice is associated with
         Function func;
-        // map of lattices that correspond to constant variables
+        // map of lattices that correspond to constant variables, for quick search
         std::map<varID, Lattice*> constVarLattices;
         // lattice that corresponds to allVar;
         Lattice* allVarLattice;
@@ -297,7 +298,7 @@ class VariablesProductLattice : public virtual ProductLattice
         // the ProductLattice::lattice[] array
         static std::map<Function, std::map<varID, int> > varLatticeIndex;
         
-        public:
+    public:
         // creates a new VariablesProductLattice
         // includeScalars - if =true, a lattice is created for each scalar variable
         // includeArrays - if =true, a lattice is created for each array variable 
@@ -319,11 +320,11 @@ class VariablesProductLattice : public virtual ProductLattice
         // copy constructor
         VariablesProductLattice(const VariablesProductLattice& that);
         
-        public:
+    public:
         
         Lattice* getVarLattice(const Function& func, const varID& var);
         
-        protected:
+    protected:
         // sets up the varLatticeIndex map, if necessary
         void setUpVarLatticeIndex();
         
@@ -331,7 +332,7 @@ class VariablesProductLattice : public virtual ProductLattice
         // or -1 otherwise
         int getVarIndex(const Function& func, const varID& var);
         
-        public:
+    public:
         
         // returns the set of global variables(scalars and/or arrays)
         varIDSet& getGlobalVars() const;

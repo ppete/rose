@@ -348,6 +348,9 @@ struct hash_nodeptr
    \brief Not sure the classifications right now
  */
 
+   //! Extract a SgPragmaDeclaration's leading keyword . For example "#pragma omp parallel" has a keyword of "omp".
+   std::string extractPragmaKeyword(const SgPragmaDeclaration *);
+
    //! Check if a node is SgOmp*Statement
    bool isOmpStatement(SgNode* );
    /*! \brief Return true if function is overloaded.
@@ -749,12 +752,12 @@ SgType* getArrayElementType(SgType* t);
 SgType* getElementType(SgType* t);
 
 
-/// \brief  returns the array dimensions in an array as defined for @arrtype
+/// \brief  returns the array dimensions in an array as defined for arrtype
 /// \param  arrtype the type of a C/C++ array
 /// \return an array that contains an expression indicating each dimension's size.
 ///         OWNERSHIP of the expressions is TRANSFERED TO the CALLER (which
 ///         becomes responsible for freeing the expressions).
-///         note, the first entry of the array is a SgNullExpression, iff the
+///         Note, the first entry of the array is a SgNullExpression, iff the
 ///         first array dimension was not specified.
 /// \code
 ///         int x[] = { 1, 2, 3 };
@@ -764,13 +767,13 @@ SgType* getElementType(SgType* t);
 ///         int x[i*5];
 /// \endcode
 /// \post   return-value.empty() == false
-/// \post   return-value[*] != NULL /* no nullptr in the returned vector */
+/// \post   return-value[*] != NULL (no nullptr in the returned vector)
 std::vector<SgExpression*>
 get_C_array_dimensions(const SgArrayType& arrtype);
 
-/// \brief  returns the array dimensions in an array as defined for @arrtype
+/// \brief  returns the array dimensions in an array as defined for arrtype
 /// \param  arrtype the type of a C/C++ array
-/// \param  varref  a reference to an array variable (the variable of type @arrtype)
+/// \param  varref  a reference to an array variable (the variable of type arrtype)
 /// \return an array that contains an expression indicating each dimension's size.
 ///         OWNERSHIP of the expressions is TRANSFERED TO the CALLER (which
 ///         becomes responsible for freeing the expressions).
@@ -781,11 +784,12 @@ get_C_array_dimensions(const SgArrayType& arrtype);
 /// \endcode
 ///         the entry for the first dimension will be:
 /// \code
-///         sizeof(x) / (sizeof(int) * 3 /* 2nd dimension */)
+///         // 3 ... size of 2nd dimension
+///         sizeof(x) / (sizeof(int) * 3)
 /// \endcode
-/// \pre    @arrtype is the array-type of @varref
+/// \pre    arrtype is the array-type of varref
 /// \post   return-value.empty() == false
-/// \post   return-value[*] != NULL /* no nullptr in the returned vector */
+/// \post   return-value[*] != NULL (no nullptr in the returned vector)
 /// \post   !isSgNullExpression(return-value[*])
 std::vector<SgExpression*>
 get_C_array_dimensions(const SgArrayType& arrtype, const SgVarRefExp& varref);
@@ -1550,17 +1554,14 @@ SgCommaOpExp *insertAfterUsingCommaOp (SgExpression* new_exp, SgExpression* anch
 ///          the initialized name is NULL.
 /// \param   definingDeclaration the defining function declaration of f
 /// \param   newName the name of function f`
-/// \pre     definingDeclaration must be a defining declaration of a
-///          free standing function.
-///          typeid(SgFunctionDeclaration) == typeid(definingDeclaration)
-///          i.e., this function is NOT implemented for class member functions,
-///          template functions, procedures, etc.
 /// \details f's new body becomes { f`(...); } and { int res = f`(...); return res; }
 ///          for functions returning void and a value, respectively.
 ///          two function declarations are inserted in f's enclosing scope
+/// \code
 ///          result_type f`(...);                       <--- (1)
 ///          result_type f (...) { forward call to f` }
 ///          result_type f`(...) { original code }      <--- (2)
+/// \endcode
 ///          Calls to f are not updated, thus in the transformed code all
 ///          calls will continue calling f (this is also true for
 ///          recursive function calls from within the body of f`).
@@ -1569,12 +1570,17 @@ SgCommaOpExp *insertAfterUsingCommaOp (SgExpression* new_exp, SgExpression* anch
 ///          The definition of f` is the next entry in the
 ///          statement list; the forward declaration of f` is the previous
 ///          entry in the statement list.
+/// \pre     definingDeclaration must be a defining declaration of a
+///          free standing function.
+///          typeid(SgFunctionDeclaration) == typeid(definingDeclaration)
+///          i.e., this function is NOT implemented for class member functions,
+///          template functions, procedures, etc.
 std::pair<SgStatement*, SgInitializedName*>
 wrapFunction(SgFunctionDeclaration& definingDeclaration, SgName newName);
 
 /// \overload
-/// \tparam  NameGen, functor that generates a new name based on the old name.
-///          interface: SgName @nameGen(const SgName&)
+/// \tparam  NameGen functor that generates a new name based on the old name.
+///          interface: SgName nameGen(const SgName&)
 /// \param   nameGen name generator
 /// \brief   see wrapFunction for details
 template <class NameGen>
