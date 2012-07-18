@@ -92,20 +92,21 @@ IntraBWDataflow::getInitialWorklist(const Function &func, bool firstVisit, bool 
   return new VirtualCFG::back_dataflow(funcCFGEnd, funcCFGStart);
 }
 
-AnyLattice& IntraFWDataflow::getLatticeAnte(NodeState *state) { return state->getLatticeAboveMod(this); }
-AnyLattice& IntraFWDataflow::getLatticePost(NodeState *state) { return state->getLatticeBelowMod(this); }
-AnyLattice& IntraBWDataflow::getLatticeAnte(NodeState *state) { return state->getLatticeBelowMod(this); }
-AnyLattice& IntraBWDataflow::getLatticePost(NodeState *state) { return state->getLatticeAboveMod(this); }
+LatticePtr IntraFWDataflow::getLatticeAnte(NodeState *state) { return state->getLatticeAboveMod(this); }
+LatticePtr IntraFWDataflow::getLatticePost(NodeState *state) { return state->getLatticeBelowMod(this); }
+LatticePtr IntraBWDataflow::getLatticeAnte(NodeState *state) { return state->getLatticeBelowMod(this); }
+LatticePtr IntraBWDataflow::getLatticePost(NodeState *state) { return state->getLatticeAboveMod(this); }
 
 void IntraFWDataflow::transferFunctionCall(const Function &func, const DataflowNode &n, NodeState *state)
 {
   // vector<Lattice*>* retState = NULL;
 
-  AnyLattice&              dfInfoBelow = state->getLatticeBelowMod(this);
-  const Lattice*           retState = 0;
+  Lattice*                 nullLattice = 0;
+  LatticePtr               dfInfoBelow = state->getLatticeBelowMod(this);
+  ConstLatticePtr          retState(nullLattice);
   InterProceduralDataflow& ipdf = dynamic_cast<InterProceduralDataflow&>(*interAnalysis);
 
-  ipdf.transfer(func, n, *state, *dfInfoBelow.ptr(), retState, true);
+  ipdf.transfer(func, n, *state, dfInfoBelow, retState, true);
   ROSE_ASSERT(retState);
 
 #if OBSOLETE_CODE
@@ -123,22 +124,25 @@ void IntraFWDataflow::transferFunctionCall(const Function &func, const DataflowN
   // as the information of the SgFunctionCallExp
   // \pp \todo should always be initialized???
   if (retState->isInitialized()) {
-      Dbg::dbg << "    lDF Before=" << dfInfoBelow.str("        ") << endl;
+      Dbg::dbg << "    lDF Before=" << dfInfoBelow->str("        ") << endl;
       Dbg::dbg << "    lRet Before=" << retState->str("        ") << endl;
 
-      dfInfoBelow.unProject(isSgFunctionCallExp(n.getNode()), *retState);
+      dfInfoBelow->unProject(isSgFunctionCallExp(n.getNode()), retState.get());
 
-      Dbg::dbg << "    lDF After="<< dfInfoBelow.str("        ") <<endl;
+      Dbg::dbg << "    lDF After="<< dfInfoBelow->str("        ") <<endl;
   }
 }
 
 void IntraBWDataflow::transferFunctionCall(const Function &func, const DataflowNode &n, NodeState *state)
 {
-  const Lattice* retState = 0;
-  dynamic_cast<InterProceduralDataflow*>(interAnalysis)->
-    transfer(func, n, *state, *state->getLatticeAboveMod(this).ptr(), retState, false);
+  Lattice*        nullLattice = 0;
+  ConstLatticePtr retState(nullLattice);
 
-  ROSE_ASSERT(retState);
+  dynamic_cast<InterProceduralDataflow*>(interAnalysis)->
+    transfer(func, n, *state, state->getLatticeAboveMod(this), retState, false);
+
+  // ROSE_ASSERT(retState.get()); \pp does not hold b/c not all analysis set the
+  //                                  the retState lattice
   // NEED TO INCORPORATE INFORMATION ABOUT RETURN INTO DATAFLOW SOMEHOW
 }
 
@@ -266,7 +270,7 @@ bool IntraUniDirectionalDataflow::edgeSensitiveAnalysis() const
 }
 
 // virtual function implementing forwarding transfer to node-transfer
-bool IntraUniDirectionalDataflow::transfer(const Function& func, const DataflowEdge& e, NodeState& state, Lattice& lat)
+bool IntraUniDirectionalDataflow::transfer(const Function& func, const DataflowEdge& e, NodeState& state, LatticePtr lat)
 {
   return transfer(func, flowSource(e), state, lat);
 }
@@ -274,12 +278,12 @@ bool IntraUniDirectionalDataflow::transfer(const Function& func, const DataflowE
 void IntraUniDirectionalDataflow::node_transfer( const Function& func,
                                                  const DataflowNode& n,
                                                  NodeState& state,
-                                                 AnyLattice& lattice,
+                                                 LatticePtr lattice,
                                                  VirtualCFG::dataflow& worklist
                                                )
 {
   // invoke transfer function
-  transfer(func, n, state, *lattice.ptr());
+  transfer(func, n, state, lattice);
 
   // propagate result to all children
   ConnectionContainer descendants = getDescendants(n);
@@ -315,9 +319,9 @@ void IntraUniDirectionalDataflow::node_transfer( const Function& func,
   }
 }
 
-void IntraUniDirectionalDataflow::edge_transfer(const Function& func, const DataflowNode& n, NodeState& state, AnyLattice& lattice, VirtualCFG::dataflow& worklist)
+void IntraUniDirectionalDataflow::edge_transfer(const Function& func, const DataflowNode& n, NodeState& state, LatticePtr lattice, VirtualCFG::dataflow& worklist)
 {
-  AnyLattice          totalNodeLattice(lattice);
+  LatticePtr          totalNodeLattice(lattice->copy());
   ConnectionContainer descendants = getDescendants(n);
 
   dbg_Descendants(descendants);
@@ -327,10 +331,10 @@ void IntraUniDirectionalDataflow::edge_transfer(const Function& func, const Data
           // The CFG node corresponding to the current descendant of n
           DataflowEdge  thisEdge = *di;
           DataflowNode  nextNode = flowTarget(thisEdge);
-          AnyLattice    thisLattice(lattice);
+          LatticePtr    thisLattice(lattice->copy());
 
           // \pp shall we distinguish between forward / backward flow
-          const bool    valid_edge = transfer(func, thisEdge, state, *thisLattice.ptr());
+          const bool    valid_edge = transfer(func, thisEdge, state, thisLattice);
 
           if (valid_edge)
           {
@@ -354,7 +358,7 @@ void IntraUniDirectionalDataflow::edge_transfer(const Function& func, const Data
                     worklist.add(nextNode);
             }
 
-            totalNodeLattice.meetUpdate(thisLattice);
+            totalNodeLattice->meetUpdate(thisLattice.get());
             dbg_LatticeUpdate(updNextstate);
             // \pp \todo shall we assert that there is at least one valid edge?
           }
@@ -454,10 +458,10 @@ bool IntraUniDirectionalDataflow::runAnalysis(const Function& func, NodeState* f
                         // reset the modified state, since only the last NodeState's change matters
                         //modified = false;
 
-                        const AnyLattice& dfInfoAnte = getLatticeAnte(state);
-                        AnyLattice&       dfInfoPost = getLatticePost(state);
+                        ConstLatticePtr dfInfoAnte = getLatticeAnte(state);
+                        LatticePtr      dfInfoPost = getLatticePost(state);
 
-                        dfInfoPost = dfInfoAnte;
+                        dfInfoPost->copy(dfInfoAnte.get());
 
 #if OBSOLETE_CODE
                         // Overwrite the Lattices below this node with the lattices above this node.
@@ -509,7 +513,7 @@ bool IntraUniDirectionalDataflow::runAnalysis(const Function& func, NodeState* f
                         // =================== TRANSFER FUNCTION ===================
                         if(analysisDebugLevel>=1)
                         {
-                                Dbg::dbg << "    Transferred: Lattice: \n        "<<dfInfoPost.str("            ")<<endl;
+                                Dbg::dbg << "    Transferred: Lattice: \n        "<<dfInfoPost->str("            ")<<endl;
                                 // Dbg::dbg << "    transferred, modified="<<modified<<endl;
                         }
 

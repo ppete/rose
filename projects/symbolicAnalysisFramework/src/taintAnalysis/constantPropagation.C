@@ -98,7 +98,7 @@ ConstantPropagationLattice::initialize()
 
 
 // returns a copy of this lattice
-Lattice*
+ConstantPropagationLattice*
 ConstantPropagationLattice::copy() const
    {
      return new ConstantPropagationLattice(*this);
@@ -525,9 +525,9 @@ ConstantPropagationAnalysis::genFacts(const Function& func, const DataflowNode& 
 }
 
 bool
-ConstantPropagationAnalysis::transfer(const Function& func, const DataflowNode& n, NodeState& state, Lattice& dfInfo)
+ConstantPropagationAnalysis::transfer(const Function& func, const DataflowNode& n, NodeState& state, LatticePtr dfInfo)
    {
-     visitor_transfer(ConstantPropagationAnalysisTransfer(func, n, state, dfInfo), n);
+     visitor_transfer(ConstantPropagationAnalysisTransfer(func, n, state, *dfInfo.get()), n);
      return true;
    }
 

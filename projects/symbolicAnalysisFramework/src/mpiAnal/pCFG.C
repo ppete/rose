@@ -216,7 +216,7 @@ NodeState* pCFGState::getNodeState(const Function& func, const pCFGNode& n, pCFG
 void pCFGState::initNodeState(const Function& func, const pCFGNode& n, NodeState* state, pCFG_FWDataflow* intraAnalysis)
 {
         //Dbg::dbg << "pCFGState::initNodeState"<<endl;
-        Lattice*          initLats = intraAnalysis->genLattice(func, n, *state);
+        LatticePtr        initLats(intraAnalysis->genLattice(func, n, *state));
         vector<NodeFact*> initFacts = intraAnalysis->genFacts(func, n, *state);
 
         state->setLattice((Analysis*)intraAnalysis, initLats);
@@ -685,8 +685,8 @@ bool pCFG_FWDataflow::runAnalysis_pCFG(const Function& func, NodeState* fState, 
         watchFunc = func;
         watchObj = this;
 }*/
-                                AnyLattice& dfInfoAbove  = state->getLatticeAboveMod(this);
-                                AnyLattice& dfInfoBelow  = state->getLatticeBelowMod(this);
+                                LatticePtr dfInfoAbove  = state->getLatticeAboveMod(this);
+                                LatticePtr dfInfoBelow  = state->getLatticeBelowMod(this);
 
                                 // The pCFG node that corresponds to curPSet advancing along the outgoing edge.
                                 // Will be set by the code inside the if statement below to advance the
@@ -714,6 +714,8 @@ if(analysisDebugLevel>=1) Dbg::dbg << indent << "merged="<<merged<<endl;
                                         // to the merged descN
                                         // !!! What happens to the original Lattices of dfInfoBelow? Are they leaked?
                                         // !!! Are there now references of the lattices in dfInfoAbove? If so, does it mean they're changed during this function?
+                                        // \pp should this not be
+                                        // dfInfoBelow->copy(dfInfoAbove.get());
                                         dfInfoBelow = dfInfoAbove;
                                 }
                                 // Else, if we didn't merge and the current process set was resumed from blocked
@@ -765,7 +767,7 @@ if(analysisDebugLevel>=1) Dbg::dbg << indent << "merged="<<merged<<endl;
                                         // correct state below this node.
 
                                         // The new information below this pCFGNode. Initially a copy of the above information
-                                        AnyLattice dfInfoNewBelow = dfInfoAbove;
+                                        LatticePtr dfInfoNewBelow(dfInfoAbove->copy());
 
 #if OBSOLETE_CODE
                                         int j=0;
@@ -904,7 +906,7 @@ if(analysisDebugLevel>=1) Dbg::dbg << indent << "merged="<<merged<<endl;
                                         for(vector<Lattice*>::const_iterator itB = dfInfoBelow.begin();
                                             itB != dfInfoBelow.end(); itB++, j++)
 #endif /* OBSOLETE_CODE */
-                                        Dbg::dbg << indent << "    Transferred: Lattice "<<j<<": \n    "<<dfInfoBelow.str(indent+"        ")<<endl;
+                                        Dbg::dbg << indent << "    Transferred: Lattice "<<j<<": \n    "<<dfInfoBelow->str(indent+"        ")<<endl;
                                         Dbg::dbg << indent << "    transferred, modified="<<modified<<endl;
                                         Dbg::dbg << indent << "    ------------------\n";
                                 }
@@ -965,7 +967,8 @@ if(analysisDebugLevel>=1) Dbg::dbg << indent << "merged="<<merged<<endl;
                 vector<bool>         splitPSetActive;
                 vector<bool>         pSetActive;
 
-                AnyLattice aboveCopy = pCFGState::getNodeState(func, n, this)->getLatticeAbove(this);
+                ConstLatticePtr aboveLat = pCFGState::getNodeState(func, n, this)->getLatticeAbove(this);
+                LatticePtr      aboveCopy(aboveLat->copy());
                 // \pp was: latticeCopyFill(aboveCopy, pCFGState::getNodeState(func, n, this)->getLatticeAbove(this));
 
                 /*set<pCFG_Checkpoint*> splitChkpts = matchSendsRecvs(n, pCFGState::getNodeState(func, n, this),
@@ -1061,7 +1064,7 @@ if(analysisDebugLevel>=1) Dbg::dbg << indent << "merged="<<merged<<endl;
 
                 // Deallocates aboveCopy since we've now performed the split and if needed, propagated
                 // these lattices to the next pCFGNode
-                deleteLattices(aboveCopy);
+                // deleteLattices(aboveCopy);
 
                 // If we must split this analysis into multiple partitions, request this split from the parent partitioned analysis
                 /*if(splitChkpts.size()>0)
@@ -1107,7 +1110,7 @@ if(analysisDebugLevel>=1) Dbg::dbg << indent << "merged="<<merged<<endl;
 // Return true if any process sets were merged, false otherwise.
 // If no processes are merged, mergePCFGNodes does not modify mergedN, dfInfo, activePSets, blockedPSets or releasedPSets.
 bool pCFG_FWDataflow::mergePCFGNodes(const pCFGNode& n, pCFGNode& mergedN,
-                                     const Function& func, NodeState& state, AnyLattice& dfInfo,
+                                     const Function& func, NodeState& state, LatticePtr dfInfo,
                                      set<unsigned int>& activePSets, set<unsigned int>& blockedPSets, set<unsigned int>& releasedPSets, string indent)
 {
         startProfileFunc("mergePCFGNodes", indent);
@@ -1249,18 +1252,18 @@ void pCFG_FWDataflow::split(const set<pCFG_Checkpoint*>& splitChkpts)
 }
 
 
+#if OBSOLETE_CODE
 // Deallocates all the lattices in lats and empties it out
 void pCFG_FWDataflow::deleteLattices(AnyLattice& lats)
 {
   AnyLattice empty;
 
   swap(lats, empty);
-#if OBSOLETE_CODE
-        for(vector<Lattice*>::iterator it=lats.begin(); it!=lats.end(); it++)
-                delete *it;
-        lats.clear();
-#endif /* OBSOLETE_CODE */
+        //~ for(vector<Lattice*>::iterator it=lats.begin(); it!=lats.end(); it++)
+                //~ delete *it;
+        //~ lats.clear();
 }
+#endif /* OBSOLETE_CODE */
 
 // Call the analysis transfer function.
 // If the transfer function wants to block on the current DataflowNode, sets blockPSet to true.
@@ -1273,7 +1276,7 @@ void pCFG_FWDataflow::deleteLattices(AnyLattice& lats)
 bool pCFG_FWDataflow::partitionTranfer(
                            const pCFGNode& n, pCFGNode& descN, unsigned int curPSet, const Function& func, NodeState* fState,
                            const DataflowNode& dfNode, NodeState* state,
-                           AnyLattice& dfInfoBelow, AnyLattice& dfInfoNewBelow,
+                           LatticePtr dfInfoBelow, LatticePtr dfInfoNewBelow,
                            bool& deadPSet, bool& splitPSet, bool& splitPNode, bool& blockPSet,
                            set<unsigned int>& activePSets, set<unsigned int>& blockedPSets, set<unsigned int>& releasedPSets,
                            const DataflowNode& funcCFGEnd)
@@ -1398,7 +1401,7 @@ bool pCFG_FWDataflow::partitionTranfer(
 //    (t from tgtLattices, s from srcLattices), t = t widen (t union s).
 // If delSrcLattices==true, deletes all the lattices in srcLattices.
 // Returns true if this causes the target lattices to change, false otherwise.
-bool pCFG_FWDataflow::updateLattices(AnyLattice& tgtLattice, AnyLattice& srcLattice, bool delSrcLattices, string indent)
+bool pCFG_FWDataflow::updateLattices(LatticePtr tgtLattice, LatticePtr srcLattice, bool delSrcLattices, string indent)
 {
         bool modified = false;
 
@@ -1414,31 +1417,32 @@ bool pCFG_FWDataflow::updateLattices(AnyLattice& tgtLattice, AnyLattice& srcLatt
                 if(analysisDebugLevel>=1)
                 {
                         // \todo replaced i with 0
-                        Dbg::dbg << indent << "updateLattices() Lattice "<<0<<" Below Info:"<< tgtLattice.str(indent+"      ")<<endl;
-                        Dbg::dbg << indent << "updateLattices() Lattice "<<0<<" New Transferred Below Info:"<<srcLattice.str(indent+"      ")<<endl;
+                        Dbg::dbg << indent << "updateLattices() Lattice "<<0<<" Below Info:"<< tgtLattice->str(indent+"      ")<<endl;
+                        Dbg::dbg << indent << "updateLattices() Lattice "<<0<<" New Transferred Below Info:"<<srcLattice->str(indent+"      ")<<endl;
                 }
 
                 // Finite Lattices can use the regular meet operator, while infinite Lattices
                 // must also perform widening to ensure convergence.
-                if(tgtLattice.finiteLattice())
+                if(tgtLattice->finiteLattice())
                 {
-                        modified = tgtLattice.meetUpdate(srcLattice) || modified;
+                        modified = tgtLattice->meetUpdate(srcLattice.get()) || modified;
                         if(analysisDebugLevel>=1)
-                                Dbg::dbg << indent << "updateLattices() Lattice after Meet Below Info:"<<tgtLattice.str(indent+"      ")<<endl;
+                                Dbg::dbg << indent << "updateLattices() Lattice after Meet Below Info:"<<tgtLattice->str(indent+"      ")<<endl;
                 }
                 else
                 {
-                        // \pp src -> target? why does the direction differ
-                        //                    compared to the meetUpdate in the
-                        //                    preceding block?
-                        srcLattice.meetUpdate(tgtLattice);
+                        InfiniteLatticePtr infSource = boost::dynamic_pointer_cast<InfiniteLattice>(srcLattice);
+                        InfiniteLatticePtr infTarget = boost::dynamic_pointer_cast<InfiniteLattice>(tgtLattice);
+
+                        infSource->meetUpdate(infTarget.get());
                         if(analysisDebugLevel>=1)
-                                Dbg::dbg << indent << "updateLattices() Lattice after Meet Below Info:"<<srcLattice.str(indent+"      ")<<endl;
-                        modified = tgtLattice.widenUpdate(srcLattice) || modified;
+                                Dbg::dbg << indent << "updateLattices() Lattice after Meet Below Info:"<<srcLattice->str(indent+"      ")<<endl;
+                        modified = infTarget->widenUpdate(infSource.get()) || modified;
                         if(analysisDebugLevel>=1)
-                                Dbg::dbg << indent << "updateLattices() Lattice after Widening Below Info:"<<tgtLattice.str(indent+"      ")<<endl;
+                                Dbg::dbg << indent << "updateLattices() Lattice after Widening Below Info:"<<tgtLattice->str(indent+"      ")<<endl;
                 }
 
+#if OBSOLETE_CODE
                 // Delete the current lattice in srcLattices
                 if(delSrcLattices)
                 { // \pp needed?
@@ -1448,7 +1452,6 @@ bool pCFG_FWDataflow::updateLattices(AnyLattice& tgtLattice, AnyLattice& srcLatt
 
                   swap(empty, srcLattice);
                 }
-#if OBSOLETE_CODE
         }
 #endif /* OBSOLETE_CODE */
 
@@ -1472,7 +1475,7 @@ bool pCFG_FWDataflow::updateLattices(AnyLattice& tgtLattice, AnyLattice& srcLatt
 //    must be set fresh. If freshPSet==false, each partition's process set is simply
 //    an updated version of the old process set (i.e. an extra condition is applied).
 void pCFG_FWDataflow::performPSetSplit(const pCFGNode& n, pCFGNode& descN, unsigned int pSet,
-                                AnyLattice& dfInfo,
+                                LatticePtr dfInfo,
                                 vector<ConstrGraph*> splitConditions, vector<DataflowNode> splitPSetNodes,
                                 vector<bool>& splitPSetActive,
                                 const Function& func, NodeState* fState, NodeState* state,
@@ -1593,14 +1596,16 @@ void pCFG_FWDataflow::performPSetSplit(const pCFGNode& n, pCFGNode& descN, unsig
 //     NodeState (nextNodeLattices), incorporating the partition condition (if any) into the propagated dataflow state.
 // Returns true if the next node's meet state is modified and false otherwise.
 /*bool */ void pCFG_FWDataflow::propagateFWStateToNextNode(const Function& func,
-                      const AnyLattice& curNodeLattices, const pCFGNode& curNode, const NodeState& curNodeState,
-                      AnyLattice& nextNodeLattices, const pCFGNode& nextNode,
+                      ConstLatticePtr curNodeLattices, const pCFGNode& curNode, const NodeState& curNodeState,
+                      LatticePtr nextNodeLattices, const pCFGNode& nextNode,
                       ConstrGraph* partitionCond, unsigned int pSet, string indent)
 {
-
+#if OBSOLETE_CODE
         //bool modified = false;
         vector<Lattice*>::const_iterator itC;
         vector<Lattice*>::iterator       itN;
+#endif /* OBSOLETE_CODE */
+
         if(analysisDebugLevel>=1)
         {
                 if(analysisDebugLevel>=1)
@@ -1616,8 +1621,8 @@ void pCFG_FWDataflow::performPSetSplit(const pCFGNode& n, pCFGNode& descN, unsig
 #endif /* OBSOLETE_CODE */
                         if(analysisDebugLevel>=1)
                         {
-                                Dbg::dbg << indent << "        Current node below: Lattice: "<<curNodeLattices.str("            ")<<endl;
-                                Dbg::dbg << indent << "        Next node above: Lattice : "<<nextNodeLattices.str("            ")<<endl;
+                                Dbg::dbg << indent << "        Current node below: Lattice: "<<curNodeLattices->str("            ")<<endl;
+                                Dbg::dbg << indent << "        Next node above: Lattice : "<<nextNodeLattices->str("            ")<<endl;
                         }
                         /*Dbg::dbg << "-----\n"; fflush(stdout);
                         ConstrGraph* cg = dynamic_cast<ConstrGraph*>(*itN);
@@ -1632,8 +1637,7 @@ void pCFG_FWDataflow::performPSetSplit(const pCFGNode& n, pCFGNode& descN, unsig
         }
         // If we need to apply a partition condition to the meet lattices, use the
         // initPSetDFfromPartCond() function provided by the specific analysis
-        AnyLattice curNodeLattices_withPartCond;
-        int x;
+        ConstLatticePtr nextSourceLattice = curNodeLattices;
 
         if(analysisDebugLevel>=1)
                 Dbg::dbg << indent << "partitionCond = "<<partitionCond<<endl;
@@ -1642,8 +1646,7 @@ void pCFG_FWDataflow::performPSetSplit(const pCFGNode& n, pCFGNode& descN, unsig
         {
                 // \pp is it possible to copy the lattice to nextNodeLattices
                 //     and then invoke initPSetDFfromPartCond?
-
-                curNodeLattices_withPartCond = curNodeLattices;
+                LatticePtr curNodeLattices_withPartCond(curNodeLattices->copy());
 
 #if OBSOLETE_CODE
                 for(vector<Lattice*>::const_iterator it=curNodeLattices.begin();
@@ -1659,9 +1662,10 @@ void pCFG_FWDataflow::performPSetSplit(const pCFGNode& n, pCFGNode& descN, unsig
                                        curNodeLattices_withPartCond, curNodeState.getFacts((Analysis*)this),
                                        partitionCond);
 
+                nextSourceLattice = curNodeLattices_withPartCond;
         }
 
-        const AnyLattice& lattice = (partitionCond ? curNodeLattices_withPartCond : curNodeLattices);
+        nextNodeLattices->copy(nextSourceLattice.get());
 
 #if OBSOLETE_CODE
         // Update forward info above nextNode from the forward info below curNode.
@@ -1705,11 +1709,7 @@ Dbg::dbg << "Propagated: itN="<<(*itN)->str()<<endl;*/
                         Dbg::dbg << "            meetResult: " << (*itN)->str("") << endl;
                 }*/
         }
-#endif /* OBSOLETE_CODE */
 
-        nextNodeLattices = curNodeLattices_withPartCond;
-
-#if OBSOLETE_CODE
         // If we had to generate copies of the curNodeLattices to incorporate the partition condition
         // into those lattices, delete these objects
         if(partitionCond)

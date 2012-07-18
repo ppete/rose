@@ -38,7 +38,7 @@ class BoolAndLattice : public FiniteLattice
         { Lattice::uninitialize(); }
 
         // returns a copy of this lattice
-        Lattice* copy() const;
+        BoolAndLattice* copy() const;
 
         // overwrites the state of this Lattice with that of that Lattice
         void copy(const Lattice* that);
@@ -98,7 +98,7 @@ class IntMaxLattice : public InfiniteLattice
         }
 
         // returns a copy of this lattice
-        Lattice* copy() const;
+        IntMaxLattice* copy() const;
 
         // overwrites the state of this Lattice with that of that Lattice
         void copy(const Lattice* that);
@@ -279,7 +279,6 @@ class InfiniteProductLattice : public virtual ProductLattice, public virtual Inf
         bool widenUpdate(const InfiniteLattice* that);
 };
 
-
 class VariablesProductLattice : public virtual ProductLattice
 {
         protected:
@@ -426,6 +425,9 @@ class FiniteVariablesProductLattice : public virtual VariablesProductLattice, pu
         }
 };
 
+typedef boost::shared_ptr<FiniteVariablesProductLattice>       FiniteVariablesProductLatticePtr;
+typedef boost::shared_ptr<const FiniteVariablesProductLattice> ConstFiniteVariablesProductLatticePtr;
+
 class InfiniteVariablesProductLattice : public virtual VariablesProductLattice, public virtual InfiniteProductLattice
 {
         public:
@@ -479,6 +481,5 @@ struct DefaultLattice : Lattice
 
   bool operator==(const Lattice* l) const { return true; }
 };
-
 
 #endif

@@ -119,9 +119,9 @@ MPIDepAnalysis::genFacts(const Function& func, const DataflowNode& n, const Node
   return std::vector<NodeFact*>();
 }
 
-bool MPIDepAnalysis::transfer(const Function& func, const DataflowNode& node, NodeState& state, Lattice& dfInfo)
+bool MPIDepAnalysis::transfer(const Function& func, const DataflowNode& node, NodeState& state, LatticePtr dfInfo)
 {
-    visitor_transfer(MPIDepAnalysisTransfer(func, node, state, dfInfo), node);
+    visitor_transfer(MPIDepAnalysisTransfer(func, node, state, *dfInfo.get()), node);
     return true;
 }
 

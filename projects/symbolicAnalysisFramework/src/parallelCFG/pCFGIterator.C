@@ -30,14 +30,14 @@ pCFGIterator::genFacts(const Function& func, const pCFGNode& n, const NodeState&
 
 void pCFGIterator::copyPSetState(const Function& func, const pCFGNode& n,
                    unsigned int srcPSet, unsigned int tgtPSet, NodeState& state,
-                   AnyLattice& lattice, vector<NodeFact*>& facts,
+                   LatticePtr lattice, vector<NodeFact*>& facts,
                    ConstrGraph* partitionCond, bool omitRankSet)
 {
     assert(0);
 }
 
 bool pCFGIterator::initPSetDFfromPartCond(const Function& func, const pCFGNode& n, unsigned int pSet,
-                                AnyLattice& dfInfo, const vector<NodeFact*>& facts,
+                                LatticePtr dfInfo, const vector<NodeFact*>& facts,
                                 ConstrGraph* partitionCond)
 {
     assert(0);
@@ -45,12 +45,12 @@ bool pCFGIterator::initPSetDFfromPartCond(const Function& func, const pCFGNode& 
 }
 
 void pCFGIterator::mergePCFGStates(const list<unsigned int>& pSetsToMerge, const pCFGNode& n, const Function& func,
-                         NodeState& state, AnyLattice& dfInfo, map<unsigned int, unsigned int>& pSetMigrations)
+                         NodeState& state, LatticePtr dfInfo, map<unsigned int, unsigned int>& pSetMigrations)
 {
     assert(0);
 }
 
-void pCFGIterator::matchSendsRecvs(const pCFGNode& n, const AnyLattice& dfInfo, NodeState* state,
+void pCFGIterator::matchSendsRecvs(const pCFGNode& n, ConstLatticePtr dfInfo, NodeState* state,
                      // Set by analysis to identify the process set that was split
                      unsigned int& splitPSet,
                      vector<ConstrGraph*>& splitConditions,
@@ -73,7 +73,7 @@ bool pCFGIterator::transfer(const pCFGNode& n,
                             unsigned int pSet,
                             const Function& func,
                             NodeState& state,
-                            AnyLattice& dfInfo,
+                            LatticePtr dfInfo,
                             bool& deadPSet,
                             bool& splitPSet,
                             vector<DataflowNode>& splitPSetNodes,
@@ -93,7 +93,7 @@ bool pCFGIterator::transfer(const pCFGNode& n,
                             unsigned int pSet,
                             const Function& func,
                             NodeState& state,
-                            AnyLattice& dfInfo,
+                            LatticePtr dfInfo,
                             bool& isDeadPSet,
                             bool& isSplitPSet,
                             vector<DataflowNode>& splitPSetNodes,
@@ -123,7 +123,7 @@ bool pCFGIterator::transfer(const pCFGNode& n,
     return modified;
 }
 
-void pCFGIterator::resetPSet(unsigned int pSet, AnyLattice& dfInfo)
+void pCFGIterator::resetPSet(unsigned int pSet, LatticePtr dfInfo)
 {
     assert(0);
 }
@@ -282,7 +282,7 @@ bool pCFGIterator::runAnalysis_pCFG(const Function& func, NodeState* state, pCFG
                     // correct state below this node.
 
                     // The new information below this pCFGNode. Initially a copy of the above information
-                    AnyLattice dfInfoNewBelow;
+                    LatticePtr dfInfoNewBelow(static_cast<Lattice*>(0));
 
                     // Initialize dfInfoNewBelow to be the copy of the information above this node.
                     //    It will then get pushed through the transfer function before being unioned

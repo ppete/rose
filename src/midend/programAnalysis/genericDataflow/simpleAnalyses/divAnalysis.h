@@ -85,7 +85,7 @@ class DivLattice : public FiniteLattice
         { }
 
         // returns a copy of this lattice
-        Lattice* copy() const;
+        DivLattice* copy() const;
 
         // overwrites the state of this Lattice with that of that Lattice
         void copy(const Lattice* that);
@@ -235,9 +235,9 @@ class DivAnalysis : public IntraFWDataflow
         //    maintain only one copy of each lattice may for the duration of the analysis.
         //std::map<varID, Lattice*>& genConstVarLattices() const;
 
-        bool transfer(const Function& func, const DataflowNode& n, NodeState& state, Lattice& lat)
+        bool transfer(const Function& func, const DataflowNode& n, NodeState& state, LatticePtr lat)
         {
-          visitor_transfer( DivAnalysisTransfer(func, n, state, lat), n );
+          visitor_transfer( DivAnalysisTransfer(func, n, state, *lat.get()), n );
           return true; // \todo \pp \get the value from the transfer visitor?
         }
 };

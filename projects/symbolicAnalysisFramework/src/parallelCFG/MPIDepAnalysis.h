@@ -58,7 +58,7 @@ class MPIDepLattice : public FiniteLattice
     // copy from that
     void copy(const Lattice* that);
 
-    Lattice* copy() const
+    MPIDepLattice* copy() const
     {
         return new MPIDepLattice(*this);
     }
@@ -137,7 +137,7 @@ class MPIDepAnalysis : public IntraFWDataflow
 
 
     // transfer function that maps current state to next state
-    bool transfer(const Function& func, const DataflowNode& n, NodeState& state, Lattice& dfInfo);
+    bool transfer(const Function& func, const DataflowNode& n, NodeState& state, LatticePtr dfInfo);
 
 #if OBSOLETE_CODE
     void genInitState(const Function& func, const DataflowNode& n, const NodeState& state,

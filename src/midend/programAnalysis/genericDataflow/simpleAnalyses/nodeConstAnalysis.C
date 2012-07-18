@@ -22,7 +22,7 @@ const int nodeConstLattice::constVal;
 const int nodeConstLattice::multVal;
 
 // returns a copy of this lattice
-Lattice* nodeConstLattice::copy() const
+nodeConstLattice* nodeConstLattice::copy() const
 {
         return new nodeConstLattice(*this);
 }
@@ -255,11 +255,12 @@ nodeConstAnalysis::genFacts(const Function& func, const DataflowNode& n, const N
   return std::vector<NodeFact*>();
 }
 
-bool nodeConstAnalysis::transfer(const Function& func, const DataflowNode& n, NodeState& state, Lattice& dfInfo)
+bool nodeConstAnalysis::transfer(const Function& func, const DataflowNode& n, NodeState& state, LatticePtr dfInfo)
 {
         bool modified=false; // \todo \pp variable no longer needed
 
-        FiniteVariablesProductLattice* prodLat = &dynamic_cast<FiniteVariablesProductLattice&>(dfInfo);
+        FiniteVariablesProductLattice* prodLat = dynamic_cast<FiniteVariablesProductLattice*>(dfInfo.get());
+        ROSE_ASSERT(prodLat);
 
         printf("nodeConstAnalysis::transfer\n");
 
@@ -389,7 +390,7 @@ bool nodeConstAnalysis::transfer(const Function& func, const DataflowNode& n, No
 // runs the nodeConstAnalysis on the project and returns the resulting nodeConstAnalysis object
 nodeConstAnalysis* runNodeConstAnalysis()
 {
-        nodeConstAnalysis* nca = new nodeConstAnalysis();
+        nodeConstAnalysis* nca = new nodeConstAnalysis;
         ContextInsensitiveInterProceduralDataflow ciipd_nca(nca, getCallGraph());
         ciipd_nca.runAnalysis();
         /*UnstructuredPassInterDataflow upipd_nca(nca);

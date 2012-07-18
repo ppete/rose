@@ -665,8 +665,8 @@ printf("    dfIt!=VirtualCFG::dataflow::end() = %d\n", dfIt!=VirtualCFG::dataflo
                         // Overwrite the Lattices below this node with the lattices above this node.
                         // The transfer function will then operate on these Lattices to produce the
                         // correct state below this node.
-                        const AnyLattice& dfInfoAbove  = state->getLatticeAbove(this);
-                              AnyLattice& dfInfoBelow  = state->getLatticeBelowMod(this);
+                        ConstLatticePtr dfInfoAbove  = state->getLatticeAbove(this);
+                        LatticePtr      dfInfoBelow  = state->getLatticeBelowMod(this);
 
                         // ---------------------------------------------------------------------------------------
                         // If we're restarting following a split or we're restarting from a join and this dataflow
@@ -682,11 +682,11 @@ printf("    dfIt!=VirtualCFG::dataflow::end() = %d\n", dfIt!=VirtualCFG::dataflo
 
                         {
                                 if(analysisDebugLevel>=1){
-                                        cout << "    Meet Above: Lattice: \n    "<<dfInfoAbove.str("        ")<<"\n";
-                                        cout << "    Meet Below: Lattice: \n    "<<dfInfoBelow.str("        ")<<"\n";
+                                        cout << "    Meet Above: Lattice: \n    "<<dfInfoAbove->str("        ")<<"\n";
+                                        cout << "    Meet Below: Lattice: \n    "<<dfInfoBelow->str("        ")<<"\n";
                                 }
 
-                                dfInfoBelow = dfInfoAbove;
+                                dfInfoBelow->copy(dfInfoAbove.get());
 
                                 // <<<<<<<<<<<<<<<<<<< TRANSFER FUNCTION <<<<<<<<<<<<<<<<<<<
 
@@ -702,9 +702,11 @@ printf("    dfIt!=VirtualCFG::dataflow::end() = %d\n", dfIt!=VirtualCFG::dataflo
                                         Function calledFunc(isSgFunctionCallExp(sgn));
                                         if(calledFunc.get_definition())
                                         {
-                                                const Lattice* retState = 0;
+                                                Lattice*        nullLattice = 0;
+                                                ConstLatticePtr retState(nullLattice);
+
                                                 dynamic_cast<InterProceduralDataflow*>(interAnalysis)->
-                                                      transfer(calledFunc, n, *state, *dfInfoBelow.ptr(), retState, true);
+                                                      transfer(calledFunc, n, *state, dfInfoBelow, retState, true);
 
                                                 ROSE_ASSERT(retState);
                                                 // NEED TO INCORPORATE INFORMATION ABOUT RETURN INTO DATAFLOW SOMEHOW
@@ -795,7 +797,7 @@ printf("    dfIt!=VirtualCFG::dataflow::end() = %d\n", dfIt!=VirtualCFG::dataflo
 
                         if(analysisDebugLevel>=1)
                         {
-                                cout << "    Transferred: Lattice: \n    "<<dfInfoBelow.str("        ")<<"\n";
+                                cout << "    Transferred: Lattice: \n    "<<dfInfoBelow->str("        ")<<"\n";
                         }
 
                         // Look at the next NodeState
@@ -930,9 +932,9 @@ for(set<DataflowNode>::iterator itDF=outChkpt->joinNodes.begin(); itDF!=outChkpt
         printf("fState->getLatticeAbove(this).size()=%d\n", fState->getLatticeAbove(interAnalysis).size());*/
                 // Test if the Lattices at the bottom of the function after the forward analysis are equal to their
                 // original values in the function state.
-                NodeState*  exitState = NodeState::getNodeStates(funcCFGEnd).front();
-                AnyLattice& latAbove = exitState->getLatticeAboveMod(this);
-                bool        modified = latAbove != fState->getLatticeBelow(/*interAnalysis*/this);
+                NodeState* exitState = NodeState::getNodeStates(funcCFGEnd).front();
+                LatticePtr latAbove = exitState->getLatticeAboveMod(this);
+                bool       modified = latAbove != fState->getLatticeBelow(/*interAnalysis*/this);
 
                 // Update the the function's exit NodeState with the final state of this function's dataflow analysis.
                 NodeState::copyLattices_bEQa(/*interAnalysis*/this, *fState, this, *exitState);
@@ -945,7 +947,7 @@ for(set<DataflowNode>::iterator itDF=outChkpt->joinNodes.begin(); itDF!=outChkpt
 
 IntraPartitionFWDataflow::partitionTranferRet IntraPartitionFWDataflow::partitionTranfer(
                            const Function& func, NodeState* fState, const DataflowNode& n, NodeState* state, VirtualCFG::dataflow& dfIt,
-                           AnyLattice& dfInfoBelow, bool& splitPart, set<DataflowNode>& joinNodes,
+                           LatticePtr dfInfoBelow, bool& splitPart, set<DataflowNode>& joinNodes,
                            IntraPartitionDataflowCheckpoint*& outChkpt)
 {
         IntraPartitionFWDataflow::splitType splitAnalysis=IntraPartitionFWDataflow::noSplit;
@@ -1012,14 +1014,14 @@ IntraPartitionFWDataflow::partitionTranferRet IntraPartitionFWDataflow::partitio
 //     NodeState (nextNodeState).
 // Returns true if the next node's meet state is modified and false otherwise.
 bool IntraPartitionFWDataflow::propagateFWStateToNextNode(
-                      const AnyLattice& curNodeState, DataflowNode curNode, int curNodeIndex,
-                      AnyLattice& nextNodeState, DataflowNode nextNode)
+                      ConstLatticePtr curNodeState, DataflowNode curNode, int curNodeIndex,
+                      LatticePtr nextNodeState, DataflowNode nextNode)
 {
         bool modified = false;
         if(analysisDebugLevel>=1){
                 printf("\n        Propagating to Next Node: %p[%s]<%s>\n", nextNode.getNode(), nextNode.getNode()->class_name().c_str(), nextNode.getNode()->unparseToString().c_str());
-                cout << "        Current node below: Lattice: \n"<<curNodeState.str("            ")<<"\n";
-                cout << "        Next node above: Lattice: \n"<<nextNodeState.str("            ")<<"\n";
+                cout << "        Current node below: Lattice: \n"<<curNodeState->str("            ")<<"\n";
+                cout << "        Next node above: Lattice: \n"<<nextNodeState->str("            ")<<"\n";
         }
 
         // Update forward info above nextNode from the forward info below curNode.
@@ -1029,30 +1031,31 @@ bool IntraPartitionFWDataflow::propagateFWStateToNextNode(
 
         // Finite Lattices can use the regular meet operator, while infinite Lattices
         // must also perform widening to ensure convergence.
-        if (nextNodeState.finiteLattice())
+        if (nextNodeState->finiteLattice())
         {
-                modified = nextNodeState.meetUpdate(curNodeState) || modified;
+                modified = nextNodeState->meetUpdate(curNodeState.get()) || modified;
         }
         else
         {
                 //InfiniteLattice* meetResult = (InfiniteLattice*)itN->second->meet(itC->second);
-                AnyLattice meetResult(nextNodeState);
+                InfiniteLatticePtr nextInfState = boost::dynamic_pointer_cast<InfiniteLattice>(nextNodeState);
+                InfiniteLatticePtr meetResult(nextInfState->copy());
 
-                meetResult.meetUpdate(curNodeState);
+                meetResult->meetUpdate(curNodeState.get());
 
-                cout << "nextNodeState: " << nextNodeState.str("") << "\n";
-                cout << "curNodeState: " << curNodeState.str("") << "\n";
-                cout << "meetResult: " << meetResult.str("") << "\n";
+                cout << "nextNodeState: " << nextInfState->str("") << "\n";
+                cout << "curNodeState: " << curNodeState->str("") << "\n";
+                cout << "meetResult: " << meetResult->str("") << "\n";
 
                 // widen the resulting meet
-                modified =  nextNodeState.widenUpdate(meetResult);
+                modified = nextInfState->widenUpdate(meetResult.get());
         }
 
         if(analysisDebugLevel>=1){
                 if(modified)
                 {
                         cout << "        Next node's in-data modified. Adding...\n";
-                        cout << "        Propagated: Lattice: \n"<<nextNodeState.str("            ")<<"\n";
+                        cout << "        Propagated: Lattice: \n"<<nextNodeState->str("            ")<<"\n";
                 }
                 else
                         cout << "        No modification on this node\n";

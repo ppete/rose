@@ -89,12 +89,12 @@ class NodeStateHashCompare
 class NodeState
 {
         #ifdef THREADED
-        typedef tbb::concurrent_hash_map <Analysis*, AnyLattice, NodeStateHashCompare > LatticeMap;
+        typedef tbb::concurrent_hash_map <Analysis*, LatticePtr, NodeStateHashCompare > LatticeMap;
         //typedef tbb::concurrent_hash_map <Analysis*, map <int, NodeFact*>, NodeStateHashCompare > NodeFactMap;
         typedef tbb::concurrent_hash_map <Analysis*, std::vector<NodeFact*>, NodeStateHashCompare > NodeFactMap;
         typedef tbb::concurrent_hash_map <Analysis*, bool, NodeStateHashCompare  > BoolMap;
         #else
-        typedef std::map<Analysis*, AnyLattice > LatticeMap;
+        typedef std::map<Analysis*, LatticePtr > LatticeMap;
         //typedef std::map<Analysis*, std::map<int, NodeFact*> > NodeFactMap;
         typedef std::map<Analysis*, std::vector<NodeFact*> > NodeFactMap;
         typedef std::map<Analysis*, bool > BoolMap;
@@ -180,12 +180,13 @@ class NodeState
 
         // Set this node's lattices for this analysis (possibly above or below only, replacing previous mappings)
         // These methods take ownership of the pointed-to lattices.
-        void setLattice(const Analysis* analysis, const AnyLattice& a);
-        void setLatticeAbove(const Analysis* analysis, const AnyLattice& lattices);
-        void setLatticeBelow(const Analysis* analysis, const AnyLattice& lattices);
+        void setLattice(const Analysis* analysis, LatticePtr a);
+        void setLatticeAbove(const Analysis* analysis, LatticePtr lattices);
+        void setLatticeBelow(const Analysis* analysis, LatticePtr lattices);
 
         // convenience function
-        void setLattice(const Analysis* analysis, Lattice* a);
+        // \removed as we just have LatticePtr
+        // void setLattice(const Analysis* analysis, Lattice* a);
 
 #if OBSOLETE_CODE
         // returns the given lattice from above the node that is owned by the given analysis
@@ -195,17 +196,17 @@ class NodeState
 #endif /* OBSOLETE_CODE */
         // returns the map containing all the lattices from above the node that are owned by the given analysis
         // (read-only access)
-        const AnyLattice& getLatticeAbove(const Analysis* analysis) const;
+        ConstLatticePtr getLatticeAbove(const Analysis* analysis) const;
         // returns the map containing all the lattices from below the node that are owned by the given analysis
         // (read-only access)
-        const AnyLattice& getLatticeBelow(const Analysis* analysis) const;
+        ConstLatticePtr getLatticeBelow(const Analysis* analysis) const;
 
         // returns the map containing all the lattices from above the node that are owned by the given analysis
         // (read/write access)
-        AnyLattice& getLatticeAboveMod(const Analysis* analysis);
+        LatticePtr getLatticeAboveMod(const Analysis* analysis);
         // returns the map containing all the lattices from below the node that are owned by the given analysis
         // (read/write access)
-        AnyLattice& getLatticeBelowMod(const Analysis* analysis);
+        LatticePtr getLatticeBelowMod(const Analysis* analysis);
 
         // deletes all lattices above this node associated with the given analysis
         void deleteLatticeAbove(const Analysis* analysis);
@@ -344,7 +345,7 @@ class NodeState
 
         protected:
         // makes dfInfoX a copy of dfInfoY
-        static void copyLattices(AnyLattice& dfInfoX, const AnyLattice& dfInfoY);
+        static void copyLattices(LatticePtr dfInfoX, ConstLatticePtr dfInfoY);
 
         /*public:
         void operator=(NodeState& that);*/

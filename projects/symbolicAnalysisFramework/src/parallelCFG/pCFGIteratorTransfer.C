@@ -11,12 +11,13 @@ bool pCFGIteratorTransfer::isMpiDepCond(SgIfStmt* sgif)
     // get dataflow node, node state corresponding to mpidep analysis
     NodeState* mpidep_state = NodeState::getNodeState( pcfg_node.getCurNode(pSet), 0);
     ROSE_ASSERT(mpidep_state != NULL);
-    AnyLattice& mpi_dfInfo = mpidep_state->getLatticeBelowMod(mda);
+    LatticePtr mpi_dfInfo = mpidep_state->getLatticeBelowMod(mda);
 
-    FiniteVarsExprsProductLattice* prodLat = &(mpi_dfInfo.ref<FiniteVarsExprsProductLattice>());
-    MPIDepLattice* dep_lattice = dynamic_cast<MPIDepLattice*> (prodLat->getVarLattice(cond_expr_var));
+    FiniteVarsExprsProductLattice* prodLat = dynamic_cast<FiniteVarsExprsProductLattice*>(mpi_dfInfo.get());
+    ROSE_ASSERT(prodLat);
 
-    ROSE_ASSERT(dep_lattice != NULL);
+    MPIDepLattice* dep_lattice = dynamic_cast<MPIDepLattice*>(prodLat->getVarLattice(cond_expr_var));
+    ROSE_ASSERT(dep_lattice);
 
     if(dep_lattice->getLevel() == MPIDepLattice::yes)
         return true;

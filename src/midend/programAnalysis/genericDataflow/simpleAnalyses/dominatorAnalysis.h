@@ -33,7 +33,7 @@ class DominatorLattice : public FiniteLattice
         void initialize();
 
         // Returns a copy of this lattice
-        Lattice* copy() const;
+        DominatorLattice* copy() const;
 
         // Overwrites the state of this Lattice with that of that Lattice
         void copy(const Lattice* that);
@@ -117,7 +117,7 @@ class DominatorAnalysis : public IntraFWDataflow
         DominatorLattice* genLattice(const Function& func, const DataflowNode& n, const NodeState& state);
         vector<NodeFact*> genFacts(const Function& func, const DataflowNode& n, const NodeState& state);
 
-        bool transfer(const Function& func, const DataflowNode& n, NodeState& state, Lattice& dfInfo);
+        bool transfer(const Function& func, const DataflowNode& n, NodeState& state, LatticePtr dfInfo);
 };
 
 /* Computes the set of all DataflowNodes within a given function */

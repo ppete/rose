@@ -62,7 +62,7 @@ const int DivLattice::top;
 
 
 // returns a copy of this lattice
-Lattice* DivLattice::copy() const
+DivLattice* DivLattice::copy() const
 {
         return new DivLattice(*this);
 }

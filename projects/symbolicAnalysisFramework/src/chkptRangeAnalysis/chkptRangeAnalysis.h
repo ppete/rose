@@ -73,21 +73,21 @@ class ChkptRangeAnalysis : public IntraFWDataflow
         //    maintain only one copy of each lattice may for the duration of the analysis.
         map<varID, Lattice*>& genConstVarLattices() const;
 
-        bool transfer(const Function& func, const DataflowNode& n, NodeState& state, Lattice& dfInfo);
+        bool transfer(const Function& func, const DataflowNode& n, NodeState& state, LatticePtr dfInfo);
 
         // incorporates the current node's inequality information from conditionals (ifs, fors, etc.) into the current node's
         // constraint graph
         // returns true if this causes the constraint graph to change and false otherwise
         bool incorporateConditionalsInfo(const Function& func, const DataflowNode& n,
-                                         NodeState& state, Lattice& dfInfo);
+                                         NodeState& state, LatticePtr dfInfo);
 
         // incorporates the current node's divisibility information into the current node's constraint graph
         // returns true if this causes the constraint graph to change and false otherwise
-        bool incorporateDivInfo(const Function& func, const DataflowNode& n, NodeState& state, Lattice& dfInfo);
+        bool incorporateDivInfo(const Function& func, const DataflowNode& n, NodeState& state, LatticePtr dfInfo);
 
         // For any variable for which we have divisibility info, remove its constraints to other variables (other than its
         // divisibility variable)
-        bool removeConstrDivVars(const Function& func, const DataflowNode& n, NodeState& state, Lattice& dfInfo);
+        bool removeConstrDivVars(const Function& func, const DataflowNode& n, NodeState& state, LatticePtr dfInfo);
 };
 
 #endif

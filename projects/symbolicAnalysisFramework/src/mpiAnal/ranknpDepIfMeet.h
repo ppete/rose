@@ -53,7 +53,7 @@ class IfMeetLat : public virtual FiniteLattice
         void initialize();
 
         // returns a copy of this lattice
-        Lattice* copy() const;
+        IfMeetLat* copy() const;
 
         // overwrites the state of this Lattice with that of that Lattice
         void copy(const Lattice* that);
@@ -101,7 +101,7 @@ class IfMeetDetector  : public virtual IntraFWDataflow
         // Returns true if any of the input lattices changed as a result of the transfer function and
         //    false otherwise.
         //~ was: bool transfer(const Function& func, const DataflowNode& n, NodeState& state, const vector<Lattice*>& dfInfo);
-        bool transfer(const Function& func, const DataflowNode& n, NodeState& state, Lattice& lat);
+        bool transfer(const Function& func, const DataflowNode& n, NodeState& state, LatticePtr lat);
 };
 
 // prints the Lattices set by the given DivAnalysis
@@ -151,7 +151,7 @@ class RankDepIfMeetLat : public virtual FiniteLattice
         void initialize();
 
         // returns a copy of this lattice
-        Lattice* copy() const;
+        RankDepIfMeetLat* copy() const;
 
         // overwrites the state of this Lattice with that of that Lattice
         void copy(const Lattice* that);
@@ -195,7 +195,7 @@ class RankDepIfMeetDetector  : public virtual IntraFWDataflow
         //          as input and overwrites them with the result of the transfer.
         // Returns true if any of the input lattices changed as a result of the transfer function and
         //    false otherwise.
-        bool transfer(const Function& func, const DataflowNode& n, NodeState& state, Lattice& lat);
+        bool transfer(const Function& func, const DataflowNode& n, NodeState& state, LatticePtr lat);
 };
 
 // prints the Lattices set by the given DivAnalysis

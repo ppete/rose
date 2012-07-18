@@ -55,7 +55,8 @@ public:
     string funcName = fnCall->getAssociatedFunctionSymbol()->get_name().getString();
     if(funcName.find("testFunc") == string::npos) return;
 
-    FiniteVarsExprsProductLattice *lat = &(state.getLatticeAboveMod(div).ref<FiniteVarsExprsProductLattice>());
+    Lattice*                       finiteTmp = state.getLatticeAboveMod(div).get();
+    FiniteVarsExprsProductLattice* lat = &dynamic_cast<FiniteVarsExprsProductLattice&>(*finiteTmp);
     cout << indent << "Lattice before call to " << funcName << ": " << lat->str() << endl;
 
     set<varID> allVars = lat->getAllVars();

@@ -94,12 +94,12 @@ class pCFG_contProcMatchAnalysis : public virtual pCFG_FWDataflow
         // instead just adds them with no non-trivial constraints.
         void copyPSetState(const Function& func, const pCFGNode& n,
                       unsigned int srcPSet, unsigned int tgtPSet, NodeState& state,
-                      AnyLattice& lattices, vector<NodeFact*>& facts,
+                      LatticePtr lattice, vector<NodeFact*>& facts,
                       ConstrGraph* partitionCond, bool omitRankSet);
 
         // Removes all known bounds on pSet's process set in dfInfo and replaces them with the default
         // constraints on process set bounds.
-        void resetPSet(unsigned int pSet, AnyLattice& dfInfo);
+        void resetPSet(unsigned int pSet, LatticePtr dfInfo);
 
         // Helper method for resetPSet that makes it easier to call it from inside pCFG_contProcMatchAnalysis.
         void resetPSet(unsigned int pSet, ConstrGraph* cg,
@@ -148,7 +148,7 @@ class pCFG_contProcMatchAnalysis : public virtual pCFG_FWDataflow
         // constraint graph
         // returns true if this causes the constraint graph to change and false otherwise
         bool incorporateConditionalsInfo(const pCFGNode& n, unsigned int pSet, const Function& func, const DataflowNode& dfNode,
-                                         NodeState& state, AnyLattice& dfInfo);
+                                         NodeState& state, LatticePtr dfInfo);
 
         // incorporates the current node's divisibility information into the current node's constraint graph
         // returns true if this causes the constraint graph to change and false otherwise
@@ -185,7 +185,7 @@ class pCFG_contProcMatchAnalysis : public virtual pCFG_FWDataflow
         // Returns true if any of the input lattices changed as a result of the transfer function and
         //    false otherwise.
         bool transfer(const pCFGNode& n, unsigned int pSet, const Function& func,
-                      NodeState& state, AnyLattice&  dfInfo,
+                      NodeState& state, LatticePtr dfInfo,
                       bool& deadPSet, bool& splitPSet, vector<DataflowNode>& splitPSetNodes,
                       bool& splitPNode, vector<ConstrGraph*>& splitConditions, bool& blockPSet);
 
@@ -212,12 +212,12 @@ class pCFG_contProcMatchAnalysis : public virtual pCFG_FWDataflow
         // dataflow state for that process set with the set's specific condition.
         // Returns true if this causes the dataflow state to change and false otherwise
         bool initPSetDFfromPartCond(const Function& func, const pCFGNode& n, unsigned int pSet,
-                                    AnyLattice& dfInfo, const vector<NodeFact*>& facts,
+                                    LatticePtr dfInfo, const vector<NodeFact*>& facts,
                                     ConstrGraph* partitionCond);
 
         // Version of initPSetDFfromPartCond that doesn't perform a transitive closure at the end
         bool initPSetDFfromPartCond_ex(const Function& func, const pCFGNode& n, unsigned int pSet,
-                                            AnyLattice& dfInfo, const vector<NodeFact*>& facts,
+                                            LatticePtr dfInfo, const vector<NodeFact*>& facts,
                                        ConstrGraph* partitionCond);
         // Merge the dataflow information of two process sets. The space of process set IDs will be
         // compressed to remove the holes left by the removal.
@@ -225,7 +225,7 @@ class pCFG_contProcMatchAnalysis : public virtual pCFG_FWDataflow
         //    to new ids, with the key representing the process set's original id and the value entry
         //    representing the new id.
         void mergePCFGStates(const list<unsigned int>& pSetsToMerge, const pCFGNode& n, const Function& func,
-                             NodeState& state, AnyLattice& dfInfo, map<unsigned int, unsigned int>& pSetMigrations);
+                             NodeState& state, LatticePtr dfInfo, map<unsigned int, unsigned int>& pSetMigrations);
 
         // Infers the best possible constraints on the upper and lower bounds of the process set from
         // the constraints on rankVar
@@ -245,7 +245,7 @@ class pCFG_contProcMatchAnalysis : public virtual pCFG_FWDataflow
         /*set<pCFG_Checkpoint*> matchSendsRecvs(const pCFGNode& n, NodeState* state,
                                               set<int>& activePSets, set<int>& blockedPSets, set<int>& releasedPSets,
                                               const Function& func, NodeState* fState);*/
-        void matchSendsRecvs(const pCFGNode& n, const AnyLattice& dfInfo, NodeState* state,
+        void matchSendsRecvs(const pCFGNode& n, ConstLatticePtr dfInfo, NodeState* state,
                              // Set by analysis to identify the process set that was split
                              unsigned int& splitPSet,
                              vector<ConstrGraph*>& splitConditions,

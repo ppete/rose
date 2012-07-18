@@ -19,7 +19,7 @@ class IntraPCFGTransferVisitor : public ROSE_VisitorPatternDefaultBase
     unsigned int pSet;
     const Function& func;
     NodeState& state;
-    AnyLattice& dfInfo;
+    LatticePtr dfInfo;
     bool& isDeadPSet;
     bool& isSplitPSet;
     vector<DataflowNode>& splitPSetNodes;
@@ -32,7 +32,7 @@ class IntraPCFGTransferVisitor : public ROSE_VisitorPatternDefaultBase
                              unsigned int ps,
                              const Function& f,
                              NodeState& s,
-                             AnyLattice& dfI,
+                             LatticePtr dfI,
                              bool& dPS,
                              bool& sPS,
                              vector<DataflowNode>& sPSN,
@@ -56,7 +56,7 @@ class pCFGIteratorTransfer : public IntraPCFGTransferVisitor
                          unsigned int pset,
                          const Function& func,
                          NodeState& state,
-                         AnyLattice& dfI,
+                         LatticePtr dfI,
                          bool& deadpset,
                          bool& splitpset,
                          vector<DataflowNode>& splitpsetnodes,

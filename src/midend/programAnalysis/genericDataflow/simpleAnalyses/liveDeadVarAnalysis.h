@@ -1,6 +1,12 @@
 #ifndef LIVE_DEAD_VAR_ANALYSIS_H
 #define LIVE_DEAD_VAR_ANALYSIS_H
 
+#include <map>
+#include <set>
+#include <vector>
+#include <string>
+#include <iostream>
+
 #include "genericDataflowCommon.h"
 #include "VirtualCFGIterator.h"
 #include "cfgUtils.h"
@@ -11,11 +17,6 @@
 #include "latticeFull.h"
 #include "printAnalysisStates.h"
 
-#include <map>
-#include <set>
-#include <vector>
-#include <string>
-#include <iostream>
 
 extern int liveDeadAnalysisDebugLevel;
 
@@ -34,7 +35,7 @@ class LiveVarsLattice : public FiniteLattice
         void initialize();
 
         // Returns a copy of this lattice
-        Lattice* copy() const;
+        LiveVarsLattice* copy() const;
 
         // Overwrites the state of this Lattice with that of that Lattice
         void copy(const Lattice* that);
@@ -170,9 +171,9 @@ class LiveDeadVarsAnalysis : public IntraBWDataflow
         LiveVarsLattice*       genLattice(const Function& func, const DataflowNode& n, const NodeState& state);
         std::vector<NodeFact*> genFacts(const Function& func, const DataflowNode& n, const NodeState& state);
 
-        bool transfer(const Function& func, const DataflowNode& n, NodeState& state, Lattice& dfInfo)
+        bool transfer(const Function& func, const DataflowNode& n, NodeState& state, LatticePtr dfInfo)
         {
-          visitor_transfer(LiveDeadVarsTransfer(func, n, state, dfInfo, fseu), n);
+          visitor_transfer(LiveDeadVarsTransfer(func, n, state, *dfInfo.get(), fseu), n);
           return true; // \pp \todo pass return value from LiveDeadVarsTransfer
         }
 };
@@ -361,6 +362,9 @@ class FiniteVarsExprsProductLattice : public virtual VarsExprsProductLattice, pu
         FiniteVarsExprsProductLattice* copy() const;
 };
 
+typedef boost::shared_ptr<FiniteVarsExprsProductLattice>       FiniteVarsExprsProductLatticePtr;
+typedef boost::shared_ptr<const FiniteVarsExprsProductLattice> ConstFiniteVarsExprsProductLatticePtr;
+
 class InfiniteVarsExprsProductLattice: public virtual VarsExprsProductLattice, public virtual InfiniteProductLattice
 {
         protected:
@@ -395,6 +399,9 @@ class InfiniteVarsExprsProductLattice: public virtual VarsExprsProductLattice, p
         // returns a copy of this lattice
         InfiniteVarsExprsProductLattice* copy() const;
 };
+
+typedef boost::shared_ptr<InfiniteVarsExprsProductLattice>       InfiniteVarsExprsProductLatticePtr;
+typedef boost::shared_ptr<const InfiniteVarsExprsProductLattice> ConstInfiniteVarsExprsProductLatticePtr;
 
 // prints the Lattices set by the given LiveDeadVarsAnalysis
 void printLiveDeadVarsAnalysisStates(LiveDeadVarsAnalysis* da, std::string indent="");

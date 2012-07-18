@@ -242,7 +242,7 @@ public:
         void copy(const Lattice* that);
 
         // Returns a copy of this lattice
-        Lattice* copy() const;
+        ConstrGraph* copy() const;
 
         // Returns a copy of this LogicalCond object
         //LogicalCond* copy();
@@ -911,6 +911,7 @@ public:
         void clear() /* override */ { /* \pp \todo remove clear from lattice */ }
 };
 
-
+typedef boost::shared_ptr<ConstrGraph>       ConstrGraphPtr;
+typedef boost::shared_ptr<const ConstrGraph> ConstConstrGraphPtr;
 
 #endif

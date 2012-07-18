@@ -45,7 +45,9 @@ printf("pCFG_contProcMatchAnalysis::genInitState() state=%p\n", &state);*/
         {
                 NodeState* state = NodeState::getNodeState(*it);
                 pair<string, void*> annotation(getVarAnn(curPSet), (void*)1);
-                divL[annotation] = &(state->getLatticeBelowMod(divAnalysis)).ref<FiniteVarsExprsProductLattice>();
+                Lattice*            tmp = state->getLatticeBelowMod(divAnalysis).get();
+
+                divL[annotation] = dynamic_cast<FiniteVarsExprsProductLattice*>(tmp);
         }
 
         // Create a constraint graph from the divisiblity and sign information at all the CFG nodes that make up this pCFG node
@@ -118,10 +120,11 @@ pCFG_contProcMatchAnalysis::genFacts(const Function& func, const pCFGNode& n, co
 // instead just adds them with no non-trivial constraints.
 void pCFG_contProcMatchAnalysis::copyPSetState(const Function& func, const pCFGNode& n,
                                                unsigned int srcPSet, unsigned int tgtPSet, NodeState& state,
-                                               AnyLattice& lattice, vector<NodeFact*>& facts,
+                                               LatticePtr lattice, vector<NodeFact*>& facts,
                                                ConstrGraph* partitionCond, bool omitRankSet)
 {
-        ConstrGraph* cg = &lattice.ref<ConstrGraph>();
+        ConstrGraph* cg = dynamic_cast<ConstrGraph*>(lattice.get());
+        ROSE_ASSERT(cg);
 
 if(MPIAnalysisDebugLevel>0)
 {
@@ -134,7 +137,11 @@ if(MPIAnalysisDebugLevel>0)
         //cg->beginTransaction();
 
         // Add the divisibility and sign lattices to the constraint graph under the annotation that belongs to tgtPSet
-        cg->addDivL(&(state.getLatticeBelowMod(divAnalysis)).ref<FiniteVarsExprsProductLattice>(), getVarAnn(tgtPSet), (void*)1, string("    "));
+        Lattice*                       tmp = state.getLatticeBelowMod(divAnalysis).get();
+        FiniteVarsExprsProductLattice* prodLat = dynamic_cast<FiniteVarsExprsProductLattice*>(tmp);
+        ROSE_ASSERT(prodLat);
+
+        cg->addDivL(prodLat, getVarAnn(tgtPSet), (void*)1, string("    "));
 
         // For each process set create a version of the key variables and add them to the constraint graph
         varID nprocsVarAllPSets, zeroVarAllPSets;
@@ -193,9 +200,10 @@ if(MPIAnalysisDebugLevel>0)
 
 // Removes all known bounds on pSet's process set in dfInfo and replaces them with the default
 // constraints on process set bounds.
-void pCFG_contProcMatchAnalysis::resetPSet(unsigned int pSet, AnyLattice& lattice)
+void pCFG_contProcMatchAnalysis::resetPSet(unsigned int pSet, LatticePtr lattice)
 {
-        ConstrGraph* cg = &lattice.ref<ConstrGraph>();
+        ConstrGraph* cg = dynamic_cast<ConstrGraph*>(lattice.get());
+        ROSE_ASSERT(cg);
 
         varID nprocsVarAllPSets, zeroVarAllPSets;
         annotateCommonVars(/*n, */zeroVar, zeroVarAllPSets, nprocsVar, nprocsVarAllPSets);
@@ -400,7 +408,7 @@ void printCGKeyVars(ConstrGraph* cg) {
 // Returns true if any of the input lattices changed as a result of the transfer function and
 //    false otherwise.
 bool pCFG_contProcMatchAnalysis::transfer(const pCFGNode& n, unsigned int pSet, const Function& func,
-                                          NodeState& state, AnyLattice& dfInfo,
+                                          NodeState& state, LatticePtr dfInfo,
                                           bool& deadPSet, bool& splitPSet, vector<DataflowNode>& splitPSetNodes,
                                           bool& splitPNode, vector<ConstrGraph*>& splitConditions, bool& blockPSet)
 {
@@ -412,7 +420,7 @@ bool pCFG_contProcMatchAnalysis::transfer(const pCFGNode& n, unsigned int pSet, 
         */
         const DataflowNode& dfNode = n.getCurNode(pSet);
         bool modified = false;
-        ConstrGraph* cg = &dfInfo.ref<ConstrGraph>();
+        ConstrGraph* cg = dynamic_cast<ConstrGraph*>(dfInfo.get());
 
         if(MPIAnalysisDebugLevel>0) {
                 Dbg::dbg << indent << "transfer() Initial cg = "<<cg->str(indent+"    ")<<endl;
@@ -919,11 +927,12 @@ bool pCFG_contProcMatchAnalysis::connectIneqToVar(ConstrGraph* cg, ConstrGraph* 
 // Returns true if this causes the dataflow state to change and false otherwise
 bool pCFG_contProcMatchAnalysis::initPSetDFfromPartCond(
                                     const Function& func, const pCFGNode& n, unsigned int pSet,
-                                    AnyLattice& dfInfo, const vector<NodeFact*>& facts,
+                                    LatticePtr dfInfo, const vector<NodeFact*>& facts,
                                     ConstrGraph* partitionCond)
 {
         bool modified = false;
-        ConstrGraph* cg = &dfInfo.ref<ConstrGraph>();
+        ConstrGraph* cg = dynamic_cast<ConstrGraph*>(dfInfo.get());
+        ROSE_ASSERT(cg);
 //      cg->beginTransaction();
 
         modified = initPSetDFfromPartCond_ex(func, n, pSet, dfInfo, facts, partitionCond) || modified;
@@ -937,12 +946,13 @@ bool pCFG_contProcMatchAnalysis::initPSetDFfromPartCond(
 // Version of initPSetDFfromPartCond that doesn't perform a transitive closure at the end
 bool pCFG_contProcMatchAnalysis::initPSetDFfromPartCond_ex(
                                     const Function& func, const pCFGNode& n, unsigned int pSet,
-                                    AnyLattice& dfInfo, const vector<NodeFact*>& facts,
+                                    LatticePtr dfInfo, const vector<NodeFact*>& facts,
                                     ConstrGraph* partitionCond)
 {
         string indent="        ";
         bool modified = false;
-        ConstrGraph* cg = &dfInfo.ref<ConstrGraph>();
+        ConstrGraph* cg = dynamic_cast<ConstrGraph*>(dfInfo.get());
+        ROSE_ASSERT(cg);
 
         if(MPIAnalysisDebugLevel>0)
         {
@@ -997,12 +1007,13 @@ bool pCFG_contProcMatchAnalysis::initPSetDFfromPartCond_ex(
 // It is assumed that pSetsToMerge is a sorted list.
 void pCFG_contProcMatchAnalysis::mergePCFGStates(
                      const list<unsigned int>& pSetsToMerge, const pCFGNode& n, const Function& func,
-                     NodeState& state, AnyLattice& dfInfo, map<unsigned int, unsigned int>& pSetMigrations)
+                     NodeState& state, LatticePtr dfInfo, map<unsigned int, unsigned int>& pSetMigrations)
 {
         startProfileFunc("mergePCFGStates");
 
         ROSE_ASSERT(pSetsToMerge.size()>=2);
-        ConstrGraph* cg = &dfInfo.ref<ConstrGraph>();
+        ConstrGraph* cg = dynamic_cast<ConstrGraph*>(dfInfo.get());
+        ROSE_ASSERT(cg);
 
         if(MPIAnalysisDebugLevel>0) {
                 Dbg::dbg << "mergePCFGStates() initial"<<endl;
@@ -1510,10 +1521,11 @@ void pCFG_contProcMatchAnalysis::addVarVarIneqMap(map<varID, map<varID, affineIn
 // constraint graph.
 // returns true if this causes the constraint graph to change and false otherwise
 bool pCFG_contProcMatchAnalysis::incorporateConditionalsInfo(const pCFGNode& n, unsigned int pSet, const Function& func, const DataflowNode& dfNode,
-                                                             NodeState& state, AnyLattice& dfInfo)
+                                                             NodeState& state, LatticePtr dfInfo)
 {
         bool modified = false;
-        ConstrGraph* cg = &dfInfo.ref<ConstrGraph>();
+        ConstrGraph* cg = dynamic_cast<ConstrGraph*>(dfInfo.get());
+        ROSE_ASSERT(cg);
 
         const set<varAffineInequality>& ineqs = getAffineIneq(dfNode);
         if(MPIAnalysisDebugLevel>0)
@@ -1631,7 +1643,7 @@ bool pCFG_contProcMatchAnalysis::incorporateConditionalsInfo(const pCFGNode& n, 
                                                      set<int>& activePSets, set<int>& blockedPSets, set<int>& releasedPSets,
                                                      const Function& func, NodeState* fState)*/
 void pCFG_contProcMatchAnalysis::matchSendsRecvs(
-                             const pCFGNode& n, const AnyLattice& dfInfo, NodeState* state,
+                             const pCFGNode& n, ConstLatticePtr, NodeState* state,
                              // Set by analysis to identify the process set that was split
                              unsigned int& splitPSet,
                              vector<ConstrGraph*>& splitConditions,
@@ -1655,10 +1667,13 @@ void pCFG_contProcMatchAnalysis::matchSendsRecvs(
 
         DataflowNode funcCFGEnd = cfgUtils::getFuncEndCFG(func.get_definition());
 
-        ConstrGraph* cg = &(state->getLatticeAboveMod((pCFG_FWDataflow*)this)).ref<ConstrGraph>();
+        Lattice*       latTmp = state->getLatticeAboveMod((pCFG_FWDataflow*)this).get();
+        ConstrGraph*   cgTmp = dynamic_cast<ConstrGraph*>(cgTmp);
+        ROSE_ASSERT(cgTmp);
+
         // We operate on a copy of cg since we don't want to modify the original with
         // the temporaty process sets that we create
-        cg = new ConstrGraph(cg);
+        ConstrGraphPtr cg(new ConstrGraph(*cgTmp));
 
         if(MPIAnalysisDebugLevel>0)
         {
@@ -1666,7 +1681,7 @@ void pCFG_contProcMatchAnalysis::matchSendsRecvs(
                 Dbg::dbg << "matchSendsRecvs() n="<<n.str()<<endl;
                 Dbg::dbg << "matchSendsRecvs() cg="<<endl;
                 Dbg::dbg << cg->str() << endl;
-                printCGKeyVars(cg);
+                printCGKeyVars(cg.get());
         }
 
         // -------------------------------------------------------------------------------------------------
@@ -1706,9 +1721,9 @@ void pCFG_contProcMatchAnalysis::matchSendsRecvs(
                         SgExpression* procArg = *(++(++(++args.begin())));
                         if(calledFunc.get_name().getString() == "MPI_Send")
                         {
-                                OneDmesgExpr mesgExpr(procArg, cg, curPSet);
+                                OneDmesgExpr mesgExpr(procArg, cg.get(), curPSet);
                                 //mesgExpr.setConstr(cg);
-                                mesgExpr.setConstrAnnot(cg, getVarAnn(curPSet), (void*)1);
+                                mesgExpr.setConstrAnnot(cg.get(), getVarAnn(curPSet), (void*)1);
                                 pair<OneDmesgExpr, DataflowNode> md(mesgExpr, dfNode);
                                 sends.insert(make_pair(curPSet, md));
                                 if(MPIAnalysisDebugLevel>0)
@@ -1718,9 +1733,9 @@ void pCFG_contProcMatchAnalysis::matchSendsRecvs(
                         {
                                 if(MPIAnalysisDebugLevel>0) Dbg::dbg << "Creating mesgExpr(procArg=[" <<Dbg::escape(procArg->unparseToString())<<" | "<<procArg->class_name()<<"], curPSet="<<curPSet<<") cg="<<endl;
                                 if(MPIAnalysisDebugLevel>0) Dbg::dbg << cg->str() << endl;
-                                OneDmesgExpr mesgExpr(procArg, cg, curPSet);
+                                OneDmesgExpr mesgExpr(procArg, cg.get(), curPSet);
                                 //mesgExpr.setConstr(cg);
-                                mesgExpr.setConstrAnnot(cg, getVarAnn(curPSet), (void*)1);
+                                mesgExpr.setConstrAnnot(cg.get(), getVarAnn(curPSet), (void*)1);
                                 pair<OneDmesgExpr, DataflowNode> md(mesgExpr, dfNode);
                                 recvs.insert(make_pair(curPSet, md));
                                 if(MPIAnalysisDebugLevel>0)
@@ -1787,7 +1802,7 @@ void pCFG_contProcMatchAnalysis::matchSendsRecvs(
                 {
                         int sender = sIt->first;
                         contRangeProcSet sRank = rankSet;
-                        sRank.setConstr(cg);
+                        sRank.setConstr(cg.get());
                         sRank.addAnnotation(getVarAnn(sender), (void*)1);
                         const OneDmesgExpr& sMesg = sIt->second.first;
                         const DataflowNode& senderDF = sIt->second.second;
@@ -1802,7 +1817,7 @@ void pCFG_contProcMatchAnalysis::matchSendsRecvs(
                         {
                                 int receiver = rIt->first;
                                 contRangeProcSet rRank = rankSet;
-                                rRank.setConstr(cg);
+                                rRank.setConstr(cg.get());
                                 rRank.addAnnotation(getVarAnn(receiver), (void*)1);
 
                                 const OneDmesgExpr& rMesg = rIt->second.first;
@@ -1884,7 +1899,7 @@ void pCFG_contProcMatchAnalysis::matchSendsRecvs(
                   otherProcs.insert(*senders);
                                                 otherProcs.insert(*nonSenders);
 
-                                                splitProcs(n, cg, receiverDF, receiver,
+                                                splitProcs(n, cg.get(), receiverDF, receiver,
                                                            splitConditions, splitPSetNodes, splitPSetActive,
                                                            *receivers, *nonReceivers, otherProcs);
 
@@ -1904,7 +1919,7 @@ void pCFG_contProcMatchAnalysis::matchSendsRecvs(
                                                         Dbg::dbg << "matchSendsRecvs: After pSetActive.size()="<<pSetActive.size()<<endl;
                                                 // !!! Currently do not support making more than one match per call to matchSendsRecvs()
                                                 //return partitionChkpts;
-                                                delete cg;
+                                                // delete cg;
                                                 endProfileFunc("matchSendsRecvs");
                                                 Dbg::exitFunc("matchSendsRecvs");
                                                 return;
@@ -1919,7 +1934,7 @@ void pCFG_contProcMatchAnalysis::matchSendsRecvs(
                   otherProcs.insert(*receivers);
                                                 otherProcs.insert(nonReceivers);
 
-                  splitProcs(n, cg, senderDF, sender,
+                  splitProcs(n, cg.get(), senderDF, sender,
                              splitConditions, splitPSetNodes, splitPSetActive,
                              *senders, *nonSenders, otherProcs);
 
@@ -1936,7 +1951,7 @@ void pCFG_contProcMatchAnalysis::matchSendsRecvs(
 
                                                 // !!! Currently do not support making more than one match per call to matchSendsRecvs()
                                                 //return partitionChkpts;
-                                                delete cg;
+                                                // delete cg;
                                                 endProfileFunc("matchSendsRecvs");
                                                 Dbg::exitFunc("matchSendsRecvs");
                                                 return;
@@ -1961,7 +1976,7 @@ void pCFG_contProcMatchAnalysis::matchSendsRecvs(
                                                 cout << "Currently do not support making more than one match per call to matchSendsRecvs()"<<endl;
                                                 Dbg::dbg << "Currently do not support making more than one match per call to matchSendsRecvs()"<<endl;
                                                 ROSE_ASSERT(0);
-                                                delete cg;
+                                                // delete cg;
                                                 endProfileFunc("matchSendsRecvs");
                                                 Dbg::exitFunc("matchSendsRecvs");
                                                 return;
@@ -1980,8 +1995,7 @@ void pCFG_contProcMatchAnalysis::matchSendsRecvs(
         /*set<pCFG_Checkpoint*> noChkpts;
         return noChkpts;*/
 
-        delete cg;
-
+        // delete cg;
         endProfileFunc("matchSendsRecvs");
         Dbg::exitFunc("matchSendsRecvs");
 }

@@ -396,7 +396,7 @@ void ConstrGraph::copy(const Lattice* that)
 }
 
 // Returns a copy of this lattice
-Lattice* ConstrGraph::copy() const
+ConstrGraph* ConstrGraph::copy() const
 {
         return new ConstrGraph(this);
 }

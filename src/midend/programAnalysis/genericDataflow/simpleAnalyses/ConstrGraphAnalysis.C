@@ -10,11 +10,11 @@ using namespace std;
 #include "variables.h"
 #include "cfgUtils.h"
 #include "analysisCommon.h"
-#include "functionState.h"
+#include "liveDeadVarAnalysis.h"
 #include "latticeFull.h"
+#include "functionState.h"
 #include "analysis.h"
 #include "dataflow.h"
-#include "liveDeadVarAnalysis.h"
 #include "divAnalysis.h"
 // GB : 2011-03-05 (Removing Sign Lattice Dependence) #include "sgnAnalysis.h"
 #include "nodeConstAnalysis.h"
@@ -36,10 +36,11 @@ ConstrGraphAnalysis::genLattice(const Function& func, const DataflowNode& n, con
 {
         // \pp \todo is this const_cast needed, or would passing a const Lattice into the
         //           ConstrGraph constructor be sufficient?
-        NodeState&  modifiable_state = const_cast<NodeState&>(state);
-        AnyLattice& divProdL = modifiable_state.getLatticeBelowMod(divAnalysis);
+        NodeState&                       modifiable_state = const_cast<NodeState&>(state);
+        LatticePtr                       divProdL = modifiable_state.getLatticeBelowMod(divAnalysis);
+        FiniteVarsExprsProductLatticePtr finiteVarLat = boost::dynamic_pointer_cast<FiniteVarsExprsProductLattice>(divProdL);
 
-        return new ConstrGraph(func, n, state, ldva, &divProdL.ref<FiniteVarsExprsProductLattice>(), false, "");
+        return new ConstrGraph(func, n, state, ldva, finiteVarLat.get(), false, "");
 }
 
 std::vector<NodeFact*>
@@ -56,14 +57,16 @@ ConstrGraphAnalysis::genFacts(const Function& func, const DataflowNode& n, const
         return constVars;
 }*/
 
-bool ConstrGraphAnalysis::transfer(const Function& func, const DataflowNode& n, NodeState& state, Lattice& dfInfo)
+bool ConstrGraphAnalysis::transfer(const Function& func, const DataflowNode& n, NodeState& state, LatticePtr dfInfo)
 {
         string indent="            ";
         printf("%s-----------------------------------\n", indent.c_str());
         printf("%sConstrGraphAnalysis::transfer() function %s() node=<%s | %s>\n", indent.c_str(), func.get_name().str(), n.getNode()->class_name().c_str(), n.getNode()->unparseToString().c_str());
 
         bool modified = false;  // \todo \pp this variable is no longer needed
-        ConstrGraph* cg = &dynamic_cast<ConstrGraph&>(dfInfo);
+        ConstrGraph* cg = dynamic_cast<ConstrGraph*>(dfInfo.get());
+        ROSE_ASSERT(cg);
+
         set<varID> liveVars = getAllLiveVarsAt(ldva, state, "    ");
         /* ??? InfiniteVarsExprsProductLattice* prodLat = dynamic_cast<InfiniteVarsExprsProductLattice*>(dfInfo[1]);
 

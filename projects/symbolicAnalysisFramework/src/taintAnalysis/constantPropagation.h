@@ -83,7 +83,7 @@ class ConstantPropagationLattice : public FiniteLattice
           void initialize();
 
        // returns a copy of this lattice
-          Lattice* copy() const;
+          ConstantPropagationLattice* copy() const;
 
        // overwrites the state of "this" Lattice with "that" Lattice
           void copy(const Lattice* that);
@@ -164,13 +164,13 @@ class ConstantPropagationAnalysis : public IntraFWDataflow
        // generates the initial lattice state for the given dataflow node, in the given function, with the given NodeState
           //~ void genInitState(const Function& func, const DataflowNode& n, const NodeState& state, std::vector<Lattice*>& initLattices, std::vector<NodeFact*>& initFacts);
 
-					FiniteVarsExprsProductLattice*
-					genLattice(const Function& func, const DataflowNode& n, const NodeState& state);
+          FiniteVarsExprsProductLattice*
+          genLattice(const Function& func, const DataflowNode& n, const NodeState& state);
 
-					std::vector<NodeFact*> genFacts(const Function& func, const DataflowNode& n, const NodeState& state);
+          std::vector<NodeFact*> genFacts(const Function& func, const DataflowNode& n, const NodeState& state);
 
 
-          bool transfer(const Function& func, const DataflowNode& n, NodeState& state, Lattice& dfInfo);
+          bool transfer(const Function& func, const DataflowNode& n, NodeState& state, LatticePtr dfInfo);
 
           //~ boost::shared_ptr<IntraDFTransferVisitor> getTransferVisitor(const Function& func, const DataflowNode& n, NodeState& state, const std::vector<Lattice*>& dfInfo);
    };

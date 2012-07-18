@@ -37,9 +37,13 @@ void NodeState::addLattice(const Analysis* analysis, int latticeName, Lattice* l
         addLattice_ex(dfInfoBelow, analysis, latticeName, l->copy());
 }*/
 
-void NodeState::setLattice(const Analysis* analysis, const AnyLattice& lattice)
+void NodeState::setLattice(const Analysis* analysis, LatticePtr lattice)
 {
-        AnyLattice tmp;
+#if OBSOLETE_CODE
+        \pp no longer needed as we the pointers are shared
+
+        Lattice*   nullLattice = 0;
+        LatticePtr tmp(nullLattice);  // \todo check original code
 
         // Empty out the current mappings of analysis in dfInfoAbove and  dfInfoBelow
         #ifdef THREADED
@@ -56,15 +60,16 @@ void NodeState::setLattice(const Analysis* analysis, const AnyLattice& lattice)
                         wB->second = tmp;
         #else
                 if(dfInfoAbove.find((Analysis*)analysis) != dfInfoAbove.end())
-                        dfInfoAbove[(Analysis*)analysis].clear();
+                        dfInfoAbove[(Analysis*)analysis]->clear();
                 else
                         dfInfoAbove[(Analysis*)analysis] = tmp;
 
                 if(dfInfoBelow.find((Analysis*)analysis) != dfInfoBelow.end())
-                        dfInfoBelow[(Analysis*)analysis].clear();
+                        dfInfoBelow[(Analysis*)analysis]->clear();
                 else
                         dfInfoBelow[(Analysis*)analysis] = tmp;
         #endif
+#endif /* OBSOLETE_CODE */
 
         // Set dfInfoAbove and dfInfoBelow to lattices
         #ifdef THREADED
@@ -88,8 +93,8 @@ void NodeState::setLattice(const Analysis* analysis, const AnyLattice& lattice)
                 wB.release();
         #else
                 // set dfInfoAbove to lattices
-                dfInfoAbove[(Analysis*)analysis] = lattice;
-                dfInfoBelow[(Analysis*)analysis] = lattice;
+                dfInfoAbove[(Analysis*)analysis] = clone(lattice);
+                dfInfoBelow[(Analysis*)analysis] = clone(lattice);
         #endif
 
         /*printf("Lattices above:\n");
@@ -110,14 +115,19 @@ void NodeState::setLattice(const Analysis* analysis, const AnyLattice& lattice)
         initialized((Analysis*)analysis);
 }
 
-void NodeState::setLattice(const Analysis* analysis, Lattice* a)
+// \todo check with original code
+/*
+void NodeState::setLattice(const Analysis* analysis, LatticePtr a)
 {
-  setLattice(analysis, AnyLattice(a));
+  setLattice(analysis, a);
 }
+*/
 
-void NodeState::setLatticeAbove(const Analysis* analysis, const AnyLattice& lattice)
+void NodeState::setLatticeAbove(const Analysis* analysis, LatticePtr lattice)
 {
         // if the analysis currently has a mapping in dfInfoAbove
+        // \todo \pp check implementation in original code
+
 #ifdef THREADED
         LatticeMap::accessor w;
         if(dfInfoAbove.find(w, (Analysis*)analysis))
@@ -141,7 +151,7 @@ void NodeState::setLatticeAbove(const Analysis* analysis, const AnyLattice& latt
         {
 #ifdef THREADED
                 // Create the new mapping
-                w->second = lattices;
+                w->second = lattice;
 #else
                 // Create the new mapping
                 dfInfoAbove[(Analysis*)analysis] = lattice;
@@ -158,7 +168,7 @@ void NodeState::setLatticeAbove(const Analysis* analysis, const AnyLattice& latt
         initialized((Analysis*)analysis);
 }
 
-void NodeState::setLatticeBelow(const Analysis* analysis, const AnyLattice& lattice)
+void NodeState::setLatticeBelow(const Analysis* analysis, LatticePtr lattice)
 {
         // if the analysis currently has a mapping in dfInfoBelow
 #ifdef THREADED
@@ -203,7 +213,11 @@ void NodeState::setLatticeBelow(const Analysis* analysis, const AnyLattice& latt
 }
 
 // static vector<Lattice*> emptyLatVec;
+
+#if OBSOLETE_CODE
 static AnyLattice emptyLattice;
+#endif /* OBSOLETE_CODE */
+
 
 #if OBSOLETE_CODE
 // returns the given lattice from above the node, which owned by the given analysis
@@ -215,7 +229,7 @@ const AnyLattice& NodeState::getLatticeAbove(const Analysis* analysis, int latti
 
 // returns the map containing all the lattices from above the node that are owned by the given analysis
 // (read-only access)
-const AnyLattice& NodeState::getLatticeAbove(const Analysis* analysis) const
+ConstLatticePtr NodeState::getLatticeAbove(const Analysis* analysis) const
 {
         #ifdef THREADED
                 LatticeMap::const_accessor r;
@@ -229,14 +243,15 @@ const AnyLattice& NodeState::getLatticeAbove(const Analysis* analysis) const
                 if(dfInfoAbove.find((Analysis*)analysis)!=dfInfoAbove.end())
                         return dfInfoAbove.find((Analysis*)analysis)->second;
         #endif
-                else
-                        // otherwise, return an empty vector
-                        return emptyLattice;
+
+        // otherwise, return an empty pointer
+        Lattice* nullLattice = 0;
+        return ConstLatticePtr(nullLattice);
 }
 
 // returns the map containing all the lattices from above the node that are owned by the given analysis
 // (read/write access)
-AnyLattice& NodeState::getLatticeAboveMod(const Analysis* analysis)
+LatticePtr NodeState::getLatticeAboveMod(const Analysis* analysis)
 {
         #ifdef THREADED
                 LatticeMap::accessor r;
@@ -248,9 +263,10 @@ AnyLattice& NodeState::getLatticeAboveMod(const Analysis* analysis)
                 if(dfInfoAbove.find((Analysis*)analysis)!=dfInfoAbove.end())
                         return dfInfoAbove.find((Analysis*)analysis)->second;
         #endif
-                else
-                        // otherwise, return an empty vector
-                        return emptyLattice;
+
+        // otherwise, return an empty vector
+        Lattice* nullLattice = 0;
+        return LatticePtr(nullLattice);
 }
 
 #if OBSOLETE_CODE
@@ -263,7 +279,7 @@ const AnyLattice& NodeState::getLatticeBelow(const Analysis* analysis, int latti
 
 // returns the map containing all the lattices from below the node that are owned by the given analysis
 // (read-only access)
-const AnyLattice& NodeState::getLatticeBelow(const Analysis* analysis) const
+ConstLatticePtr NodeState::getLatticeBelow(const Analysis* analysis) const
 {
         #ifdef THREADED
                 LatticeMap::const_accessor r;
@@ -275,14 +291,15 @@ const AnyLattice& NodeState::getLatticeBelow(const Analysis* analysis) const
                 if(dfInfoBelow.find((Analysis*)analysis)!=dfInfoBelow.end())
                         return dfInfoBelow.find((Analysis*)analysis)->second;
         #endif
-                else
-                        // otherwise, return an empty vector
-                        return emptyLattice;
+
+        // otherwise, return an empty vector
+        Lattice* nullLattice = 0;
+        return ConstLatticePtr(nullLattice);
 }
 
 // returns the map containing all the lattices from below the node that are owned by the given analysis
 // (read/write access)
-AnyLattice& NodeState::getLatticeBelowMod(const Analysis* analysis)
+LatticePtr NodeState::getLatticeBelowMod(const Analysis* analysis)
 {
         #ifdef THREADED
                 LatticeMap::accessor r;
@@ -294,9 +311,10 @@ AnyLattice& NodeState::getLatticeBelowMod(const Analysis* analysis)
                 if(dfInfoBelow.find((Analysis*)analysis)!=dfInfoBelow.end())
                         return dfInfoBelow.find((Analysis*)analysis)->second;
         #endif
-                else
-                        // otherwise, return an empty vector
-                        return emptyLattice;
+
+        // otherwise, return an empty vector
+        Lattice* nullLattice = 0;
+        return LatticePtr(nullLattice);
 }
 
 // deletes all lattices above this node associated with the given analysis
@@ -343,6 +361,7 @@ bool NodeState::eqLattices(const vector<Lattice*>& latticesA,
         return true;
 }
 
+
 // Creates a copy of all the dataflow state (Lattices and Facts) associated with
 // analysis srcA and associates this copied state with analysis tgtA.
 void NodeState::cloneAnalysisState(const Analysis* srcA, const Analysis* tgtA)
@@ -367,8 +386,8 @@ void NodeState::cloneAnalysisState(const Analysis* srcA, const Analysis* tgtA)
         // Copy srcA's lattices into tgtLatAbv and tgtLatBel
 
         // Associated analysis tgtA with the copied lattices
-        setLatticeAbove(tgtA, getLatticeAbove(srcA));
-        setLatticeBelow(tgtA, getLatticeBelow(srcA));
+        setLatticeAbove(tgtA, clone(getLatticeAbove(srcA)));
+        setLatticeBelow(tgtA, clone(getLatticeBelow(srcA)));
 }
 
 // Given a set of analyses, one of which is designated as a master, unions together the
@@ -376,8 +395,8 @@ void NodeState::cloneAnalysisState(const Analysis* srcA, const Analysis* tgtA)
 // CFG node with the master analysis.
 void NodeState::unionLattices(set<Analysis*>& unionSet, const Analysis* master)
 {
-        AnyLattice& masterLatAbv = getLatticeAboveMod(master);
-        AnyLattice& masterLatBel = getLatticeBelowMod(master);
+        LatticePtr masterLatAbv = getLatticeAboveMod(master);
+        LatticePtr masterLatBel = getLatticeBelowMod(master);
 
         //printf("    unionLattices() unionSet.size()=%d, master=%p, this=%p\n", unionSet.size(), master, this);
         //printf("        masterLatAbv.size()=%d, masterLatBel.size()=%d\n", masterLatAbv.size(), masterLatBel.size());
@@ -387,15 +406,15 @@ void NodeState::unionLattices(set<Analysis*>& unionSet, const Analysis* master)
                 //printf("        curA=%p\n", curA);
                 if(curA != master)
                 {
-                        const AnyLattice& curLatAbv = getLatticeAbove(curA);
-                        const AnyLattice& curLatBel = getLatticeBelow(curA);
+                        ConstLatticePtr curLatAbv = getLatticeAbove(curA);
+                        ConstLatticePtr curLatBel = getLatticeBelow(curA);
 
                         //printf("        curLatAbv.size()=%d, curLatBel.size()=%d\n", masterLatAbv.size(), masterLatBel.size());
 
                         // All the analyses in unionSet must have the same number of lattices
 
-                        masterLatAbv.meetUpdate(curLatAbv);
-                        masterLatBel.meetUpdate(curLatBel);
+                        masterLatAbv->meetUpdate(curLatAbv.get());
+                        masterLatBel->meetUpdate(curLatBel.get());
                 }
         }
 }
@@ -964,9 +983,9 @@ void NodeState::copyLattices_aEQb(Analysis* analysis, NodeState& to, const NodeS
 }
 
 // makes dfInfoX a copy of dfInfoY
-void NodeState::copyLattices(AnyLattice& dfInfoX, const AnyLattice& dfInfoY)
+void NodeState::copyLattices(LatticePtr dfInfoX, ConstLatticePtr dfInfoY)
 {
-        dfInfoX = dfInfoY;
+        dfInfoX->copy(dfInfoY.get());
 #if OBSOLETE_CODE
 /*      // empty lattices
         for(vector<Lattice*>::iterator itX = dfInfoX.begin(); itX!=dfInfoX.end(); itX++)
@@ -1002,6 +1021,14 @@ void NodeState::copyLattices(AnyLattice& dfInfoX, const AnyLattice& dfInfoY)
         copyLatticesBelow(&that);
 }*/
 
+static
+std::string as_str(ConstLatticePtr lat, const std::string& indent)
+{
+  if (!lat.get()) return indent;
+
+  return lat->str(indent+"        ");
+}
+
 string NodeState::str(Analysis* analysis, string indent) const
 {
         ostringstream oss;
@@ -1016,11 +1043,11 @@ string NodeState::str(Analysis* analysis, string indent) const
                 ROSE_ASSERT(dfInfoAbove.find(analysis) != dfInfoAbove.end());
                 ROSE_ASSERT(dfInfoBelow.find(analysis) != dfInfoBelow.end());
 
-                const AnyLattice& latticesAbove = dfInfoAbove.find(analysis)->second;
-                const AnyLattice& latticesBelow = dfInfoBelow.find(analysis)->second;
+                ConstLatticePtr latticesAbove = dfInfoAbove.find(analysis)->second;
+                ConstLatticePtr latticesBelow = dfInfoBelow.find(analysis)->second;
 
-                oss << indent << "    Lattice Above: "<< (&latticesAbove) <<" = "<< latticesAbove.str(indent+"        ")<<"\n";
-                oss << indent << "    Lattice Below: "<< (&latticesBelow) <<" = "<< latticesBelow.str(indent+"        ")<<"\n";
+                oss << indent << "    Lattice Above: "<< (latticesAbove.get()) <<" = "<< as_str(latticesAbove, indent)<<"\n";
+                oss << indent << "    Lattice Below: "<< (latticesBelow.get()) <<" = "<< as_str(latticesBelow, indent)<<"\n";
 
                 ROSE_ASSERT(facts.find(analysis) != facts.end());
                 int i=0;

@@ -324,7 +324,7 @@ bool mesgBuf::setToTop()
 }
 
 // returns a copy of this lattice
-Lattice* mesgBuf::copy() const
+mesgBuf* mesgBuf::copy() const
 {
         return new mesgBuf(*this);
 }

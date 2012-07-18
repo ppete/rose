@@ -37,7 +37,7 @@ void DominatorLattice::initialize()
 }
 
 // Returns a copy of this lattice
-Lattice* DominatorLattice::copy() const
+DominatorLattice* DominatorLattice::copy() const
 {
         return new DominatorLattice(*this);
 }
@@ -255,10 +255,9 @@ DominatorAnalysis::genFacts(const Function& func, const DataflowNode& n, const N
 }
 
 
-bool DominatorAnalysis::transfer(const Function&, const DataflowNode&, NodeState&, Lattice&)
+bool DominatorAnalysis::transfer(const Function&, const DataflowNode&, NodeState&, LatticePtr)
 {
-  // \todo \pp why is this empty?
-  return true /* follow edge */;
+  return true;
 }
 
 
@@ -317,14 +316,14 @@ const set<DataflowNode>& getDominators(SgProject* project, const Function& func,
         NodeState* state = *(nodeStates.begin());
         //cout << indent << "da="<<da<<" state="<<state<<" #nodeStates="<<nodeStates.size()<<" n.getIndex()="<<n.getIndex()<<" #nodeStates="<<nodeStates.size()<<"\n";
         //cout << indent << "state="<<state->str(da, indent+"    ")<<"\n";
-        AnyLattice& dLat = state->getLatticeAboveMod(da);
+        LatticePtr dLat = state->getLatticeAboveMod(da);
 
         /*cout << indent << "dLat="<<dLat<<" dLat->domNodes:\n";
         for(set<DataflowNode>::const_iterator dom=dLat->domNodes.begin(); dom!=dLat->domNodes.end(); dom++)
                 cout << indent << "    " << dom->getNode()->unparseToString() << " | " << dom->getNode()->class_name() << "\n";*/
 
         // \pp \todo
-        return dLat.ref<DominatorLattice>().domNodes;
+        return dynamic_cast<DominatorLattice&>(*dLat.get()).domNodes;
 }
 
 // Returns true if node a dominates node b and false otherwise

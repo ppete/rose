@@ -58,7 +58,7 @@ class ConstrGraphAnalysis : public IntraFWDataflow
         //    maintain only one copy of each lattice may for the duration of the analysis.
         //map<varID, Lattice*>& genConstVarLattices() const;
 
-        bool transfer(const Function& func, const DataflowNode& n, NodeState& state, Lattice& lat);
+        bool transfer(const Function& func, const DataflowNode& n, NodeState& state, LatticePtr lat);
 
         // incorporates the current node's inequality information from conditionals (ifs, fors, etc.) into the current node's
         // constraint graph

@@ -89,7 +89,7 @@ class SeqStructLattice : public FiniteLattice
         void initialize();
 
         // Returns a copy of this lattice
-        Lattice* copy() const;
+        SeqStructLattice* copy() const;
 
         // Overwrites the state of this Lattice with that of that Lattice
         void copy(const Lattice* that);
@@ -206,7 +206,7 @@ class SeqStructAnalysis : public IntraFWDataflow
         //    maintain only one copy of each lattice may for the duration of the analysis.
         //map<varID, Lattice*>& genConstVarLattices() const;
 
-        bool transfer(const Function& func, const DataflowNode& n, NodeState& state, Lattice& dfInfo);
+        bool transfer(const Function& func, const DataflowNode& n, NodeState& state, LatticePtr dfInfo);
 };
 
 // Prints the Lattices set by the given SeqStructAnalysis

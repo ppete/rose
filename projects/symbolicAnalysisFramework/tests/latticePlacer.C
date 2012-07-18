@@ -55,9 +55,9 @@ class saveAllDataflow : public IntraFWDataflow
           return std::vector<NodeFact*>();
         }
 
-        bool transfer(const Function& func, const DataflowNode& n, NodeState& state, Lattice& dfInfo)
+        bool transfer(const Function& func, const DataflowNode& n, NodeState& state, LatticePtr dfInfo)
         {
-                ProductLattice& prodlat = dynamic_cast<ProductLattice&>(dfInfo);
+                ProductLattice& prodlat = dynamic_cast<ProductLattice&>(*dfInfo.get());
 
                 printf("saveAllDataflow: node=<%s | %s>\n", n.getNode()->class_name().c_str(), n.getNode()->unparseToString().c_str());
                 printf("   isSgAddOp(n.getNode()=%p\n", isSgAddOp(n.getNode()));
@@ -106,7 +106,7 @@ class checkAllDataflow : public UnstructuredPassIntraAnalysis
                         numFails++;
                 }*/
 
-                const ProductLattice& prodlat = state.getLatticeBelow(creator).ref<ProductLattice>();
+                const ProductLattice& prodlat = dynamic_cast<const ProductLattice&>(*state.getLatticeBelow(creator).get());
 
                 std::cout << "                     lattice0 = " << prodlat.at<Lattice>(0).str() << std::endl;
                 std::cout << "                     lattice1 = " << prodlat.at<Lattice>(1).str() << std::endl;

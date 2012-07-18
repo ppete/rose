@@ -274,7 +274,7 @@ class IntraPartitionDataflow : virtual public IntraProceduralDataflow
         // Called when a partition is created to allow a specific analysis to initialize
         // its dataflow information from the partition condition
         virtual void initDFfromPartCond(const Function& func, const DataflowNode& n, NodeState& state,
-                                        const AnyLattice& dfInfo, const std::vector<NodeFact*>& facts,
+                                        ConstLatticePtr dfInfo, const std::vector<NodeFact*>& facts,
                                         /*LogicalCond*/printable* partitionCond) {}
 };
 
@@ -406,7 +406,7 @@ class IntraPartitionFWDataflow  : public virtual IntraPartitionDataflow
         //            requesting to be joined.
         // Returns true if any of the input lattices changed as a result of the transfer function and
         //    false otherwise.
-        virtual bool transfer(const Function& func, const DataflowNode& n, NodeState& state, AnyLattice& dfInfo,
+        virtual bool transfer(const Function& func, const DataflowNode& n, NodeState& state, LatticePtr dfInfo,
                               splitType& splitAnalysis, std::vector</*LogicalCond*/printable*>& splitConditions, /*bool& joinAnalysis, */bool& joinNode)=0;
 
         // Runs the intra-procedural analysis on the given function. Returns true if
@@ -429,14 +429,14 @@ class IntraPartitionFWDataflow  : public virtual IntraPartitionDataflow
 
         partitionTranferRet partitionTranfer(
                                    const Function& func, NodeState* fState, const DataflowNode& n, NodeState* state, VirtualCFG::dataflow& dfIt,
-                                   AnyLattice& dfInfoBelow, bool& splitPart, std::set<DataflowNode>& joinNodes,
+                                   LatticePtr dfInfoBelow, bool& splitPart, std::set<DataflowNode>& joinNodes,
                                    IntraPartitionDataflowCheckpoint*& outChkpt);
 
         // propagates the forward dataflow info from the current node's NodeState (curNodeState) to the next node's
         // NodeState (nextNodeState)
         bool propagateFWStateToNextNode(
-             const AnyLattice& curNodeState, DataflowNode curDFNode, int nodeIndex,
-             AnyLattice& nextNodeState, DataflowNode nextDFNode);
+             ConstLatticePtr curNodeState, DataflowNode curDFNode, int nodeIndex,
+             LatticePtr nextNodeState, DataflowNode nextDFNode);
 };
 
 #endif

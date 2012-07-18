@@ -7,7 +7,7 @@ int sgnAnalysisDebugLevel=0;
  **********************/
 
 // returns a copy of this lattice
-Lattice* SgnLattice::copy() const
+SgnLattice* SgnLattice::copy() const
 {
         return new SgnLattice(*this);
 }

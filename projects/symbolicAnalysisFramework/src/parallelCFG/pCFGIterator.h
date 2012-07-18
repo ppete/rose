@@ -77,31 +77,31 @@ class pCFGIterator : public pCFG_FWDataflow
 
     void copyPSetState(const Function& func, const pCFGNode& n,
                        unsigned int srcPSet, unsigned int tgtPSet, NodeState& state,
-                       AnyLattice& lattices, vector<NodeFact*>& facts,
+                       LatticePtr lattice, vector<NodeFact*>& facts,
                        ConstrGraph* partitionCond, bool omitRankSet);
 
-    void resetPSet(unsigned int pSet, AnyLattice& dfInfo);
+    void resetPSet(unsigned int pSet, LatticePtr dfInfo);
 
     bool transfer(const pCFGNode& n, unsigned int pSet, const Function& func,
-                  NodeState& state, AnyLattice& dfInfo,
+                  NodeState& state, LatticePtr dfInfo,
                   bool& deadPSet, bool& splitPSet, vector<DataflowNode>& splitPSetNodes,
                   bool& splitPNode, vector<ConstrGraph*>& splitConditions, bool& blockPSet);
 
     bool transfer(const pCFGNode& n, unsigned int pSet, const Function& func,
-                  NodeState& state, AnyLattice& dfInfo,
+                  NodeState& state, LatticePtr dfInfo,
                   bool& deadPSet, bool& splitPSet, vector<DataflowNode>& splitPSetNodes,
                   bool& splitPNode, bool& blockPSet, bool& mergePSet);
 
     bool initPSetDFfromPartCond(const Function& func, const pCFGNode& n, unsigned int pSet,
-                                AnyLattice& dfInfo, const vector<NodeFact*>& facts,
+                                LatticePtr dfInfo, const vector<NodeFact*>& facts,
                                 ConstrGraph* partitionCond);
 
     // NOTE : Not sure if this is used
     void mergePCFGStates(const list<unsigned int>& pSetsToMerge, const pCFGNode& n, const Function& func,
-                         NodeState& staet, AnyLattice& dfInfo, map<unsigned int, unsigned int>& pSetMigrations);
+                         NodeState& state, LatticePtr dfInfo, map<unsigned int, unsigned int>& pSetMigrations);
 
 
-    void matchSendsRecvs(const pCFGNode& n, const AnyLattice& dfInfo, NodeState* state,
+    void matchSendsRecvs(const pCFGNode& n, ConstLatticePtr dfInfo, NodeState* state,
                          // Set by analysis to identify the process set that was split
                          unsigned int& splitPSet,
                          vector<ConstrGraph*>& splitConditions,

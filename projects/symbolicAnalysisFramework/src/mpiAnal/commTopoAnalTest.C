@@ -51,8 +51,8 @@ class MPISideffectUses : public funcSideEffectUses
                         func.get_name().getString() == "MPI_Comm_rank" ||
                         func.get_name().getString() == "MPI_Comm_size")
                 {
-                        AnyLattice&                    lat = state.getLatticeBelowMod(rda);
-                        FiniteVarsExprsProductLattice& rdaL = lat.ref<FiniteVarsExprsProductLattice>();
+                        LatticePtr                     lat = state.getLatticeBelowMod(rda);
+                        FiniteVarsExprsProductLattice& rdaL = dynamic_cast<FiniteVarsExprsProductLattice&>(*lat.get());
                         // Set varsToInclude to be the variables that are dependent on the rank or numproce, even if they're not live
 
                         return rdaL.getAllVars();

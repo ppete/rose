@@ -68,7 +68,7 @@ class MPIRankNProcsDepLattice : public FiniteLattice
         }
 
         // returns a copy of this lattice
-        Lattice* copy() const;
+        MPIRankNProcsDepLattice* copy() const;
 
         // overwrites the state of this Lattice with that of that Lattice
         void copy(const Lattice* that);
@@ -131,7 +131,7 @@ class MPIRankDepAnalysis : public IntraFWDataflow
                                   //~ Lattice*& initLattices, std::vector<NodeFact*>& initFacts);
 
         //~ bool transfer(const Function& func, const DataflowNode& n, NodeState& state, const vector<Lattice*>& dfInfo);
-        bool transfer(const Function& func, const DataflowNode& n, NodeState& state, Lattice& lat);
+        bool transfer(const Function& func, const DataflowNode& n, NodeState& state, LatticePtr lat);
 
 };
 

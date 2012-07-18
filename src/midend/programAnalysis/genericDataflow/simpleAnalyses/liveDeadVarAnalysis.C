@@ -21,7 +21,7 @@ void LiveVarsLattice::initialize()
 {}
 
 // Returns a copy of this lattice
-Lattice* LiveVarsLattice::copy() const
+LiveVarsLattice* LiveVarsLattice::copy() const
 { return new LiveVarsLattice(); }
 
 // Overwrites the state of this Lattice with that of that Lattice
@@ -530,8 +530,9 @@ void getAllLiveVarsAt(LiveDeadVarsAnalysis* ldva, const NodeState& state, set<va
         //}
         //Dbg::dbg << "    state = "<<state.str(ldva, "        ")<<endl;
         //Dbg::dbg.flush();
-        const LiveVarsLattice* liveLAbove = &state.getLatticeAbove(ldva).ref<LiveVarsLattice>();
-        const LiveVarsLattice* liveLBelow = &state.getLatticeBelow(ldva).ref<LiveVarsLattice>();
+        const LiveVarsLattice* liveLAbove = dynamic_cast<const LiveVarsLattice*>(state.getLatticeAbove(ldva).get());
+        const LiveVarsLattice* liveLBelow = dynamic_cast<const LiveVarsLattice*>(state.getLatticeBelow(ldva).get());
+        ROSE_ASSERT(liveLAbove && liveLBelow);
 
         // The set of live vars AT this node is the union of vars that are live above it and below it
         for(set<varID>::iterator var=liveLAbove->liveVars.begin(); var!=liveLAbove->liveVars.end(); var++)
@@ -554,14 +555,13 @@ set<varID> getAllLiveVarsAt(LiveDeadVarsAnalysis* ldva, const NodeState& state, 
 const LiveVarsLattice*
 getLiveInVarsAt(LiveDeadVarsAnalysis* ldva, SgNode* n, unsigned int index /*= 0 */)
 {
-
   assert (ldva != NULL);
   assert (n != NULL);
 
-  NodeState *state =  NodeState::getNodeState(n, index);
-  assert (state != NULL);
-  const LiveVarsLattice* liveLAbove = dynamic_cast<const LiveVarsLattice*>( state->getLatticeAbove(ldva).ptr()  );
-  return liveLAbove;
+  NodeState *state = NodeState::getNodeState(n, index);
+  ROSE_ASSERT(state);
+
+  return dynamic_cast<const LiveVarsLattice*>( state->getLatticeAbove(ldva).get() );
 }
 
 // get Live-Out variable lattice for a control flow graph node generated from a SgNode with an index
@@ -573,8 +573,7 @@ getLiveOutVarsAt(LiveDeadVarsAnalysis* ldva, SgNode* n, unsigned int index /* = 
 
   NodeState *state =  NodeState::getNodeState(n, index);
   assert (state != NULL);
-  const LiveVarsLattice* liveLBelow = dynamic_cast<const LiveVarsLattice*>(state->getLatticeBelow(ldva).ptr());
-  return liveLBelow;
+  return dynamic_cast<const LiveVarsLattice*>(state->getLatticeBelow(ldva).get());
 }
 
 // ###################################

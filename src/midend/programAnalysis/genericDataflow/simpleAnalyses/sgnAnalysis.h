@@ -86,7 +86,7 @@ class SgnLattice : public FiniteLattice
         }
 
         // returns a copy of this lattice
-        Lattice* copy() const;
+        SgnLattice* copy() const;
 
         // overwrites the state of this Lattice with that of that Lattice
         void copy(const Lattice* that);

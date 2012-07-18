@@ -33,10 +33,17 @@ public:
     void visit(const Function& func, const DataflowNode& n, NodeState& state);
 };
 
+static
+FiniteVarsExprsProductLattice*
+asFiniteVarsExprsProductLattice(LatticePtr p)
+{
+  return &dynamic_cast<FiniteVarsExprsProductLattice&>(*p.get());
+}
+
 void EvaluationPass::visit(const Function& func, const DataflowNode& n, NodeState& state)
 {
-    FiniteVarsExprsProductLattice* cpa_lat = &(state.getLatticeAboveMod(cpa).ref<FiniteVarsExprsProductLattice>());
-    FiniteVarsExprsProductLattice* ta_lat = &(state.getLatticeAboveMod(ta).ref<FiniteVarsExprsProductLattice>());
+    FiniteVarsExprsProductLattice* cpa_lat = asFiniteVarsExprsProductLattice(state.getLatticeAboveMod(cpa));
+    FiniteVarsExprsProductLattice* ta_lat  = asFiniteVarsExprsProductLattice(state.getLatticeAboveMod(ta));
 
     // NOTE: Don't see why the vars should be different
     // below assertion should hold true

@@ -12,9 +12,6 @@
 #include "analysis.h"
 #include "latticeFull.h"
 
-#if OBSOLETE_CODE
-#include <boost/shared_ptr.hpp>
-#endif /* OBSOLETE_CODE */
 
 // !!! NOTE: THE CURRENT INTER-/INTRA-PROCEDURAL ANALYSIS API EFFECTIVELY ASSUMES THAT EACH ANALYSIS WILL BE EXECUTED
 // !!!       ONCE BECAUSE DURING A GIVEN ANALYSIS PASS THE INTRA- ANALYSIS MAY ACCUMULATE STATE AND THERE IS NO
@@ -135,7 +132,7 @@ class IntraUnitDataflow : virtual public IntraProceduralDataflow
         /// \return  true, iff the result should be propagated to its children
         /// \note    sage type sensitive implementations are encouraged to discern
         ///          sage nodes using the visitor pattern (see convenience functions @visitor_transfer.
-        virtual bool transfer(const Function& func, const DataflowNode& n, NodeState& state, Lattice& lat) = 0;
+        virtual bool transfer(const Function& func, const DataflowNode& n, NodeState& state, LatticePtr lat) = 0;
 
         private:
         /// \brief   calls the visitor based transfer functions for valid visitors
@@ -226,7 +223,7 @@ class InterProceduralDataflow : virtual public InterProceduralAnalysis
         // Returns true if any of the input lattices changed as a result of the transfer function and
         //    false otherwise.
         virtual bool transfer(const Function& func, const DataflowNode& n, NodeState& state,
-                              Lattice& dfInfo, const Lattice*& retState, bool fw)=0;
+                              LatticePtr dfInfo, ConstLatticePtr& retState, bool fw)=0;
 };
 
 class InitDataflowState : public UnstructuredPassIntraAnalysis
@@ -282,8 +279,8 @@ class IntraUniDirectionalDataflow : public IntraUnitDataflow
         /// NodeState (nextNodeState).
         // \note \pp removed nodeIndex parameter as it was not used.
         bool propagateStateToNextNode(
-             const AnyLattice& currNodeState, DataflowNode currDFNode,
-             AnyLattice& nextNodeState, DataflowNode nextDFNode );
+             ConstLatticePtr currNodeState, DataflowNode currDFNode,
+             LatticePtr nextNodeState, DataflowNode nextDFNode );
 
 #if OBSOLETE_CODE
         ConnectionContainer gatherDescendants(std::vector<DataflowEdge> edges, DataflowNode (DataflowEdge::*edgeFn)() const);
@@ -297,8 +294,8 @@ class IntraUniDirectionalDataflow : public IntraUnitDataflow
         virtual VirtualCFG::dataflow*
           getInitialWorklist(const Function &func, bool firstVisit, bool analyzeDueToCallers, const set<Function> &calleesUpdated, NodeState *fState) = 0;
 
-        virtual AnyLattice& getLatticeAnte(NodeState *state) = 0;
-        virtual AnyLattice& getLatticePost(NodeState *state) = 0;
+        virtual LatticePtr getLatticeAnte(NodeState *state) = 0;
+        virtual LatticePtr getLatticePost(NodeState *state) = 0;
 
         // If we're currently at a function call, use the associated inter-procedural
         // analysis to determine the effect of this function call on the dataflow state.
@@ -329,15 +326,15 @@ class IntraUniDirectionalDataflow : public IntraUnitDataflow
         ///              for convenience functions IntraUnitDataflow::visitor_transfer.
         ///          (2) this overloads the transfer function IntraUnitDataflow::transfer
         ///              with an edge sensitive transfer function.
-        virtual bool transfer(const Function& func, const DataflowEdge& e, NodeState& state, Lattice& dfInfo);
+        virtual bool transfer(const Function& func, const DataflowEdge& e, NodeState& state, LatticePtr dfInfo);
 
       private:
 
         /// encapsulates transfer function invocation along edges
-        void edge_transfer(const Function& func, const DataflowNode& n, NodeState& state, AnyLattice& dfInfo, VirtualCFG::dataflow& it);
+        void edge_transfer(const Function& func, const DataflowNode& n, NodeState& state, LatticePtr dfInfo, VirtualCFG::dataflow& it);
 
         /// encapsulates transfer function invocation for nodes
-        void node_transfer(const Function& func, const DataflowNode& n, NodeState& state, AnyLattice& dfInfo, VirtualCFG::dataflow& it);
+        void node_transfer(const Function& func, const DataflowNode& n, NodeState& state, LatticePtr dfInfo, VirtualCFG::dataflow& it);
 
       protected:
         /// returns true, iff the transfer functions should get invoked
@@ -356,10 +353,10 @@ class IntraFWDataflow  : public IntraUniDirectionalDataflow
         NodeState* initializeFunctionNodeState(const Function &func, NodeState *fState);
 
         VirtualCFG::dataflow*
-        getInitialWorklist(const Function &func, bool firstVisit, bool analyzeDueToCallers, const set<Function> &calleesUpdated, NodeState *fState);
+        getInitialWorklist(const Function& func, bool firstVisit, bool analyzeDueToCallers, const set<Function> &calleesUpdated, NodeState *fState);
 
-        AnyLattice& getLatticeAnte(NodeState *state);
-        AnyLattice& getLatticePost(NodeState *state);
+        LatticePtr getLatticeAnte(NodeState *state);
+        LatticePtr getLatticePost(NodeState *state);
         void transferFunctionCall(const Function &func, const DataflowNode &n, NodeState *state);
         ConnectionContainer getDescendants(const DataflowNode &n);
         DataflowNode getUltimate(const Function &func);
@@ -381,9 +378,9 @@ class IntraBWDataflow  : public IntraUniDirectionalDataflow
         VirtualCFG::dataflow*
         getInitialWorklist(const Function &func, bool firstVisit, bool analyzeDueToCallers, const set<Function> &calleesUpdated, NodeState *fState);
 
-        AnyLattice& getLatticeAnte(NodeState *state);
-        AnyLattice& getLatticePost(NodeState *state);
-        void transferFunctionCall(const Function &func, const DataflowNode &n, NodeState *state);
+        LatticePtr getLatticeAnte(NodeState *state);
+        LatticePtr getLatticePost(NodeState *state);
+        void transferFunctionCall(const Function& func, const DataflowNode& n, NodeState* state);
         ConnectionContainer getDescendants(const DataflowNode &n);
         DataflowNode getUltimate(const Function &func);
 
@@ -488,7 +485,7 @@ class UnstructuredPassInterDataflow : virtual public InterProceduralDataflow
         // Returns true if any of the input lattices changed as a result of the transfer function and
         //    false otherwise.
         bool transfer(const Function& func, const DataflowNode& n, NodeState& state,
-                      Lattice& dfInfo, const Lattice*& retState, bool fw)
+                      LatticePtr dfInfo, ConstLatticePtr& retState, bool fw)
         {
                 return false;
         }
@@ -506,8 +503,8 @@ class MergeAllReturnStates : public UnstructuredPassIntraAnalysis
         Analysis* analysis;
 
         // List of merged lattices of all the return statements and the returned values
-        AnyLattice mergedLatsRetStmt;
-        AnyLattice mergedLatsRetVal;
+        LatticePtr _mergedLatsRetStmt; // \todo remove _
+        LatticePtr _mergedLatsRetVal;  // \todo remove _
 
         // After the analysis is complete, records true if the state of the mergedLattices changed
         // during the analysis and false otherwise
@@ -520,24 +517,24 @@ class MergeAllReturnStates : public UnstructuredPassIntraAnalysis
 
         public:
         MergeAllReturnStates(Analysis* analysis/*, ab latSide*/)
-        : analysis(analysis), mergedLatsRetStmt(), mergedLatsRetVal(), modified(false) /*, latSide(latSide)*/
+        : analysis(analysis), _mergedLatsRetStmt(), _mergedLatsRetVal(), modified(false) /*, latSide(latSide)*/
         {}
 
-        MergeAllReturnStates(Analysis* analysis, const AnyLattice& latsRetStmt, const AnyLattice& latsRetVal/*, ab latSide*/)
-        : analysis(analysis), mergedLatsRetStmt(latsRetStmt), mergedLatsRetVal(latsRetVal), modified(false)  /*, latSide(latSide)*/
+        MergeAllReturnStates(Analysis* analysis, ConstLatticePtr latsRetStmt, ConstLatticePtr latsRetVal/*, ab latSide*/)
+        : analysis(analysis), _mergedLatsRetStmt(latsRetStmt->copy()), _mergedLatsRetVal(latsRetVal->copy()), modified(false)  /*, latSide(latSide)*/
         {}
 
         void visit(const Function& func, const DataflowNode& n, NodeState& state);
 
         // Merges the lattices in the given vector into mergedLat, which may be mergedLatsRetStmt or mergedLatsRetVal
         // Returns true of mergedLatsStmt changes as a result and false otherwise.
-        static bool mergeLats(AnyLattice& mergedLat, const AnyLattice& lats);
+        static bool mergeLats(LatticePtr mergedLat, ConstLatticePtr lats);
 
         // Returns a reference to mergedLatsRetStmt
-        AnyLattice& getMergedLatsRetStmt() { return mergedLatsRetStmt; }
+        LatticePtr getMergedLatsRetStmt() { return _mergedLatsRetStmt; }
 
         // Returns a reference to mergedLatsRetVal
-        AnyLattice& getMergedLatsRetVal() { return mergedLatsRetVal; }
+        LatticePtr getMergedLatsRetVal() { return _mergedLatsRetVal; }
 
         // Returns the value of modified
         bool getModified() { return modified; }
@@ -552,14 +549,14 @@ class DFStateAtReturns : public NodeFact
 {
         // The dataflow state at the end of the function, merged over all the return statements
         // and the implicit return at the end of the function
-        AnyLattice latsAtFuncReturn;
+        LatticePtr _latsAtFuncReturn; // \todo remove _
         // The dataflow state of the return value, merged over all the return statements
-        AnyLattice latsRetVal;
+        LatticePtr _latsRetVal; // \todo remove _
 
         public:
         //DFStateAtReturns();
 
-        DFStateAtReturns(const AnyLattice& latsAtFuncReturn, const AnyLattice& latsRetVal);
+        DFStateAtReturns(LatticePtr latsAtFuncReturn, LatticePtr latsRetVal);
 
         // Returns a copy of this node fact
         NodeFact* copy() const;
@@ -570,10 +567,10 @@ class DFStateAtReturns : public NodeFact
         bool mergeReturnStates(const Function& func, FunctionState* fState, IntraProceduralDataflow* intraAnalysis);
 
         // Returns a reference to latsAtFuncReturn
-        AnyLattice& getLatsAtFuncReturn() { return latsAtFuncReturn; }
+        LatticePtr getLatsAtFuncReturn() { return _latsAtFuncReturn; }
 
         // Returns a reference to latsRetVal
-        AnyLattice& getLatsRetVal() { return latsRetVal; }
+        LatticePtr getLatsRetVal() { return _latsRetVal; }
 
         std::string str(std::string indent);
 };
@@ -612,7 +609,7 @@ class ContextInsensitiveInterProceduralDataflow : virtual public InterProcedural
         // Returns true if any of the input lattices changed as a result of the transfer function and
         //    false otherwise.
         bool transfer(const Function& func, const DataflowNode& n, NodeState& state,
-                      Lattice& dfInfo, const Lattice*& retState, bool fw);
+                      LatticePtr dfInfo, ConstLatticePtr& retState, bool fw);
 
         // Uses TraverseCallGraphDataflow to traverse the call graph.
         void runAnalysis();

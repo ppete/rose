@@ -75,7 +75,7 @@ class nodeConstLattice : public FiniteLattice
         }
 
         // returns a copy of this lattice
-        Lattice* copy() const;
+        nodeConstLattice* copy() const;
 
         // overwrites the state of this Lattice with that of that Lattice
         void copy(const Lattice* that);
@@ -146,7 +146,7 @@ class nodeConstAnalysis : public IntraFWDataflow
         std::vector<NodeFact*>
         genFacts(const Function& func, const DataflowNode& n, const NodeState& state);
 
-        bool transfer(const Function& func, const DataflowNode& n, NodeState& state, Lattice& dfInfo);
+        bool transfer(const Function& func, const DataflowNode& n, NodeState& state, LatticePtr dfInfo);
 };
 
 // runs the nodeConstAnalysis on the project and returns the resulting nodeConstAnalysis object

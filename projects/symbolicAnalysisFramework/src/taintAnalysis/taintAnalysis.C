@@ -9,7 +9,7 @@ void TaintLattice::initialize()
 
 
 // return a new copy of this lattice
-Lattice* TaintLattice::copy() const
+TaintLattice* TaintLattice::copy() const
 {
     return new TaintLattice(*this);
 }
@@ -360,9 +360,9 @@ TaintAnalysis::genFacts(const Function& func, const DataflowNode& n, const NodeS
 
 
 // identity transfer function for now
-bool TaintAnalysis::transfer(const Function& func, const DataflowNode& node, NodeState& state, Lattice& dfInfo)
+bool TaintAnalysis::transfer(const Function& func, const DataflowNode& node, NodeState& state, LatticePtr dfInfo)
 {
-    visitor_transfer(TaintAnalysisTransfer(func, node, state, dfInfo), node);
+    visitor_transfer(TaintAnalysisTransfer(func, node, state, *dfInfo.get()), node);
     return true;
 }
 

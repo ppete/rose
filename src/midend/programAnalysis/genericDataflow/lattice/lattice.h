@@ -3,6 +3,9 @@
 
 #include <string>
 #include <map>
+
+#include <boost/shared_ptr.hpp>
+
 #include "CallGraphTraverse.h"
 #include "variables.h"
 
@@ -126,11 +129,25 @@ class Lattice : public printable
         bool good_state;
 };
 
+typedef boost::shared_ptr<Lattice>       LatticePtr;
+typedef boost::shared_ptr<const Lattice> ConstLatticePtr;
+
+inline
+LatticePtr clone(ConstLatticePtr orig)
+{
+  if (!orig.get()) return LatticePtr(static_cast<Lattice*>(0));
+
+  return LatticePtr(orig->copy());
+}
+
+
 class FiniteLattice : public virtual Lattice
 {
         public:
         bool finiteLattice() const
         { return true;  }
+
+        virtual FiniteLattice* copy() const=0;
 };
 
 class InfiniteLattice : public virtual Lattice
@@ -139,10 +156,26 @@ class InfiniteLattice : public virtual Lattice
         bool finiteLattice() const
         { return false; }
 
+        virtual InfiniteLattice* copy() const=0;
+
         // widens this from that and saves the result in this
         // returns true if this causes this to change and false otherwise
         virtual bool widenUpdate(const InfiniteLattice* that)=0;
 };
+
+typedef boost::shared_ptr<InfiniteLattice>       InfiniteLatticePtr;
+typedef boost::shared_ptr<const InfiniteLattice> ConstInfiniteLatticePtr;
+
+
+
+template <class LatticeType>
+LatticeType& ref(LatticePtr);
+
+template <class LatticeType>
+const LatticeType& ref(ConstLatticePtr);
+
+
+#if OBSOLETE_CODE
 
 /// The AnyLattice owns a lattice object and manages its life-time
 struct AnyLattice
@@ -270,5 +303,7 @@ struct AnyLattice
 
 /// prints @lat on @os
 std::ostream& operator<<(std::ostream& os, const AnyLattice& lat);
+
+#endif /* OBSOLETE_CODE */
 
 #endif

@@ -12,7 +12,7 @@ using namespace std;
  ********************************************/
 
 // returns a copy of this lattice
-Lattice* BoolAndLattice::copy() const
+BoolAndLattice* BoolAndLattice::copy() const
 {
         return new BoolAndLattice(state);
 }
@@ -120,7 +120,7 @@ string BoolAndLattice::str(string indent)
 const int IntMaxLattice::infinity = 32768;
 
 // returns a copy of this lattice
-Lattice* IntMaxLattice::copy() const
+IntMaxLattice* IntMaxLattice::copy() const
 {
         return new IntMaxLattice(state);
 }
@@ -826,7 +826,7 @@ string VariablesProductLattice::str(string indent)
 //
 // AnyLattice implementation
 
-
+#if OBSOLETE_CODE
 
 Lattice& AnyLattice::product_lattice_at(size_t pos)
 {
@@ -944,3 +944,5 @@ bool AnyLattice::widenUpdate(const AnyLattice& rhs)
   ROSE_ASSERT(typeid(llat) == typeid(rlat));
   return llat.widenUpdate(&rlat);
 }
+
+#endif /* OBSOLETE_CODE */

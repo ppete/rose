@@ -27,12 +27,11 @@ void printAnalysisStates::visit(const Function& func, const DataflowNode& n, Nod
                         Dbg::dbg << indent << "    fact"<<*it<<" = None\n";
         }
 
-        // Lattice* lat;
-        const AnyLattice& lat = (latSide==above) ? state.getLatticeAbove(creator)
-                                                 : state.getLatticeBelow(creator);
-        // \pp \todo was: if lat != NULL
-        if (lat.isInitialized())
-                Dbg::dbg << indent << "    lattice"<<" = \n"<<lat.str(indent+"    ")<<"\n";
+        ConstLatticePtr lat = (latSide==above) ? state.getLatticeAbove(creator)
+                                               : state.getLatticeBelow(creator);
+        //  was: if lat != NULL
+        if (lat.get())
+                Dbg::dbg << indent << "    lattice"<<" = \n"<<lat->str(indent+"    ")<<"\n";
         else
                 Dbg::dbg << indent << "    lattice"<<" = None\n";
 

@@ -90,7 +90,7 @@ class TaintLattice : public FiniteLattice
     void initialize();
 
     // overridden method to return copy of this lattice
-    Lattice* copy() const;
+    TaintLattice* copy() const;
 
     // overridden method to copy from lattice 'that
     void copy(const Lattice* that);
@@ -195,7 +195,7 @@ class TaintAnalysis : public IntraFWDataflow
 
 
     // transfer function that maps current state to next state
-    bool transfer(const Function& func, const DataflowNode& n, NodeState& state, Lattice& dfInfo);
+    bool transfer(const Function& func, const DataflowNode& n, NodeState& state, LatticePtr dfInfo);
 
     // returns an instance of object that has transfer functions to map from current state to next state
     // boost::shared_ptr<IntraDFTransferVisitor> getTransferVisitor(const Function& func, const DataflowNode& node, NodeState& state, const std::vector<Lattice*>& dfInfo);

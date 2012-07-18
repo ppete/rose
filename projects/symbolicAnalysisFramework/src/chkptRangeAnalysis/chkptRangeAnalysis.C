@@ -3,7 +3,7 @@
 void ChkptRangeVerifAnalysis::visit(const Function& func, const DataflowNode& n, NodeState& state)
 {
         //bool modified = false;
-        ConstrGraph* cg = &(state.getLatticeBelowMod(rangeAnalysis).ref<ConstrGraph>());
+        ConstrGraph* cg = dynamic_cast<ConstrGraph*>(state.getLatticeBelowMod(rangeAnalysis).get());
 
         printf("ChkptRangeVerifAnalysis::visit()   n.getNode()=%p<%s | %s>, cg=%p\n", n.getNode(), n.getNode()->class_name().c_str(), n.getNode()->unparseToString().c_str(), cg);
         cout << cg->str("    ") << "\n";
@@ -69,7 +69,8 @@ printf("ChkptRangeAnalysis::genInitState() state=%p\n", &state);*/
         //           see also comment in ConstrGraph.h
         NodeState& state_noconst = const_cast<NodeState&>(state);
 
-        FiniteVarsExprsProductLattice* divL = &(state_noconst.getLatticeBelowMod(divAnalysis).ref<FiniteVarsExprsProductLattice>());
+        Lattice*                       tmpL = state_noconst.getLatticeBelowMod(divAnalysis).get();
+        FiniteVarsExprsProductLattice* divL = dynamic_cast<FiniteVarsExprsProductLattice*>(tmpL);
         return new ConstrGraph(func, n, state, ldva, divL, false, string("    "));
 
         //return initLattices;
@@ -83,10 +84,10 @@ map<varID, Lattice*>& ChkptRangeAnalysis::genConstVarLattices() const
         return constVars;
 }
 
-bool ChkptRangeAnalysis::transfer(const Function& func, const DataflowNode& n, NodeState& state, Lattice& dfInfo)
+bool ChkptRangeAnalysis::transfer(const Function& func, const DataflowNode& n, NodeState& state, LatticePtr dfInfo)
 {
         bool modified = false;
-        ConstrGraph* cg = &dynamic_cast<ConstrGraph&>(dfInfo);
+        ConstrGraph* cg = &dynamic_cast<ConstrGraph&>(*dfInfo.get());
 
         cg->beginTransaction();
 
@@ -217,10 +218,10 @@ cout << cg->str("    ") << "\n";
 // constraint graph
 // returns true if this causes the constraint graph to change and false otherwise
 bool ChkptRangeAnalysis::incorporateConditionalsInfo(const Function& func, const DataflowNode& n,
-                                                     NodeState& state, Lattice& dfInfo)
+                                                     NodeState& state, LatticePtr dfInfo)
 {
         bool modified = false;
-        ConstrGraph* cg = &dynamic_cast<ConstrGraph&>(dfInfo);
+        ConstrGraph* cg = &dynamic_cast<ConstrGraph&>(*dfInfo.get());
 
         printf("incorporateConditionalsInfo()\n");
         affineInequalityFact* ineqFact = (affineInequalityFact*)state.getFact(affIneqPlacer, 0);

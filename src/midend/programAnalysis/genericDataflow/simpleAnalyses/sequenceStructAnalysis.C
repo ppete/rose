@@ -100,7 +100,7 @@ void SeqStructLattice::initialize()
 }
 
 // Returns a copy of this lattice
-Lattice* SeqStructLattice::copy() const
+SeqStructLattice* SeqStructLattice::copy() const
 {
         return new SeqStructLattice(*this);
 }
@@ -379,13 +379,13 @@ SeqStructAnalysis::genFacts(const Function& func, const DataflowNode& n, const N
   return cgAnalysis->genFacts(func, n, state);
 }
 
-bool SeqStructAnalysis::transfer(const Function& func, const DataflowNode& n, NodeState& state, Lattice& dfInfo)
+bool SeqStructAnalysis::transfer(const Function& func, const DataflowNode& n, NodeState& state, LatticePtr dfInfo)
 {
         bool modified=false; // \todo \pp variable no longer needed
 
         // \pp \todo should we not extract this info from the lattice that we got passed???
-        const ConstrGraph* cg = &(state.getLatticeAbove(cgAnalysis).ref<ConstrGraph>());
-        FiniteVarsExprsProductLattice* prodLat = &dynamic_cast<FiniteVarsExprsProductLattice&>(dfInfo);
+        const ConstrGraph* cg = dynamic_cast<const ConstrGraph*>(state.getLatticeAbove(cgAnalysis).get());
+        FiniteVarsExprsProductLattice* prodLat = dynamic_cast<FiniteVarsExprsProductLattice*>(dfInfo.get());
 
         // Make sure that all the lattices are initialized
         const vector<Lattice*>& lattices = prodLat->getLattices();
