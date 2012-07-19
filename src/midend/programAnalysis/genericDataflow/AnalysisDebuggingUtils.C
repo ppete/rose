@@ -764,11 +764,7 @@ void dbgStream::addDOT(string imgFName, string graphName, string dot, ostream& r
         std::string escape(std::string s)
         {
                 string out;
-<<<<<<< HEAD
-                for(unsigned int i=0; i<s.length(); i++) {
-=======
                 for(size_t i=0; i<s.length(); i++) {
->>>>>>> master
                         // Manage HTML tags
                              if(s[i] == '<') out += "&lt;";
                         else if(s[i] == '>') out += "&gt;";
