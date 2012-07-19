@@ -28,9 +28,11 @@ protected:
   //FiniteVarsExprsProductLattice* prodLat;
   AbstractObjectMap* prodLat;
 
-  LatticePtr getLattice(SgExpression *sgn) {
+  //Sriram : changed it to const to be consistent with master
+  //TODO: change sgnode to const in the chain of functions
+  LatticePtr getLattice(const SgExpression *sgn) {
     ROSE_ASSERT(sgn);
-    AbstractObjectPtr o = AbstractObjectPtr(composer->Expr2MemLoc(sgn, part, analysis));
+    AbstractObjectPtr o = AbstractObjectPtr(composer->Expr2MemLoc(const_cast<SgExpression*>(sgn), part, analysis)); // temporary fix to remove const
     return getLattice(o);
     // GB: As I understand it, o should be deallocated here
   }
@@ -55,7 +57,8 @@ protected:
     return prodLat->insert(o, lat);
   }
 
-  bool getLattices(SgBinaryOp *sgn, LatticePtr &arg1Lat, LatticePtr &arg2Lat, LatticePtr &resLat) {
+  //Sriram: kept the const to be consistent with master repo
+  bool getLattices(const SgBinaryOp *sgn, LatticePtr &arg1Lat, LatticePtr &arg2Lat, LatticePtr &resLat) {
     arg1Lat = getLattice(sgn->get_lhs_operand());
     arg2Lat = getLattice(sgn->get_rhs_operand());
     resLat = getLattice(sgn);
