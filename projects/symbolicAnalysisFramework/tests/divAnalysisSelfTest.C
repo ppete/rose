@@ -24,9 +24,12 @@ int numFails = 0, numPass = 0;
 class evaluateAnalysisStates : public UnstructuredPassIntraAnalysis
 {
 public:
+  typedef map<SgName, DivLattice>     NamedExpection;
+  typedef map<string, NamedExpection> Expections;
+
   DivAnalysis* div;
   string indent;
-  map<string, map<SgName, DivLattice> > expectations;
+  Expections expectations;
   int total_expectations;
 
   evaluateAnalysisStates(DivAnalysis* div_, string indent_) : div(div_), indent(indent_), total_expectations(0)
@@ -71,6 +74,7 @@ public:
 
       Lattice *got = lat->getVarLattice(*i);
       ROSE_ASSERT(got);
+
       if (expectations[funcName][name] != got) {
         cout << "mismatched: " << got->str() << " was not the expected " << expectations[funcName][name].str();
         numFails++;

@@ -1021,13 +1021,6 @@ void NodeState::copyLattices(LatticePtr dfInfoX, ConstLatticePtr dfInfoY)
         copyLatticesBelow(&that);
 }*/
 
-static
-std::string as_str(ConstLatticePtr lat, const std::string& indent)
-{
-  if (!lat.get()) return indent;
-
-  return lat->str(indent+"        ");
-}
 
 string NodeState::str(Analysis* analysis, string indent) const
 {
@@ -1046,8 +1039,8 @@ string NodeState::str(Analysis* analysis, string indent) const
                 ConstLatticePtr latticesAbove = dfInfoAbove.find(analysis)->second;
                 ConstLatticePtr latticesBelow = dfInfoBelow.find(analysis)->second;
 
-                oss << indent << "    Lattice Above: "<< (latticesAbove.get()) <<" = "<< as_str(latticesAbove, indent)<<"\n";
-                oss << indent << "    Lattice Below: "<< (latticesBelow.get()) <<" = "<< as_str(latticesBelow, indent)<<"\n";
+                oss << indent << "    Lattice Above: "<< (latticesAbove.get()) <<" = "<< as_str(latticesAbove, indent+"        ")<<"\n";
+                oss << indent << "    Lattice Below: "<< (latticesBelow.get()) <<" = "<< as_str(latticesBelow, indent+"        ")<<"\n";
 
                 ROSE_ASSERT(facts.find(analysis) != facts.end());
                 int i=0;

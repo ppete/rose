@@ -6,6 +6,8 @@
 using namespace std;
 #include <map>
 
+int Lattice::ctr = 0;
+
 
 /********************************************
  ************** BoolAndLattice **************
@@ -103,7 +105,7 @@ bool BoolAndLattice::andUpd(bool state)
         }
 }
 
-string BoolAndLattice::str(string indent)
+string BoolAndLattice::str(string indent) const
 {
         ostringstream outs;
 
@@ -241,7 +243,7 @@ bool IntMaxLattice::maximum(int value)
         return oldState!=state;
 }
 
-string IntMaxLattice::str(string indent)
+string IntMaxLattice::str(string indent) const
 {
         ostringstream outsNum;
         outsNum << state;
@@ -376,7 +378,7 @@ bool ProductLattice::operator==(const Lattice* that_arg) const
 // The string that represents this object
 // If indent!="", every line of this string must be prefixed by indent
 // The last character of the returned string should not be '\n', even if it is a multi-line string.
-string ProductLattice::str(string indent)
+std::string ProductLattice::str(string indent) const
 {
         ostringstream outs;
         outs << indent << "[ProductLattice: level=" << Lattice::str() <<"\n";
@@ -780,7 +782,7 @@ void VariablesProductLattice::remVar(varID var)
 // The string that represents this object
 // If indent!="", every line of this string must be prefixed by indent
 // The last character of the returned string should not be '\n', even if it is a multi-line string.
-string VariablesProductLattice::str(string indent)
+string VariablesProductLattice::str(string indent) const
 {
         //printf("VariablesProductLattice::str() this->allVarLattice=%p\n", this->allVarLattice);
 

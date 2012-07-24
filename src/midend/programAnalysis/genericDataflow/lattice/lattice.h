@@ -14,7 +14,7 @@ class Lattice : public printable
         public:
 
         Lattice()
-        : good_state(false)
+        : good_state(false), id(++ctr)
         {}
 
         /// returns a copy of this lattice
@@ -127,10 +127,24 @@ class Lattice : public printable
 
     private:
         bool good_state;
+
+    public:
+        int  id;
+
+        static int ctr;
 };
 
 typedef boost::shared_ptr<Lattice>       LatticePtr;
 typedef boost::shared_ptr<const Lattice> ConstLatticePtr;
+
+/// prints the lattice string representation, iff the lattice is not null
+inline
+std::string as_str(ConstLatticePtr lat, const std::string& indent)
+{
+  if (!lat.get()) return indent;
+
+  return lat->str(indent);
+}
 
 inline
 LatticePtr clone(ConstLatticePtr orig)

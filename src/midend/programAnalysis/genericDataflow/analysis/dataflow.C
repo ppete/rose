@@ -7,7 +7,7 @@
 
 #include <boost/mem_fn.hpp>
 
-#include "sageGeneric.h"
+// #include "sageGeneric.h"
 
 NodeState* IntraBWDataflow::initializeFunctionNodeState(const Function &func, NodeState *fState)
 {
@@ -107,7 +107,6 @@ void IntraFWDataflow::transferFunctionCall(const Function &func, const DataflowN
   InterProceduralDataflow& ipdf = dynamic_cast<InterProceduralDataflow&>(*interAnalysis);
 
   ipdf.transfer(func, n, *state, dfInfoBelow, retState, true);
-  ROSE_ASSERT(retState);
 
 #if OBSOLETE_CODE
   if(retState && !(retState->size()==0 || (retState->size() == dfInfoBelow.size()))) {
@@ -122,8 +121,7 @@ void IntraFWDataflow::transferFunctionCall(const Function &func, const DataflowN
 
   // Incorporate information about the function's return value into the caller's dataflow state
   // as the information of the SgFunctionCallExp
-  // \pp \todo should always be initialized???
-  if (retState->isInitialized()) {
+  if (retState.get()) {
       Dbg::dbg << "    lDF Before=" << dfInfoBelow->str("        ") << endl;
       Dbg::dbg << "    lRet Before=" << retState->str("        ") << endl;
 
@@ -306,7 +304,8 @@ void IntraUniDirectionalDataflow::node_transfer( const Function& func,
           // Propagate the Lattices below this node to its descendant
           // if there are multiple out edges the lattice can be reduced
           // according to the edge.
-          const bool updNextstate = propagateStateToNextNode(lattice, n, getLatticeAnte(nextState), nextNode);
+          LatticePtr nextLattice = getLatticeAnte(nextState);
+          const bool updNextstate = propagateStateToNextNode(lattice, n, nextLattice, nextNode);
 
           // If the next node's state gets modified as a result of the propagation,
           // add the node to the processing queue.
@@ -316,6 +315,8 @@ void IntraUniDirectionalDataflow::node_transfer( const Function& func,
           }
 
           dbg_LatticeUpdate(updNextstate);
+          std::cerr << "propagate: " << lattice->id << " -> " << nextLattice->id << std::endl;
+          std::cerr << "| " << as_str(nextLattice, "") << "| " << std::endl;
   }
 }
 
@@ -367,6 +368,19 @@ void IntraUniDirectionalDataflow::edge_transfer(const Function& func, const Data
   // storing the result back in the input lattice (lattice = totalNodeLattice)
   //   implemented through swap
   swap(lattice, totalNodeLattice);
+}
+
+static int logid = 0;
+
+static
+std::string dbg_id(ConstLatticePtr clp)
+{
+  if (!clp.get()) return "";
+
+  std::stringstream out;
+
+  out << clp->id;
+  return out.str();
 }
 
 
@@ -462,6 +476,10 @@ bool IntraUniDirectionalDataflow::runAnalysis(const Function& func, NodeState* f
                         LatticePtr      dfInfoPost = getLatticePost(state);
 
                         dfInfoPost->copy(dfInfoAnte.get());
+
+                        std::cerr << "#" << ++logid << std::endl;
+                        std::cerr << "ANTE: " << dbg_id(dfInfoAnte) << "\n" << as_str(dfInfoAnte, "") << std::endl;
+                        std::cerr << "POST: " << dbg_id(dfInfoPost) << "\n" << as_str(dfInfoPost, "") << std::endl;
 
 #if OBSOLETE_CODE
                         // Overwrite the Lattices below this node with the lattices above this node.

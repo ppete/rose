@@ -253,6 +253,8 @@ void TaintAnalysisTransfer::visit(SgFunctionCallExp* sgn)
 void TaintAnalysisTransfer::visit(SgIntVal* sgn)
 {
     ROSE_ASSERT(sgn != NULL);
+    ROSE_ASSERT(prodLat); // \pp remove
+    std::cerr << "--->" << prodLat->getLattices().size() << std::endl;
     TaintLattice* res_lattice = getLattice(sgn);
     ROSE_ASSERT(res_lattice);
     modified = true;
@@ -362,7 +364,10 @@ TaintAnalysis::genFacts(const Function& func, const DataflowNode& n, const NodeS
 // identity transfer function for now
 bool TaintAnalysis::transfer(const Function& func, const DataflowNode& node, NodeState& state, LatticePtr dfInfo)
 {
-    visitor_transfer(TaintAnalysisTransfer(func, node, state, *dfInfo.get()), node);
+    Lattice* lat = dfInfo.get();
+    ROSE_ASSERT(lat);
+
+    visitor_transfer(TaintAnalysisTransfer(func, node, state, *lat), node);
     return true;
 }
 

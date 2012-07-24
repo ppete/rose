@@ -115,6 +115,8 @@ public:
   IntraDFTransferVisitor(const Function &f, const DataflowNode &n, NodeState &s, Lattice& d)
     : func(f), dfNode(n), nodeState(s), dfInfo(d)
   {}
+
+  virtual bool finish() = 0;
 };
 
 
@@ -136,7 +138,6 @@ class IntraUnitDataflow : virtual public IntraProceduralDataflow
 
         private:
         /// \brief   calls the visitor based transfer functions for valid visitors
-        /// \return   return a reference to the same object that was passsed in.
         /// \details function family discerns valid visitors from invalid ones
         /// \todo    add auxiliary overload to print clear error message for non-visitor objects
         /// \note    FOR INTERNAL USE ONLY
@@ -145,15 +146,20 @@ class IntraUnitDataflow : virtual public IntraProceduralDataflow
           n.getNode()->accept(vis);
         }
 
-        protected:
-
-        /// \brief calls the visitor object @vis with the sage node wrapped by @n.
-        template <class RoseVisitor>
-        RoseVisitor& visitor_transfer(RoseVisitor& vis, const DataflowNode& n)
+        /// \overload
+        /// \details  calls the finish function implemented for IntraDFTransferVisitor
+        ///           after the transfer took place.
+        /// \note     FOR INTERNAL USE ONLY
+        void _vis_transfer(IntraDFTransferVisitor& vis, const DataflowNode& n)
         {
-          _vis_transfer(vis, n);
-          return vis;
+          _vis_transfer(static_cast<ROSE_VisitorPattern&>(vis), n);
+
+          // IntraDFTransferVisitor expect the finish function to be called
+          //   sometimes used to write back the results
+          vis.finish();
         }
+
+        protected:
 
 /// \brief   calls the visitor object @vis with the sage node wrapped by @n.
 /// \tparam  RoseVisitor a type derived from ROSE_VisitorPattern
@@ -162,8 +168,9 @@ class IntraUnitDataflow : virtual public IntraProceduralDataflow
 /// \details convenience function that allows constructing the visitor
 ///          in the argument list.
 /// \code
-///          void YourAnalysisClass::transfer(...) {
+///          bool YourAnalysisClass::transfer(...) {
 ///            visitor_transfer( YourVisitorClass(...), n );
+///            return true;
 ///          }
 /// \endcode
 ///
@@ -177,6 +184,16 @@ class IntraUnitDataflow : virtual public IntraProceduralDataflow
           _vis_transfer(vis_copy, n);
           return vis_copy;
         }
+
+        /// \overload
+        /// \brief calls the visitor object @vis with the sage node wrapped by @n.
+        template <class RoseVisitor>
+        RoseVisitor& visitor_transfer(RoseVisitor& vis, const DataflowNode& n)
+        {
+          _vis_transfer(vis, n);
+          return vis;
+        }
+
 
 #if OBSOLETE_CODE
 
@@ -520,15 +537,15 @@ class MergeAllReturnStates : public UnstructuredPassIntraAnalysis
         : analysis(analysis), _mergedLatsRetStmt(), _mergedLatsRetVal(), modified(false) /*, latSide(latSide)*/
         {}
 
-        MergeAllReturnStates(Analysis* analysis, ConstLatticePtr latsRetStmt, ConstLatticePtr latsRetVal/*, ab latSide*/)
-        : analysis(analysis), _mergedLatsRetStmt(latsRetStmt->copy()), _mergedLatsRetVal(latsRetVal->copy()), modified(false)  /*, latSide(latSide)*/
+        MergeAllReturnStates(Analysis* analysis, LatticePtr latsRetStmt, LatticePtr latsRetVal/*, ab latSide*/)
+        : analysis(analysis), _mergedLatsRetStmt(latsRetStmt), _mergedLatsRetVal(latsRetVal), modified(false)  /*, latSide(latSide)*/
         {}
 
         void visit(const Function& func, const DataflowNode& n, NodeState& state);
 
         // Merges the lattices in the given vector into mergedLat, which may be mergedLatsRetStmt or mergedLatsRetVal
         // Returns true of mergedLatsStmt changes as a result and false otherwise.
-        static bool mergeLats(LatticePtr mergedLat, ConstLatticePtr lats);
+        static bool mergeLats(LatticePtr& mergedLat, ConstLatticePtr lats);
 
         // Returns a reference to mergedLatsRetStmt
         LatticePtr getMergedLatsRetStmt() { return _mergedLatsRetStmt; }

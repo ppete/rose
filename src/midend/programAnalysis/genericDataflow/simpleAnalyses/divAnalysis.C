@@ -193,6 +193,15 @@ bool DivLattice::meetUpdate(const Lattice* that_arg)
         short oldLevel = level;
         const DivLattice* that = dynamic_cast<const DivLattice*>(that_arg);
 
+        switch (that->value)
+        {
+          case 1:
+          case 2:
+          case 3:
+          case 4:  std::cout << ""; break;
+          default: ;
+        }
+
 /*Dbg::dbg << "DivLattice::meetUpdate\n";
 Dbg::dbg << "this: " << str("") << "\n";
 Dbg::dbg << "that: " << that->str("") << "\n";*/
@@ -359,6 +368,7 @@ bool DivLattice::setBot()
 // returns true if this causes the lattice's state to change, false otherwise
 bool DivLattice::set(long value)
 {
+        std::cerr << "set val = " << value << std::endl;
         bool modified = this->level != valKnown || this->value != value;
         this->value = value;
         div = -1;

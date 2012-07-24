@@ -72,7 +72,7 @@ class BoolAndLattice : public FiniteLattice
         /*void addVar(varID var) {};
         void remVar(varID var) {};*/
 
-        std::string str(std::string indent="");
+        std::string str(std::string indent="") const;
 };
 
 class IntMaxLattice : public InfiniteLattice
@@ -141,7 +141,7 @@ class IntMaxLattice : public InfiniteLattice
         /*void addVar(varID var) {};
         void remVar(varID var) {};*/
 
-        std::string str(std::string indent="");
+        std::string str(std::string indent="") const;
 };
 
 /*########################
@@ -224,7 +224,7 @@ class ProductLattice : public virtual Lattice
         // The string that represents this object
         // If indent!="", every line of this string must be prefixed by indent
         // The last character of the returned string should not be '\n', even if it is a multi-line string.
-        virtual std::string str(std::string indent="");
+        virtual std::string str(std::string indent="") const;
 };
 
 class FiniteProductLattice : public virtual ProductLattice, public virtual FiniteLattice
@@ -385,7 +385,7 @@ class VariablesProductLattice : public virtual ProductLattice
         // The string that represents this object
         // If indent!="", every line of this string must be prefixed by indent
         // The last character of the returned string should not be '\n', even if it is a multi-line string.
-        std::string str(std::string indent="");
+        std::string str(std::string indent="") const;
 };
 
 class FiniteVariablesProductLattice : public virtual VariablesProductLattice, public virtual FiniteProductLattice

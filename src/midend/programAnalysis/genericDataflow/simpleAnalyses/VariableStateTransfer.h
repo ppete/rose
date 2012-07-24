@@ -61,7 +61,7 @@ public:
     //prodLat->initialize();
     const std::vector<Lattice*>& lattices = prodLat->getLattices();
     for(std::vector<Lattice*>::const_iterator it = lattices.begin(); it!=lattices.end(); it++)
-      (dynamic_cast<LatticeType *>(*it))->initialize();
+      (*it)->initialize();
   }
 
   void visit(SgAssignOp *sgn)

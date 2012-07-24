@@ -11,6 +11,7 @@ LiveVarsLattice::LiveVarsLattice() {}
 LiveVarsLattice::LiveVarsLattice(const varID& var)
 {
         liveVars.insert(var);
+        std::cerr << "1";
 }
 
 LiveVarsLattice::LiveVarsLattice(const set<varID>& liveVars) : liveVars(liveVars)
@@ -47,6 +48,7 @@ void LiveVarsLattice::remapVars(const map<varID, varID>& varNameMap, const Funct
                 if(liveVars.find(var->first) != liveVars.end()) {
                         liveVars.erase(var->first);
                         liveVars.insert(var->second);
+                        std::cerr << "2";
                 }
         }
 }
@@ -60,7 +62,10 @@ void LiveVarsLattice::incorporateVars(const Lattice* that_arg)
 {
         const LiveVarsLattice* that = dynamic_cast<const LiveVarsLattice*>(that_arg);
         for(set<varID>::iterator var=that->liveVars.begin(); var!=that->liveVars.end(); var++)
+        {
                 liveVars.insert(*var);
+                std::cerr << "3";
+        }
 }
 
 // Returns a Lattice that describes the information known within this lattice
@@ -91,6 +96,7 @@ bool LiveVarsLattice::unProject(SgExpression* expr, Lattice* exprState) {
         if(that->liveVars.find(var) != that->liveVars.end()) {
                 modified = modified || (liveVars.find(var) == liveVars.end());
                 liveVars.insert(var);
+                std::cerr << "4";
         }
         return modified;
 }
@@ -108,6 +114,7 @@ bool LiveVarsLattice::meetUpdate(const Lattice* that_arg)
                 if(liveVars.find(*var) == liveVars.end()) {
                         modified = true;
                         liveVars.insert(*var);
+                        std::cerr << "5";
                 }
         }
 
@@ -130,6 +137,7 @@ bool LiveVarsLattice::addVar(const varID& var)
 {
         if(liveVars.find(var) == liveVars.end()) {
                 liveVars.insert(var);
+                std::cerr << "6";
                 return true;
         }
         return false;
@@ -152,7 +160,7 @@ bool LiveVarsLattice::isLiveVar(varID var)
 // The string that represents this object
 // If indent!="", every line of this string must be prefixed by indent
 // The last character of the returned string should not be '\n', even if it is a multi-line string.
-string LiveVarsLattice::str(string indent)
+string LiveVarsLattice::str(string indent) const
 {
         ostringstream oss;
         oss << "[LiveVarsLattice: liveVars=[";
@@ -624,6 +632,8 @@ VarsExprsProductLattice::VarsExprsProductLattice
                         varLatticeIndex[*var] = idx;
                         lattices.push_back(perVarLattice->copy());
                 }
+
+                std::cerr << "|lats| = " << lattices.size() << std::endl;
         } else {
                 //Dbg::dbg << "n=<"<<Dbg::escape(n.getNode()->unparseToString()) << " | " << n.getNode()->class_name()<<" | "<<n.getIndex()<<">"<<endl;
                 /*Dbg::dbg << "n->get_parent()=<"<<Dbg::escape(n.getNode()->get_parent()->unparseToString()) << " | " << n.getNode()->get_parent()->class_name()<<">"<<endl;*/
@@ -1108,19 +1118,17 @@ bool VarsExprsProductLattice::addVar(const varID& var, Lattice* lat)
 // The string that represents this object
 // If indent!="", every line of this string must be prefixed by indent
 // The last character of the returned string should not be '\n', even if it is a multi-line string.
-string VarsExprsProductLattice::str(string indent)
+string VarsExprsProductLattice::str(string indent) const
 {
         //printf("VarsExprsProductLattice::str() this->allVarLattice=%p\n", this->allVarLattice);
         ostringstream outs;
 
-#if OBSOLETE_CODE
         //outs << "[VarsExprsProductLattice: n="<<n.getNode()<<" = <"<<Dbg::escape(n.getNode()->unparseToString())<<" | "<<n.getNode()->class_name()<<" | "<<n.getIndex()<<"> level="<<(getLevel()==uninitialized ? "uninitialized" : "initialized")<<endl;
-        outs << "[VarsExprsProductLattice: n="<<n.getNode()<<" level="<<(getLevel()==uninitialized ? "uninitialized" : "initialized")<<endl;
-#endif /* OBSOLETE_CODE */
+        outs << "[VarsExprsProductLattice: n="<<n.getNode()<<" level="<<(isInitialized() ? "uninitialized" : "initialized")<<endl;
 
         //varIDSet refVars;// = getVisibleVars(func);
         //for(varIDSet::iterator it = refVars.begin(); it!=refVars.end(); it++)
-        for(map<varID, int>::iterator varIdx=varLatticeIndex.begin(); varIdx!=varLatticeIndex.end(); varIdx++)
+        for(map<varID, int>::const_iterator varIdx=varLatticeIndex.begin(); varIdx!=varLatticeIndex.end(); varIdx++)
         {
                 outs  << indent;
                 outs  << "    ";

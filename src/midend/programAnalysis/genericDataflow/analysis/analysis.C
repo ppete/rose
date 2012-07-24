@@ -120,14 +120,18 @@ InterProceduralDataflow::InterProceduralDataflow(IntraProceduralDataflow* intraD
                         DataflowNode begin(func.get_definition()->cfgForBeginning(), filter);
                         Dbg::dbg << "begin="<<begin.getNode()<<" = ["<<Dbg::escape(begin.getNode()->unparseToString())<<" | "<<begin.getNode()->class_name()<<"]"<<endl;
 
-                        LatticePtr        initLatts(intraDataflowAnalysis->genLattice(func, begin, funcS->state));
+                        LatticePtr        initLatPt(intraDataflowAnalysis->genLattice(func, begin, funcS->state));
                         vector<NodeFact*> initFacts = intraDataflowAnalysis->genFacts(func, begin, funcS->state);
 
                         // Make sure that the starting lattices are initialized
-                        ROSE_ASSERT(initLatts);
+                        //   some lattices can be NULL
+                        if (initLatPt.get())
+                        {
+                          initLatPt->initialize();
+                        }
 
                         // assert(lattice is initialized)
-                        funcS->state.setLattice((Analysis*)intraAnalysis, initLatts);
+                        funcS->state.setLattice((Analysis*)intraAnalysis, initLatPt);
                         funcS->state.setFacts((Analysis*)intraAnalysis, initFacts);
                         Dbg::dbg << "Initialized state of function "<<func.get_name().getString()<<"(), state="<<(&(funcS->state))<<endl;
                         Dbg::dbg << "    "<<funcS->state.str(intraDataflowAnalysis, "    ")<<endl;
@@ -497,9 +501,9 @@ bool DFStateAtReturns::mergeReturnStates(const Function& func, FunctionState* fS
 
         if(analysisDebugLevel>=1) {
                 Dbg::dbg << "DFStateAtReturns final #latsAtFuncReturn=: \n";
-                Dbg::dbg << "    "<<_latsAtFuncReturn->str("            ")<<endl;
+                Dbg::dbg << "    "<< as_str(_latsAtFuncReturn, "            ")<<endl;
                 Dbg::dbg << "DFStateAtReturns final #latsRetVal=: \n";
-                Dbg::dbg << "    "<<_latsRetVal->str("            ")<<endl;
+                Dbg::dbg << "    "<< as_str(_latsRetVal, "            ")<<endl;
                 Dbg::dbg << "modified = "<<mars.getModified()<<endl;
         }
         bool modified = mars.getModified();
@@ -567,8 +571,8 @@ void MergeAllReturnStates::visit(const Function& func, const DataflowNode& n, No
 
 // Merges the lattices in the given vector into mergedLats.
 // Returns true of mergeLats changes as a result and false otherwise.
-bool MergeAllReturnStates::mergeLats(LatticePtr mergedLat, ConstLatticePtr lats) {
-        if (mergedLat->isInitialized())
+bool MergeAllReturnStates::mergeLats(LatticePtr& mergedLat, ConstLatticePtr lats) {
+        if (mergedLat.get())
         {
           return mergedLat->meetUpdate(lats.get());
         }
@@ -874,10 +878,10 @@ void ContextInsensitiveInterProceduralDataflow::visit(const CGFunction* funcCG)
 
                         ConstLatticePtr retState = fState->retState.getLatticeBelow((Analysis*)intraAnalysis);
                         Dbg::dbg << "retState: \n";
-                        Dbg::dbg << retState->str("    ") << endl;
+                        Dbg::dbg << as_str(retState, "    ") << endl;
 
                         Dbg::dbg << "States of Return Values: "<< (dfsar->getLatsRetVal().get())<<endl;
-                        Dbg::dbg << dfsar->getLatsRetVal()->str("    ") << endl;
+                        Dbg::dbg << as_str(dfsar->getLatsRetVal(), "    ") << endl;
                 }
 
                 // If this function's final dataflow state was modified, its callers must be
