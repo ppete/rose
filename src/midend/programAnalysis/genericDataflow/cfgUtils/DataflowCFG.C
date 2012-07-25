@@ -29,9 +29,6 @@ namespace VirtualCFG
              // abstract memory object cannot be created for these nodes
              case V_SgExprListExp:
                  return false;
-
-             case V_SgCastExp:
-                 return false;
              
              default:
                  return cfgn.isInteresting();
