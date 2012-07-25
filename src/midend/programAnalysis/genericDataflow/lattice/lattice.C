@@ -89,6 +89,24 @@ bool BoolAndLattice::andUpd(bool state)
         }
 }
 
+// Set this Lattice object to represent the set of all possible execution prefixes.
+// Return true if this causes the object to change and false otherwise.
+bool BoolAndLattice::setToFull()
+{
+bool modified = (state!=1);
+state = 1;
+return modified;
+}
+
+// Set this Lattice object to represent the of no execution prefixes (empty set).
+// Return true if this causes the object to change and false otherwise.
+bool BoolAndLattice::setToEmpty()
+{
+bool modified = (state!=-1);
+state = -1;
+return modified;
+}
+
 string BoolAndLattice::str(string indent)
 {
         ostringstream outs;
@@ -222,6 +240,24 @@ bool IntMaxLattice::maximum(int value)
         return oldState!=state;
 }
 
+// Set this Lattice object to represent the set of all possible execution prefixes.
+// Return true if this causes the object to change and false otherwise.
+bool IntMaxLattice::setToFull()
+{
+bool modified = (state!=infinity);
+state = infinity;
+return modified;
+}
+
+// Set this Lattice object to represent the of no execution prefixes (empty set).
+// Return true if this causes the object to change and false otherwise.
+bool IntMaxLattice::setToEmpty()
+{
+bool modified = (state!=-1);
+state = -1;
+return modified;
+}
+
 string IntMaxLattice::str(string indent)
 {
         ostringstream outsNum;
@@ -333,6 +369,26 @@ bool ProductLattice::operator==(Lattice* that_arg)
             it++, itThat++)
                 if((**it) != (**itThat)) return false;
         return true;
+}
+
+// Set this Lattice object to represent the set of all possible execution prefixes.
+// Return true if this causes the object to change and false otherwise.
+bool ProductLattice::setToFull()
+{
+bool modified = false;
+  for(vector<Lattice*>::const_iterator it = lattices.begin(); it!=lattices.end(); it++)
+      modified = (*it)->setToFull() || modified;
+  return modified;
+}
+
+// Set this Lattice object to represent the of no execution prefixes (empty set).
+// Return true if this causes the object to change and false otherwise.
+bool ProductLattice::setToEmpty()
+{
+bool modified = false;
+  for(vector<Lattice*>::const_iterator it = lattices.begin(); it!=lattices.end(); it++)
+      modified = (*it)->setToEmpty() || modified;
+  return modified;
 }
 
 // The string that represents this object

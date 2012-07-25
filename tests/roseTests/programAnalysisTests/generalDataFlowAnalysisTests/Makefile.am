@@ -49,7 +49,7 @@ bin_PROGRAMS  = constantPropagationTest taintedFlowAnalysisTest liveDeadVarAnaly
 # bin_PROGRAMS  = constantPropagationTest 
 
 liveDeadVarAnalysisTest_SOURCES = liveDeadVarAnalysisTest.C
-constantPropagationTest_SOURCES = constantPropagation.C constantPropagationTest.C
+constantPropagationTest_SOURCES = constantPropagationTest.C #constantPropagation.C 
 taintedFlowAnalysisTest_SOURCES = taintedFlowAnalysis.C taintedFlowAnalysisTest.C
 
 # testCallGraph_LDADD = $(LIBS_WITH_RPATH) $(ROSE_LIBS)

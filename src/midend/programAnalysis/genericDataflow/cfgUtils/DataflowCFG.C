@@ -10,15 +10,32 @@ namespace VirtualCFG
       bool defaultFilter (CFGNode cfgn)
       {
          SgNode * node = cfgn.getNode();
-          assert (node != NULL) ;
+         assert (node != NULL) ;
           //Keep the last index for initialized names. This way the definition of the variable doesn't
           //propagate to its assign initializer.
-          if (isSgInitializedName(node))
-          { 
-            return (cfgn == node->cfgForEnd());
-          }
-          else
-            return (cfgn.isInteresting());
+          // if (isSgInitializedName(node))
+          // { 
+          //   return (cfgn == node->cfgForEnd());
+          // }
+          // else
+          //   return (cfgn.isInteresting());
+         switch(node->variantT()) {         
+             //Keep the last index for initialized names. This way the definition of the variable doesn't
+             //propagate to its assign initializer.
+             case V_SgInitializedName:
+                 return (cfgn == node->cfgForEnd());
+
+             // filter out this node type
+             // abstract memory object cannot be created for these nodes
+             case V_SgExprListExp:
+                 return false;
+
+             case V_SgCastExp:
+                 return false;
+             
+             default:
+                 return cfgn.isInteresting();
+         }
       }
 
         

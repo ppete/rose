@@ -256,10 +256,13 @@ bool IntraUniDirectionalDataflow::propagateStateToNextNode(
         
         // Compute the meet of the dataflow information along the curNode->nextNode edge with the 
         // next node's current state one Lattice at a time and save the result above the next node.
+  Dbg::dbg << "  curNodeState.size()="<<curNodeState.size()<<" nextNodeState.size()="<<nextNodeState.size()<<"\n";
         for(itC = curNodeState.begin(), itN = nextNodeState.begin();
             itC != curNodeState.end() && itN != nextNodeState.end(); 
             itC++, itN++)
         {
+  Dbg::dbg << "      itN(finite="<<(*itN)->finiteLattice()<<")="<<(*itN)->str("          ")<<endl;
+  Dbg::dbg << "      itC(finite="<<(*itC)->finiteLattice()<<")="<<(*itC)->str("          ")<<endl;
                 // Finite Lattices can use the regular meet operator, while infinite Lattices
                 // must also perform widening to ensure convergence.
                 if((*itN)->finiteLattice())
@@ -596,16 +599,15 @@ void MergeAllReturnStates::visit(const Function& func, const DataflowNode& n, No
 bool MergeAllReturnStates::mergeLats(vector<Lattice*>& mergedLat, const vector<Lattice*>& lats) {
         // If this is the first return statement we've observed, initialize mergedLat with its lattices
         if(mergedLat.size()==0) {
-                if(analysisDebugLevel>=1) {
-                        Dbg::dbg << "    Fresh lattice: \n";
+    if(analysisDebugLevel>=1) Dbg::dbg << "    Fresh lattice: "<<endl;
                         for(vector<Lattice*>::const_iterator l=lats.begin(); l!=lats.end(); l++) {
                                 mergedLat.push_back((*l)->copy());
-                                Dbg::dbg << "        "<<(*l)->str("        ")<<endl;
-                        }
+      if(analysisDebugLevel>=1) Dbg::dbg << "  "<<(*l)->str("  ")<<endl;
                 }
                 return true;
         // Otherwise, merge lats into mergedLats
         } else {
+  if(analysisDebugLevel>=1) {
                 if(mergedLat.size()!=lats.size()) {
                         Dbg::dbg << "#mergedLat="<<mergedLat.size()<<endl;
                         for(vector<Lattice*>::iterator ml=mergedLat.begin(); ml!=mergedLat.end(); ml++)
@@ -614,6 +616,7 @@ bool MergeAllReturnStates::mergeLats(vector<Lattice*>& mergedLat, const vector<L
                         for(vector<Lattice*>::const_iterator l=lats.begin(); l!=lats.end(); l++)
                                 Dbg::dbg << "        "<<(*l)->str("            ")<<endl;
                 }
+  }
                 ROSE_ASSERT(mergedLat.size()==lats.size());
                 vector<Lattice*>::const_iterator l;
                 vector<Lattice*>::iterator ml;

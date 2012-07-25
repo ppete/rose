@@ -13,7 +13,7 @@
 #include "dataflow.h"
 #include "latticeFull.h"
 #include "printAnalysisStates.h"
-#include "liveDeadVarAnalysis.h"
+//#include "liveDeadVarAnalysis.h" 
 
 
 using namespace std;

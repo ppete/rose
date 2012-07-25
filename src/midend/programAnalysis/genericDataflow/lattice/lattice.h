@@ -105,6 +105,13 @@ class Lattice : public printable
                 return !(*this == that);
         }
         
+        // Set this Lattice object to represent the set of all possible execution prefixes.
+        // Return true if this causes the object to change and false otherwise.
+        virtual bool setToFull()=0;
+        // Set this Lattice object to represent the of no execution prefixes (empty set).
+        // Return true if this causes the object to change and false otherwise.
+        virtual bool setToEmpty()=0;
+        
         // Functions used to inform this lattice that a given variable is now in use (e.g. a variable has entered 
         //    scope or an expression is being analyzed) or is no longer in use (e.g. a variable has exited scope or
         //    an expression or variable is dead).
