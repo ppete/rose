@@ -1218,7 +1218,10 @@ bool ScalarNamedObj::mayEqual(MemLocObjectPtr o2) const
     assert (s != NULL);
     assert (t != NULL);
 
-    assert (s->get_type() == t);
+    if(isSgTypedefType(s->get_type()))
+        assert((s->get_type())->findBaseType() == t);
+    else
+        assert (s->get_type() == t);
     SgClassType * c_t = isSgClassType(t);
 
     fillUpElements (this, LabeledAggregate_Impl::getElements(), c_t);
@@ -1267,7 +1270,12 @@ bool ScalarNamedObj::mayEqual(MemLocObjectPtr o2) const
     assert (t != NULL);
 
     assert (isSgVariableSymbol (s) != NULL);
-    assert (s->get_type() == t);
+
+    if(isSgTypedefType(s->get_type()))
+        assert((s->get_type())->findBaseType() == t);
+    else
+        assert (s->get_type() == t);
+
     SgArrayType * a_t = isSgArrayType(t);
     assert (a_t != NULL);
   }
@@ -1756,7 +1764,7 @@ bool FunctionAliasedObj::mayEqual(const MemLocObjectPtr o2) const
     if (assert_flag)
       assert (rt); // we cannot assert this since not all SgType are supported now
     return rt;
-  } 
+  }
 
   // variables that are explicitly declared/named in the source code
   // local, global, static variables,
@@ -1779,9 +1787,11 @@ bool FunctionAliasedObj::mayEqual(const MemLocObjectPtr o2) const
     // check parameters
     assert (anchor_symbol != NULL);
     // ! (isArray || isPointer) ==> !isArray && !isPointer
-    if (! isSgArrayType(anchor_symbol->get_type())  && ! isSgPointerType(anchor_symbol->get_type()))
+    if (! isSgArrayType(anchor_symbol->get_type())  && ! isSgPointerType(anchor_symbol->get_type()) &&
+        ! isSgTypedefType(anchor_symbol->get_type())) 
     { // only array elements can have different type from its anchor (parent) symbol
-       // pointer type can also have array-like subscripting
+      // pointer type can also have array-like subscripting
+      // typedeftype is different from the memory object's base type  
       assert (anchor_symbol->get_type() == t);
     }
     bool assert_flag = true; 
@@ -1815,6 +1825,11 @@ bool FunctionAliasedObj::mayEqual(const MemLocObjectPtr o2) const
       {
         rt = MemLocObjectPtr(new ArrayNamedObj (anchor_symbol, t, parent, iv));
         assert (rt);
+      }
+      else if (isSgTypedefType(t))
+      {
+          rt = createNamedMemLocObject(anchor_symbol, t->findBaseType(), parent, iv);
+          assert(rt);
       }
       else
       {
