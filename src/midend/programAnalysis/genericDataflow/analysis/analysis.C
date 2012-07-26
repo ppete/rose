@@ -848,27 +848,12 @@ void ContextInsensitiveInterProceduralDataflow::runAnalysis()
         traverse();
 }
 
-struct cfg_filter
-{
-    bool operator() (CFGNode cfg_node) const
-    {
-        return VirtualCFG::defaultFilter(cfg_node);
-    }
-};
-
 // Runs the intra-procedural analysis every time TraverseCallGraphDataflow passes a function.
 void ContextInsensitiveInterProceduralDataflow::visit(const CGFunction* funcCG)
 {
         Function func = *funcCG;
         if(func.get_definition())
         {
-                // debug : to see the graph the analysis is acting on
-                std::stringstream _str;                
-                FilteredCFGNode<cfg_filter>* cfgnode = new FilteredCFGNode<cfg_filter> (isSgFunctionDefinition(func.get_definition()));
-                VirtualCFG::cfgToDot(_str, "filter_cfg_"+func.get_name().getString(), *cfgnode);
-
-                std::cout << _str.str() << std::endl;
-
                 FunctionState* fState = FunctionState::getDefinedFuncState(func);
                 
                 IntraProceduralDataflow *intraDataflow = dynamic_cast<IntraProceduralDataflow *>(intraAnalysis);
