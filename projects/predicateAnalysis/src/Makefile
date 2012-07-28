@@ -129,12 +129,12 @@ ROSE_LIB_DIR = $(ROSE_BUILD_DIR)/src
 
 ROSE_LIBS = $(ROSE_LIB_DIR)/librose.la
 LIBTOOL = $(ROSE_BUILD_DIR)/libtool
-SSALIB = $(ROSE_BUILD_DIR)/projects/ssaAnalysis/src/libssaanalysis.a
+SSALIB = $(ROSE_BUILD_DIR)/projects/ssaAnalysis/src/libsccanalysis.a
 
 .PHONY: default all check
 
 # Default make rule to use
-default: edgeflow.exe
+default: ssadump.exe
 	@if [ x$${ROSE_IN_BUILD_TREE:+present} = xpresent ]; then echo "ROSE_IN_BUILD_TREE should not be set" >&2; exit 1; fi
 
 all: edgeflow.exe
