@@ -32,20 +32,20 @@ public:
     virtual ~LatticeArith() {
     }
 
-    bool isTop() const {
+    bool isTop() {
         return top;
     }
 
-    bool isBottom() const {
+    bool isBottom() {
         return bottom;
     }
 
-    bool hasValue() const {
+    bool hasValue() {
         return !(isTop() || isBottom());
     }
 
     // pure function from printable
-    virtual std::string str(std::string str_) {
+    virtual std::string str(std::string str_) const /* override */ {
         std::stringstream ss;
         ss << str_ << " top=" << top <<  " bottom=" << bottom;
         return ss.str();
@@ -56,12 +56,11 @@ public:
 
     // pure function from Lattice
     // returns a copy of this lattice
-    virtual Lattice* copy() const = 0;
-    virtual LatticeArith* copyInstance() const = 0;
+    virtual LatticeArith* copy() const = 0;
 
     // pure function from Lattice
     // overwrites the state of "this" Lattice with "that" Lattice
-    virtual void copy(const Lattice* that_) {
+    virtual void copy(const Lattice* that_) /* override */ {
         const LatticeArith * that = dynamic_cast<const LatticeArith*>(that_);
         ROSE_ASSERT(that != NULL);
         this->top = that->top;
@@ -69,7 +68,7 @@ public:
     }
 
     // pure function from Lattice
-    virtual bool operator==(const Lattice* that_) const {
+    virtual bool operator==(const Lattice* that_) const /* override */ {
         // Implementation of equality operator.
         const LatticeArith * that = dynamic_cast<const LatticeArith*>(that_);
         ROSE_ASSERT(that != NULL);

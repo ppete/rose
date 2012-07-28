@@ -5,8 +5,6 @@
 #include <boost/operators.hpp>
 #include <new>
 #include "CallGraph.h"
-#include "LatticeArithInstance.h"
-#include "constantAnalysisTransfer.h"
 #include <iostream>
 
 /**
@@ -22,234 +20,187 @@ using namespace std;
 using namespace boost;
 using namespace scc_private;
 
-ConstantAnalysis::ConstantAnalysis(SgProject* proj, HeapSSA* ssaInstance)
-  : project(proj), ssa(ssaInstance) {
-  // 1.) Get a list of all the functions that we'll process
-  // This is same as backstroke SSA calculor
-  vector<SgFunctionDefinition*> funcs
+bool scc_private::scc_debug = false;
+
+ConstantAnalysis::ConstantAnalysis(SgProject* proj, StaticSingleAssignment* ssaInstance)
+: project(proj), ssa(ssaInstance) {
+    NULL_Node = new SgNode();
+
+    // 1.) Get a list of all the functions that we'll process
+    // This is same as backstroke SSA calculor
+    vector<SgFunctionDefinition*> funcs
     = SageInterface::querySubTree<SgFunctionDefinition>(project, V_SgFunctionDefinition);
 
-  FunctionFilter functionFilter;
-  foreach (SgFunctionDefinition* f, funcs) {
-    if (functionFilter(f->get_declaration()))
-      interestingFunctions.insert(f);
-  }
+    FunctionFilter functionFilter;
+    foreach (SgFunctionDefinition* f, funcs) {
+        if (functionFilter(f->get_declaration()))
+            interestingFunctions.insert(f);
+    }
 
-  // 2.) Build the use table
-  foreach (SgFunctionDefinition* func, interestingFunctions) {
-    // Get all CFG node within the function
-    vector<FilteredCfgNode> cfgNodes = getCfgNodesInPostorder(func);
-    // Build the use table
-    buildUseTable(cfgNodes, SSAUseTable, PHINodeMap);
-  }
-}
-
-ConstantAnalysis::~ConstantAnalysis() {
-  // TODO: cleanup the memory
+    // 2.) Build the use table
+    foreach (SgFunctionDefinition* func, interestingFunctions) {
+        // Get all CFG node within the function
+        vector<FilteredCfgNode> cfgNodes = getCfgNodesInPostorder(func);
+        // Build the use table
+        buildUseTable(cfgNodes, SSAUseTable, PHINodeMap);
+    }
 }
 
 /**
  * This is the main procedure that perform intra-procedural SCC, based on call-graph traversal
  */
 bool ConstantAnalysis::runAnalysis(const Function& func, NodeState* state,
-           bool analyzeDueToCallers, std::set<Function> calleesUpdated) {
-  // TODO: move the intro-procedural process here
-  if (interestingFunctions.find(func.get_declaration()->get_definition())
-      != interestingFunctions.end()) {
-    VirtualCFG::cfgToDotForDebugging(func.get_declaration()->get_definition(), "test.dot");
-    // Invoke SCC
-    SCC(func, false);
-  } else
-    std::cout << "not for analysis" << std::endl;
+        bool analyzeDueToCallers, std::set<Function> calleesUpdated) {
+    // TODO: move the intro-procedural process here
+    if (interestingFunctions.find(func.get_declaration()->get_definition())
+            != interestingFunctions.end()) {
+        // VirtualCFG::cfgToDotForDebugging(func.get_declaration()->get_definition(), "test.dot");
+        // Invoke SCC
+        SCC(func.get_declaration()->get_definition(), false);
+    }
 
-  return false;
+    return false;
 }
 
-// \pp changed interface
-/*
-void ConstantAnalysis::genInitState( const ::Function& func,
-                                     const DataflowNode& n,
-                                     const NodeState& state,
-                                     Lattice*& initLattices,
-                                     std::vector<NodeFact*>& initFacts
-                                   )
+#if OBSOLETE_CODE
+void ConstantAnalysis::genInitState(const Function& func, const DataflowNode& n,
+        const NodeState& state, std::vector<Lattice*>& initLattices,
+        std::vector<NodeFact*>& initFacts) {
+    // TODO: implement this
+    // std::cout << "generate init state" << std::endl;
+}
+#endif /* OBSOLETE_CODE */
+
+Lattice*
+ConstantAnalysis::genLattice(const Function& func, const DataflowNode& n, const NodeState& state)
 {
   // TODO: implement this
   // std::cout << "generate init state" << std::endl;
-  initLattices = new DefaultLattice;
-}
-*/
-
-Lattice*
-ConstantAnalysis::genLattice(const ::Function& func, const DataflowNode& n, const NodeState& state)
-{
-  return new DefaultLattice;
+  return 0;
 }
 
 std::vector<NodeFact*>
-ConstantAnalysis::genFacts(const ::Function& func, const DataflowNode& n, const NodeState& state)
+ConstantAnalysis::genFacts(const Function& func, const DataflowNode& n, const NodeState& state)
 {
+  // TODO: implement this
+  // std::cout << "generate init state" << std::endl;
   return std::vector<NodeFact*>();
 }
 
 
-bool ConstantAnalysis::transfer(const Function& func, const DataflowNode& n, NodeState& state, Lattice& dfInfo)
-{
-  assert(0);
-  return false;
-}
-
-/*
-boost::shared_ptr<IntraDFTransferVisitor>
-ConstantAnalysis::getTransferVisitor(const Function& func, const DataflowNode& n,
-             NodeState& state, const std::vector<Lattice*>& dfInfo)
-{
-  assert(false);
-  return boost::shared_ptr<IntraDFTransferVisitor>(new ConstantAnalysisTransfer(func, ssa, n,
-                    state, dfInfo, 0));
-}
-*/
 
 /**
- * Main process of SCC, i.e. Wegman-Zadeck algorithm
+ * Main process of SSC, i.e. Wegman-Zadeck algorithm
  */
-void ConstantAnalysis::SCC(const Function& func, bool edgeBased)
+void ConstantAnalysis::SCC(SgFunctionDefinition* func, bool edgeBased)
 {
-  SgFunctionDefinition* funcDef = func.get_declaration()->get_definition();
-  // Create a per-procedure based transfer class
-  const DataflowNode dummyDFNode(funcDef->cfgForBeginning(), VirtualCFG::defaultFilter);
-  NodeState dummyNodeState;
-  DefaultLattice dummyDFInfo;
+    // 1.) Initialize worklist
+    EdgeList FlowWorkList;
+    SgNodeList SSAWorkList;
+    EdgeList& executableFlags = executableEdges;
 
-  transferVisitor
-  = // boost::shared_ptr<IntraDFTransferVisitor>(
-  new ConstantAnalysisTransfer(func, ssa, dummyDFNode, dummyNodeState, dummyDFInfo, -1);
-  funcTransferMap[funcDef] = transferVisitor;
+    FilteredCfgNode currentNode = FilteredCfgNode(func->cfgForBeginning());
+    addOutEdges(FlowWorkList, currentNode);
 
-  // 1.) Initialize worklist
-  EdgeList FlowWorkList;
-  SgNodeList SSAWorkList;
-  EdgeList& executableFlags = executableEdges;
+    // 2.) Perform sparse analysis on the ssa form
+    while (!FlowWorkList.empty() || !SSAWorkList.empty()) {
+        if (!FlowWorkList.empty()) {
+            // process the item from FlowWorkList, i.e. flow-edge
+            // get and remove the 1st element in the list
+            FilteredCfgEdge currentEdge = * FlowWorkList.begin();
+            FlowWorkList.erase(FlowWorkList.begin());
 
-  FilteredCfgNode currentNode = FilteredCfgNode(funcDef->cfgForBeginning());
-  addOutEdges(FlowWorkList, currentNode);
+            if (!isExecutable(executableFlags, currentEdge)) {
+                setExecutable(executableFlags, currentEdge);;
 
-  // 2.) Perform sparse analysis on the ssa form
-  while (!FlowWorkList.empty() || !SSAWorkList.empty()) {
-    if (!FlowWorkList.empty()) {
-      // process the item from FlowWorkList, i.e. flow-edge
-      // get and remove the 1st element in the list
+                currentNode = currentEdge.target();
 
-      // FilteredCfgEdge currentEdge = * FlowWorkList.begin();
-      // FlowWorkList.erase(FlowWorkList.begin());
-      EdgeList::iterator edgeIter = FlowWorkList.begin();
-      FilteredCfgEdge currentEdge;
-      while (edgeIter != FlowWorkList.end()) {
-        currentEdge = * edgeIter;
-        if (SgForStatement * forStmt = isSgForStatement(currentEdge.source().getNode())) {
-          if (forStmt->get_parent() == currentEdge.target().getNode()->get_parent()) {
-            edgeIter ++;
-          } else
-            break;
-        } else
-          break;
-      }
-      if (edgeIter == FlowWorkList.end()) {
-        currentEdge = * FlowWorkList.begin();
-        FlowWorkList.erase(FlowWorkList.begin());
-      } else
-        FlowWorkList.erase(edgeIter);
+                // Visit Phi node
+                visitPhi(currentNode, executableFlags);
 
-      if (!isExecutable(executableFlags, currentEdge)) {
-        setExecutable(executableFlags, currentEdge);
+                if (numOfExecIn(currentNode, executableFlags) == 1)
+                    // No need to check number of executable in edge here, if we use Cfg Node
+                    // as work list item
+                    visitExpr(currentNode, FlowWorkList, SSAWorkList);
 
-        currentNode = currentEdge.target();
+                if (numOfOut(currentNode) == 1)
+                    addOutEdges(FlowWorkList, currentNode);
+                // else
+                //   std::cout << " more than one?? " << currentEdge.target().toString() << std::endl;
+            }
+        }
 
-        // Visit Phi node
-        visitPhi(currentNode, executableFlags);
+        if (!SSAWorkList.empty()) {
+            // process the item from SSAWorkList, i.e. SSA-edge
+            // get and remove 1st element from SSAWorkList
+            SgNode * ssaNode = * SSAWorkList.begin();
+            SSAWorkList.erase(SSAWorkList.begin());
 
-        if (numOfExecIn(currentNode, executableFlags) == 1)
-          // No need to check number of executable in edge here, if we use Cfg Node
-          // as work list item
-          visitExpr(currentNode, FlowWorkList, SSAWorkList);
-
-        if (numOfOut(currentNode) == 1)
-          addOutEdges(FlowWorkList, currentNode);
-      }
+            // Visit Phi node
+            visitPhi(ssaNode, executableFlags);
+            // If current SSA node is executable (i.e. it is a SSA use, and one of its CFG in edge has
+            // been marked as executable), then visit its expression
+            if (isExecutable(executableFlags, ssaNode)) {
+                // std::cout << "visit ssa" << std::endl;
+                visitExpr(ssaNode, FlowWorkList, SSAWorkList);
+            }
+        }
     }
-
-    if (!SSAWorkList.empty()) {
-      // process the item from SSAWorkList, i.e. SSA-edge
-      // get and remove 1st element from SSAWorkList
-      SgNode * ssaNode = * SSAWorkList.begin();
-      SSAWorkList.erase(SSAWorkList.begin());
-
-      // Visit Phi node
-      visitPhi(ssaNode, executableFlags);
-      // If current SSA node is executable (i.e. it is a SSA use, and one of its CFG in edge has
-      // been marked as executable), then visit its expression
-      if (isExecutable(executableFlags, ssaNode)) {
-        // std::cout << "visit ssa" << std::endl;
-        visitExpr(ssaNode, FlowWorkList, SSAWorkList);
-      }
-    }
-  }
 }
 
 EdgeList& ConstantAnalysis::UCA() {
-  return executableEdges;
+    return executableEdges;
 }
 
 void ConstantAnalysis::dummyTrav(SgFunctionDefinition* func) {
-  NodeList SWorkList;
-  FilteredCfgNode currentNode = FilteredCfgNode(func->cfgForBeginning());
+    NodeList SWorkList;
+    FilteredCfgNode currentNode = FilteredCfgNode(func->cfgForBeginning());
 
-  SWorkList.insert(currentNode);
-  NodeList visitedNodes;
+    SWorkList.insert(currentNode);
+    NodeList visitedNodes;
 
-  while (!SWorkList.empty()) {
-    currentNode = * SWorkList.begin();
-    SWorkList.erase(SWorkList.begin());
+    while (!SWorkList.empty()) {
+        currentNode = * SWorkList.begin();
+        SWorkList.erase(SWorkList.begin());
 
-    if (visitedNodes.find(currentNode) != visitedNodes.end()) {
-      std::cout << "did visited " << currentNode.toString() << std::endl;
-      continue;
-    } else
-      visitedNodes.insert(currentNode);
+        if (visitedNodes.find(currentNode) != visitedNodes.end()) {
+            std::cout << "did visited " << currentNode.toString() << std::endl;
+            continue;
+        } else
+            visitedNodes.insert(currentNode);
 
-    std::cout << "visited node " << currentNode.toString() << std::endl;
-    reverse_foreach(const FilteredCfgEdge& edge, currentNode.outEdges())
-      SWorkList.insert(edge.target());
-  }
+        std::cout << "visited node " << currentNode.toString() << std::endl;
+        reverse_foreach(const FilteredCfgEdge& edge, currentNode.outEdges())
+        SWorkList.insert(edge.target());
+    }
 }
 
 void ConstantAnalysis::addOutEdges(EdgeList& FlowWorkList, FilteredCfgEdge& cfgEdge) {
-  reverse_foreach(const FilteredCfgEdge& edge, cfgEdge.target().outEdges()) {
-    FlowWorkList.insert(edge);
-  }
+    reverse_foreach(const FilteredCfgEdge& edge, cfgEdge.target().outEdges()) {
+        FlowWorkList.insert(edge);
+    }
 }
 
 void ConstantAnalysis::addOutEdges(EdgeList& FlowWorkList, FilteredCfgNode& cfgNode) {
-  // reverse_
-  foreach(const FilteredCfgEdge& edge, cfgNode.outEdges()) {
-    FlowWorkList.insert(edge);
-  }
+    reverse_foreach(const FilteredCfgEdge& edge, cfgNode.outEdges()) {
+        FlowWorkList.insert(edge);
+    }
 }
 
 bool ConstantAnalysis::isExecutable(EdgeList& executableFlags, SgNode* sgNode) {
-  reverse_foreach(const VirtualCFG::CFGEdge & edge, sgNode->cfgInEdges()) {
-    if (executableFlags.find(FilteredCfgEdge(edge)) != executableFlags.end())
-      return true;
-  }
-  return false;
+    reverse_foreach(const VirtualCFG::CFGEdge & edge, sgNode->cfgInEdges()) {
+        if (executableFlags.find(FilteredCfgEdge(edge)) != executableFlags.end())
+            return true;
+    }
+    return false;
 }
 
 bool ConstantAnalysis::isExecutable(EdgeList& executableFlags, FilteredCfgEdge& edge) {
-  return executableFlags.find(edge) != executableFlags.end();
+    return executableFlags.find(edge) != executableFlags.end();
 }
 
 void ConstantAnalysis::setExecutable(EdgeList& executableFlags, FilteredCfgEdge& edge) {
-  executableFlags.insert(edge);
+    executableFlags.insert(edge);
 }
 
 /**
@@ -257,220 +208,198 @@ void ConstantAnalysis::setExecutable(EdgeList& executableFlags, FilteredCfgEdge&
  */
 void ConstantAnalysis::visitPhi(FilteredCfgNode& node, EdgeList& executableFlags)
 {
-  visitPhi(node.getNode(), executableFlags);
+    visitPhi(node.getNode(), executableFlags);
 }
 
 void ConstantAnalysis::visitPhi(SgNode* sgNode, EdgeList& executableFlags)
 {
-  if (isPhiNode(sgNode)) {
-    StaticSingleAssignment::VarName varName;
-    ReachingDefPtr reachDefPtr;
-    map<VarName, ReachingDefPtr > varReachDefTable = PHINodeMap[sgNode];
-    foreach(tie(varName, reachDefPtr), varReachDefTable) {
-      if (ssa->heapVarManager->isHeapVar(varName)) {
-  // This is the case for processing heap variable's phi function
-  if (!ssa->heapVarManager->hasHeapLattice(reachDefPtr))
-    ssa->heapVarManager->addHeapLattice(reachDefPtr);
-  HeapLatticePtr heapLattice = ssa->heapVarManager->getHeapLattice(reachDefPtr);
+    if (isPhiNode(sgNode)) {
+        // std::cout << "check phi node " << sgNode->class_name() << std::endl;
+        ReachingDef::ReachingDefPtr reachDefPtr;
+        set<ReachingDef::FilteredCfgEdge> edges;
 
-  ReachingDefPtr reachDefPtr_;
-  set<ReachingDef::FilteredCfgEdge> edges;
-  foreach(tie(reachDefPtr_, edges), reachDefPtr->getJoinedDefs()) {
-    SgNode* defNode = reachDefPtr_->getDefinitionNode();
-    if (ssa->heapVarManager->hasHeapReachingDef(defNode)) {
-      ReachingDefPtr heapReachDefPtr = ssa->heapVarManager->getHeapReachingDef(defNode);
-      if (ssa->heapVarManager->hasHeapLattice(heapReachDefPtr)) {
-        HeapLatticePtr heapLattice_ = ssa->heapVarManager->getHeapLattice(heapReachDefPtr);
-
-        // Join the two heap lattice to the heap lattice corresponding to phi function
-        ssa->heapVarManager->joinHeapSSALattice(heapLattice, heapLattice_);
-      }
-    }
-  }
-      } else {
-  // This is the case for processing normal variable's phi function
-  ReachingDefPtr reachDefPtr_;
-  set<ReachingDef::FilteredCfgEdge> edges;
-
-  int currentValue;
-  bool hasValue = false;
-  foreach(tie(reachDefPtr_, edges), reachDefPtr->getJoinedDefs()) {
-    SgNode * paramNode = reachDefPtr_->getDefinitionNode();
-    SgAssignOp * assignOp = isSgAssignOp(paramNode);
-    if (assignOp != NULL)
-      paramNode = cfgUtils::getAssignmentLHS(assignOp);
-    LatticeArith* lattice = getLattice(paramNode);
-    if (lattice != NULL) {
-      if (lattice->is_intLatticeArith()) {
-        int intVal = (dynamic_cast<LatticeArithInstance<int> * >(lattice))->getValue();
-        if (hasValue) {
-    if (currentValue != intVal) {
-      hasValue = false;
-      break;
-    }
-        } else {
-    currentValue = intVal;
-    hasValue = true;
+        int currentValue;
+        bool hasValue = false;
+        foreach(tie(reachDefPtr, edges), PHINodeMap[sgNode]->getJoinedDefs()) {
+            SgNode * paramNode = reachDefPtr->getDefinitionNode();
+            SgAssignOp * assignOp = isSgAssignOp(paramNode);
+            if (assignOp != NULL)
+                paramNode = cfgUtils::getAssignmentLHS(assignOp); // getLHS(assignOp);
+            LatticeArith * lattice = dynamic_cast<LatticeArith*>(getLattice(paramNode));
+            // std::cout << "reach def: " << paramNode->class_name()
+            // 	<< " with " << (lattice != NULL) << std::endl;
+            if (lattice != NULL) {
+                if (lattice->is_intLatticeArith()) {
+                    int intVal = (dynamic_cast<IntLatticeArith*>(lattice))->getValue();
+                    // std::cout << "phi value: " << intVal << std::endl;
+                    if (hasValue) {
+                        if (currentValue != intVal) {
+                            hasValue = false;
+                            break;
+                        }
+                    } else {
+                        currentValue = intVal;
+                        hasValue = true;
+                    }
+                }
+            }
+            /*if (isExecutable(executableFlags, paramNode, sgNode)) {
+        // Here we don't need to do anything, because the ReachingDef maintains the pointer of
+        // def SgNode, so if the def SgNode has been visited, it must have lattice, otherwise
+	// the lattice pointer is NULL
+      }*/
         }
-      }
+        if (hasValue) {
+            setLattice(sgNode, new IntLatticeArith(currentValue));
+        }
     }
-  }
-
-  if (hasValue)
-    setLattice(sgNode, new LatticeArithInstance<int>(currentValue));
-      }
-    }
-  }
 }
 
 /**
  * Visit the SgNode and evaluate its expression
  */
 void ConstantAnalysis::visitExpr(FilteredCfgNode& cfgNode,
-                                 EdgeList& FlowWorkList, SgNodeList& SSAWorkList)
+        EdgeList& FlowWorkList, SgNodeList& SSAWorkList)
 {
-  // evaluate the expression and obtain the values of the operand from the LatticeCells where
-  // they are defined
-  bool isScopeStmt = isSgScopeStatement(cfgNode.getNode()) != NULL;
-  bool changedLatticeCell = false;
-  if (!isScopeStmt)
-    changedLatticeCell = evaluate(cfgNode);
+    // evaluate the expression and obtain the values of the operand from the Lattice where
+    // they are defined
+    bool isScopeStmt = isSgScopeStatement(cfgNode.getNode()) != NULL;
+    bool changedLatticeCell = false;
+    if (!isScopeStmt)
+        changedLatticeCell = evaluate(cfgNode);
 
-  if (changedLatticeCell && isAssignNode(cfgNode)) {
-    SSAOut(cfgNode, SSAWorkList);
-  } else if (isScopeStmt && isBranch(cfgNode)) {
-    if (SgIfStmt * ifStmt = isSgIfStmt(cfgNode.getNode())) {
-      SgExprStatement* condStmt = (SgExprStatement *)ifStmt->get_conditional();
-      LatticeArith * lattice = getLattice(condStmt->get_expression());
-      if (lattice != NULL) {
-        LatticeArithInstance<bool>* boolLattice = dynamic_cast<LatticeArithInstance<bool>* >(lattice);
-
-        if (!(boolLattice->isTop() || boolLattice->isBottom())) {
-          SgStatement* targetBody;
-          if (boolLattice->getValue())
-            targetBody = ifStmt->get_true_body();
-          else
-            targetBody = ifStmt->get_false_body();
-          reverse_foreach(const FilteredCfgEdge& edge, cfgNode.outEdges()) {
-            if (edge.target().getNode() == targetBody) {
-              FlowWorkList.insert(edge);
-              break;
+    // std::cout << "VISIT " << cfgNode.getNode()->class_name()
+    // << " outs: " << cfgNode.getNode()->cfgOutEdges().size() << std::endl;
+    // the LatticeCell of the putput of the expression was changed
+    if (changedLatticeCell && isAssignNode(cfgNode)) {
+        SSAOut(cfgNode, SSAWorkList);
+    } else if (isScopeStmt && isBranch(cfgNode)) {
+        if (SgIfStmt * ifStmt = isSgIfStmt(cfgNode.getNode())) {
+            SgStatement* condStmt = ifStmt->get_conditional();
+            LatticeArith * lattice = dynamic_cast<LatticeArith*>(getLattice(condStmt));
+            if (lattice != NULL) {
+                if (lattice->hasValue()) {
+                    BoolLatticeArith * boolLattice =
+                            dynamic_cast<BoolLatticeArith *>(lattice);
+                    ROSE_ASSERT(boolLattice != NULL);
+                    SgStatement* targetBody = boolLattice->getValue() ?
+                            ifStmt->get_true_body() : ifStmt->get_false_body();
+                    reverse_foreach(const FilteredCfgEdge& edge, cfgNode.outEdges()) {
+                        if (edge.target().getNode() == targetBody) {
+                            FlowWorkList.insert(edge);
+                            break;
+                        }
+                    }
+                }
+            } else {
+                reverse_foreach(const FilteredCfgEdge edge, cfgNode.outEdges()) {
+                    FlowWorkList.insert(edge);
+                }
             }
-          }
+            // std::cout << "visit expr can't find lattice for if stmt: " << std::endl;
+        } else if (SgForStatement * forStmt = isSgForStatement(cfgNode.getNode())) {
+            reverse_foreach(const FilteredCfgEdge edge, cfgNode.outEdges()) {
+                FlowWorkList.insert(edge);
+            }
+            // TODO: check the initization value and termination value
         }
-      } else {
-        // std::cout << "no bool lattice"<< std::endl;
-        reverse_foreach(const FilteredCfgEdge edge, cfgNode.outEdges()) {
-          FlowWorkList.insert(edge);
-        }
-      }
-      // std::cout << "visit expr can't find lattice for if stmt: " << std::endl;
-    } else if (SgForStatement * forStmt = isSgForStatement(cfgNode.getNode())) {
-      // reverse_
-      foreach(const FilteredCfgEdge edge, cfgNode.outEdges()) {
-        FlowWorkList.insert(edge);
-      }
-      // TODO: check the initization value and termination value
-    }
-    // TODO: handle other branch statements
-  }
+        // TODO: handle other branch statements
+    } // else
+    // std::cout << "nothing??" << std::endl;
 }
 
-
 void ConstantAnalysis::visitExpr(SgNode* node,
-                                 EdgeList& FlowWorkList, SgNodeList& SSAWorkList)
+        EdgeList& FlowWorkList, SgNodeList& SSAWorkList)
 {
-  // evaluate the expression and obtain the values of the operand from the LatticeCells where
-  // they are defined
-  bool changedLatticeCell = evaluateExpr(node);
-  std::cout << "XXXXXXXXXXXXXXXXXXXXX" << std::endl;
-  if (changedLatticeCell) {
-    // the LatticeCell of the putput of the expression was changed
-    if (cfgUtils::isAssignment(node)) {
-      SSAOut(node, SSAWorkList);
-      std::cout << "XXXXXXXXXXXXXXXXXXXXX" << std::endl;
-    } else if (isBranch(node)) {
-      // For every branch edge, add dest to FlowWorkList
-      // xxx reverse_foreach(const FilteredCfgEdge& edge,
-      // FilteredCfgNode(node->cfgForBeginning()).outEdges()) {
-      // FlowWorkList.insert(pair<SgNode*, SgNode* >(edge.source().getNode(),
-      //                                               edge.target().getNode()));
-      // }
+    // evaluate the expression and obtain the values of the operand from the Lattice where
+    // they are defined
+    bool changedLatticeCell = evaluateExpr(node);
+    std::cout << "XXXXXXXXXXXXXXXXXXXXX" << std::endl;
+    if (changedLatticeCell) {
+        // the Lattice of the putput of the expression was changed
+        if (cfgUtils::isAssignment(node)) {
+            SSAOut(node, SSAWorkList);
+            std::cout << "XXXXXXXXXXXXXXXXXXXXX" << std::endl;
+        } else if (isBranch(node)) {
+            // For every branch edge, add dest to FlowWorkList
+            /*xxx reverse_foreach(const FilteredCfgEdge& edge,
+		      FilteredCfgNode(node->cfgForBeginning()).outEdges()) {
+	FlowWorkList.insert(pair<SgNode*, SgNode* >(edge.source().getNode(),
+                                                    edge.target().getNode()));
+      }*/
+        }
     }
-  }
 }
 
 /**
  * Get all SSA outs (i.e. the use nodes) and put them into SSAWorkList
  */
 void ConstantAnalysis::SSAOut(FilteredCfgNode& cfgNode, SgNodeList& SSAWorkList) {
-  SSAOut(cfgNode.getNode(), SSAWorkList);
+    SSAOut(cfgNode.getNode(), SSAWorkList);
 }
 
 void ConstantAnalysis::SSAOut(SgNode* sgNode, SgNodeList& SSAWorkList) {
-  // Get the defined variable
-  SgNode* node = cfgUtils::getAssignmentLHS(sgNode);
+    // Get the defined variable
+    SgNode* node = cfgUtils::getAssignmentLHS(sgNode);
 
-  if (node == NULL) return;
+    if (node == NULL) return;
 
-  // Collect all uses
-  VarName usedVar;
-  set<ReachingDefPtr> reachingDefs;
-  foreach(tie(usedVar, reachingDefs), SSAUseTable[node]) {
-    foreach(ReachingDefPtr reachingDef, reachingDefs) {
-      SgNode * outNode = reachingDef->getDefinitionNode();
-      // Get corresponding CFG node
-      SSAWorkList.insert(outNode);
+    // Collect all uses
+    VarName usedVar;
+    set<ReachingDefPtr> reachingDefs;
+    foreach(tie(usedVar, reachingDefs), SSAUseTable[node]) {
+        foreach(ReachingDefPtr reachingDef, reachingDefs) {
+            SgNode * outNode = reachingDef->getDefinitionNode();
+            // Get corresponding CFG node
+            SSAWorkList.insert(outNode);
+        }
     }
-  }
 }
 
 /**
  * Check if the given node is an assignment operation
  */
 bool ConstantAnalysis::isAssignNode(FilteredCfgNode& node) {
-  return cfgUtils::isAssignment(node.getNode());
+    return cfgUtils::isAssignment(node.getNode());
 }
 
 /**
  * Calculate the number of executable in CFG edges
  */
 int ConstantAnalysis::numOfExecIn(FilteredCfgNode& cfgNode, EdgeList& executableFlags) {
-  int count = 0;
-  reverse_foreach(const FilteredCfgEdge inEdge, cfgNode.inEdges()) {
-    if (executableFlags.find(inEdge) != executableFlags.end())
-      count ++;
-  }
-
-  return count;
+    int count = 0;
+    reverse_foreach(const FilteredCfgEdge inEdge, cfgNode.inEdges()) {
+        if (executableFlags.find(inEdge) != executableFlags.end())
+            count ++;
+    }
+    return count;
 }
 
 /**
  * Calculate the number of executable out CFG edges
  */
 int ConstantAnalysis::numOfExecOut(FilteredCfgNode& cfgNode, EdgeList& executableFlags) {
-  int count = 0;
-  reverse_foreach(const FilteredCfgEdge outEdge, cfgNode.outEdges()) {
-    if (executableFlags.find(outEdge) != executableFlags.end())
-      count ++;
-  }
-
-  return count;
+    int count = 0;
+    reverse_foreach(const FilteredCfgEdge outEdge, cfgNode.outEdges()) {
+        if (executableFlags.find(outEdge) != executableFlags.end())
+            count ++;
+    }
+    return count;
 }
 
 /**
  * Get number of the out edges
  */
 int ConstantAnalysis::numOfOut(FilteredCfgNode& cfgNode) {
-  return cfgNode.outEdges().size();
+    return cfgNode.outEdges().size();
 }
 
 /**
  * Get the 1st out node
  */
 FilteredCfgNode ConstantAnalysis::outNode(FilteredCfgNode& node) {
-  //xxx const FilteredCfgEdge edge = * node.outEdges().begin();
-  return node; //xxx edge.target();
+    //xxx const FilteredCfgEdge edge = * node.outEdges().begin();
+    return node; //xxx edge.target();
 }
 
 /**
@@ -478,66 +407,107 @@ FilteredCfgNode ConstantAnalysis::outNode(FilteredCfgNode& node) {
  * one CFG out edges
  */
 bool ConstantAnalysis::isBranch(FilteredCfgNode& node) {
-  return node.outEdges().size() > 1;
+    return node.outEdges().size() > 1;
 }
 
 bool ConstantAnalysis::isBranch(SgNode* node) {
-  return node->cfgForBeginning().outEdges().size() > 1;
+    return node->cfgForBeginning().outEdges().size() > 1;
 }
 
 bool ConstantAnalysis::isPhiNode(FilteredCfgNode& node)
 {
-  isPhiNode(node.getNode());
+    return isPhiNode(node.getNode());
 }
 
 bool ConstantAnalysis::isPhiNode(SgNode* node) {
-  return PHINodeMap.find(node) != PHINodeMap.end();
+    return PHINodeMap.find(node) != PHINodeMap.end();
 }
 
 /**
  * Build the use table, i.e. variable def --> SgNodes that use the variable
  * Build the phi node map, i.e. SgNode --> PHI function
  */
-bool ConstantAnalysis::buildUseTable(vector<FilteredCfgNode>& cfgNodes, UseSetTable& ssaUseTable,
-                                     PHINodeTable& phiNodeMap) {
-  // cfgNodes is the set of CFG node for a given procedure,
-  // ssaUseTable is the output that maintain the edges from def node to use node
-  foreach(const FilteredCfgNode& cfgNode, cfgNodes) {
-    SgNode* sgNode = cfgNode.getNode();
+bool ConstantAnalysis::buildUseTable(vector<FilteredCfgNode>& cfgNodes,
+        UseTable& useTable, UseSetTable& ssaUseTable,
+        map<SgNode *, ReachingDefPtr>& phiNodeMap) {
+    // cfgNodes is the set of CFG node for a given procedure,
+    // useTable is an internal table maintained within SSA calculator
+    // ssaUseTable is the output that maintain the edges from def node to use node
+    foreach(const FilteredCfgNode& cfgNode, cfgNodes) {
+        SgNode* node = cfgNode.getNode();
+        if (useTable.count(node) == 0)
+            continue;
 
-    NodeReachingDefTable& reachDefTable = (NodeReachingDefTable&)ssa->getUsesAtNode(sgNode);
-
-    VarName usedVar;
-    ReachingDefPtr reachingDefPtr;
-    for (NodeReachingDefTable::iterator it = reachDefTable.begin();
-   it != reachDefTable.end(); it ++) {
-      VarName usedVar = it->first;
-
-      ReachingDefPtr reachingDefPtr = it->second;
-      SgNode* defNode = reachingDefPtr->getDefinitionNode();
-      // Build the map between the def and use, i.e. def --> uses
-      // notice: here we use ReachingDef wrapper, but it does not mean reaching def
-      if (reachingDefPtr->isPhiFunction()) {
-  // Phi function node
-  ssaUseTable[defNode][usedVar].
-            insert(ReachingDefPtr(new ReachingDef(sgNode, ReachingDef::PHI_FUNCTION)));
-  // Record the PHI node information
-  /*if (phiNodeMap.find(defNode) != phiNodeMap.end()) {
-    if (ssa->heapVarManager->isHeapVar(usedVar))
-      std::cout << "build use: heap var" << std::endl;
-    std::cout << "duplicate " << defNode << " with " << reachingDefPtr.get()
-        << " for " << StaticSingleAssignment::varnameToString(usedVar) << std::endl;
-  } */
-  phiNodeMap[defNode][usedVar] = reachingDefPtr;
-      } else {
-  // Normal definition node
-  ssaUseTable[defNode][usedVar].
-            insert(ReachingDefPtr(new ReachingDef(sgNode, ReachingDef::ORIGINAL_DEF)));
-      }
+        VarName usedVar;
+        ReachingDefPtr reachingDefPtr;
+        foreach(tie(usedVar, reachingDefPtr), useTable[node]) {
+            if (useTable[node].count(usedVar) > 0) {
+                SgNode* sgNode = useTable[node][usedVar]->getDefinitionNode();
+                // std::cout << "create use chain " << sgNode->class_name() << " with "
+                // 	  << node->class_name() << std::endl;
+                // SgInitializedName* initName = isSgInitializedName(sgNode);
+                // if (initName != NULL)
+                // std::cout << "  " << initName->get_qualified_name().getString() << std::endl;
+                // Build the map between the def and use, i.e. def --> uses
+                // notice: here we use ReachingDef wrapper, but it does not mean reaching def
+                if (useTable[node][usedVar]->isPhiFunction()) {
+                    // Phi function node
+                    ssaUseTable[sgNode][usedVar].
+                    insert(ReachingDefPtr(new ReachingDef(node, ReachingDef::PHI_FUNCTION)));
+                    // Record the PHI node information
+                    phiNodeMap[sgNode] = useTable[node][usedVar];
+                    // std::cout << "phi func" << std::endl;
+                } else {
+                    // Normal definition node
+                    ssaUseTable[sgNode][usedVar].
+                    insert(ReachingDefPtr(new ReachingDef(node, ReachingDef::ORIGINAL_DEF)));
+                }
+            }
+        }
     }
-  }
 
-  return false;
+    return false;
+}
+
+bool ConstantAnalysis::buildUseTable(vector<FilteredCfgNode>& cfgNodes, UseSetTable& ssaUseTable,
+        map<SgNode *, ReachingDefPtr>& phiNodeMap) {
+    // cfgNodes is the set of CFG node for a given procedure,
+    // ssaUseTable is the output that maintain the edges from def node to use node
+    foreach(const FilteredCfgNode& cfgNode, cfgNodes) {
+        SgNode* sgNode = cfgNode.getNode();
+
+        NodeReachingDefTable& reachDefTable = (NodeReachingDefTable&)ssa->getUsesAtNode(sgNode);
+
+        VarName usedVar;
+        ReachingDefPtr reachingDefPtr;
+        for (NodeReachingDefTable::iterator it = reachDefTable.begin();
+                it != reachDefTable.end(); it ++) {
+            VarName usedVar = it->first;
+            ReachingDefPtr reachingDefPtr = it->second;
+            SgNode* defNode = reachingDefPtr->getDefinitionNode();
+            // std::cout << "create use chain " << defNode->class_name() << " with "
+            //        << sgNode->class_name() << std::endl;
+            // SgInitializedName* initName = isSgInitializedName(defNode);
+            // if (initName != NULL)
+            // std::cout << "  " << initName->get_qualified_name().getString() << std::endl;
+            // Build the map between the def and use, i.e. def --> uses
+            // notice: here we use ReachingDef wrapper, but it does not mean reaching def
+            if (reachingDefPtr->isPhiFunction()) {
+                // Phi function node
+                ssaUseTable[defNode][usedVar].
+                insert(ReachingDefPtr(new ReachingDef(sgNode, ReachingDef::PHI_FUNCTION)));
+                // Record the PHI node information
+                phiNodeMap[defNode] = reachingDefPtr;
+                // std::cout << "phi func" << std::endl;
+            } else {
+                // Normal definition node
+                ssaUseTable[defNode][usedVar].
+                insert(ReachingDefPtr(new ReachingDef(sgNode, ReachingDef::ORIGINAL_DEF)));
+            }
+        }
+    }
+
+    return false;
 }
 
 /**
@@ -546,60 +516,54 @@ bool ConstantAnalysis::buildUseTable(vector<FilteredCfgNode>& cfgNodes, UseSetTa
  */
 vector<FilteredCfgNode> ConstantAnalysis::getCfgNodesInPostorder(SgFunctionDefinition* func)
 {
-  struct RecursiveDFS
-  {
-    static void depthFirstSearch(StaticSingleAssignment::FilteredCfgNode cfgNode,
-         set<FilteredCfgNode>& visited,
-         vector<StaticSingleAssignment::FilteredCfgNode>& result)
+    struct RecursiveDFS
     {
-      //First, make sure this node hasn't been visited yet
-      if (visited.count(cfgNode) != 0)
-  return;
+        static void depthFirstSearch(StaticSingleAssignment::FilteredCfgNode cfgNode,
+                set<FilteredCfgNode>& visited,
+                vector<StaticSingleAssignment::FilteredCfgNode>& result)
+        {
+            //First, make sure this node hasn't been visited yet
+            if (visited.count(cfgNode) != 0)
+                return;
 
-      visited.insert(cfgNode);
+            visited.insert(cfgNode);
 
-      //Now, visit all the node's successors
-      reverse_foreach(const FilteredCfgEdge outEdge, cfgNode.outEdges()) {
-  depthFirstSearch(outEdge.target(), visited, result);
-      }
+            //Now, visit all the node's successors
+            reverse_foreach(const FilteredCfgEdge outEdge, cfgNode.outEdges()) {
+                depthFirstSearch(outEdge.target(), visited, result);
+            }
 
-      //Add this node to the postorder list
-      result.push_back(cfgNode);
-    }
-  };
+            //Add this node to the postorder list
+            result.push_back(cfgNode);
+        }
+    };
 
-  ROSE_ASSERT(func != NULL);
+    ROSE_ASSERT(func != NULL);
 
-  set<FilteredCfgNode> visited;
-  vector<FilteredCfgNode> results;
-  FilteredCfgNode entry = func->cfgForBeginning();
+    set<FilteredCfgNode> visited;
+    vector<FilteredCfgNode> results;
+    FilteredCfgNode entry = func->cfgForBeginning();
 
-  RecursiveDFS::depthFirstSearch(entry, visited, results);
+    RecursiveDFS::depthFirstSearch(entry, visited, results);
 
-  return results;
+    return results;
 }
 
-LatticeArith * ConstantAnalysis::getLattice(SgNode * node) {
-  // std::cout << "work on: " << node->class_name() << std::endl;
-  // return (dynamic_cast<ConstantAnalysisTransfer * >(transferVisitor.get()))->getLattice_((const SgExpression*)node);
-  // std::cout << "try lattice " << transferVisitor << std::endl;
-  return ((ConstantAnalysisTransfer *)transferVisitor)->getLattice_((const SgExpression*)node);
-
-  /*if (latticeMap.find(node) == latticeMap.end())
-    return NULL;
-  else
-    return latticeMap[node];
-*/
+Lattice * ConstantAnalysis::getLattice(SgNode * node) {
+    if (latticeMap.find(node) == latticeMap.end())
+        return NULL;
+    else
+        return latticeMap[node];
 }
 
-void ConstantAnalysis::setLattice(SgNode * node, LatticeArith * lattice) {
-  // ROSE_ASSERT(latticeMap.find(node) == latticeMap.end());
-  // latticeMap[node] = lattice;
-  ((ConstantAnalysisTransfer*)transferVisitor)->setLattice_((const SgExpression*)node, lattice);
+void ConstantAnalysis::setLattice(SgNode * node, Lattice * lattice) {
+    // ROSE_ASSERT(latticeMap.find(node) == latticeMap.end());
+    // latticeMap.insert(pair<SgNode *, Lattice * >(node, lattice));
+    latticeMap[node] = lattice;
 }
 
 StaticSingleAssignment* ConstantAnalysis::getSSA() {
-  return ssa;
+    return ssa;
 }
 
 /**
@@ -607,56 +571,237 @@ StaticSingleAssignment* ConstantAnalysis::getSSA() {
  */
 bool ConstantAnalysis::evaluate(FilteredCfgNode& node)
 {
-  // Process the expression nodes
-  SgNode * sgNode = node.getNode();
+    // Process the expression nodes
+    SgNode * sgNode = node.getNode();
 
-  // Perform SgNode and variable name (for SSA look-aside info) based evaluation
-  // We use SgNode <--> Lattice map, because the expression may have lattice as well
-  // TODO: this is just temproary approach, the LatticeCell should be plant into
-  // SgNode's attribute
+    // Perform SgNode and variable name (for SSA look-aside info) based evaluation
+    // We use SgNode <--> Lattice map, because the expression may have lattice as well
+    // TODO: this is just temproary approach, the Lattice should be plant into
+    // SgNode's attribute
 
-  return evaluateExpr(sgNode);
+    if(scc_debug) printf("evaluate %s\n", sgNode->unparseToString().c_str());
+    return evaluateExpr(sgNode);
 }
 
 bool ConstantAnalysis::evaluateExpr(SgNode * node) {
-  // Evaluate the input node by transfer visitor
-  node->accept(* transferVisitor); // transferVisitor.visit(node);
+    // Should call the tool functions in symbolic dataflow analysis
+    // std::cout << "EVALUATE expr " << std::endl;
+    // std::cout << "    " << node->class_name() << std::endl;
+
+    class EvaluateExpressionTraversal : public AstSimpleProcessing {
+    public:
+        ConstantAnalysis* scc;
+
+        void visit(SgNode* node)
+        {
+            long val;
+            if(scc_debug) printf("visit %s\n", node->unparseToString().c_str());
+
+            // std::cout << "evaluate node " << node->class_name() << std::endl;
+            if (SgBinaryOp * binaryOp = isSgBinaryOp(node)) {
+                // std::cout << "evaluate type: binary op " << binaryOp->class_name() << std::endl;
+                SgExpression * lhsOperand = binaryOp->get_lhs_operand();
+                SgExpression * rhsOperand = binaryOp->get_rhs_operand();
+                LatticeArith * lhsLattice = dynamic_cast<LatticeArith*>(scc->getLattice(lhsOperand));
+                LatticeArith * rhsLattice = dynamic_cast<LatticeArith*>(scc->getLattice(rhsOperand));
+                if (lhsLattice != NULL && rhsLattice != NULL) {
+                    switch (binaryOp->variantT()) {
+                    case V_SgAddOp:
+                        scc->setLattice(binaryOp, *lhsLattice + rhsLattice);
+                        break;
+                    case V_SgSubtractOp:
+                        scc->setLattice(binaryOp, *lhsLattice - rhsLattice);
+                        break;
+                    case V_SgMultiplyOp:
+                        scc->setLattice(binaryOp, *lhsLattice * rhsLattice);
+                        break;
+                    case V_SgDivideOp:
+                        scc->setLattice(binaryOp, *lhsLattice / rhsLattice);
+                        break;
+                    case V_SgModOp:
+                        scc->setLattice(binaryOp, *lhsLattice % rhsLattice);
+                        break;
+                    case V_SgLshiftOp:
+                        scc->setLattice(binaryOp, *lhsLattice << rhsLattice);
+                        break;
+                    case V_SgRshiftOp:
+                        scc->setLattice(binaryOp, *lhsLattice >> rhsLattice);
+                        break;
+                    case V_SgGreaterThanOp:
+                        scc->setLattice(binaryOp, *lhsLattice > rhsLattice);
+                        break;
+                    case V_SgGreaterOrEqualOp:
+                        scc->setLattice(binaryOp, *lhsLattice >= rhsLattice);
+                        break;
+                    case V_SgLessThanOp:
+                        scc->setLattice(binaryOp, *lhsLattice < rhsLattice);
+                        break;
+                    case V_SgLessOrEqualOp:
+                        scc->setLattice(binaryOp, *lhsLattice <= rhsLattice);
+                        break;
+                    case V_SgNotEqualOp:
+                        scc->setLattice(binaryOp, *lhsLattice != rhsLattice);
+                        break;
+                    case V_SgEqualityOp:
+                        scc->setLattice(binaryOp, *lhsLattice == rhsLattice);
+                        break;
+                        // These are special cases, for the LHS operand, we have to propergate the RHS lattice
+                        // since the SSA reaching def is based on VarExpr
+                    case V_SgAssignOp:
+                        if (scc_debug) printf("assignment %p %s\n", binaryOp, binaryOp->unparseToString().c_str());
+                        scc->setLattice(lhsOperand, rhsLattice->copy());
+                        // propagate lhs to the binaryOp
+                        scc->setLattice(binaryOp, rhsLattice->copy());
+                        break;
+                    case V_SgPlusAssignOp:
+                        scc->setLattice(lhsOperand, *lhsLattice + rhsLattice);
+                        break;
+                    case V_SgMinusAssignOp:
+                        scc->setLattice(lhsOperand, *lhsLattice - rhsLattice);
+                        break;
+                    default:
+                        printf("ERROR Unhandled binary operation: '%s'\n", binaryOp->unparseToString().c_str());
+                        ROSE_ASSERT(false);
+                        break;
+                    }
+                }
+            } else if (SgUnaryOp* unOp = isSgUnaryOp(node)) {
+                SgExpression * unOperand = unOp->get_operand();
+                Lattice * unLattice = scc->getLattice(unOperand);
+                if (unLattice != NULL && scc->getLattice(unOp) == NULL) {
+                    int unVal;
+                    switch (unOp->variantT()) {
+                    case V_SgPlusPlusOp:
+                        unVal = dynamic_cast<IntLatticeArith*>(unLattice)->getValue();
+                        // std::cout << "++ " << unVal << std::endl;
+                        scc->setLattice(unOp, new IntLatticeArith(unVal + 1));
+                        break;
+                    case V_SgMinusMinusOp:
+                        unVal = dynamic_cast<IntLatticeArith*>(unLattice)->getValue();
+                        scc->setLattice(unOp, new IntLatticeArith(unVal - 1));
+                        break;
+                        // TODO: handle more unary operations
+                    default:
+                        break;
+                    }
+                }
+            } else if (cfgUtils::isAssignment(node)) {
+                // Process RHS
+                set<SgNode*> rhs;
+                // scc->getRHS(node, rhs);
+                cfgUtils::getAssignmentRHS(node, rhs);
+                Lattice * rhsLattice = NULL;
+                foreach(SgNode * node, rhs) {
+                    // if (isSgExpression(node))
+                    //   evaluateExpr((SgExpression *)node, true);
+                    // std::cout << "evaluate RHS: " << node->class_name() << std::endl;
+                    rhsLattice = scc->getLattice(node);
+                }
+
+                // Process LHS
+                // SgNode * lhs = scc->getLHS(node);
+                SgNode* lhs = cfgUtils::getAssignmentLHS(node);
+                Lattice * lhsLattice = scc->getLattice(lhs);
+                if (lhs != NULL && rhsLattice != NULL) {
+                    scc->setLattice(lhs, rhsLattice->copy());
+                    // TODO: handle plusassign, minusassign operations
+                }
+            } else if (SgVarRefExp * varRef = isSgVarRefExp(node)){
+                if (scc_debug) printf("SgVarRefExp %s\n", varRef->unparseToString().c_str());
+                const VarName& varName = StaticSingleAssignment::getVarName(node);
+                const NodeReachingDefTable& reachingDefs = scc->getSSA()->getReachingDefsAtNode_(node);
+                // Get SSA look-aside info
+                if (reachingDefs.find(varName) != reachingDefs.end()) {
+                    ReachingDefPtr reachingDef = (* reachingDefs.find(varName)).second;
+                    // Get reaching def node, and corresponding lattice
+                    SgNode * defNode = reachingDef->getDefinitionNode();
+                    Lattice * lattice = scc->getLattice(defNode);
+                    if (lattice != NULL) {
+                        scc->setLattice(varRef, lattice->copy());
+                    } else {
+                        if (scc_debug) {
+                            printf("Didn't find any lattice information for %s\n", varRef->unparseToString().c_str());
+                            printf("Definition node was %p %s\n", defNode, defNode->unparseToString().c_str());
+                        }
+                    }
+                } else {
+                    if (scc_debug) printf("Didn't find any ssa information for %s\n", varRef->unparseToString().c_str());
+                }
+            } else if (cfgUtils::IsConstInt((const SgExpression* )node, val)) {
+                scc->setLattice(node, new IntLatticeArith(val));
+            } else if (SgExprStatement* exprStmt = isSgExprStatement(node)) {
+                // Propagate the expression's lattice to expression stmt
+                Lattice * lattice = scc->getLattice(exprStmt->get_expression());
+                if (lattice != NULL)
+                    scc->setLattice(exprStmt, lattice->copy());
+            } else if (SgIfStmt * ifStmt = isSgIfStmt(node)) {
+                // Propagate the condition's lattice to if stmt
+                SgStatement* condStmt = ifStmt->get_conditional();
+                Lattice * lattice = scc->getLattice(condStmt);
+                if (lattice != NULL)
+                    scc->setLattice(varRef, lattice->copy());
+            } else {
+                // TODO: handle more SgNodes
+                if (scc_debug) std::cout << "unhandled SgNode type: " << node->class_name() << std::endl;
+            }
+            if (scc_debug && (scc->getLattice(node) != NULL)) {
+                printf("hasLattice %p %s \n", node, node->unparseToString().c_str());
+            }
+            return;
+        }
+    };
+
+    EvaluateExpressionTraversal trav;
+    trav.scc = this;
+    trav.traverse(node, postorder);
+
+    return true;
 }
 
 void ConstantAnalysis::dumpLattices() {
-  class EvaluateExpressionTraversal : public AstSimpleProcessing {
-  public:
-    ConstantAnalysisTransfer* transferVisitor;
+    class EvaluateExpressionTraversal : public AstSimpleProcessing {
+    public:
+        ConstantAnalysis* scc;
+        void visit(SgNode* node) {
+            Lattice* lattice = scc->getLattice(node);
+            if (lattice != NULL) {
+                std::cout << "'" << node->unparseToString() << "'";
+                SgVarRefExp* varRef = isSgVarRefExp(node);
+                if (varRef != NULL) {
+                    std::cout << " : " << varRef->get_symbol()->get_name().getString();
+                }
+                std::cout << " => " << lattice->str() << std::endl;
+            }
+        }
+    };
 
-    void visit(SgNode* node)
-    {
-      // std::cout << "visiting: " << node->class_name() << std::endl;
-      SgNode* lhsOperand  = cfgUtils::getAssignmentLHS(node);
-      if (lhsOperand != NULL) {
-  // std::cout<< "dump operand " << lhsOperand->class_name() << " with "
-  //   << lhsOperand << std::endl;
-  LatticeArith* lhsLattice = transferVisitor->getLattice_((const SgExpression*)lhsOperand);
-  // if (lhsLattice != NULL) std::cout << "has lattice" << std::endl;
-  if (lhsLattice != NULL && lhsLattice->is_intLatticeArith()) {
-    SgVarRefExp* varRef = isSgVarRefExp(lhsOperand);
-    if (varRef != NULL) {
-      if (lhsLattice->isBottom())
-        std::cout << varRef->get_symbol()->get_name().getString() << " = bottom" << std::endl;
-      else if (lhsLattice->isTop())
-        std::cout << varRef->get_symbol()->get_name().getString() << " = top" << std::endl;
-      else
-        std::cout << varRef->get_symbol()->get_name().getString() << " = "
-      << (dynamic_cast<LatticeArithInstance<int> * >(lhsLattice))->getValue() << std::endl;
+    EvaluateExpressionTraversal trav;
+    trav.scc = this;
+
+    foreach (SgFunctionDefinition* func, interestingFunctions) {
+        trav.traverse(func, postorder);
     }
-  }
-      }
-    }
-  };
+}
 
-  EvaluateExpressionTraversal trav;
 
-  foreach (SgFunctionDefinition* func, interestingFunctions) {
-    trav.transferVisitor = (ConstantAnalysisTransfer* )funcTransferMap[func];
-    trav.traverse(func, postorder);
-  }
+ConstantAnalysis * runScc(SgProject * project) {
+    // Initialize the analysis
+    initAnalysis(project);
+    analysisDebugLevel = 0;
+    // Init the debug environment
+    Dbg::init("SSA Analysis Test", ".", "index.html");
+
+    // Invoke SSA constructor with inter-procedural configure
+    StaticSingleAssignment * ssa = new StaticSingleAssignment(project);
+    // No inter-procedural analysis for SSA and treat pointer as structure, i.e. p->x as p.x
+    ssa->run(false, true);
+
+    // Create SCC by using SSA as input
+    ConstantAnalysis * scc = new ConstantAnalysis(project, ssa);
+    // scc.run(false);
+    ContextInsensitiveInterProceduralDataflow * ciIPD = new ContextInsensitiveInterProceduralDataflow(scc, getCallGraph());
+    // Invoke SCC based on call graph traversal
+    ciIPD->runAnalysis();
+
+    return scc;
 }

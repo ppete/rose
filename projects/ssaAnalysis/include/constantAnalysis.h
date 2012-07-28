@@ -5,7 +5,6 @@
 #include "rose.h"
 #include "staticSingleAssignment.h"
 #include <boost/foreach.hpp>
-#include "LatticeArith.h"
 #include "genericDataflowCommon.h"
 #include "genUID.h"
 #include "VirtualCFGIterator.h"
@@ -14,20 +13,12 @@
 #include "analysisCommon.h"
 #include "analysis.h"
 #include "dataflow.h"
-#include "latticeFull.h"
-#include "heapSSA.h"
-
-// \pp added
-#include "defaultLattice.h"
+#include "LatticeArithInstance.h"
 
 namespace scc_private
 {
   using namespace boost;
   using namespace std;
-  using namespace hssa_private;
-
-  using ::Function;  ///< multiple Functions are pulled in by some using namespace
-                     ///  directives in header files :(
 
   typedef StaticSingleAssignment::FilteredCfgNode FilteredCfgNode;
   typedef StaticSingleAssignment::FilteredCfgEdge FilteredCfgEdge;
@@ -43,47 +34,47 @@ namespace scc_private
   typedef set<SgNode* > SgNodeList;
   typedef set<FilteredCfgNode> NodeList;
   typedef set<FilteredCfgEdge> EdgeList;
-  typedef map<VarName, LatticeArith * > VarLatticeMap;
-  typedef map<SgNode *, LatticeArith * > NodeLatticeMap;
+  typedef map<VarName, Lattice * > VarLatticeMap;
+  typedef map<SgNode *, VarLatticeMap * > GlobalLatticeMap;
+  typedef map<SgNode *, Lattice * > NodeLatticeMap;
   typedef boost::unordered_map<SgNode *, map<VarName, set<ReachingDefPtr> > > UseSetTable;
   typedef boost::unordered_map<SgNode *, map<SgNode *, bool> > SgNodeEdgeTable;
-  typedef boost::unordered_map<SgNode *, map<VarName, ReachingDefPtr > > PHINodeTable;
+
+  extern bool scc_debug;
 
   class ConstantAnalysis : public IntraProceduralDataflow
   {
   private:
     // The project to perform Constant Analysis on.
     SgProject* project;
-    HeapSSA* ssa;
+    StaticSingleAssignment* ssa;
 
   public:
-    ConstantAnalysis(SgProject* proj, HeapSSA* ssaInstance);
-    ~ConstantAnalysis();
+    ConstantAnalysis(SgProject* proj, StaticSingleAssignment* ssaInstance);
+    // : project(proj), ssa(ssaInstance) { NULL_Node = new SgNode(); }
+    ~ConstantAnalysis() { }
 
     // Run the analysis
     void run(bool hierarchical);
 
     // Run the intra-procedural analysis
     virtual bool runAnalysis(const Function& func, NodeState* state, bool analyzeDueToCallers,
-         std::set<Function> calleesUpdated);
+		     std::set<Function> calleesUpdated);
 
-    // \pp changed interface
-    Lattice* genLattice(const ::Function& func, const DataflowNode& n, const NodeState& state);
-    std::vector<NodeFact*> genFacts(const ::Function& func, const DataflowNode& n, const NodeState& state);
+    //~ virtual void genInitState(const Function& func, const DataflowNode& n, const NodeState& state,
+    //~   std::vector<Lattice*>& initLattices,
+    //~   std::vector<NodeFact*>& initFacts);
 
-    bool transfer(const Function& func, const DataflowNode& n, NodeState& state, Lattice& dfInfo);
-
-/*
-    boost::shared_ptr<IntraDFTransferVisitor>
-      getTransferVisitor(const Function& func, const DataflowNode& n, NodeState& state,
-       const std::vector<Lattice*>& dfInfo);
-*/
+    virtual Lattice* genLattice(const Function& func, const DataflowNode& n, const NodeState& state);
+    virtual std::vector<NodeFact*> genFacts(const Function& func, const DataflowNode& n, const NodeState& state);
 
     void dumpLattices();
+    // Get the SgNode's corresponding lattice
+    Lattice * getLattice(SgNode * node);
 
   protected:
     // Main framework of wegman-zadeck SCC
-    void SCC(const Function& func, bool edgeBased);
+    void SCC(SgFunctionDefinition* func, bool edgeBased);
     void dummyTrav(SgFunctionDefinition* func);
     // Visiting phi function, including lattice propagation
     void visitPhi(FilteredCfgNode& node, EdgeList& executableFlags);
@@ -125,33 +116,31 @@ namespace scc_private
     int numOfOut(FilteredCfgNode& node);
     // Get the single out node when the number of out edges is 1
     FilteredCfgNode outNode(FilteredCfgNode& node);
-    // Get the SgNode's corresponding lattice
-    LatticeArith * getLattice(SgNode * node);
     // Set the SgNode and its lattice into the global map
-    void setLattice(SgNode * node, LatticeArith * lattice);
+    void setLattice(SgNode * node, Lattice * lattice);
     // Get the SSA instance
     StaticSingleAssignment * getSSA();
     // Unreachable code analysis
     EdgeList& UCA();
 
-    // Build the SSA suse table
-    /*bool buildUseTable(vector<FilteredCfgNode>& cfgNodes,
-           UseTable& useTable, UseSetTable& ssaUseTable,
-           PHINodeTable& phiNodeMap);*/
+    // Build the SSA use table
+    bool buildUseTable(vector<FilteredCfgNode>& cfgNodes,
+		       UseTable& useTable, UseSetTable& ssaUseTable,
+		       map<SgNode *, ReachingDefPtr>& phiNodeMap);
     bool buildUseTable(vector<FilteredCfgNode>& cfgNodes, UseSetTable& ssaUseTable,
-           PHINodeTable& phiNodeMap);
+		       map<SgNode *, ReachingDefPtr>& phiNodeMap);
       // Get all CFG node within the given function
     vector<FilteredCfgNode> getCfgNodesInPostorder(SgFunctionDefinition* func);
 
   protected:
     NodeLatticeMap latticeMap;
     UseSetTable SSAUseTable;
-    PHINodeTable PHINodeMap;
+    map<SgNode *, ReachingDefPtr> PHINodeMap;
     unordered_set<SgFunctionDefinition*> interestingFunctions;
     EdgeList executableEdges;
-    // A global transfer visitor
-    // boost::shared_ptr<IntraDFTransferVisitor> transferVisitor;
-    IntraDFTransferVisitor* transferVisitor;
-    map<SgFunctionDefinition*, IntraDFTransferVisitor* > funcTransferMap;
+
+    SgNode* NULL_Node;
   };
 };
+
+scc_private::ConstantAnalysis * runScc(SgProject * project);
