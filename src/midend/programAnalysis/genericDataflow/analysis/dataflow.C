@@ -477,10 +477,6 @@ bool IntraUniDirectionalDataflow::runAnalysis(const Function& func, NodeState* f
 
                         dfInfoPost->copy(dfInfoAnte.get());
 
-                        std::cerr << "#" << ++logid << std::endl;
-                        std::cerr << "ANTE: " << dbg_id(dfInfoAnte) << "\n" << as_str(dfInfoAnte, "") << std::endl;
-                        std::cerr << "POST: " << dbg_id(dfInfoPost) << "\n" << as_str(dfInfoPost, "") << std::endl;
-
 #if OBSOLETE_CODE
                         // Overwrite the Lattices below this node with the lattices above this node.
                         // The transfer function will then operate on these Lattices to produce the

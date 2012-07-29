@@ -266,7 +266,7 @@ namespace dfpred
       ///          the union of two predicate sets is a precise representation
       ///          of the preceding disjoint control
       /// \todo    what to do with no longer available expressions?
-      bool join(const PredicateSet& other)
+      bool meet(const PredicateSet& other)
       {
         // the current implementation just concatenates the two sets
         //   do we need to calculate the over-approximation
@@ -362,6 +362,19 @@ namespace dfpred
     return s;
   }
 
+  template <class TLattice>
+  bool meetUpdate(TLattice& tgt, const TLattice& src)
+  {
+    ROSE_ASSERT(src.isInitialized());
+
+    if (!tgt.isInitialized())
+    {
+      tgt.copy(&src);
+    }
+
+    tgt.meet(src);
+  }
+
 
   //
   // dataflow lattice
@@ -382,7 +395,7 @@ namespace dfpred
       : predset(), current_node(0)
       {}
 
-      Lattice* copy() const { return new PredicatedLattice(*this); }
+      PredicatedLattice* copy() const { return new PredicatedLattice(*this); }
 
       void copy(const Lattice* arg)
       {
@@ -412,17 +425,17 @@ namespace dfpred
         return out.str();
       }
 
-      bool join_predicates(const PredicateSet<BasePredicate>& other)
+      bool meet(const PredicatedLattice& that)
       {
-        // we take the union of all available predicate sets
-        return predset.join(other);
+        return predset.meet(that.predset);
       }
 
       bool meetUpdate(const Lattice* arg)
       {
         const PredicatedLattice* that = dynamic_cast<const PredicatedLattice*>(arg);
+        ROSE_ASSERT(that);
 
-        return join_predicates(that->predset);
+        ::dfpred::meetUpdate(*this, *that);
       }
 
       bool operator==(const Lattice* arg) const
@@ -432,6 +445,15 @@ namespace dfpred
         return this->predset == that->predset;
       }
 
+      void initialize() /* override */
+      {
+        if (!isInitialized())
+        {
+          predset.insert(ConjunctedPredicate<BasePredicate>());
+          FiniteLattice::initialize();
+        }
+      }
+
       friend
       void swap(PredicatedLattice& lhs, PredicatedLattice& rhs)
       {
@@ -439,6 +461,14 @@ namespace dfpred
 
         swap(lhs.predset,      rhs.predset);
         swap(lhs.current_node, rhs.current_node);
+      }
+
+      std::string str() const
+      {
+        std::stringstream out;
+
+        out << *this;
+        return out.str();
       }
 
       template <class _BasePredicate>
@@ -1164,23 +1194,12 @@ namespace dfpred
         return FactContainer();
       }
 
-      bool transfer(const Function&, const DataflowEdge& e, NodeState&, Lattice& dfInfo)
+      virtual bool transfer(const Function&, const DataflowEdge& e, NodeState&, LatticePtr dfInfo)
       {
-        static bool first = true;
-
-        lattice_type& l = getLattice<lattice_type>(dfInfo);
+        lattice_type& l = getLattice<lattice_type>(sg::deref(dfInfo.get()));
 
         // only handle nodes where the lattice has been properly propagated
-        if (!first && l.predset.infeasible())
-        {
-          return false;
-        }
-
-        if (first)
-        {
-          first = false;
-          l.predset.insert(ConjunctedPredicate<BasePredicate>());
-        }
+        if (!l.isInitialized()) { }
 
         l.current_node = isSgLocatedNode(flowSource(e).getNode());
         sg::dispatch(predicateTransfer(e, l), flowSource(e).getNode());
@@ -1191,7 +1210,7 @@ namespace dfpred
         return !l.predset.infeasible();
       }
 
-      bool transfer(const Function&, const DataflowNode&, NodeState&, Lattice&)
+      bool transfer(const Function&, const DataflowNode&, NodeState&, LatticePtr)
       {
         // no longer needed as we calculate the transfer for each edge specifically
         ROSE_ASSERT(false);

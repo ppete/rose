@@ -650,10 +650,14 @@ struct PredicateAnalyzer
     SgVarRefExp&        n_noconst = const_cast<SgVarRefExp&>(n);
     DataflowNode        dfnkey(n_noconst.cfgForBeginning(), defaultFilter);
     NodeState&          state = sg::deref(NodeState::getNodeState(dfnkey));
-    const AnyLattice&   latwrap = state.getLatticeAbove(analysisKey);
-    const lattice_type* lat = dynamic_cast<const lattice_type*>(latwrap.ptr());
+    ConstLatticePtr     latwrap = state.getLatticeAbove(analysisKey);
+    const Lattice*      latptr = latwrap.get();
+    ROSE_ASSERT(latptr);
 
-    if (!lat) return 0;
+    const lattice_type* lat = dynamic_cast<const lattice_type*>(latptr);
+
+    if (!lat) return 0; // none available
+
     return &lat->predset;
   }
 

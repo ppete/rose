@@ -336,7 +336,7 @@ namespace
 
   const SgExpression& skip_negation(const SgExpression& n)
   {
-    const SgNotOp* child = dynamic_cast<const SgNotOp*>(&n);
+    const SgNotOp* child = isSgNotOp(&n);
     if (!child) return n;
 
     return sg::deref(child->get_operand());
