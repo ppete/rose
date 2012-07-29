@@ -1,53 +1,51 @@
+#include "constantAnalysis.h"
+#include "valueNumbering.h"
+#include "heapSSA.h"
+#include "rose.h"
 #include <boost/foreach.hpp>
 #include <boost/tuple/tuple.hpp>
 #include <boost/operators.hpp>
 #include <new>
-#include <iostream>
-#include "rose.h"
 #include "CallGraph.h"
-#include "constantAnalysis.h"
-#include "sccCompileTimeAssertion.h"
+#include <iostream>
 
 #define foreach BOOST_FOREACH
 using namespace std;
 using namespace boost;
 using namespace scc_private;
+using namespace hssa_private;
 
-bool check_ct_assertion = false;
-bool generate_rt_assertion = false;
-bool scc_dump_lattices = false;
-
-void check_options(Rose_STL_Container<string> args) {
-    check_ct_assertion = CommandlineProcessing::isOption (args, "--", "scc:ct", true);
-    generate_rt_assertion = CommandlineProcessing::isOption (args, "--", "scc:rt", true);
-    scc_private::scc_debug = CommandlineProcessing::isOption (args, "--", "scc:debug", true);
-    scc_dump_lattices = CommandlineProcessing::isOption (args, "--", "scc:dump", true);
-}
-
-int main(int argc, char** argv) {
-  // check option
-  Rose_STL_Container<string> args =
-          CommandlineProcessing::generateArgListFromArgcArgv (argc,argv);
-  check_options(args);
-
+int main(int argc, char** argv)
+{
   SgProject* project = frontend(argc, argv);
   AstTests::runAllTests(project);
 
-  ConstantAnalysis * scc = runScc(project);
 
-  if (scc_dump_lattices) {
-      scc->dumpLattices();
-  }
+  initAnalysis(project);
+  analysisDebugLevel = 0;
+  // check option
+  Dbg::init("SSA Analysis Test", ".", "index.html");
 
+
+
+
+  HeapSSA hssa(project);
   // check compile-time assertion
-  if (check_ct_assertion) {
-      scc_check_ct_assertion(project, scc);
-  }
+  hssa.build(false, true);
 
   // insert runtime assertion to check scc
-  if(generate_rt_assertion) {
+  ValueNumbering vn(project, &hssa);
+  ContextInsensitiveInterProceduralDataflow ciIPD1(&vn, getCallGraph());
 
-  }
+  ciIPD1.runAnalysis();
+ 
+  // Create SCC by using SSA as input
+  ConstantAnalysis scc(project, &hssa);
+  // scc.run(false);
+  ContextInsensitiveInterProceduralDataflow ciIPD(&scc, getCallGraph());
+  // Invoke SCC based on call graph traversal
+  ciIPD.runAnalysis();
+  scc.dumpLattices();
 
   generatePDF((const SgProject&)(* project)) ;
   AstTests::runAllTests(project);

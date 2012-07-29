@@ -32,15 +32,15 @@ public:
     virtual ~LatticeArith() {
     }
 
-    bool isTop() {
+    bool isTop() const {
         return top;
     }
 
-    bool isBottom() {
+    bool isBottom() const {
         return bottom;
     }
 
-    bool hasValue() {
+    bool hasValue() const {
         return !(isTop() || isBottom());
     }
 
@@ -57,6 +57,7 @@ public:
     // pure function from Lattice
     // returns a copy of this lattice
     virtual LatticeArith* copy() const = 0;
+    virtual LatticeArith* copyInstance() const = 0;
 
     // pure function from Lattice
     // overwrites the state of "this" Lattice with "that" Lattice

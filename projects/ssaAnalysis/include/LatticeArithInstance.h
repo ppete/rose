@@ -22,7 +22,7 @@
 #define CHECK_LATTICE_ARITH_INSTANCE_TYPE(TYPE) (dynamic_cast<LatticeArithInstance<TYPE>*>(this) != NULL);
 
 template<typename T>
-class LatticeArithInstance : public virtual LatticeArith {
+class LatticeArithInstance : virtual public LatticeArith {
 
 protected:
     T value;
@@ -53,6 +53,14 @@ public:
         return new LatticeArithInstance<T>(*this);
     }
 
+    virtual LatticeArith* copyInstance() const {
+      // Rely on the copy constructor
+      return new LatticeArithInstance<T>(*this);
+    }
+
+    // pure function from Lattice
+    void clear() {}
+
     // pure function from Lattice
     // overwrites the state of "this" Lattice with "that" Lattice
     virtual void copy(const Lattice* that_) {
@@ -60,10 +68,6 @@ public:
         ROSE_ASSERT((that != NULL) && "Cannot copy a LatticeArith to a LatticeArith of a different type");
         LatticeArith::copy(that);
         this->value = that->value;
-    }
-
-    // pure function from Lattice
-    virtual void clear() {
     }
 
     // pure function from Lattice
@@ -168,9 +172,18 @@ public:
     // pure function from Lattice
     virtual bool meetUpdate(const Lattice* that_) {
         const LatticeArithInstance<T>* that = dynamic_cast<const LatticeArithInstance<T>*>(that_);
-        ROSE_ASSERT(false && "LatticeArithInstance::meetUpdate not implemented");
-        if (this->value == that->value) {
+        if (isTop() != that->isTop()) {
+    bottom = true;
+    return true;
+  } else if (isBottom() || that->isBottom()) {
+    bottom = true;
+    return true;
+  } else if (this->value == that->value) {
             return false;
+        } else if (this->value != that->value) {
+    bottom = true;
+    this->value = -1;
+    return true;
         }
     }
 
