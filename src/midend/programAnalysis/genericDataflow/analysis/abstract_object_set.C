@@ -4,17 +4,16 @@
 
 using namespace std;
 namespace dataflow
-{
-  
-  int AbstractObjectSetDebugLevel=1;
+{  
+int AbstractObjectSetDebugLevel=1;
 // returns true only if the list grows
 // false implies element is already present
-bool AbstractObjectSet::insert(const AbstractObjectPtr _that) 
+bool AbstractObjectSet::insert(const AbstractObjectPtr that) 
 {
-    ROSE_ASSERT(_that);
+    ROSE_ASSERT(that);
     bool retval = false;
-    if(!containsMust(_that)) {
-        items.push_back(_that);
+    if(!containsMust(that)) {
+        items.push_back(that);
         retval = true;
     }
     return retval;
@@ -22,17 +21,19 @@ bool AbstractObjectSet::insert(const AbstractObjectPtr _that)
 
 // return true on successfull removal
 // throws exception if element not found
-bool AbstractObjectSet::remove(const AbstractObjectPtr _that) 
+bool AbstractObjectSet::remove(const AbstractObjectPtr that) 
 {
     bool retval = false;
     bool found = false;
-    ROSE_ASSERT(_that);
+    ROSE_ASSERT(that);
     std::list<AbstractObjectPtr>::iterator it = items.begin();
+    Dbg::dbg << "AbstractObjectSet::remove("<<that->str("")<<")"<<endl;
     for(; it != items.end(); it++) {
-        if((*it)->mustEqual(_that)) {
+        Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;it="<<(*it)->str("")<<endl;
+        if((*it)->mustEqual(that, part)) {
             items.erase(it);  // NOTE: destroys the shared_ptr object
             found = true;
-            break;    // only one object that mustEqual(_that) should be present
+            break;    // only one object that mustEqual(that) should be present
         }
     }
 
@@ -41,7 +42,7 @@ bool AbstractObjectSet::remove(const AbstractObjectPtr _that)
         //try {
         if(AbstractObjectSetDebugLevel>=1) {
           Dbg::dbg << "<b>AbstractObjectSet::remove()"<<endl;
-          Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;Cannot find "<<_that->str("")<<endl;
+          Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;Cannot find "<<that->str("")<<endl;
           Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;"<<str("&nbsp;&nbsp;&nbsp;&nbsp;")<<"</b>"<<endl;
         }
         // throw "element not found";
@@ -51,13 +52,13 @@ bool AbstractObjectSet::remove(const AbstractObjectPtr _that)
 }
 
 // returns true if a mustEqual is present; false otherwise
-bool AbstractObjectSet::containsMust(const AbstractObjectPtr _that) 
+bool AbstractObjectSet::containsMust(const AbstractObjectPtr that) 
 {
-    ROSE_ASSERT(_that);
+    ROSE_ASSERT(that);
     bool retval = false;
     std::list<AbstractObjectPtr>::iterator it = items.begin();
     for( ; it != items.end(); it++) {
-        if((*it)->mustEqual(_that)) {
+        if((*it)->mustEqual(that, part)) {
             retval = true;
             break;
         } // end if
@@ -67,15 +68,15 @@ bool AbstractObjectSet::containsMust(const AbstractObjectPtr _that)
     return retval;
 }
 
-bool AbstractObjectSet::containsMay(const AbstractObjectPtr _that)
+bool AbstractObjectSet::containsMay(const AbstractObjectPtr that)
 {
-    ROSE_ASSERT(_that);
+    ROSE_ASSERT(that);
     bool retval = false;
-    Dbg::dbg << "AbstractObjectSet::containsMay("<<_that->str("")<<")"<<endl;
+    //Dbg::dbg << "AbstractObjectSet::containsMay("<<that->str("")<<")"<<endl;
     std::list<AbstractObjectPtr>::iterator it = items.begin();
     for( ; it != items.end(); it++) {
-        Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;it="<<(*it)->str("")<<")"<<endl;
-        if((*it)->mayEqual(_that)) {
+        //Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;it="<<(*it)->str("")<<")"<<endl;
+        if((*it)->mayEqual(that, part)) {
             retval = true;
             break;
         } // end if
@@ -87,39 +88,46 @@ bool AbstractObjectSet::containsMay(const AbstractObjectPtr _that)
 // Return true if this causes the object to change and false otherwise.
 bool AbstractObjectSet::setToFull()
 {
-bool modified = !isFull;
-items.clear();
-isFull = true;
-return modified;
+  bool modified = !isFull;
+  items.clear();
+  isFull = true;
+  return modified;
 }
 
 // Set this Lattice object to represent the of no execution prefixes (empty set).
 // Return true if this causes the object to change and false otherwise.
 bool AbstractObjectSet::setToEmpty()
 {
-bool modified = !items.empty();
-items.clear();
-return modified;
+  bool modified = !items.empty();
+  items.clear();
+  return modified;
 }
 
 // debug: prints the elements of set as string
 std::string AbstractObjectSet::str(std::string indent)
 {
-  ostringstream oss;
+    return strp(part, indent);
+}
+
+// Variant of the str method that can produce information specific to the current Part.
+// Useful since AbstractObjects can change from one Part to another.
+std::string AbstractObjectSet::strp(PartPtr part, std::string indent)
+{
+    ostringstream oss;
   
     std::list<AbstractObjectPtr>::iterator it = items.begin();
     while(it != items.end()) {
         if(it != items.begin()) oss << indent;
-        oss << (*it)->str("    ");
+        oss << (*it)->strp(part, "    ");
         
         it++;
         if(it!=items.end())
-        oss << std::endl;
+          oss << std::endl;
     }
     
     return oss.str();
 }
-
+    
 // -----------------
 // Lattice methods
 // initializes this Lattice to its default state, if it is not already initialized
@@ -198,13 +206,13 @@ void AbstractObjectSet::incorporateVars(Lattice* thatL)
 // !!! UNIMPLEMENTED
 Lattice* AbstractObjectSet::project(SgExpression* expr)
 {
-AbstractObjectSet* newS = new AbstractObjectSet(ceo);
-ROSE_ASSERT(newS);
-MemLocObjectPtr o = boost::dynamic_pointer_cast<MemLocObject>(ceo->Expr2Obj(expr));
-ROSE_ASSERT(o);
-if(containsMust(o))
-newS->insert(o);
-return newS;
+  AbstractObjectSet* newS = new AbstractObjectSet(/*ceo, */part);
+  /*ROSE_ASSERT(newS);
+  MemLocObjectPtr o = boost::dynamic_pointer_cast<MemLocObject>(ceo->Expr2Obj(expr));
+  ROSE_ASSERT(o);
+  if(containsMust(o))
+  newS->insert(o);*/
+  return newS;
 }
 
 // The inverse of project(). The call is provided with an expression and a Lattice that describes
@@ -212,9 +220,10 @@ return newS;
 // returned by project(). unProject() must incorporate this dataflow state into the overall state it holds.
 // Call must make an internal copy of the passed-in lattice and the caller is responsible for deallocating it.
 // Returns true if this causes this to change and false otherwise.
+// !!! UNIMPLEMENTED
 bool AbstractObjectSet::unProject(SgExpression* expr, Lattice* exprState)
 {
-try {
+  /*try {
     AbstractObjectSet *that = dynamic_cast <AbstractObjectSet*> (exprState);
     if(that->isFull) return false;
     bool modified = false;
@@ -232,26 +241,28 @@ try {
     return modified;
   } catch (bad_cast & bc) { 
     ROSE_ASSERT(false);
-  }
+  }*/
+  return false;
 }
 
 // computes the meet of this and that and saves the result in this
 // returns true if this causes this to change and false otherwise
+// The part of this object is to be used for AbstractObject comparisons.
 bool AbstractObjectSet::meetUpdate(Lattice* thatL)
 {
-try {
+  try {
     AbstractObjectSet *that = dynamic_cast <AbstractObjectSet*> (thatL);
     if(isFull) return false;
     if(that->isFull) {
-    setToFull();
-    return true;
+      setToFull();
+      return true;
     }
     
     // Copy over from that all the elements that don't already exist in this
     bool modified = false;
     for(std::list<AbstractObjectPtr>::iterator it=that->items.begin(); it!=that->items.end(); it++) {
-modified = insert(*it) || modified;
-}
+      modified = insert(*it) || modified;
+    }
   } catch (bad_cast & bc) { 
     ROSE_ASSERT(false);
   }
@@ -259,7 +270,8 @@ modified = insert(*it) || modified;
 
 bool AbstractObjectSet::operator==(Lattice* thatL)
 {
-try {
+  ROSE_ASSERT(part == thatL->getPart());
+  try {
     AbstractObjectSet *that = dynamic_cast <AbstractObjectSet*> (thatL);
     
     // GB: This is a quadratic time comparison. Can make it linear if we sort the objects somehow.
@@ -270,10 +282,10 @@ try {
     
     // Iterate through that->items and confirm that all its elements are in this->items
     for(std::list<AbstractObjectPtr>::iterator it=that->items.begin(); it!=that->items.end(); it++)
-if(!that->containsMust(*it)) return false;
+    if(!that->containsMust(*it)) return false;
 
-// Everything aligns perfectly
-return true;
+    // Everything aligns perfectly
+    return true;
   } catch (bad_cast & bc) { 
     ROSE_ASSERT(false);
   }

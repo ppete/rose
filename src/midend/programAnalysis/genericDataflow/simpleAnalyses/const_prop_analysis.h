@@ -2,7 +2,10 @@
 #define CONSTANT_PROPAGATION_ANALYSIS_H
 
 #include "compose.h"
-class CPValueObject;
+namespace dataflow
+{
+    class CPValueObject;
+};
 #include "VariableStateTransfer.h"
 #include "abstract_object_map.h"
 
@@ -51,12 +54,12 @@ class CPValueObject : public FiniteLattice, public ValueObject
   
   public:
   // Do we need a default constructor?
-  CPValueObject();
+  CPValueObject(PartPtr p);
   
   // This constructor builds a constant value lattice.
-  CPValueObject( int v );
+  CPValueObject(int v, PartPtr p);
   
-  CPValueObject( short level, int v );
+  CPValueObject(short level, int v, PartPtr p);
   
   // Do we need th copy constructor?
   CPValueObject(const CPValueObject & X);
@@ -99,9 +102,13 @@ class CPValueObject : public FiniteLattice, public ValueObject
   // pretty print for the object
   std::string str(std::string indent="") const;
   std::string str(std::string indent="") { return ((const CPValueObject*)this)->str(indent); }
+  std::string strp(PartPtr part, std::string indent="") const;
     
-  bool mayEqual(ValueObjectPtr o) const;
-  bool mustEqual(ValueObjectPtr o) const;
+  bool mayEqual(ValueObjectPtr o, PartPtr p) const;
+  bool mustEqual(ValueObjectPtr o, PartPtr p) const;
+  
+  // Allocates a copy of this object and returns a pointer to it
+  ValueObjectPtr copyV() const;
 
   /* Don't have good idea how to represent a finite number of options 
   virtual bool isFiniteSet()=0;
@@ -116,18 +123,17 @@ class ConstantPropagationAnalysis : public ComposedAnalysis, virtual public Intr
   protected:
   //static std::map<varID, Lattice*> constVars;
   //AbstractObjectMap constVars;
-  static CPValueObjectPtr defaultLat;
    
   public:
   ConstantPropagationAnalysis()/* : constVars(new MustEqualFunctor()*/;
   
-  void genInitState(const Function& func, const DataflowNode& n, const NodeState& state, std::vector<Lattice*>& initLattices, std::vector<NodeFact*>& initFacts);
+  void genInitState(const Function& func, PartPtr p, const NodeState& state, std::vector<Lattice*>& initLattices, std::vector<NodeFact*>& initFacts);
   
-  bool transfer(const Function& func, const DataflowNode& n, NodeState& state, const std::vector<Lattice*>& dfInfo);
+  bool transfer(const Function& func, PartPtr p, NodeState& state, const std::vector<Lattice*>& dfInfo);
   
-  boost::shared_ptr<IntraDFTransferVisitor> getTransferVisitor(const Function& func, const DataflowNode& n, NodeState& state, const std::vector<Lattice*>& dfInfo);
+  boost::shared_ptr<IntraDFTransferVisitor> getTransferVisitor(const Function& func, PartPtr p, NodeState& state, const std::vector<Lattice*>& dfInfo);
   
-  boost::shared_ptr<ValueObject> Expr2Val(SgNode* n, const Part& p);
+  boost::shared_ptr<ValueObject> Expr2Val(SgNode* n, PartPtr p);
   
   // pretty print for the object
   std::string str(std::string indent="")
@@ -180,7 +186,7 @@ class ConstantPropagationAnalysisTransfer : public VariableStateTransfer<CPValue
    
    bool finish();
    
-   ConstantPropagationAnalysisTransfer(const Function& func, const DataflowNode& n, NodeState& state, const std::vector<Lattice*>& dfInfo, Composer* composer, ConstantPropagationAnalysis* analysis);
+   ConstantPropagationAnalysisTransfer(const Function& func, PartPtr p, NodeState& state, const std::vector<Lattice*>& dfInfo, Composer* composer, ConstantPropagationAnalysis* analysis);
 };
 
 }; //namespace dataflow

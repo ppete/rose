@@ -36,21 +36,21 @@ private:
    
     bool isFull;
     
-    ComposerExpr2ObjPtr ceo;
+    //ComposerExpr2ObjPtr ceo;
 public:
     // constructor
-    AbstractObjectSet(): isFull(false)
+    AbstractObjectSet(PartPtr part_): Lattice(part_), FiniteLattice(part_), isFull(false)
     {}
     
-    AbstractObjectSet(ComposerExpr2ObjPtr ceo_) : isFull(false), ceo(ceo_)
-    {}
+    /*AbstractObjectSet(ComposerExpr2ObjPtr ceo_, PartPtr part_) : Lattice(part_), FiniteLattice(part_), isFull(false), ceo(ceo_)
+    {}*/
     
-    AbstractObjectSet(const AbstractObjectSet* that) :
-    items(that->items), isFull(that->isFull), ceo(that->ceo)
+    AbstractObjectSet(const AbstractObjectSet* that) : Lattice(that->part), FiniteLattice(that->part),
+      items(that->items), isFull(that->isFull)/*, ceo(that->ceo)*/
     {}
     
     AbstractObjectSet(const AbstractObjectSet& that) :
-    items(that.items), isFull(that.isFull), ceo(that.ceo)
+      items(that.items), isFull(that.isFull)/*, ceo(that.ceo)*/, Lattice(that.part), FiniteLattice(that.part)
     {}
 
     ~AbstractObjectSet() { }
@@ -75,14 +75,17 @@ public:
     // Lattice methods
     
     // Set this Lattice object to represent the set of all possible execution prefixes.
-// Return true if this causes the object to change and false otherwise.
-bool setToFull();
-
-// Set this Lattice object to represent the of no execution prefixes (empty set).
-// Return true if this causes the object to change and false otherwise.
-bool setToEmpty();
+    // Return true if this causes the object to change and false otherwise.
+    bool setToFull();
+    
+    // Set this Lattice object to represent the of no execution prefixes (empty set).
+    // Return true if this causes the object to change and false otherwise.
+    bool setToEmpty();
 
     std::string str(std::string indent);
+    // Variant of the str method that can produce information specific to the current Part.
+    // Useful since AbstractObjects can change from one Part to another.
+    std::string strp(PartPtr part, std::string indent="");
     
     // initializes this Lattice to its default state, if it is not already initialized
     void initialize();
@@ -128,6 +131,7 @@ bool setToEmpty();
     // returned by project(). unProject() must incorporate this dataflow state into the overall state it holds.
     // Call must make an internal copy of the passed-in lattice and the caller is responsible for deallocating it.
     // Returns true if this causes this to change and false otherwise.
+    // !!! UNIMPLEMENTED
     bool unProject(SgExpression* expr, Lattice* exprState);
     
     // computes the meet of this and that and saves the result in this

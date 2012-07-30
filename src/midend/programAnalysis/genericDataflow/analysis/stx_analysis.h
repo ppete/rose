@@ -6,6 +6,7 @@
 #include "compose.h"
 #include "CallGraphTraverse.h"
 #include <boost/enable_shared_from_this.hpp>
+#include <boost/make_shared.hpp>
 
 namespace dataflow {
 /*****************************
@@ -32,9 +33,10 @@ class StxValueObject : public ValueObject
   SgValueExp* val;
   
   StxValueObject(SgNode* n);
+  StxValueObject(const StxValueObject& that);
   
-  bool mayEqual(ValueObjectPtr o) const;
-  bool mustEqual(ValueObjectPtr o) const;
+  bool mayEqual(ValueObjectPtr o, PartPtr p) const;
+  bool mustEqual(ValueObjectPtr o, PartPtr p) const;
 
   // Returns true if the given pair of SgValueExps represent the same value and false otherwise
   static bool equalValExp(SgValueExp* a, SgValueExp* b);
@@ -45,6 +47,9 @@ class StxValueObject : public ValueObject
   
   std::string str(std::string indent) const; // pretty print for the object
   std::string str(std::string indent) { return ((const StxValueObject*)this)->str(indent); }
+    
+  // Allocates a copy of this object and returns a pointer to it
+  ValueObjectPtr copyV() const;
 };
 typedef boost::shared_ptr<StxValueObject> StxValueObjectPtr;
 
@@ -54,8 +59,8 @@ typedef boost::shared_ptr<StxValueObject> StxValueObjectPtr;
 
 /*class StxMemLocObject : MemLocObject
 {
-  bool mayEqual(const AbstractObject& o);
-  bool mustEqual(const AbstractObject& o);
+  bool mayEqual(const AbstractObject& o, PartPtr p);
+  bool mustEqual(const AbstractObject& o, PartPtr p);
 
   / * Don't have good idea how to represent a finite number of options 
   bool isFiniteSet();
@@ -68,11 +73,13 @@ class StxCodeLocObject : public CodeLocObject
 {
   public:
   SgExpression* code;
+  PartPtr part;
   
-  StxCodeLocObject(SgNode* n);
+  StxCodeLocObject(SgNode* n, PartPtr p);
+  StxCodeLocObject(const StxCodeLocObject& that);
   
-  bool mayEqual(CodeLocObjectPtr o) const;
-  bool mustEqual(CodeLocObjectPtr o) const;
+  bool mayEqualCL(CodeLocObjectPtr o, PartPtr p) const;
+  bool mustEqualCL(CodeLocObjectPtr o, PartPtr p) const;
 
   /* Don't have good idea how to represent a finite number of options 
   bool isFiniteSet();
@@ -80,6 +87,9 @@ class StxCodeLocObject : public CodeLocObject
    
   std::string str(std::string indent) const; // pretty print for the object
   std::string str(std::string indent) { return ((const StxCodeLocObject*)this)->str(indent); }
+  
+  // Allocates a copy of this object and returns a pointer to it
+  CodeLocObjectPtr copyCL() const;
 };
 typedef boost::shared_ptr<StxCodeLocObject> StxCodeLocObjectPtr;
 
@@ -87,35 +97,35 @@ typedef boost::shared_ptr<StxCodeLocObject> StxCodeLocObjectPtr;
  ***** ANALYSIS *****
  ********************/
 
-class SyntacticAnalysis : public ComposedAnalysis
+class SyntacticAnalysis : virtual public ComposedAnalysis
 {
   public:
   SyntacticAnalysis() {}
   
-  bool runAnalysis(const Function&, NodeState*, bool, std::set<Function>) { return false; }
+  void runAnalysis(const Function&  func, NodeState* state, bool, std::set<Function>) { }
   
   // The genInitState and transfer functions are dummy since this is not a dataflow 
   // analysis.
   //void genInitState(const Part& p, Lattice** initLattice, 
   //                  std::vector<NodeFact*>& initFacts) {}
-  void genInitState(const Function& func, const DataflowNode& n, const NodeState& state, std::vector<Lattice*>& initLattices, std::vector<NodeFact*>& initFacts)
+  void genInitState(const Function& func, PartPtr p, const NodeState& state, std::vector<Lattice*>& initLattices, std::vector<NodeFact*>& initFacts)
   {}
    
    //void transfer(SgNode &n, Part& p) {}
-  bool transfer(const Function& func, const DataflowNode& n, NodeState& state, const std::vector<Lattice*>& dfInfo) {
+  bool transfer(const Function& func, PartPtr p, NodeState& state, const std::vector<Lattice*>& dfInfo) {
     return true;
   }
    
   // Maps the given SgNode to an implementation of the ValueObject abstraction.
-  boost::shared_ptr<ValueObject>   Expr2Val    (SgNode* e, const Part& p);
+  ValueObjectPtr   Expr2Val    (SgNode* e, PartPtr p);
   
   // Maps the given SgNode to an implementation of the MemLocObject abstraction.
   // Variant of Expr2Val where Part field is ignored since it makes no difference for the syntactic analysis.
   static MemLocObjectPtr Expr2MemLoc_noPart(SgNode* n);
-  MemLocObjectPtr  Expr2MemLoc (SgNode* e, const Part& p);
+  MemLocObjectPtr Expr2MemLoc (SgNode* e, PartPtr p);
   
   // Maps the given SgNode to an implementation of the Expr2CodeLoc abstraction.
-  boost::shared_ptr<CodeLocObject> Expr2CodeLoc(SgNode* e, const Part& p);
+  CodeLocObjectPtr Expr2CodeLoc(SgNode* e, PartPtr p);
   
   // pretty print for the object
   std::string str(std::string indent="")
@@ -181,34 +191,7 @@ class SyntacticAnalysis : public ComposedAnalysis
       bool operator < (const MemLocObject& other) const ;
   };
 
-
-  //! A set of index values, could only have constant integer values or unknown values in this implementation.
-  class IndexSet : public printable
-  {
-    public:
-      enum Index_type {
-        Integer_type = 0,
-        Unknown_type 
-      };
-
-      Index_type getType() const {return type; };
-
-      size_t getSize() {return 1;}; // Simple thing first
-
-      IndexSet (Index_type t):type(t){} 
-      virtual bool operator== (const IndexSet & other) const;
-      virtual bool mayEqual (const IndexSet & other)  const ;
-      virtual bool mustEqual (const IndexSet & other) const ;
-      virtual bool operator!= (const IndexSet & other) const;
-      virtual ~IndexSet();
-      
-      virtual std::string str(std::string indent); // pretty print for the object
-
-    private:
-      Index_type type;
-  };
-
-  
+  /*GB: Deprecating IndexSets and replacing them with ValueObjects.
   // we reuse the ConstIndexSet if the value is the same
   class ConstIndexSet: public IndexSet
   {
@@ -221,8 +204,8 @@ class SyntacticAnalysis : public ComposedAnalysis
       // we should not tweak the value once an instance is created. So there is no setValue()
       // integer index equal to another integer index if the integer values are the same
       bool operator== (const IndexSet & other) const; 
-      bool mayEqual (const IndexSet & other) const; 
-      bool mustEqual (const IndexSet & other) const; 
+      bool mayEqual(const IndexSet & other, const Part& p) const; 
+      bool mustEqual(const IndexSet & other, const Part& p) const; 
       bool operator != (const IndexSet & other) const; 
       
       std::string str(const std::string& indent) { return "[ConstIndexSet: "+StringUtility::numberToString(value) + "]"; }
@@ -239,8 +222,8 @@ class SyntacticAnalysis : public ComposedAnalysis
       static UnknownIndexSet* get_inst();
       // unknown index may equal to other
       bool operator== (const IndexSet & other) const {return true; };  // may be equal to any others
-      bool mayEqual (const IndexSet & other) const {return true; };  
-      bool mustEqual (const IndexSet & other) const {return false; }; 
+      bool mayEqual(const IndexSet & other, const Part& p) const {return true; };  
+      bool mustEqual(const IndexSet & other, const Part& p) const {return false; }; 
 
       bool operator != (const IndexSet & other) const {return true; };  
       
@@ -248,23 +231,25 @@ class SyntacticAnalysis : public ComposedAnalysis
     private:
       UnknownIndexSet (): IndexSet(Unknown_type) { }
       static UnknownIndexSet* inst; 
-  };
-
-
+  };*/
+  
   // The most intuitive implementation of array index vector
   class IndexVector_Impl : public IndexVector
   {
     public:
       size_t getSize() const {  return index_vector.size(); };
-      std::vector<IndexSet *> index_vector; // a vector of memory objects of named objects or temp expression objects
-      
+      /*GB: Deprecating IndexSets and replacing them with ValueObjects.
+      std::vector<IndexSet *> index_vector; // a vector of memory objects of named objects or temp expression objects */
+      std::vector<ValueObjectPtr> index_vector; // a vector of memory objects of named objects or temp expression objects
       std::string str(std::string indent) const; // pretty print for the object
       std::string str(std::string indent) { return ((const IndexVector_Impl*)this)->str(indent); }
       
-      bool operator== (const IndexVector & other) const ;
-      bool mayEqual (const IndexVector & other) const ;
-      bool mustEqual (const IndexVector & other) const ;
+      /* GB: Deprecating the == operator. Now that some objects can contain AbstractObjects any equality test must take the current part as input.
+      bool operator== (const IndexVector & other) const; */
+      bool mayEqual(IndexVectorPtr other, const Part& p) const ;
+      bool mustEqual(IndexVectorPtr other, const Part& p) const ;
   };
+  typedef boost::shared_ptr<IndexVector_Impl> IndexVector_ImplPtr;
 
   class NamedObj; 
   class LabeledAggregateField_Impl : public LabeledAggregateField
@@ -299,7 +284,7 @@ class SyntacticAnalysis : public ComposedAnalysis
   //                             representing a set of aliased objects. All aliased objects of the
   //                             same type are represented by a single aliased memory object
 
-class ExprObj;
+  class ExprObj;
   typedef boost::shared_ptr<ExprObj> ExprObjPtr;
   class ExprObj // one object for each SgExpression which does not have a corresponding symbol
     // They are similar to compiler-generated temporaries for three operand AST format
@@ -310,13 +295,15 @@ class ExprObj;
       // MemLocObject* parent; // this field is not necessary, if this ExprObj is a filed of some aggregate types, this ExprObj should be NamedObj
       ExprObj (SgExpression* a, SgType* t): anchor_exp(a), type(t) {};
       SgType* getType() const {return type;}
+      
+      /* GB: Deprecating the == operator. Now that some objects can contain AbstractObjects any equality test must take the current part as input.
       // equal if and only the o2 is another ExprObj with the same SgExpression anchor
       bool operator== (const ExprObj& o2) const;
       
       // this is necessary to allow derived classes to implement MemLocObject::operator==(MemLocObject&)
-      bool operator== (const MemLocObject& o2) const; 
-      bool mayEqual (MemLocObjectPtr o2) const; 
-      bool mustEqual (MemLocObjectPtr o2) const; 
+      bool operator== (const MemLocObject& o2) const; */
+      bool mayEqualML(MemLocObjectPtr o2, PartPtr p) const; 
+      bool mustEqualML(MemLocObjectPtr o2, PartPtr p) const; 
       bool isConstant () {return isSgValueExp(anchor_exp); } ; // if the expression object represent a constant value (SgValueExp)
       
       std::string str(std::string indent) const; // pretty print for the object
@@ -338,10 +325,10 @@ class ExprObj;
       SgSymbol* anchor_symbol; // could be a symbol for variable, function, class/structure, etc.
       SgType* type;  // in most cases, the type here should be anchor_symbol->get_type(). But array element's type can be different from its array type
       MemLocObjectPtr parent; //exists for 1) compound variables like a.b, where a is b's parent, 2) also for array element, where array is the parent
-      IndexVector*  array_index_vector; // exists for array element: the index vector of an array element. Ideally this data member could be reused for index of field of structure/class
+      IndexVectorPtr  array_index_vector; // exists for array element: the index vector of an array element. Ideally this data member could be reused for index of field of structure/class
 
       //Is this always true that the parent of a named object must be an expr object?
-      NamedObj (SgSymbol* a, SgType* t, MemLocObjectPtr p, IndexVector* iv):anchor_symbol(a), type(t),parent(p), array_index_vector (iv){};
+      NamedObj (SgSymbol* a, SgType* t, MemLocObjectPtr p, IndexVectorPtr iv):anchor_symbol(a), type(t),parent(p), array_index_vector (iv){};
       SgType* getType() const {return type;}
       MemLocObjectPtr getParent() {return parent; } 
       SgSymbol* getSymbol() {return anchor_symbol;}
@@ -351,13 +338,15 @@ class ExprObj;
       std::string str(std::string indent) const; // pretty print for the object
       std::string str(std::string indent) { return ((const NamedObj*)this)->str(indent); }
 
-      bool operator== (const NamedObj& o2) const;
-      bool mayEqual (NamedObjPtr o2) const; 
-      bool mustEqual (NamedObjPtr o2) const; 
+      /* GB: Deprecating the == operator. Now that some objects can contain AbstractObjects any equality test must take the current part as input.
+      bool operator== (const NamedObj& o2) const;*/
+      bool mayEqualML(NamedObjPtr o2, PartPtr p) const; 
+      bool mustEqualML(NamedObjPtr o2, PartPtr p) const; 
 
-      bool operator== (const MemLocObject& o2) const;
-      bool mayEqual (MemLocObjectPtr o2) const; 
-      bool mustEqual (MemLocObjectPtr o2) const; 
+      /* GB: Deprecating the == operator. Now that some objects can contain AbstractObjects any equality test must take the current part as input.
+      bool operator== (const MemLocObject& o2) const; */
+      bool mayEqualML(MemLocObjectPtr o2, PartPtr p) const; 
+      bool mustEqualML(MemLocObjectPtr o2, PartPtr p) const; 
   };
 
   //  Memory regions that may be accessible via a pointer, such as heap memory
@@ -375,13 +364,15 @@ class ExprObj;
       std::string str(std::string indent) const; // pretty print for the object
       std::string str(std::string indent) { return ((const AliasedObj*)this)->str(indent); }
 
-      bool operator == (const AliasedObj & o2) const;
-      bool mayEqual (AliasedObjPtr o2) const;
-      bool mustEqual (AliasedObjPtr o2) const;
+      /* GB: Deprecating the == operator. Now that some objects can contain AbstractObjects any equality test must take the current part as input.
+      bool operator == (const AliasedObj & o2) const;*/
+      bool mayEqualML(AliasedObjPtr o2, PartPtr p) const;
+      bool mustEqualML(AliasedObjPtr o2, PartPtr p) const;
 
-      bool operator == (const MemLocObject& o2) const;
-      bool mayEqual (MemLocObjectPtr o2) const; 
-      bool mustEqual (MemLocObjectPtr o2) const; 
+      /* GB: Deprecating the == operator. Now that some objects can contain AbstractObjects any equality test must take the current part as input.
+      bool operator == (const MemLocObject& o2) const; */
+      bool mayEqualML(MemLocObjectPtr o2, PartPtr p) const; 
+      bool mustEqualML(MemLocObjectPtr o2, PartPtr p) const; 
   };
 
 
@@ -390,17 +381,22 @@ class ExprObj;
   class ScalarExprObj: public Scalar_Impl, public ExprObj
   {
     public:
-      ScalarExprObj (SgExpression* e, SgType* t):ExprObj(e,t) {}
+      ScalarExprObj(SgExpression* e, SgType* t): ExprObj(e,t) {}
+      ScalarExprObj(const ScalarExprObj& that): ExprObj(that.anchor_exp, that.type) {}
       std::set<SgType*> getType() const;
+      /* GB: Deprecating the == operator. Now that some objects can contain AbstractObjects any equality test must take the current part as input.
       // Implement MemLocObject::operator== () at this level, through ExprObj::operator==().
-      bool operator == (const MemLocObject& o2) const;
+      bool operator == (const MemLocObject& o2) const;*/
       // multiple inheritance, must be clear about the behavior inherited from both parents
       
-      bool mayEqual (MemLocObjectPtr o2) const; 
-      bool mustEqual (MemLocObjectPtr o2) const; 
+      bool mayEqualML(MemLocObjectPtr o2, PartPtr p) const; 
+      bool mustEqualML(MemLocObjectPtr o2, PartPtr p) const; 
       
       std::string str(std::string indent) const; // pretty print for the object
       std::string str(std::string indent) { return ((const ScalarExprObj*)this)->str(indent); }
+      
+      // Allocates a copy of this object and returns a pointer to it
+      MemLocObjectPtr copyML() const;
   };
 
   // Does it make sense to have expressions which are of a function type?
@@ -408,50 +404,67 @@ class ExprObj;
   class FunctionExprObj: public Function_Impl, public ExprObj
   {
     public:
-      FunctionExprObj (SgExpression* e, SgType* t):ExprObj(e,t) {}
+      FunctionExprObj(SgExpression* e, SgType* t): ExprObj(e, t) {}
+      FunctionExprObj(const FunctionExprObj& that): ExprObj(that.anchor_exp, that.type) {}
       std::set<SgType*> getType() const;
+      /* GB: Deprecating the == operator. Now that some objects can contain AbstractObjects any equality test must take the current part as input.
       // Implement MemLocObject::operator== () at this level, through ExprObj::operator==().
-      bool operator == (const MemLocObject& o2) const;
-      bool mayEqual (MemLocObjectPtr o2) const; 
-      bool mustEqual (MemLocObjectPtr o2) const; 
+      bool operator == (const MemLocObject& o2) const; */
+      bool mayEqualML(MemLocObjectPtr o2, PartPtr p) const; 
+      bool mustEqualML(MemLocObjectPtr o2, PartPtr p) const; 
 
       std::string str(std::string indent) const; // pretty print for the object
       std::string str(std::string indent) { return ((const FunctionExprObj*)this)->str(indent); }
+        
+      // Allocates a copy of this object and returns a pointer to it
+      MemLocObjectPtr copyML() const;
   };
 
   class LabeledAggregateExprObj: public LabeledAggregate_Impl, public ExprObj
   {
     public:
-      LabeledAggregateExprObj (SgExpression* s, SgType* t);
+      LabeledAggregateExprObj(SgExpression* s, SgType* t);
+      LabeledAggregateExprObj(const LabeledAggregateExprObj& that);
+      void init(SgExpression* e, SgType* t);
       std::set<SgType*> getType();
 
+      /* GB: Deprecating the == operator. Now that some objects can contain AbstractObjects any equality test must take the current part as input.
       // Returns true if this object and that object may/must refer to the same labeledAggregate memory object.
-      bool operator == (const MemLocObject& o2) const;
-      bool mayEqual (MemLocObjectPtr o2) const; 
-      bool mustEqual (MemLocObjectPtr o2) const; 
+      bool operator == (const MemLocObject& o2) const; */
+      bool mayEqualML(MemLocObjectPtr o2, PartPtr p) const; 
+      bool mustEqualML(MemLocObjectPtr o2, PartPtr p) const; 
       
       std::string str(std::string indent) const; // pretty print for the object
       std::string str(std::string indent) { return ((const LabeledAggregateExprObj*)this)->str(indent); }
+      
+      // Allocates a copy of this object and returns a pointer to it
+      MemLocObjectPtr copyML() const;
   };
 
   class ArrayExprObj: public Array_Impl, public ExprObj
   {
     public:
       ArrayExprObj(SgExpression* e, SgType* t): ExprObj (e,t) {}
+      ArrayExprObj(const ArrayExprObj& that): ExprObj(that.anchor_exp, that.type) {}
       std::set<SgType*> getType();
+      /* GB: Deprecating the == operator. Now that some objects can contain AbstractObjects any equality test must take the current part as input.
       //TODO other member functions still make sense?
-      bool operator == (const MemLocObject& o2) const;
-      bool mayEqual (MemLocObjectPtr o2) const; 
-      bool mustEqual (MemLocObjectPtr o2) const; 
+      bool operator == (const MemLocObject& o2) const;*/
+      bool mayEqualML(MemLocObjectPtr o2, PartPtr p) const; 
+      bool mustEqualML(MemLocObjectPtr o2, PartPtr p) const; 
       
       std::string str(std::string indent) const; // pretty print for the object
       std::string str(std::string indent) { return ((const ArrayExprObj*)this)->str(indent); }
+      
+      // Allocates a copy of this object and returns a pointer to it
+      MemLocObjectPtr copyML() const;
   };
 
   class PointerExprObj: public Pointer_Impl, public ExprObj
   {
     public:
-      PointerExprObj (SgExpression* e, SgType* t): ExprObj (e,t) {}
+      PointerExprObj(SgExpression* e, SgType* t): ExprObj (e,t) {}
+      PointerExprObj(const PointerExprObj& that): ExprObj(that.anchor_exp, that.type) {}
       std::set<SgType*> getType();
       // used for a pointer to non-array
       MemLocObjectPtr getDereference();
@@ -461,27 +474,36 @@ class ExprObj;
       //GB: getDereference subsumes this
       //bool equalPoints(const Pointer & that);
 
+      /* GB: Deprecating the == operator. Now that some objects can contain AbstractObjects any equality test must take the current part as input.
       // Returns true if this object and that object may/must refer to the same pointer memory object.
-      bool operator == (const MemLocObject& o2) const;
-      bool mayEqual (MemLocObjectPtr o2) const; 
-      bool mustEqual (MemLocObjectPtr o2) const; 
+      bool operator == (const MemLocObject& o2) const;*/
+      bool mayEqualML(MemLocObjectPtr o2, PartPtr p) const; 
+      bool mustEqualML(MemLocObjectPtr o2, PartPtr p) const; 
       
       std::string str(std::string indent) const; // pretty print for the object
       std::string str(std::string indent) { return ((const PointerExprObj*)this)->str(indent); }
+      
+      // Allocates a copy of this object and returns a pointer to it
+      MemLocObjectPtr copyML() const;
   };
 
   // named object --------------------------------
   class ScalarNamedObj: public Scalar_Impl, public NamedObj 
   {
     public:
-      ScalarNamedObj (SgSymbol* s, SgType* t, MemLocObjectPtr p, IndexVector* iv): NamedObj (s,t,p, iv) {}
+      ScalarNamedObj(SgSymbol* s, SgType* t, MemLocObjectPtr p, IndexVectorPtr iv): NamedObj (s,t,p, iv) {}
+      ScalarNamedObj(const ScalarNamedObj& that): NamedObj(that.anchor_symbol, that.type, that.parent, that.array_index_vector) {}
       std::set<SgType*> getType();
-      bool operator == (const MemLocObject & that) const ;
-      bool mayEqual (MemLocObjectPtr o2) const; 
-      bool mustEqual (MemLocObjectPtr o2) const; 
+      /* GB: Deprecating the == operator. Now that some objects can contain AbstractObjects any equality test must take the current part as input.
+      bool operator == (const MemLocObject & that) const ;*/
+      bool mayEqualML(MemLocObjectPtr o2, PartPtr p) const; 
+      bool mustEqualML(MemLocObjectPtr o2, PartPtr p) const; 
       
       std::string str(std::string indent) const; // pretty print for the object
       std::string str(std::string indent) { return ((const ScalarNamedObj*)this)->str(indent); }
+      
+      // Allocates a copy of this object and returns a pointer to it
+      MemLocObjectPtr copyML() const;
   };
 
   class FunctionNamedObj: public Function_Impl, public NamedObj 
@@ -489,64 +511,82 @@ class ExprObj;
     public:
 
       // simple constructor, a function symbol is enough
-      FunctionNamedObj (SgSymbol* s): NamedObj (s, s->get_type(), MemLocObjectPtr(), NULL) {}
+      FunctionNamedObj(SgSymbol* s): NamedObj (s, s->get_type(), MemLocObjectPtr(), IndexVectorPtr()) {}
+      FunctionNamedObj(const FunctionNamedObj& that): NamedObj(that.anchor_symbol, that.type, that.parent, that.array_index_vector) {}
       // I am not sure when a function can be used as a child and an array element. But this is
       // provided just in case
-      FunctionNamedObj (SgSymbol* s, SgType* t, MemLocObjectPtr p, IndexVector* iv): NamedObj (s,t,p, iv) {}
+      FunctionNamedObj (SgSymbol* s, SgType* t, MemLocObjectPtr p, IndexVectorPtr iv): NamedObj (s,t,p, iv) {}
       std::set<SgType*> getType();
-      bool operator == (const MemLocObject & that) const ;
-      bool mayEqual (MemLocObjectPtr o2) const; 
-      bool mustEqual (MemLocObjectPtr o2) const; 
+      /* GB: Deprecating the == operator. Now that some objects can contain AbstractObjects any equality test must take the current part as input.
+      bool operator == (const MemLocObject & that) const ;*/
+      bool mayEqualML(MemLocObjectPtr o2, PartPtr p) const; 
+      bool mustEqualML(MemLocObjectPtr o2, PartPtr p) const; 
       
       std::string str(std::string indent) const; // pretty print for the object
       std::string str(std::string indent) { return ((const FunctionNamedObj*)this)->str(indent); }
+      
+      // Allocates a copy of this object and returns a pointer to it
+      MemLocObjectPtr copyML() const;
   };
 
   class LabeledAggregateNamedObj: public LabeledAggregate_Impl, public NamedObj
   {
     public:
-      LabeledAggregateNamedObj (SgSymbol* s, SgType* t, MemLocObjectPtr p, IndexVector* iv);
+      LabeledAggregateNamedObj(SgSymbol* s, SgType* t, MemLocObjectPtr p, IndexVectorPtr iv);
+      LabeledAggregateNamedObj(const LabeledAggregateNamedObj& that);
+      void init(SgSymbol* s, SgType* t, MemLocObjectPtr p, IndexVectorPtr iv);
       std::set<SgType*> getType();
 
       // Returns true if this object and that object may/must refer to the same labeledAggregate memory object.
-      bool operator == (const MemLocObject & that) const ;
-      bool mayEqual (MemLocObjectPtr o2) const; 
-      bool mustEqual (MemLocObjectPtr o2) const; 
+      /* GB: Deprecating the == operator. Now that some objects can contain AbstractObjects any equality test must take the current part as input.
+      bool operator == (const MemLocObject & that) const ;*/
+      bool mayEqualML(MemLocObjectPtr o2, PartPtr p) const; 
+      bool mustEqualML(MemLocObjectPtr o2, PartPtr p) const; 
       
       std::string str(std::string indent) const; // pretty print for the object
       std::string str(std::string indent) { return ((const LabeledAggregateNamedObj*)this)->str(indent); }
+      
+      // Allocates a copy of this object and returns a pointer to it
+      MemLocObjectPtr copyML() const;
   };
 
   class ArrayNamedObj;
   class ArrayNamedObj: public Array_Impl, public NamedObj, public boost::enable_shared_from_this<ArrayNamedObj>
   {
     public:
-      ArrayNamedObj (SgSymbol* s, SgType* t, MemLocObjectPtr p, IndexVector* iv);
+      ArrayNamedObj(SgSymbol* s, SgType* t, MemLocObjectPtr p, IndexVectorPtr iv);
+      ArrayNamedObj(const LabeledAggregateNamedObj& that);
+      void init(SgSymbol* s, SgType* t, MemLocObjectPtr p, IndexVectorPtr iv);
       std::set <SgType*> getType();
       std::string toString();
 
       // Returns a memory object that corresponds to all the elements in the given array
       MemLocObjectPtr getElements() { return MemLocObjectPtr(this); } ; 
       // Returns the memory object that corresponds to the elements described by the given abstract index, 
-      MemLocObjectPtr getElements(IndexVector* ai);
+      MemLocObjectPtr getElements(IndexVectorPtr ai);
 
       // number of dimensions of the array
       virtual size_t getNumDims() const;
 
       // rare case that an array is dereferenced, treated as array[0]
       MemLocObjectPtr getDereference();
-      bool operator == (const MemLocObject & that) const;
-      bool mayEqual (MemLocObjectPtr o2) const; 
-      bool mustEqual (MemLocObjectPtr o2) const;
+      /* GB: Deprecating the == operator. Now that some objects can contain AbstractObjects any equality test must take the current part as input.
+      bool operator == (const MemLocObject & that) const;*/
+      bool mayEqualML(MemLocObjectPtr o2, PartPtr p) const; 
+      bool mustEqualML(MemLocObjectPtr o2, PartPtr p) const;
       
       std::string str(std::string indent) const; // pretty print for the object
       std::string str(std::string indent) { return ((const ArrayNamedObj*)this)->str(indent); }
+      
+      // Allocates a copy of this object and returns a pointer to it
+      MemLocObjectPtr copyML() const;
   };
 
   class PointerNamedObj: public Pointer_Impl, public NamedObj
   {
     public:
-      PointerNamedObj   (SgSymbol* s, SgType* t, MemLocObjectPtr p, IndexVector* iv): NamedObj (s,t,p, iv) {}
+      PointerNamedObj(SgSymbol* s, SgType* t, MemLocObjectPtr p, IndexVectorPtr iv): NamedObj (s,t,p, iv) {}
+      PointerNamedObj(const PointerNamedObj& that): NamedObj(that.anchor_symbol, that.type, that.parent, that.array_index_vector) {}
       std::set<SgType*> getType() const;
       // used for a pointer to non-array
       MemLocObjectPtr getDereference();
@@ -556,92 +596,120 @@ class ExprObj;
       //GB: getDereference subsumes this
       //bool equalPoints(const Pointer & that);
       // Returns true if this object and that object may/must refer to the same pointer memory object.
-      bool operator == (const MemLocObject & that) const ;
-      bool mayEqual (MemLocObjectPtr o2) const; 
-      bool mustEqual (MemLocObjectPtr o2) const; 
+      /* GB: Deprecating the == operator. Now that some objects can contain AbstractObjects any equality test must take the current part as input.
+      bool operator == (const MemLocObject & that) const ;*/
+      bool mayEqualML(MemLocObjectPtr o2, PartPtr p) const; 
+      bool mustEqualML(MemLocObjectPtr o2, PartPtr p) const; 
       
       std::string str(std::string indent) const; // pretty print for the object
       std::string str(std::string indent) { return ((const PointerNamedObj*)this)->str(indent); }
+      
+      // Allocates a copy of this object and returns a pointer to it
+      MemLocObjectPtr copyML() const;
   };
 
   // aliased object -----------------------------
   class ScalarAliasedObj: public Scalar_Impl, public AliasedObj
   {
     public:
-      ScalarAliasedObj (SgType* t): AliasedObj(t){}
+      ScalarAliasedObj(SgType* t): AliasedObj(t){}
+      ScalarAliasedObj(const ScalarAliasedObj& that): AliasedObj(that.type) {}
       std::set<SgType*> getType();
-      bool operator == (const MemLocObject& o2) const; 
-      bool mayEqual (MemLocObjectPtr o2) const; 
-      bool mustEqual (MemLocObjectPtr o2) const; 
+      /* GB: Deprecating the == operator. Now that some objects can contain AbstractObjects any equality test must take the current part as input.
+      bool operator == (const MemLocObject& o2) const; */
+      bool mayEqualML(MemLocObjectPtr o2, PartPtr p) const; 
+      bool mustEqualML(MemLocObjectPtr o2, PartPtr p) const; 
       
       std::string str(std::string indent) const; // pretty print for the object
       std::string str(std::string indent) { return ((const ScalarAliasedObj*)this)->str(indent); }
+      
+      // Allocates a copy of this object and returns a pointer to it
+      MemLocObjectPtr copyML() const;
   };
 
   class FunctionAliasedObj: public Function_Impl, public AliasedObj
   {
     public:
-      FunctionAliasedObj (SgType* t): AliasedObj(t){}
+      FunctionAliasedObj(SgType* t): AliasedObj(t){}
+      FunctionAliasedObj(const FunctionAliasedObj& that): AliasedObj(that.type) {}
       std::set<SgType*> getType();
-      bool operator == (const MemLocObject& o2) const; 
-      bool mayEqual (MemLocObjectPtr o2) const; 
-      bool mustEqual (MemLocObjectPtr o2) const; 
+      /* GB: Deprecating the == operator. Now that some objects can contain AbstractObjects any equality test must take the current part as input.
+      bool operator == (const MemLocObject& o2) const; */
+      bool mayEqualML(MemLocObjectPtr o2, PartPtr p) const; 
+      bool mustEqualML(MemLocObjectPtr o2, PartPtr p) const; 
       
       std::string str(std::string indent) const; // pretty print for the object
       std::string str(std::string indent) { return ((const FunctionAliasedObj*)this)->str(indent); }
+      
+      // Allocates a copy of this object and returns a pointer to it
+      MemLocObjectPtr copyML() const;
   };
   
   class LabeledAggregateAliasedObj : public  LabeledAggregate_Impl, public AliasedObj
   {
     public:
-      LabeledAggregateAliasedObj (SgType* t): AliasedObj(t){}
+      LabeledAggregateAliasedObj(SgType* t): AliasedObj(t){}
+      LabeledAggregateAliasedObj(const LabeledAggregateAliasedObj& that): AliasedObj(that.type) {}
       std::set<SgType*> getType();
       //TODO
       // size_t fieldCount();
       // std::list<LabeledAggregateField*> getElements() const;
-      bool operator == (const MemLocObject& o2) const; 
-      bool mayEqual (MemLocObjectPtr o2) const; 
-      bool mustEqual (MemLocObjectPtr o2) const; 
+      /* GB: Deprecating the == operator. Now that some objects can contain AbstractObjects any equality test must take the current part as input.
+      bool operator == (const MemLocObject& o2) const; */
+      bool mayEqualML(MemLocObjectPtr o2, PartPtr p) const; 
+      bool mustEqualML(MemLocObjectPtr o2, PartPtr p) const; 
       
       std::string str(std::string indent) const; // pretty print for the object
       std::string str(std::string indent) { return ((const LabeledAggregateAliasedObj*)this)->str(indent); }
+      
+      // Allocates a copy of this object and returns a pointer to it
+      MemLocObjectPtr copyML() const;
   };
 
   class ArrayAliasedObj: public Array_Impl, public AliasedObj
   {
     public:
       ArrayAliasedObj (SgType* t): AliasedObj(t){}
+      ArrayAliasedObj(const ArrayAliasedObj& that): AliasedObj(that.type) {}
       std::set<SgType*> getType();
 
       //TODO
       // MemLocObject* getElements();
       //  MemLocObject* getElements(AbstractIndex* ai);
       //  getNumDims();
-
-      bool operator == (const MemLocObject& o2) const; 
-      bool mayEqual (MemLocObjectPtr o2) const; 
-      bool mustEqual (MemLocObjectPtr o2) const; 
+      /* GB: Deprecating the == operator. Now that some objects can contain AbstractObjects any equality test must take the current part as input.
+      bool operator == (const MemLocObject& o2) const; */
+      bool mayEqualML(MemLocObjectPtr o2, PartPtr p) const; 
+      bool mustEqualML(MemLocObjectPtr o2, PartPtr p) const; 
       
       std::string str(std::string indent) const; // pretty print for the object
       std::string str(std::string indent) { return ((const ArrayAliasedObj*)this)->str(indent); }
+      
+      // Allocates a copy of this object and returns a pointer to it
+      MemLocObjectPtr copyML() const;
   };
 
   class PointerAliasedObj: public Pointer_Impl, public AliasedObj
   {
     public:
       PointerAliasedObj (SgType* t): AliasedObj(t){}
+      PointerAliasedObj(const PointerAliasedObj& that): AliasedObj(that.type) {}
       MemLocObjectPtr getDereference();
       // MemLocObject * getElements() const;
       // Returns true if this pointer refers to the same abstract object as that pointer.
       //GB: getDereference subsumes this
       //bool equalPoints(const Pointer & that);
       std::set<SgType*> getType();
-      bool operator == (const MemLocObject& o2) const; 
-      bool mayEqual (MemLocObjectPtr o2) const; 
-      bool mustEqual (MemLocObjectPtr o2) const; 
+      /* GB: Deprecating the == operator. Now that some objects can contain AbstractObjects any equality test must take the current part as input.
+      bool operator == (const MemLocObject& o2) const; */
+      bool mayEqualML(MemLocObjectPtr o2, PartPtr p) const; 
+      bool mustEqualML(MemLocObjectPtr o2, PartPtr p) const; 
       
       std::string str(std::string indent) const; // pretty print for the object
       std::string str(std::string indent) { return ((const PointerAliasedObj*)this)->str(indent); }
+      
+      // Allocates a copy of this object and returns a pointer to it
+      MemLocObjectPtr copyML() const;
   };
 
   // lower level, internal  builder for different objects -----------------------
@@ -649,8 +717,8 @@ class ExprObj;
   
   // Create an aliased obj set from a type. It can return NULL since not all types are supported.
   MemLocObjectPtr createAliasedMemLocObject(SgType*t);  // One object per type, Type based alias analysis
-  MemLocObjectPtr createNamedMemLocObject(SgSymbol* anchor_symbol, SgType* t, MemLocObjectPtr parent, IndexVector* iv); // any 
-  MemLocObjectPtr createNamedOrAliasedMemLocObject(SgVarRefExp* r); // create NamedMemLocObject or AliasedMemLocObject (for pointer type) from a variable reference 
+  MemLocObjectPtr createNamedMemLocObject(SgSymbol* anchor_symbol, SgType* t, MemLocObjectPtr parent, IndexVectorPtr iv); // any 
+  MemLocObjectPtr createNamedMemLocObject(SgVarRefExp* r); // create NamedMemLocObject or AliasedMemLocObject (for pointer type) from a variable reference 
   MemLocObjectPtr createNamedMemLocObject(SgPntrArrRefExp* r); // create NamedMemLocObject from an array element access
   MemLocObjectPtr createExpressionMemLocObject(SgExpression* anchor_exp, SgType*t); 
   // MemLocObject* createMemLocObject(SgNode*); // top level catch all case, declared in memory_object.h
@@ -671,8 +739,8 @@ class ExprObj;
   // a helper function to fill up elements of MemLocObject p from a class/structure type
   void fillUpElements (MemLocObject* p, std::vector<boost::shared_ptr<LabeledAggregateField> > & elements, SgClassType* c_t);
 
-  // convert std::vector<SgExpression*>* subscripts to IndexVector*  array_index_vector
-  IndexVector * generateIndexVector (std::vector<SgExpression*>& subscripts);
+  // convert std::vector<SgExpression*>* subscripts to IndexVectorPtr  array_index_vector
+  IndexVectorPtr generateIndexVector (std::vector<SgExpression*>& subscripts);
 }; //namespace dataflow
 
 #endif

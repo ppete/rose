@@ -7,6 +7,7 @@
 #include <map>
 #include <set>
 
+namespace dataflow {
 class FunctionState
 {
         friend class CollectFunctions;
@@ -63,5 +64,5 @@ class CollectFunctions : public TraverseCallGraphUnordered/*TraverseCallGraphBot
         
         virtual ~CollectFunctions() {}
 };
-
+}; // namespace dataflow
 #endif

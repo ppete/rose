@@ -5,6 +5,7 @@
 #include "variables.h"
 #include "VirtualCFGIterator.h"
 #include "DataflowCFG.h"
+#include "partitions.h"
 //#include "DataflowCFG.cfgToDot.h"
 
 #include <set>
@@ -132,10 +133,10 @@ namespace cfgUtils
   const SgExpression* unwrapCasts(const SgExpression* e);
 
   // returns the DataflowNode that represents that start of the CFG of the given function's body
-  DataflowNode getFuncStartCFG(SgFunctionDefinition* func, bool (*f) (CFGNode) = defaultFilter );
+  dataflow::PartPtr getFuncStartCFG(SgFunctionDefinition* func, bool (*f) (CFGNode) = defaultFilter );
 
   // returns the DataflowNode that represents that end of the CFG of the given function's body
-  DataflowNode getFuncEndCFG(SgFunctionDefinition* func, bool (*f) (CFGNode) = defaultFilter);
+  dataflow::PartPtr getFuncEndCFG(SgFunctionDefinition* func, bool (*f) (CFGNode) = defaultFilter);
 
   // returns a string containing a unique name that is not otherwise used inside this project
   std::string genUniqueName();

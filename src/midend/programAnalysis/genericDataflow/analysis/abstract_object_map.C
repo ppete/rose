@@ -25,7 +25,10 @@ using namespace boost;
 using namespace ssa_private;
 using namespace dataflow;
 
-bool MayEqualFunctor::mayEqual(boost::shared_ptr<AbstractObject> objPtr1, AbstractObjectPtr objPtr2) {
+namespace dataflow {
+int AbstractObjectMapDebugLevel=1;
+
+bool MayEqualFunctor::mayEqual(boost::shared_ptr<AbstractObject> objPtr1, AbstractObjectPtr objPtr2, PartPtr p) {
   ROSE_ASSERT(objPtr1); ROSE_ASSERT(objPtr2);
   
   boost::shared_ptr<Pointer> ptr1 = boost::dynamic_pointer_cast<Pointer>(objPtr1);
@@ -42,12 +45,12 @@ bool MayEqualFunctor::mayEqual(boost::shared_ptr<AbstractObject> objPtr1, Abstra
   }
 
   if (needDeref) 
-    return mayEqual(objPtr1, objPtr2);
+    return mayEqual(objPtr1, objPtr2, p);
   else
-    return objPtr1->mayEqual(objPtr2) || objPtr2->mayEqual(objPtr1);
+    return objPtr1->mayEqual(objPtr2, p) || objPtr2->mayEqual(objPtr1, p);
 }
 
-bool MustEqualFunctor::mustEqual(AbstractObjectPtr objPtr1, AbstractObjectPtr objPtr2) {
+bool MustEqualFunctor::mustEqual(AbstractObjectPtr objPtr1, AbstractObjectPtr objPtr2, PartPtr p) {
   ROSE_ASSERT(objPtr1); ROSE_ASSERT(objPtr2);
 
   boost::shared_ptr<Pointer> ptr1 = boost::dynamic_pointer_cast<Pointer>(objPtr1);
@@ -63,36 +66,44 @@ bool MustEqualFunctor::mustEqual(AbstractObjectPtr objPtr1, AbstractObjectPtr ob
     needDeref = true;
   }
 
-Dbg::dbg << "MustEqualFunctor::mustEqual\n";
+/*Dbg::dbg << "MustEqualFunctor::mustEqual\n";
 Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;"<<objPtr1->str("        ")<<"\n";
-Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;"<<objPtr2->str("        ")<<endl;
+Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;"<<objPtr2->str("        ")<<endl;*/
 
   if (needDeref)
-    return mustEqual(objPtr1, objPtr2);
+    return mustEqual(objPtr1, objPtr2, p);
   else
-    return objPtr1->mustEqual(objPtr2) || objPtr2->mustEqual(objPtr1);
+    //return objPtr1->mustEqual(objPtr2, p) || objPtr2->mustEqual(objPtr1, p);
+    return objPtr1->mustEqual(objPtr2, p);
 }
 
 // Set this Lattice object to represent the set of all possible execution prefixes.
 // Return true if this causes the object to change and false otherwise.
 bool AbstractObjectMap::setToFull()
 {
-bool modified = !isFull;
-mapElements.clear();
-isFull = true;
-return modified;
+  bool modified = !isFull;
+  mapElements.clear();
+  isFull = true;
+  return modified;
 }
 
 // Set this Lattice object to represent the of no execution prefixes (empty set).
 // Return true if this causes the object to change and false otherwise.
 bool AbstractObjectMap::setToEmpty()
 {
-bool modified = !mapElements.empty();
-mapElements.clear();
-return modified;
+  bool modified = !mapElements.empty();
+  mapElements.clear();
+  return modified;
 }
 
 std::string AbstractObjectMap::str(std::string indent) {
+  return strp(part, indent);
+}
+
+// Variant of the str method that can produce information specific to the current Part.
+// Useful since AbstractObjects can change from one Part to another.
+std::string AbstractObjectMap::strp(PartPtr part, std::string indent)
+{
   ostringstream oss;
   oss << "[AbstractObjectMap: ";
   
@@ -100,7 +111,7 @@ std::string AbstractObjectMap::str(std::string indent) {
   for(list<MapElement>::iterator it = mapElements.begin();
        it != mapElements.end(); it++) {
     //printf("\n%s%p => %p\n", indent.c_str(), it->first.get(), it->second.get()); fflush(stdout);
-    oss << "\n"<<indent<<it->first->str(indent+"    ")<<" => "<<it->second->str(indent+"    ");
+    oss << endl<<indent<<"&nbsp;&nbsp;&nbsp;&nbsp;"<<it->first->strp(part, indent+"&nbsp;&nbsp;&nbsp;&nbsp;")<<" => "<<it->second->str(indent+"&nbsp;&nbsp;&nbsp;&nbsp;");
   }
   oss << "]";
   return oss.str();
@@ -109,9 +120,11 @@ std::string AbstractObjectMap::str(std::string indent) {
 // Add a new memory object --> lattice pair to the frontier.
 // Return true if this causes the map to change and false otherwise.
 bool AbstractObjectMap::insert(AbstractObjectPtr o, LatticePtr lattice) {
-//Dbg::enterFunc("AbstractObjectMap::insert()");
-Dbg::dbg << "o="<<o->str("")<<" lattice="<<lattice->str("")<<" isFull="<<isFull<<endl;
-//Dbg::dbg << "   "<<str("    ")<<endl;
+  if(AbstractObjectMapDebugLevel>=1) {
+    Dbg::enterFunc("AbstractObjectMap::insert()");
+    Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;o="<<o->strp(part, "")<<" lattice="<<lattice->str("&nbsp;&nbsp;&nbsp;&nbsp;")<<" isFull="<<isFull<<endl;
+    Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"<<str("&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;")<<endl;
+  }
 
   isFinite = isFinite && lattice->finiteLattice();
   // If this map corresponds to all possible mappings, all insertions are redundant
@@ -127,11 +140,11 @@ Dbg::dbg << "o="<<o->str("")<<" lattice="<<lattice->str("")<<" isFull="<<isFull<
   int i=0;
   for(it = mapElements.begin(); it != mapElements.end(); i++) {
     AbstractObjectPtr keyElement = it->first;
-    Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;keyElement="<<keyElement->str("            ")<<" mustEqual(o, keyElement)="<<mustEqual(o, keyElement)<<" insertDone="<<insertDone<<" mustEqualSeen="<<mustEqualSeen<<endl;
+    if(AbstractObjectMapDebugLevel>=2) Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;keyElement="<<keyElement->str("            ")<<" mustEqual(o, keyElement, part)="<<mustEqual(o, keyElement, part)<<" insertDone="<<insertDone<<" mustEqualSeen="<<mustEqualSeen<<endl;
     // If we're done inserting, don't do it again
     if(insertDone) {
       // If o is mustEqual to this element and it is not the first match, remove this element
-      if(mustEqual(o, keyElement)) {
+      if(mustEqual(o, keyElement, part)) {
         if(mustEqualSeen) {
           list<MapElement>::iterator itNext = it;
           itNext++;
@@ -146,14 +159,22 @@ Dbg::dbg << "o="<<o->str("")<<" lattice="<<lattice->str("")<<" isFull="<<isFull<
     }
   
     // If the o-frontier contains an object that must-equal to 
-    if(mustEqual(o, keyElement)) {
+    if(mustEqual(o, keyElement, part)) {
       // Determine whether the old and new mappings of o are identical
       LatticePtr c(it->second->copy());
+      if(AbstractObjectMapDebugLevel==1) Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;keyElement="<<keyElement->str("            ")<<" mustEqual(o, keyElement, part)="<<mustEqual(o, keyElement, part)<<" insertDone="<<insertDone<<" mustEqualSeen="<<mustEqualSeen<<endl;
+      if(AbstractObjectMapDebugLevel>=1) {
+        Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;Must Equal"<<endl;
+        Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;lattice="<<lattice->str("&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;")<<endl;
+        Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;it="<<it->second->str("&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;")<<endl;
+      }
       // If the lattice got modified as a result of being combined with the prior mapping,
       // they are different and thus, we remove the old mapping and add a new one
+  /*!!!*/      c = LatticePtr(c->copy());
       if(c->meetUpdate(lattice.get()))
       {
-        //Dbg::dbg << "       Removing i="<<i<<", inserting "<<o->str("        ")<<"=>"<<lattice->str("        ")<<endl;
+        if(AbstractObjectMapDebugLevel==1) Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;keyElement="<<keyElement->str("            ")<<" mustEqual(o, keyElement, part)="<<mustEqual(o, keyElement, part)<<" insertDone="<<insertDone<<" mustEqualSeen="<<mustEqualSeen<<endl;
+        if(AbstractObjectMapDebugLevel>=1) Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;Removing i="<<i<<", inserting "<<o->strp(part, "        ")<<"=>"<<lattice->str("        ")<<endl;
         list<MapElement>::iterator itNext = it;
         itNext++;
         mapElements.erase(it);
@@ -161,6 +182,7 @@ Dbg::dbg << "o="<<o->str("")<<" lattice="<<lattice->str("")<<" isFull="<<isFull<
         mapElements.push_front(MapElement(o, lattice));
         retVal = true;
       } else {
+        //Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;No Change"<<endl;
         it++;
         // Otherwise, they're identical and thus there is no need to modify the map
         retVal = false;
@@ -170,7 +192,7 @@ Dbg::dbg << "o="<<o->str("")<<" lattice="<<lattice->str("")<<" isFull="<<isFull<
     }
     // If the element on the o-frontier may-equals o then insert a new o->lattice mapping 
     // since the new lattice cannot be combined with the mapping of *it
-    else if(mayEqual(o, keyElement)) { 
+    else if(mayEqual(o, keyElement, part)) { 
       mapElements.push_front(MapElement(o, lattice));
       it++;
       retVal = true;
@@ -180,16 +202,18 @@ Dbg::dbg << "o="<<o->str("")<<" lattice="<<lattice->str("")<<" isFull="<<isFull<
   }
   
   if(!insertDone) {
-  // There are no objects within this map on the o-frontier. As such, add an o->lattice mapping
-  mapElements.push_front(MapElement(o, lattice));
-  
-  retVal = true;
-}
+    // There are no objects within this map on the o-frontier. As such, add an o->lattice mapping
+    mapElements.push_front(MapElement(o, lattice));
+    
+    retVal = true;
+  }
 
-/*Dbg::dbg << "    retVal="<<retVal<<" insertDone="<<insertDone<<" mustEqualSeen="<<mustEqualSeen<<endl;
-Dbg::dbg << "   "<<str("    ")<<endl;
+  if(AbstractObjectMapDebugLevel>=1) {
+    Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;retVal="<<retVal<<" insertDone="<<insertDone<<" mustEqualSeen="<<mustEqualSeen<<endl;
+    Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"<<str("&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;")<<endl;
 
-Dbg::exitFunc("AbstractObjectMap::insert()");*/
+    Dbg::exitFunc("AbstractObjectMap::insert()");
+  }
   return retVal;
 };
 
@@ -203,7 +227,7 @@ bool AbstractObjectMap::remove(AbstractObjectPtr abstractObjectPtr) {
        it != mapElements.end(); it++) {
     AbstractObjectPtr keyElement = it->first;
     // For remove operation, we use must equal policy                                                               
-    if (mustEqual(abstractObjectPtr, keyElement)) {
+    if (mustEqual(abstractObjectPtr, keyElement, part)) {
       it = mapElements.erase(it);
       return true;
     }
@@ -213,11 +237,18 @@ bool AbstractObjectMap::remove(AbstractObjectPtr abstractObjectPtr) {
 
 // Get all x-frontier for a given abstract memory object                                                            
 LatticePtr AbstractObjectMap::get(AbstractObjectPtr abstractObjectPtr) {
-// If this map corresponds to all possible mappings, the only mapping that exists for any object is the full lattice
+  if(AbstractObjectMapDebugLevel>=1) {
+    Dbg::enterFunc("AbstractObjectMap::get()");
+    Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;o="<<abstractObjectPtr->strp(part, "&nbsp;&nbsp;&nbsp;&nbsp;")<<endl;
+    Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"<<str("&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;")<<endl;
+  }
+  
+  // If this map corresponds to all possible mappings, the only mapping that exists for any object is the full lattice
   if(isFull) { 
-  LatticePtr fullLat(defaultLat->copy());
-  fullLat->setToFull();
-  return fullLat;
+    LatticePtr fullLat(defaultLat->copy());
+    fullLat->setToFull();
+    if(AbstractObjectMapDebugLevel>=1) Dbg::exitFunc("AbstractObjectMap::get()");
+    return fullLat;
   }
   
   LatticePtr ret;
@@ -225,15 +256,23 @@ LatticePtr AbstractObjectMap::get(AbstractObjectPtr abstractObjectPtr) {
        it != mapElements.end(); it++) {
     AbstractObjectPtr keyElement = it->first;
     // For get operation, we can apply either must or may equal policy. This depends on the                         
-    // functor                                                                                                      
-    if ((* equalFunctor)(abstractObjectPtr, keyElement)) {
+    // functor
+    bool eq = abstractObjectPtr->mayEqual(keyElement, part);
+    if(AbstractObjectMapDebugLevel>=2 || (AbstractObjectMapDebugLevel>=1 && eq)) Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;keyElement(equal="<<eq<<")="<<keyElement->str("&nbsp;&nbsp;&nbsp;&nbsp;")<<endl;
+    //if ((* equalFunctor)(abstractObjectPtr, keyElement, part)) {
+    if(eq) {
       // If this is the first matching Lattice, copy this Lattice to ret
       if(!ret) ret = boost::shared_ptr<Lattice>(it->second->copy());
       // Otherwise, merge this latice into ret
       else     ret->meetUpdate(it->second.get());
+      if(AbstractObjectMapDebugLevel>=1) Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;ret="<<ret->str("&nbsp;&nbsp;&nbsp;&nbsp;")<<endl;
     }
   }
-
+  
+  if(AbstractObjectMapDebugLevel>=1) {
+    Dbg::dbg << "ret="<<(ret ? ret->str("&nbsp;&nbsp;&nbsp;&nbsp;"): "NULL")<<endl;
+    Dbg::exitFunc("AbstractObjectMap::get()");
+  }
   if(ret) return ret;
   // If there is no match for abstractObjectPtr, return a copy of the default lattice
   return LatticePtr(defaultLat->copy());
@@ -242,7 +281,7 @@ LatticePtr AbstractObjectMap::get(AbstractObjectPtr abstractObjectPtr) {
 // initializes this Lattice to its default state, if it is not already initialized
 void AbstractObjectMap::initialize()
 {
-setToEmpty();
+  // Nothing to do here since Peter P's fixes will eliminate the need for lattices to maintain their own initialized state
 }
  
 // returns a copy of this lattice
@@ -298,6 +337,7 @@ void AbstractObjectMap::incorporateVars(Lattice* thatL)
 // the given expression. 
 // It it legal for this function to return NULL if no information is available.
 // The function's caller is responsible for deallocating the returned object
+// !!! UNIMPLEMENTED
 Lattice* AbstractObjectMap::project(SgExpression* expr) {
   // Function needs to be updated to work with AbstractObjects
   /*AbstractObjectPtr ml = (AbstractObjectPtr)composer->Expr2MemLoc(expr);
@@ -305,7 +345,9 @@ Lattice* AbstractObjectMap::project(SgExpression* expr) {
   AbstractObjectMap* newmap = new AbstractObjectMap(equalFunctor);
   newmap->insert(ml, l);
   return newmap;*/
-  AbstractObjectMap* m = new AbstractObjectMap(equalFunctor, defaultLat, ceo);
+  
+  /* Not quite right, will need to change project API to accept abstractobjects
+  AbstractObjectMap* m = new AbstractObjectMap(equalFunctor, defaultLat, ceo, part);
   if(isFull) m->setToFull();
   else {
     AbstractObjectPtr o = (AbstractObjectPtr)ceo->Expr2Obj(expr);
@@ -313,7 +355,8 @@ Lattice* AbstractObjectMap::project(SgExpression* expr) {
     m->insert(o, l);
   }
   
-  return m;
+  return m; */
+  return NULL;
 }
 
 // The inverse of project(). The call is provided with an expression and a Lattice that describes
@@ -321,19 +364,25 @@ Lattice* AbstractObjectMap::project(SgExpression* expr) {
 // returned by project(). unProject() must incorporate this dataflow state into the overall state it holds.
 // Call must make an internal copy of the passed-in lattice and the caller is responsible for deallocating it.
 // Returns true if this causes this to change and false otherwise.
+// !!! UNIMPLEMENTED
 bool AbstractObjectMap::unProject(SgExpression* expr, Lattice* exprState) 
-{ return meetUpdate(exprState); }
+{ //return meetUpdate(exprState); 
+  return false;
+}
 
-// computes the meet of this and that and saves the result in this
+// Computes the meet of this and that and saves the result in this
 // returns true if this causes this to change and false otherwise
+// The part of this object is to be used for AbstractObject comparisons.
 bool AbstractObjectMap::meetUpdate(Lattice* thatL)
 {
-Dbg::dbg << "AbstractObjectMap::meetUpdate()\n";
-
+  /*Dbg::dbg << "AbstractObjectMap::meetUpdate()"<<endl;
+  Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;this="<<str("&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;")<<endl;
+  Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;thatL="<<thatL->str("&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;")<<endl;*/
+  
   // Both incorporateVars() and meetUpdate currently call merge. This is clearly not
   // right but we'll postpone fixing it until we have the right algorithm for merges
   try {
-  bool modified = false;
+    bool modified = false;
     AbstractObjectMap * that = dynamic_cast <AbstractObjectMap*> (thatL);
     
     // This algorithm is based on the following insights:
@@ -373,9 +422,9 @@ Dbg::dbg << "AbstractObjectMap::meetUpdate()\n";
     // element in this->mapElements and false otherwise.
     list<bool> thatMustEq;
 
-// Initialize thatMustEq to all false
-for(list<MapElement>::iterator itThat=that->mapElements.begin(); itThat!=that->mapElements.end(); itThat++)
-thatMustEq.push_back(false);
+    // Initialize thatMustEq to all false
+    for(list<MapElement>::iterator itThat=that->mapElements.begin(); itThat!=that->mapElements.end(); itThat++)
+      thatMustEq.push_back(false);
 
     // Determine which elements in this->mapElements are mustEqual to elements in that->mapElements
     // and for these pairs merge the lattices from that->mapElements to this->mapElements.
@@ -386,17 +435,24 @@ thatMustEq.push_back(false);
       for(list<MapElement>::iterator itThat=that->mapElements.begin(); 
          itThat!=that->mapElements.end(); itThat++, i++, thatMEIt++) {
        // If we've found mustEqual pair of keys in this and that 
-       if(mustEqual(itThis->first, itThat->first)) {
+       if(mustEqual(itThis->first, itThat->first, part)) {
         // Record this pair
         thisMustEq2thatMustEq.push_back(make_pair(itThis, make_pair(itThat, i)));
         *thatMEIt = true;
         
         // Update the lattice at *itThis to incorporate information at *itThat
-        modified = itThis->second->meetUpdate(itThat->second.get()) || modified;
+        {
+          // First copy the lattice since it may change. We don't deep-copy lattices when we copy
+          // AbstractObjectMaps, so multiple maps may contain references to the same lattice.
+          // As such, instead of updating lattices in-place (this would update the same lattice
+          // in other maps) we first copy them and update into the copy.
+          itThis->second = LatticePtr(itThis->second->copy());
+          modified = itThis->second->meetUpdate(itThat->second.get()) || modified;
+        }
        }
       }
     }
-    Dbg::dbg << "    thisMustEq2thatMustEq.size()="<<thisMustEq2thatMustEq.size()<<"\n";
+    //Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;thisMustEq2thatMustEq.size()="<<thisMustEq2thatMustEq.size()<<"\n";
     
     // Copy over the mappings of all the elements in that->mapElements that were not mustEqual
     // to any elements in this->mapElements. Although any order will work for these elements,
@@ -406,36 +462,93 @@ thatMustEq.push_back(false);
     list<bool>::iterator thatMEIt=thatMustEq.begin();
     for(list<pair<list<MapElement>::iterator, pair<list<MapElement>::iterator, int> > >::iterator meIt=thisMustEq2thatMustEq.begin();
        meIt!=thisMustEq2thatMustEq.end(); meIt++) {
-    // Copy over all the mappings from that->mapElements from thatIt to meIt's partner in that->mapElements
-    // if they have not already been copied because elements that are mustEqual to each other were ordered
-    // differently in this->mapElements and that->mapElements
-    if(meIt->second.second >= thatIdx) {
-    for(; thatIt!=meIt->second.first; thatIt++, thatIdx++, thatMEIt++)
-      // Copy over the current element from that->mapElements if it doesn't have a mustEqual 
-      // partner in this->mapElements (i.e. its already been handled)
-      if(!(*thatMEIt)) {
-    mapElements.insert(meIt->first, *thatIt);
-    modified = true;
-    }
-    // Advance thatIt and thatIdx once more to account for the partner in that->mapElements 
-    // of the current entry in this->mapElements
-    thatIt++;
-    thatIdx++;
-    }
+      // Copy over all the mappings from that->mapElements from thatIt to meIt's partner in that->mapElements
+      // if they have not already been copied because elements that are mustEqual to each other were ordered
+      // differently in this->mapElements and that->mapElements
+      if(meIt->second.second >= thatIdx) {
+        for(; thatIt!=meIt->second.first; thatIt++, thatIdx++, thatMEIt++)
+          // Copy over the current element from that->mapElements if it doesn't have a mustEqual 
+          // partner in this->mapElements (i.e. its already been handled)
+          if(!(*thatMEIt)) {
+            // NOTE: we do not currently update the part field in the lattice thatIt->second
+            //       to refer to this->part. Perhaps we should make a copy of it and update it.
+            mapElements.insert(meIt->first, *thatIt);
+            modified = true;
+          }
+        // Advance thatIt and thatIdx once more to account for the partner in that->mapElements 
+        // of the current entry in this->mapElements
+        thatIt++;
+        thatIdx++;
+      }
     }
     
     // Add all the elements from that->mapElements that remain
     for(; thatIt!=that->mapElements.end(); thatIt++) {
-mapElements.push_back(*thatIt);
-modified = true;
+      // NOTE: we do not currently update the part field in the lattice thatIt->second
+      //       to refer to this->part. Perhaps we should make a copy of it and update it.
+      mapElements.push_back(*thatIt);
+      modified = true;
     }
-    Dbg::dbg << "    mapElements.size()="<<mapElements.size()<<"\n";
+    //Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;mapElements.size()="<<mapElements.size()<<"\n";
+    
+    // Compress all the elements from that which are now mustEqual to each 
+    // other in this->part.
+    // Note: the optimal way to do this is to compress that->mustEqual first and then
+    //       merge but we're not allowed to modify that so the compression would need
+    //       to be done non-destructively via some additional datastructure. We avoid
+    //       this complication for now but should revisit this question if we identify
+    //       this code region as a performance bottleneck.
+    compressMustEq();
     
     return modified;
   } catch (bad_cast & bc) { 
     ROSE_ASSERT(false);
   }
 }
+
+// Identify keys that are must-equal to each other and merge their lattices
+// Return true if this causes the object to change and false otherwise.
+bool AbstractObjectMap::compressMustEq()
+{
+  if(isFull) { return false; }
+  
+  /*Dbg::dbg << "compressMustEq()"<<endl;
+  Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;"<<str("&nbsp;&nbsp;&nbsp;&nbsp;")<<endl;*/
+  
+  bool modified = false;
+  int xIdx=0;
+  for(list<MapElement>::iterator x = mapElements.begin(); x != mapElements.end(); x++, xIdx++) {
+    //Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;"<<xIdx<<" : x="<<x->first->str("")<<endl;
+    // y starts from the element that follows x
+    list<MapElement>::iterator y = x;
+    y++;
+    int yIdx = xIdx+1;
+    for(; y != mapElements.end(); yIdx++) {
+      //Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"<<yIdx<<" : y="<<y->first->str("")<<endl;
+      // If x and y are equal, merge their lattices and remove the later one
+      if(mustEqual(x->first, y->first, part)) {
+        //Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;MERGING and REMOVING"<<endl;
+        // First copy the lattice since it may change. We don't deep-copy lattices when we copy
+        // AbstractObjectMaps, so multiple maps may contain references to the same lattice.
+        // As such, instead of updating lattices in-place (this would update the same lattice
+        // in other maps) we first copy them and update into the copy.
+        x->second = LatticePtr(x->second->copy());
+        modified = x->second->meetUpdate(y->second.get()) || modified;
+        
+        list<MapElement>::iterator tmp = y;
+        y++;
+        mapElements.erase(tmp);
+        
+        //Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;map="<<str("&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;")<<endl;
+        
+        modified = true;
+      } else
+        y++;
+    }
+  }
+
+  return modified;
+};
 
 bool AbstractObjectMap::finiteLattice()
 {
@@ -444,7 +557,9 @@ bool AbstractObjectMap::finiteLattice()
 
 bool AbstractObjectMap::operator==(Lattice* that)
 {
+  ROSE_ASSERT(part == that->getPart());
   // This will be written once we have the merging algorithm to test
   // these maps' frontiers for semantic equivalence
   return false;
 }
+}; // namespace dataflow

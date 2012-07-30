@@ -6,6 +6,7 @@ using std::map;
 #include <set>
 using std::set;
 
+namespace dataflow {
 /*********************
  *** FunctionState ***
  *********************/
@@ -176,3 +177,4 @@ void CollectFunctions::visit(const CGFunction* cgFunc)
         FunctionState::allFuncs.insert(fs);
         //return 0;
 }
+}; // namespace dataflow

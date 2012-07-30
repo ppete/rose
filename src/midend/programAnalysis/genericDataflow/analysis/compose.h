@@ -8,7 +8,7 @@
 
 namespace dataflow
 {
-
+  extern int composerDebugLevel;
 // --------------------
 // ----- Analyses -----
 // --------------------
@@ -19,7 +19,7 @@ class NotImplementedException
 class Composer;
 typedef boost::shared_ptr<Composer> ComposerPtr;
 
-class ComposedAnalysis : public IntraUnitDataflow, public printable
+class ComposedAnalysis : public virtual IntraUnitDataflow, public printable
 {
   public:
   Composer* composer;
@@ -38,13 +38,13 @@ class ComposedAnalysis : public IntraUnitDataflow, public printable
   
   public:
   // Returns the initial Lattice at the given part for this analysis
-  /*GOAL: virtual void genInitState(const Part& p, Lattice** initLattice, 
+  /*GOAL: virtual void genInitState(PartPtr p, Lattice** initLattice, 
                             std::vector<NodeFact*>& initFacts)=0;*/
-  // LEGACY: virtual void genInitState(const Function& func, const DataflowNode& n, const NodeState& state, std::vector<Lattice*>& initLattices, std::vector<NodeFact*>& initFacts)=0;
+  // LEGACY: virtual void genInitState(const Function& func, const PartPtr p, const NodeState& state, std::vector<Lattice*>& initLattices, std::vector<NodeFact*>& initFacts)=0;
   
   // The transfer function for this analysis
   //GOAL: virtual void transfer(SgNode &n, Part& p)=0;
-  //LEGACY: virtual bool transfer(const Function& func, const DataflowNode& n, NodeState& state, const std::vector<Lattice*>& dfInfo)=0;
+  //LEGACY: virtual bool transfer(const Function& func, const PartPtr p, NodeState& state, const std::vector<Lattice*>& dfInfo)=0;
   
   // Abstract interpretation functions that return this analysis' abstractions that 
   // represent the outcome of the given SgExpression. The default implementations of 
@@ -52,12 +52,9 @@ class ComposedAnalysis : public IntraUnitDataflow, public printable
   // any of these functions, the Composer is informed.
   //
   // The objects returned by these functions are expected to be deallocated by their callers.
-  virtual boost::shared_ptr<ValueObject>   Expr2Val    (SgNode* n, const Part& p) 
-  { throw NotImplementedException(); }
-  virtual boost::shared_ptr<MemLocObject>  Expr2MemLoc (SgNode* n, const Part& p) 
-  { throw NotImplementedException(); }
-  virtual boost::shared_ptr<CodeLocObject> Expr2CodeLoc(SgNode* n, const Part& p) 
-  { throw NotImplementedException(); }
+  virtual ValueObjectPtr   Expr2Val    (SgNode* n, PartPtr p) { throw NotImplementedException(); }
+  virtual MemLocObjectPtr Expr2MemLoc  (SgNode* n, PartPtr p) { throw NotImplementedException(); }
+  virtual CodeLocObjectPtr Expr2CodeLoc(SgNode* n, PartPtr p) { throw NotImplementedException(); }
   
   // In the long term we will want analyses to return their own implementations of 
   // maps and sets. This is not strictly required to produce correct code and is 
@@ -84,11 +81,11 @@ class ComposedAnalysis : public IntraUnitDataflow, public printable
 //   ArrayAccessAnalysis(Composer* composer) : composer(composer) {}
 //
 //   // This analysis performs no dataflow   
-//   void genInitState(const Part& p, Lattice** initLattice, 
+//   void genInitState(PartPtr p, Lattice** initLattice, 
 //                     std::vector<NodeFact*>& initFacts) { }
 //   void transfer(SgNode &n, Part& p) { }
 //   
-//   boost::shared_ptr<CPValueObject> Expr2Val(SgExpression* e, const Part& p) 
+//   boost::shared_ptr<CPValueObject> Expr2Val(SgExpression* e, PartPtr) 
 //   {
 //      if(isSgArrayAccess(e)) {
 //         return new AAMemLocObject(
@@ -186,7 +183,7 @@ class ComposedAnalysis : public IntraUnitDataflow, public printable
 //   Composer* composer;
 //   LiveDeadAnalysis(Composer* composer) : composer(composer) {}
 //   
-//   void genInitState(const Part& p, Lattice** initLattice, 
+//   void genInitState(PartPtr p, Lattice** initLattice, 
 //                     std::vector<NodeFact*>& initFacts) { 
 //      *initLattice = composer->NewMemLocSet();
 //   }
@@ -199,7 +196,7 @@ class ComposedAnalysis : public IntraUnitDataflow, public printable
 //         p.state[this].insert(composer->Expr2MemLoc(op->get_rhs_op(), p, this));
 //   }
 //   
-//   boost::shared_ptr<LDMemLocObject> Expr2MemLoc(SgExpression* e, const Part& p) {
+//   boost::shared_ptr<LDMemLocObject> Expr2MemLoc(SgExpression* e, PartPtr) {
 //      // If e corresponds to a live memory location, return an LDMemLocObject that 
 //      // corresponds to it
 //      if(p.state[this].contains(composer->Expr2MemLoc(e, p, this)))
@@ -284,9 +281,9 @@ class Composer
    // Abstract interpretation functions that return this analysis' abstractions that 
    // represent the outcome of the given SgExpression. 
    // The objects returned by these functions are expected to be deallocated by their callers.
-   virtual boost::shared_ptr<ValueObject>   Expr2Val    (SgNode* n, const Part& p, ComposedAnalysis* client)=0;
-   virtual boost::shared_ptr<MemLocObject>  Expr2MemLoc (SgNode* n, const Part& p, ComposedAnalysis* client)=0;
-   virtual boost::shared_ptr<CodeLocObject> Expr2CodeLoc(SgNode* n, const Part& p, ComposedAnalysis* client)=0;
+   virtual ValueObjectPtr       Expr2Val    (SgNode* n, PartPtr p, ComposedAnalysis* client)=0;
+   virtual MemLocObjectPtrPair  Expr2MemLoc (SgNode* n, PartPtr p, ComposedAnalysis* client)=0;
+   virtual CodeLocObjectPtrPair Expr2CodeLoc(SgNode* n, PartPtr p, ComposedAnalysis* client)=0;
 
    // Maps and Sets
    /*virtual MemLocSet* NewValueSet()=0;
@@ -304,23 +301,23 @@ class Composer
 class ComposerInv
 {
 protected:
-Composer&         composer;
-const Part&       part;
-ComposedAnalysis& analysis;
+  Composer&         composer;
+  PartPtr           part;
+  ComposedAnalysis& analysis;
 
 public:
-ComposerInv(Composer& _composer, const Part& _part, ComposedAnalysis& _analysis) :
-composer(_composer), part(_part), analysis(_analysis)
-{}
+  ComposerInv(Composer& _composer, PartPtr _part, ComposedAnalysis& _analysis) :
+  composer(_composer), part(_part), analysis(_analysis)
+  {}
 
-// Abstract interpretation functions that return this analysis' abstractions that 
+  // Abstract interpretation functions that return this analysis' abstractions that 
   // represent the outcome of the given SgExpression. 
   // The objects returned by these functions are expected to be deallocated by their callers.
-  boost::shared_ptr<ValueObject>   Expr2Val(SgNode* n)
+  ValueObjectPtr   Expr2Val(SgNode* n)
   { return composer.Expr2Val(n, part, &analysis); }
-  boost::shared_ptr<MemLocObject>  Expr2MemLoc(SgNode* n)
+  MemLocObjectPtrPair Expr2MemLoc(SgNode* n)
   { return composer.Expr2MemLoc(n, part, &analysis); }
-  boost::shared_ptr<CodeLocObject> Expr2CodeLoc(SgNode* n)
+  CodeLocObjectPtrPair Expr2CodeLoc(SgNode* n)
   { return composer.Expr2CodeLoc(n, part, &analysis); }
   
   friend class ComposerExpr2Obj;
@@ -335,54 +332,56 @@ typedef boost::shared_ptr<ComposerInv> ComposerInvPtr;
 // and Expr2CodeLoc and these instances can be passed down to generic data structures
 // to enable them to create a specific type of AbstractObject without knowing the type
 // of object they're creating.
+// GREG: Eliminating the common Expr2Obj method since now not all Expr2* methods return
+//       AbstractObjectPtrs
 class ComposerExpr2Obj
 {
-protected:
-Composer&         composer;
-const Part&       part;
-ComposedAnalysis& analysis;
-
-public:
-ComposerExpr2Obj(Composer& _composer, const Part& _part, ComposedAnalysis& _analysis) :
-composer(_composer), part(_part), analysis(_analysis) {}
-
-virtual AbstractObjectPtr Expr2Obj(SgNode* n)=0;
+  protected:
+  Composer&         composer;
+  PartPtr           part;
+  ComposedAnalysis& analysis;
+  
+  public:
+  ComposerExpr2Obj(Composer& _composer, PartPtr _part, ComposedAnalysis& _analysis) :
+  composer(_composer), part(_part), analysis(_analysis) {}
+  
+  //virtual AbstractObjectPtr Expr2Obj(SgNode* n)=0;
 };
 typedef boost::shared_ptr<ComposerExpr2Obj> ComposerExpr2ObjPtr;
 
 class ComposerExpr2Val: public ComposerExpr2Obj
 {
   public:
-  ComposerExpr2Val(Composer& composer, Part& part, ComposedAnalysis& analysis) :
-  ComposerExpr2Obj(composer, part, analysis) {}
+  ComposerExpr2Val(Composer& composer, PartPtr part, ComposedAnalysis& analysis) :
+      ComposerExpr2Obj(composer, part, analysis) {}
   ComposerExpr2Val(ComposerInv civ) : ComposerExpr2Obj(civ.composer, civ.part, civ.analysis) {}
   
-  AbstractObjectPtr Expr2Obj(SgNode* n)
-  { return boost::dynamic_pointer_cast<AbstractObject>(composer.Expr2Val(n, part, &analysis)); }
+  ValueObjectPtr Expr2Obj(SgNode* n)
+  { return composer.Expr2Val(n, part, &analysis); }
 };
 typedef boost::shared_ptr<ComposerExpr2Val> ComposerExpr2ValPtr;
 
 class ComposerExpr2MemLoc: public ComposerExpr2Obj
 {
   public:
-  ComposerExpr2MemLoc(Composer& composer, Part& part, ComposedAnalysis& analysis) :
+  ComposerExpr2MemLoc(Composer& composer, PartPtr part, ComposedAnalysis& analysis) :
   ComposerExpr2Obj(composer, part, analysis) {}
   ComposerExpr2MemLoc(ComposerInv civ) : ComposerExpr2Obj(civ.composer, civ.part, civ.analysis) {}
   
-  AbstractObjectPtr Expr2Obj(SgNode* n)
-  { return boost::dynamic_pointer_cast<AbstractObject>(composer.Expr2MemLoc(n, part, &analysis)); }
+  MemLocObjectPtrPair Expr2Obj(SgNode* n)
+  { return composer.Expr2MemLoc(n, part, &analysis); }
 };
 typedef boost::shared_ptr<ComposerExpr2MemLoc> ComposerExpr2MemLocPtr;
 
 class ComposerExpr2CodeLoc: public ComposerExpr2Obj
 {
   public:
-  ComposerExpr2CodeLoc(Composer& composer, Part& part, ComposedAnalysis& analysis) :
-  ComposerExpr2Obj(composer, part, analysis) {}
+  ComposerExpr2CodeLoc(Composer& composer, PartPtr part, ComposedAnalysis& analysis) :
+    ComposerExpr2Obj(composer, part, analysis) {}
   ComposerExpr2CodeLoc(ComposerInv civ) : ComposerExpr2Obj(civ.composer, civ.part, civ.analysis) {}
   
-  AbstractObjectPtr Expr2Obj(SgNode* n)
-  { return boost::dynamic_pointer_cast<AbstractObject>(composer.Expr2CodeLoc(n, part, &analysis)); }
+  CodeLocObjectPtrPair Expr2Obj(SgNode* n)
+  { return composer.Expr2CodeLoc(n, part, &analysis); }
 };
 typedef boost::shared_ptr<ComposerExpr2CodeLoc> ComposerExpr2CodeLocPtr;
 
@@ -392,7 +391,7 @@ class FuncCaller
   public:
   // Calls the given analysis' implementation of Expr2Val. The current Part
   // is provided in case the implementation needs it
-  virtual boost::shared_ptr<RetObject> operator()(SgNode* n, const Part& p, ComposedAnalysis* a)=0;
+  virtual boost::shared_ptr<RetObject> operator()(SgNode* n, PartPtr part, ComposedAnalysis* a)=0;
   // Returns the name of the function being called, for debugging purposes
   virtual string funcName()=0;
 };
@@ -415,17 +414,18 @@ class ChainComposer : public Composer
   // analysis and returns the result produced by the first instance of the function 
   // called by the caller object found along the way.
   template<class RetObject>
-  boost::shared_ptr<RetObject> callServerAnalysisFunc(SgNode* e, const Part& p, ComposedAnalysis* client, 
+  boost::shared_ptr<RetObject> callServerAnalysisFunc(SgNode* e, PartPtr p, ComposedAnalysis* client, 
                                     FuncCaller<RetObject>& caller);
   
   // Abstract interpretation functions that return this analysis' abstractions that 
   // represent the outcome of the given SgExpression. 
   // The objects returned by these functions are expected to be deallocated by their callers.
-  boost::shared_ptr<ValueObject> Expr2Val(SgNode* n, const Part& p, ComposedAnalysis* client);
+  ValueObjectPtr Expr2Val(SgNode* n, PartPtr p, ComposedAnalysis* client);
   
-  boost::shared_ptr<MemLocObject> Expr2MemLoc(SgNode* n, const Part& p, ComposedAnalysis* client);
+  MemLocObjectPtrPair Expr2MemLoc(SgNode* n, PartPtr p, ComposedAnalysis* client);
   
-  boost::shared_ptr<CodeLocObject> Expr2CodeLoc(SgNode* n, const Part& p, ComposedAnalysis* client);
+  CodeLocObjectPtrPair Expr2CodeLoc(SgNode* n, PartPtr p, ComposedAnalysis* client);
+  
   // Maps and Sets 
   // (when analyses can implement these internally, these functions will also invoke 
   //  callServerAnalysisFunc)

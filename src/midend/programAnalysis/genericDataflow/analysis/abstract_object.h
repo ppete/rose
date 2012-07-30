@@ -3,9 +3,27 @@
 
 #include "rose.h"
 #include "AnalysisDebuggingUtils.h"
+#include "partitions.h"
 #include <string>
 #include <cstring>
 #include <vector>
+
+/*TODO
+ *  ====
+ *- There are five categories of MemLocObjects, each with its own API. When a client 
+ *  calls composer->Expr2MemLoc(), how do they know which category of object they'll get?
+ *  They can check what they get with MemLocObject::is*() but right now they have to 
+ *  predict what they get based on the type of the SgNode they give to Expr2MemLoc().
+ *  This is bad because 1. we haven't yet established an SgNode type -> MemLocObject 
+ *  category mapping and 2. because even if we did it would be too long to keep track of.
+ *  
+ *  Also, we don't have a way for an analysis to implement just the Expr2MemLoc() for just
+ *  one category and have the framework 1. detect this and 2. fill in the gaps for the 
+ *  other categories.
+ * 
+ *- Currently analyses do not meaningfully implement LabeledAggregateField. In general,
+ *  how can the framework verify this?
+ */
 
 // ----------------------------
 // ----- Abstract Objects -----
@@ -18,47 +36,112 @@ typedef boost::shared_ptr<AbstractObject> AbstractObjectPtr;
 class AbstractObject : public printable
 {
   public:
-  virtual bool mayEqual(AbstractObjectPtr o) const=0;
-  virtual bool mustEqual(AbstractObjectPtr o) const=0;
+  // Returns whether this object may/must be equal to o within the given Part p
+  virtual bool mayEqual(AbstractObjectPtr o, PartPtr p) const=0;
+  virtual bool mustEqual(AbstractObjectPtr o, PartPtr p) const=0;
+  
+  // Allocates a copy of this object and returns a pointer to it
+  virtual AbstractObjectPtr copyAO() const=0;
 
   /* Don't have good idea how to represent a finite number of options 
   virtual bool isFiniteSet()=0;
   virtual set<AbstractObj> getValueSet()=0;*/
   
   //virtual std::string str(const std::string& indent)=0;
+  
+  // Variant of the str method that can produce information specific to the current Part.
+  // Useful since AbstractObjects can change from one Part to another.
+  virtual std::string strp(PartPtr part, std::string indent="")
+  { return str(indent); }
 };
 
 
 // Major types of abstract objects
 class MemLocObject;
 typedef boost::shared_ptr<MemLocObject> MemLocObjectPtr;
+
+class Scalar;
+typedef boost::shared_ptr<Scalar> ScalarPtr;
+class FunctionMemLoc;
+typedef boost::shared_ptr<FunctionMemLoc> FunctionMemLocPtr;
+class LabeledAggregate;
+typedef boost::shared_ptr<LabeledAggregate> LabeledAggregatePtr;
+class Array;
+typedef boost::shared_ptr<Array> ArrayPtr;
+class Pointer;
+typedef boost::shared_ptr<Pointer> PointerPtr;
+
 class MemLocObject : public AbstractObject
 { 
-  public:
-  virtual bool mayEqual(MemLocObjectPtr o) const=0;
-  virtual bool mustEqual(MemLocObjectPtr o) const=0;
+private:
+  // Returns whether this object may/must be equal to o within the given Part p
+  // These methods are private to prevent analyses from calling them directly.
+  virtual bool mayEqualML(MemLocObjectPtr o, PartPtr p) const=0;
+  virtual bool mustEqualML(MemLocObjectPtr o, PartPtr p) const=0;
   
-  bool mayEqual(AbstractObjectPtr o) const
-  {
-    try {
-      //const MemLocObject & mo = dynamic_cast <const MemLocObject&> (o);
-      MemLocObjectPtr mo = boost::dynamic_pointer_cast<MemLocObject>(o);
-      return mayEqual(mo);
-    } catch (std::bad_cast & bc) {
-      return false;
-    }
-  }
+public:
+  // General version of mayEqual and mustEqual that implements may/must equality with respect to ExprObj
+  // and uses the derived class' may/mustEqual check for all the other cases
+  bool mayEqual(MemLocObjectPtr o, PartPtr p) const;
+  bool mustEqual(MemLocObjectPtr o, PartPtr p) const;
   
-  bool mustEqual(AbstractObjectPtr o) const
-  {
-    try {
-      //const MemLocObject & mo = dynamic_cast <const MemLocObject&> (o);
-      MemLocObjectPtr mo = boost::dynamic_pointer_cast<MemLocObject>(o);
-      return mustEqual(mo);
-    } catch (std::bad_cast & bc) {
-      return false;
-    }
-  }
+  bool mayEqual(AbstractObjectPtr o, PartPtr p) const;
+  bool mustEqual(AbstractObjectPtr o, PartPtr p) const;
+  
+  // Allocates a copy of this object and returns a pointer to it
+  virtual MemLocObjectPtr copyML() const=0;
+  AbstractObjectPtr copyAO() const
+  { return copyML(); }
+  
+  static ScalarPtr isScalar(MemLocObjectPtr ml)
+  { return boost::dynamic_pointer_cast<Scalar>(ml); }
+  
+  static FunctionMemLocPtr isFunctionMemLoc(MemLocObjectPtr ml)
+  { return boost::dynamic_pointer_cast<FunctionMemLoc>(ml); }
+  
+  static LabeledAggregatePtr isLabeledAggregate(MemLocObjectPtr ml)
+  { return boost::dynamic_pointer_cast<LabeledAggregate>(ml); }
+  
+  static ArrayPtr isArray(MemLocObjectPtr ml)
+  { return boost::dynamic_pointer_cast<Array>(ml); }
+  
+  static PointerPtr isPointer(MemLocObjectPtr ml)
+  { return boost::dynamic_pointer_cast<Pointer>(ml); }
+};
+
+// Holds a pair of MemLocObjectPtr (one for the expression object and another for the object in memory) and provides 
+// basic functionality to accessing them easily
+class MemLocObjectPtrPair : public printable
+{
+public:
+  // It is always true that one or both of expr and mem are non-null
+  MemLocObjectPtr expr;
+  MemLocObjectPtr mem;
+  MemLocObjectPtrPair(MemLocObjectPtr expr, MemLocObjectPtr mem): expr(expr), mem(mem)
+  {}
+  
+  MemLocObjectPtrPair(const MemLocObjectPtrPair& that): expr(that.expr), mem(that.mem)
+  {}
+  
+  // Returns whether this object may/must be equal to o within the given Part p
+  bool mayEqual(MemLocObjectPtrPair that, PartPtr p) const;
+  bool mustEqual(MemLocObjectPtrPair that, PartPtr p) const;
+  
+  // Returns a copy of this object
+  MemLocObjectPtrPair copyML() const;
+  
+  bool isScalar();
+  bool isFunctionMemLoc();
+  bool isLabeledAggregate();
+  bool isArray();
+  bool isPointer();
+  
+  // pretty print for the object
+  std::string str(std::string indent="");
+  
+  // Variant of the str method that can produce information specific to the current Part.
+  // Useful since AbstractObjects can change from one Part to another.
+  std::string strp(PartPtr part, std::string indent="");
 };
 
 class ValueObject;
@@ -66,30 +149,28 @@ typedef boost::shared_ptr<ValueObject> ValueObjectPtr;
 class ValueObject : public AbstractObject
 { 
   public:
-  virtual bool mayEqual(ValueObjectPtr o) const=0;
-  virtual bool mustEqual(ValueObjectPtr o) const=0;
+  // Returns whether this object may/must be equal to o within the given Part p
+  virtual bool mayEqual(ValueObjectPtr o, PartPtr p) const=0;
+  virtual bool mustEqual(ValueObjectPtr o, PartPtr p) const=0;
   
-  bool mayEqual(AbstractObjectPtr o) const
+  bool mayEqual(AbstractObjectPtr o, PartPtr p) const
   {
-    try {
-      //const ValueObject & vo = dynamic_cast <const ValueObject&> (o);
-      ValueObjectPtr vo = boost::dynamic_pointer_cast<ValueObject>(o);
-      return mayEqual(vo);
-    } catch (std::bad_cast & bc) {
-      return false;
-    }
+    ValueObjectPtr vo = boost::dynamic_pointer_cast<ValueObject>(o);
+    if(vo) return mayEqual(vo, p);
+    else   return false;
   }
   
-  bool mustEqual(AbstractObjectPtr o) const
+  bool mustEqual(AbstractObjectPtr o, PartPtr p) const
   {
-    try {
-      //const ValueObject & vo = dynamic_cast <const ValueObject&> (o);
-      ValueObjectPtr vo = boost::dynamic_pointer_cast<ValueObject>(o);
-      return mustEqual(vo);
-    } catch (std::bad_cast & bc) {
-      return false;
-    }
+    ValueObjectPtr vo = boost::dynamic_pointer_cast<ValueObject>(o);
+    if(vo) return mustEqual(vo, p);
+    else   return false;
   }
+  
+  // Allocates a copy of this object and returns a pointer to it
+  virtual ValueObjectPtr copyV() const=0;
+  AbstractObjectPtr copyAO() const
+  { return copyV(); }
 };
 
 class CodeLocObject;
@@ -97,34 +178,73 @@ typedef boost::shared_ptr<CodeLocObject> CodeLocObjectPtr;
 class CodeLocObject : public AbstractObject
 { 
   public:
-  virtual bool mayEqual(CodeLocObjectPtr o) const=0;
-  virtual bool mustEqual(CodeLocObjectPtr o) const=0;
+  // Returns whether this object may/must be equal to o within the given Part p
+  virtual bool mayEqualCL(CodeLocObjectPtr o, PartPtr p) const=0;
+  virtual bool mustEqualCL(CodeLocObjectPtr o, PartPtr p) const=0;
   
-  bool mayEqual(AbstractObjectPtr o) const
+  // General version of mayEqual and mustEqual that implements may/must equality with respect to ExprObj
+  // and uses the derived class' may/mustEqual check for all the other cases
+  // GREG: Currently nothing interesting here since we don't support ExprObjs for CodeLocObjects
+  bool mayEqual(CodeLocObjectPtr o, PartPtr p) const
   {
-    try {
-      //const CodeLocObject & co = dynamic_cast <const CodeLocObject&> (o);
-      CodeLocObjectPtr co = boost::dynamic_pointer_cast<CodeLocObject>(o);
-      return mayEqual(co);
-    } catch (std::bad_cast & bc) {
-      return false;
-    }
+    return mayEqualCL(o, p);
+  }
+  bool mustEqual(CodeLocObjectPtr o, PartPtr p) const
+  {
+    return mustEqualCL(o, p);
   }
   
-  bool mustEqual(AbstractObjectPtr o) const
+  bool mayEqual(AbstractObjectPtr o, PartPtr p) const
   {
-    try {
-      //const CodeLocObject & co = dynamic_cast <const CodeLocObject&> (o);
-      CodeLocObjectPtr co = boost::dynamic_pointer_cast<CodeLocObject>(o);
-      return mustEqual(co);
-    } catch (std::bad_cast & bc) {
-      return false;
-    }
+    CodeLocObjectPtr co = boost::dynamic_pointer_cast<CodeLocObject>(o);
+    if(co) return mayEqual(co, p);
+    else   return false;
   }
+  
+  bool mustEqual(AbstractObjectPtr o, PartPtr p) const
+  {
+    CodeLocObjectPtr co = boost::dynamic_pointer_cast<CodeLocObject>(o);
+    if(co) return mustEqual(co, p);
+    else   return false;
+  }
+  
+  // Allocates a copy of this object and returns a pointer to it
+  virtual CodeLocObjectPtr copyCL() const=0;
+  AbstractObjectPtr copyAO() const
+  { return copyCL(); }
+};
+
+// Holds a pair of MemLocObjectPtr (one for the expression object and another for the object in memory) and provides 
+// basic functionality to accessing them easily
+class CodeLocObjectPtrPair : public printable
+{
+public:
+  CodeLocObjectPtr expr;
+  CodeLocObjectPtr mem;
+  CodeLocObjectPtrPair(CodeLocObjectPtr expr, CodeLocObjectPtr mem): expr(expr), mem(mem)
+  {}
+  
+  CodeLocObjectPtrPair(const CodeLocObjectPtrPair& that): expr(that.expr), mem(that.mem)
+  {}
+  
+  // Returns whether this object may/must be equal to o within the given Part p
+  bool mayEqual(CodeLocObjectPtrPair that, PartPtr p) const;
+  bool mustEqual(CodeLocObjectPtrPair that, PartPtr p) const;
+  
+  // Returns a copy of this object
+  CodeLocObjectPtrPair copyCL() const;
+  
+  // pretty print for the object
+  std::string str(std::string indent="");
+  
+  // Variant of the str method that can produce information specific to the current Part.
+  // Useful since AbstractObjects can change from one Part to another.
+  virtual std::string strp(PartPtr part, std::string indent="")
+  { return str(indent); }
 };
 
 //memory object that has no internal structure
-class Scalar : public MemLocObject
+class Scalar : public virtual MemLocObject
 {
  public:
    // Equality relations:
@@ -137,11 +257,12 @@ class Scalar : public MemLocObject
 typedef boost::shared_ptr<Scalar> ScalarPtr;
 
 // memory object to model function objects in memory
-class FunctionMemLoc: public MemLocObject
+class FunctionMemLoc: public virtual MemLocObject
 {
 public:  
  
 };
+typedef boost::shared_ptr<FunctionMemLoc> FunctionMemLocPtr;
 
 class LabeledAggregate;
 typedef boost::shared_ptr<LabeledAggregate> LabeledAggregatePtr;
@@ -153,8 +274,8 @@ class LabeledAggregateField
    virtual std::string getName(); // field name
    virtual size_t getIndex(); // The field's index within its parent object. The first field has index 0.
 
-   virtual boost::shared_ptr<MemLocObject> getField(); // Pointer to an abstract description of the field
-   virtual void setField(boost::shared_ptr<MemLocObject> f); // Pointer to an abstract description of the field
+   virtual MemLocObjectPtr getField(); // Pointer to an abstract description of the field
+   virtual void setField(MemLocObjectPtr f); // Pointer to an abstract description of the field
 
    virtual LabeledAggregatePtr getParent(); // the parent obj this field belongs to
    virtual void setParent(LabeledAggregatePtr p) ; // the parent obj this field belongs to
@@ -165,7 +286,7 @@ class LabeledAggregateField
 
 
 // a memory object that contains a finite number of explicitly labeled memory objects, such as structs, classes and bitfields
-class LabeledAggregate: public MemLocObject
+class LabeledAggregate: public virtual MemLocObject
 {
  public:
    // number of fields
@@ -179,9 +300,42 @@ class LabeledAggregate: public MemLocObject
    //virtual bool operator < (const LabeledAggregate& that) const;
 };
 
+/*GB: Deprecating IndexSets and replacing them with ValueObjects.
+//! A set of index values, could only have constant integer values or unknown values in this implementation.
+class IndexSet : public printable
+{
+  public:
+    enum Index_type {
+      Integer_type = 0,
+      Unknown_type 
+    };
+
+    Index_type getType() const {return type; };
+
+    size_t getSize() {return 1;}; // Simple thing first
+
+    IndexSet (Index_type t):type(t){} 
+    virtual bool operator== (const IndexSet & other) const;
+    virtual bool operator!= (const IndexSet & other) const;
+    virtual bool mayEqual (const IndexSet & other, const Part& p)  const ;
+    virtual bool mustEqual (const IndexSet & other, const Part& p) const ;
+    virtual ~IndexSet();
+    
+    virtual std::string str(std::string indent)=0; // pretty print for the object
+    //  cerr<<"Error. Direct call to base class (IndexSet)'s str() is not allowed."<<endl;
+    //  assert (false);
+    //  return "";
+    // }
+  private:
+    Index_type type;
+};
+*/
+
 // represents d-dimensional integral vectors. It encapsulates a variety of abstract representations for such vectors 
 // such as polyhedral constraints and strided indexes.
 // TODO: we support a single multi-dimensional index for now
+class IndexVector;
+typedef boost::shared_ptr<IndexVector> IndexVectorPtr;
 class IndexVector
 {
  public:
@@ -190,10 +344,8 @@ class IndexVector
    //virtual std::string str(const std::string& indent);
    virtual std::string str(std::string indent); // pretty print for the object
    // equal operator
-   virtual bool operator == (const IndexVector & other) const;
-   virtual bool operator != (const IndexVector & other) const { return !(*this == other); }
-   virtual bool mayEqual (const IndexVector & other) const;
-   virtual bool mustEqual (const IndexVector & other) const;
+   virtual bool mayEqual (IndexVectorPtr other, const Part& p) const;
+   virtual bool mustEqual (IndexVectorPtr other, const Part& p) const;
 };
 
 #if 0 // Still not clear if users will get confused by this class
@@ -204,17 +356,17 @@ class PointerOrArray: public MemLocObject
  public:
  // Array side of interfaces ---------
    // Returns a memory object that corresponds to all the elements in the given array
-   virtual boost::shared_ptr<MemLocObject> getElements();
+   virtual MemLocObjectPtr getElements();
    // Returns the memory object that corresponds to the elements described by the given abstract index, 
    // which represents one or more indexes within the array
-   virtual boost::shared_ptr<MemLocObject> getElements(IndexVector* ai);
+   virtual MemLocObjectPtr getElements(IndexVector* ai);
 
    // number of dimensions of the array
    virtual size_t getNumDims();
 
 // Pointer side of interfaces ---------
     // used for a pointer to non-array
-   virtual boost::shared_ptr<MemLocObject> getDereference () const;
+   virtual MemLocObjectPtr getDereference () const;
    // Returns true if this pointer refers to the same abstract object as that pointer.
    virtual bool equalPoints(const PointerOrArray & that);
  
@@ -223,14 +375,14 @@ class PointerOrArray: public MemLocObject
 };
 #endif 
 // Some programming languages don't have the concept of pointers. We provide explicit support for Array
-class Array: public MemLocObject
+class Array: public virtual MemLocObject
 {
  public:
    // Returns a memory object that corresponds to all the elements in the given array
-   virtual boost::shared_ptr<MemLocObject> getElements() ;
+   virtual MemLocObjectPtr getElements();
    // Returns the memory object that corresponds to the elements described by the given abstract index, 
    // which represents one or more indexes within the array
-   virtual boost::shared_ptr<MemLocObject> getElements(IndexVector* ai) ;
+   virtual MemLocObjectPtr getElements(IndexVectorPtr ai) ;
 
    // number of dimensions of the array
    virtual size_t getNumDims();
@@ -238,16 +390,15 @@ class Array: public MemLocObject
    //--- pointer like semantics
    // support dereference of array object, similar to the dereference of pointer
    // Return the element object: array[0]
-   virtual boost::shared_ptr<MemLocObject> getDereference();
+   virtual MemLocObjectPtr getDereference();
    //virtual bool operator == (const ObjSet & that) const;
    //virtual bool operator < (const ObjSet & that) const;
 };
-typedef boost::shared_ptr<Array> ArrayPtr;
 
-class Pointer: public MemLocObject
+class Pointer: public virtual MemLocObject
 {
  public:
-   virtual boost::shared_ptr<MemLocObject> getDereference() ;
+   virtual MemLocObjectPtr getDereference() ;
    // Returns true if this pointer refers to the same abstract object as that pointer.
    virtual bool equalPoints(const Pointer & that);
    // Returns true if this object and that object may/must refer to the same pointer memory object.
@@ -262,7 +413,6 @@ class Pointer: public MemLocObject
    // number of dimensions of the array
    //virtual size_t getNumDims() ;  
 };
-typedef boost::shared_ptr<Pointer> PointerPtr;
 
 }; // namespace dataflow
 

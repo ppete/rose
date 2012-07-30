@@ -2,8 +2,10 @@
 #define NODE_STATE_H
 
 #include "DataflowCFG.h"
+namespace dataflow {
 class NodeFact;
 class NodeState;
+};
 
 #include "lattice.h"
 #include "analysis.h"
@@ -17,7 +19,7 @@ class NodeState;
 #include "tbb/atomic.h"
 #endif
 
-
+namespace dataflow {
 //template<class factType>
 /************************************************
  ***               NodeFact                   ***
@@ -117,10 +119,10 @@ class NodeState
         BoolMap initializedAnalyses;
         
         // the dataflow node that this NodeState object corresponds to
-        //DataflowNode parentNode;
+        //PartPtr parentNode;
         
         public:
-        /*NodeState(DataflowNode& parentNode) : parentNode(parentNode)
+        /*NodeState(PartPtr& parentNode) : parentNode(parentNode)
         {}
         
         NodeState(CFGNode& parentNode) : parentNode(parentNode)
@@ -188,16 +190,7 @@ class NodeState
         Lattice* getLatticeAbove(const Analysis* analysis, int latticeName) const;
         // returns the given lattice from below the node that is owned by the given analysis
         Lattice* getLatticeBelow(const Analysis* analysis, int latticeName) const;
-
-        //! returns all the lattices from above the CFG node (corresponding to SgNode and an CFG index) that are owned by the given analysis
-        // (read-only access)
-        static const std::vector<Lattice*>& getLatticeAbove(const Analysis* analysis, SgNode* n, unsigned int index ) ;
-
-        // returns all the lattices from below the CFG node (corresponding to SgNode and an CFG index) that are owned by the given analysis
-        // (read-only access)
-        static const std::vector<Lattice*>& getLatticeBelow(const Analysis* analysis, SgNode* n, unsigned int index) ;
-
-       
+        
         // returns the map containing all the lattices from above the node that are owned by the given analysis
         // (read-only access)
         const std::vector<Lattice*>& getLatticeAbove(const Analysis* analysis) const;
@@ -284,14 +277,14 @@ class NodeState
         
         // ====== STATIC ======
         private:
-        static std::map<DataflowNode, std::vector<NodeState*> > nodeStateMap;
+        static std::map<PartPtr, std::vector<NodeState*> > nodeStateMap;
         static bool nodeStateMapInit;
         
         public:
         // returns the NodeState object associated with the given dataflow node.
         // index is used when multiple NodeState objects are associated with a given node
         // (ex: SgFunctionCallExp has 3 NodeStates: entry, function body, exit)
-        static NodeState* getNodeState(const DataflowNode& n, int index=0);
+        static NodeState* getNodeState(PartPtr p, int index=0);
 
 
         //returns the NodeState object associated with a given SgNode
@@ -299,10 +292,10 @@ class NodeState
         static NodeState* getNodeState(SgNode * n, int index=0);
         
         // returns a vector of NodeState objects associated with the given dataflow node.
-        static const std::vector<NodeState*> getNodeStates(const DataflowNode& n);
+        static const std::vector<NodeState*> getNodeStates(PartPtr p);
         
-        // returns the number of NodeStates associated with the given DataflowNode
-        static int numNodeStates(DataflowNode& n);
+        // returns the number of NodeStates associated with the given Par
+        static int numNodeStates(PartPtr p);
         
         private:
         // initializes the nodeStateMap
@@ -354,5 +347,5 @@ class NodeState
         public:
         std::string str(Analysis* analysis, std::string indent="") const;
 };
-
+}; // namespace dataflow
 #endif

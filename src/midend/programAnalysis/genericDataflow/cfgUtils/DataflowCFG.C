@@ -29,6 +29,9 @@ namespace VirtualCFG
              // abstract memory object cannot be created for these nodes
              case V_SgExprListExp:
                  return false;
+
+             /*case V_SgCastExp:
+                 return false;*/
              
              default:
                  return cfgn.isInteresting();
@@ -146,7 +149,7 @@ top:
                        !(isSgInitializedName(cn.getNode()) && cn.getIndex()==0)) 
                        ||
                        (isSgIfStmt(cn.getNode()) &&
-                        cn.getIndex()==1 || cn.getIndex()==2);
+                        (cn.getIndex()==1 || cn.getIndex()==2));
         }
         
 }

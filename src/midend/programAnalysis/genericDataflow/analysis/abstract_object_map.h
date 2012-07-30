@@ -25,6 +25,8 @@
 #include <iostream>
 
 namespace dataflow {
+  extern int AbstractObjectMapDebugLevel;
+  
   using namespace boost;
   using namespace std;
   //using namespace AbstractMemoryObject;
@@ -34,28 +36,28 @@ namespace dataflow {
 
   class EqualFunctor {
   public: 
-    virtual bool operator()(AbstractObjectPtr obj1, AbstractObjectPtr obj2)=0;// { return * obj1 == * obj2; };
+    virtual bool operator()(AbstractObjectPtr obj1, AbstractObjectPtr obj2, PartPtr p)=0;// { return * obj1 == * obj2; };
   };
 
   class MayEqualFunctor : public EqualFunctor {
   protected:
-    bool mayEqual(AbstractObjectPtr objPtr1, AbstractObjectPtr objPtr2);
+    bool mayEqual(AbstractObjectPtr objPtr1, AbstractObjectPtr objPtr2, PartPtr p);
 
   public:
-    virtual bool operator()(AbstractObjectPtr obj1, AbstractObjectPtr obj2) { 
+    virtual bool operator()(AbstractObjectPtr obj1, AbstractObjectPtr obj2, PartPtr p) { 
       // Using may equal
-      return mayEqual(obj1, obj2); 
+      return mayEqual(obj1, obj2, p); 
     };
   };
 
   class MustEqualFunctor : public EqualFunctor {
   protected:
-    bool mustEqual(AbstractObjectPtr objPtr1, AbstractObjectPtr objPtr2);
+    bool mustEqual(AbstractObjectPtr objPtr1, AbstractObjectPtr objPtr2, PartPtr p);
   
   public:
-    virtual bool operator()(AbstractObjectPtr obj1, AbstractObjectPtr obj2) { 
+    virtual bool operator()(AbstractObjectPtr obj1, AbstractObjectPtr obj2, PartPtr p) { 
       // Using must equal
-      return mustEqual(obj1, obj2); 
+      return mustEqual(obj1, obj2, p); 
     };
   };
 
@@ -78,8 +80,7 @@ namespace dataflow {
     // True if this map has been set to represent the set of all possible AbstractObject->Lattice mappings.
     bool isFull;
 
-// Handle to make it possible to invoke Expr2* methods from the composer
-ComposerExpr2ObjPtr ceo;
+    //ComposerExpr2ObjPtr ceo;
 
     // We may need to be able to call the composer's Expr2MemLoc functions
     // but I'm not sure yet
@@ -91,22 +92,23 @@ ComposerExpr2ObjPtr ceo;
     // GB: Removed the empty constructor since an object constructed this 
     // way would not have a valid equalFunctor and thus would not function
     //AbstractObjectMap() : /*composer(NULL), */isFinite(true) {}
-    AbstractObjectMap(const AbstractObjectMap& that) : equalFunctor(that.equalFunctor),
+    AbstractObjectMap(const AbstractObjectMap& that) : Lattice(that.part),
+                                   equalFunctor(that.equalFunctor),
                                    mapElements (that.mapElements),
                                    defaultLat  (that.defaultLat),
                                    /*composer    (that.composer),
                                    part        (that.part),
                                    analysis    (that.analysis),*/
                                    isFinite    (that.isFinite),
-                                   isFull      (that.isFull),
-                                   ceo         (that.ceo)
+                                   isFull      (that.isFull)/*,
+                                   ceo         (that.ceo)*/
     {}
-    AbstractObjectMap(EqualFunctor& ef, LatticePtr defaultLat_, ComposerExpr2ObjPtr ceo_) : 
-      equalFunctor(EqualFunctorPtr(&ef)), defaultLat(defaultLat_), isFinite(true), isFull(false), ceo(ceo_) {}
-    AbstractObjectMap(EqualFunctor* ef, LatticePtr defaultLat_, ComposerExpr2ObjPtr ceo_) : 
-      equalFunctor(EqualFunctorPtr(ef)), defaultLat(defaultLat_), isFinite(true), isFull(false), ceo(ceo_) {}
-    AbstractObjectMap(EqualFunctorPtr efPtr, LatticePtr defaultLat_, ComposerExpr2ObjPtr ceo_) : 
-      equalFunctor(efPtr), defaultLat(defaultLat_), isFinite(true), isFull(false), ceo(ceo_) {}
+    AbstractObjectMap(EqualFunctor& ef, LatticePtr defaultLat_/*, ComposerExpr2ObjPtr ceo_*/, PartPtr part_) : 
+      equalFunctor(EqualFunctorPtr(&ef)), defaultLat(defaultLat_), isFinite(true), isFull(false)/*, ceo(ceo_)*/, Lattice(part_) {}
+    AbstractObjectMap(EqualFunctor* ef, LatticePtr defaultLat_/*, ComposerExpr2ObjPtr ceo_*/, PartPtr part_) : 
+      equalFunctor(EqualFunctorPtr(ef)), defaultLat(defaultLat_), isFinite(true), isFull(false)/*, ceo(ceo_)*/, Lattice(part_) {}
+    AbstractObjectMap(EqualFunctorPtr efPtr, LatticePtr defaultLat_/*, ComposerExpr2ObjPtr ceo_*/, PartPtr part_) : 
+      equalFunctor(efPtr), defaultLat(defaultLat_), isFinite(true), isFull(false)/*, ceo(ceo_)*/, Lattice(part_) {}
     ~AbstractObjectMap() {}
 
   public:
@@ -130,6 +132,9 @@ ComposerExpr2ObjPtr ceo;
     bool setToEmpty();
 
     std::string str(std::string indent);
+    // Variant of the str method that can produce information specific to the current Part.
+    // Useful since AbstractObjects can change from one Part to another.
+    std::string strp(PartPtr part, std::string indent="");
     
     // -----------------
     // Lattice methods
@@ -178,11 +183,17 @@ ComposerExpr2ObjPtr ceo;
     // returned by project(). unProject() must incorporate this dataflow state into the overall state it holds.
     // Call must make an internal copy of the passed-in lattice and the caller is responsible for deallocating it.
     // Returns true if this causes this to change and false otherwise.
+    // !!! UNIMPLEMENTED
     bool unProject(SgExpression* expr, Lattice* exprState);
     
     // computes the meet of this and that and saves the result in this
     // returns true if this causes this to change and false otherwise
     bool meetUpdate(Lattice* that);
+    
+    // Identify keys that are must-equal to each other and merge their lattices
+    // Return true if this causes the object to change and false otherwise.
+    bool compressMustEq();
+
     
     bool finiteLattice();
     

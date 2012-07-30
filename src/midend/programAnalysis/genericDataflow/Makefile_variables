@@ -16,13 +16,13 @@ mpaGenericDataflow_la_sources=\
 	$(mpaGenericDataflowPath)/analysis/analysisCommon.C \
 	$(mpaGenericDataflowPath)/analysis/dataflow.C \
 	$(mpaGenericDataflowPath)/analysis/compose.C \
-	$(mpaGenericDataflowPath)/analysis/partitionedAnalysis.C \
 	$(mpaGenericDataflowPath)/analysis/abstract_object.C \
 	$(mpaGenericDataflowPath)/analysis/abstract_object_map.C \
 	$(mpaGenericDataflowPath)/analysis/abstract_object_set.C \
 	$(mpaGenericDataflowPath)/analysis/stx_analysis.C \
 	$(mpaGenericDataflowPath)/simpleAnalyses/const_prop_analysis.C \
 	$(mpaGenericDataflowPath)/simpleAnalyses/live_dead_analysis.C \
+	$(mpaGenericDataflowPath)/simpleAnalyses/ortho_array_analysis.C \
 	$(mpaGenericDataflowPath)/AnalysisDebuggingUtils.C \
 	$(mpaGenericDataflowPath)/arrIndexLabeler/arrIndexLabeler.C \
 	$(mpaGenericDataflowPath)/cfgUtils/CallGraphTraverse.C \
@@ -40,6 +40,7 @@ mpaGenericDataflow_la_sources=\
 	$(mpaGenericDataflowPath)/variables/variables.C \
 	$(mpaGenericDataflowPath)/variables/varSets.C
 
+#	$(mpaGenericDataflowPath)/analysis/partitionedAnalysis.C \
 #	$(mpaGenericDataflowPath)/lattice/affineInequality.C \
 	$(mpaGenericDataflowPath)/lattice/ConstrGraph.C \
 #	$(mpaGenericDataflowPath)/simpleAnalyses/ConstrGraphAnalysis.C \
@@ -56,14 +57,14 @@ mpaGenericDataflow_includeHeaders=\
 	$(mpaGenericDataflowPath)/analysis/analysisCommon.h \
 	$(mpaGenericDataflowPath)/analysis/dataflow.h \
 	$(mpaGenericDataflowPath)/analysis/compose.h \
-	$(mpaGenericDataflowPath)/analysis/partitionedAnalysis.h \
-	$(mpaGenericDataflowPath)/analysis/partitions.h \
 	$(mpaGenericDataflowPath)/analysis/abstract_object.h \
 	$(mpaGenericDataflowPath)/analysis/abstract_object_map.h \
 	$(mpaGenericDataflowPath)/analysis/abstract_object_set.h \
 	$(mpaGenericDataflowPath)/analysis/stx_analysis.h \
+	$(mpaGenericDataflowPath)/analysis/partitions.h \
 	$(mpaGenericDataflowPath)/simpleAnalyses/const_prop_analysis.h \
 	$(mpaGenericDataflowPath)/simpleAnalyses/live_dead_analysis.h \
+	$(mpaGenericDataflowPath)/simpleAnalyses/ortho_array_analysis.h \
 	$(mpaGenericDataflowPath)/AnalysisDebuggingUtils.h \
 	$(mpaGenericDataflowPath)/arrIndexLabeler/arrIndexLabeler.h \
 	$(mpaGenericDataflowPath)/cfgUtils/baseCFGIterator.h \
@@ -86,6 +87,7 @@ mpaGenericDataflow_includeHeaders=\
 	$(mpaGenericDataflowPath)/variables/variables.h \
 	$(mpaGenericDataflowPath)/variables/varSets.h
 
+#	$(mpaGenericDataflowPath)/analysis/partitionedAnalysis.h \
 #	$(mpaGenericDataflowPath)/lattice/affineInequality.h \
 	$(mpaGenericDataflowPath)/lattice/ConstrGraph.h \
 #	$(mpaGenericDataflowPath)/simpleAnalyses/ConstrGraphAnalysis.h \

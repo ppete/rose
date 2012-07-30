@@ -2,6 +2,7 @@
 
 #include <boost/bind.hpp>
 #include <boost/mem_fn.hpp>
+#include <boost/make_shared.hpp>
 
 namespace dataflow {
 
@@ -11,19 +12,19 @@ int constantPropagationAnalysisDebugLevel = 2;
 //                      ConstantPropagationLattice
 // **********************************************************************
 
-CPValueObject::CPValueObject()
+CPValueObject::CPValueObject(PartPtr p) : Lattice(p), FiniteLattice(p)
    {
      this->value = 0;
      this->level = bottom;
    }
 
-CPValueObject::CPValueObject( int v )
+CPValueObject::CPValueObject(int v, PartPtr p) : Lattice(p), FiniteLattice(p)
    {
      this->value = v;
      this->level = constantValue;
    }
 
-CPValueObject::CPValueObject( short level, int v )
+CPValueObject::CPValueObject(short level, int v, PartPtr p) : Lattice(p), FiniteLattice(p)
    {
      this->value = v;
      this->level = level;
@@ -31,7 +32,7 @@ CPValueObject::CPValueObject( short level, int v )
 
 // This is the same as the implicit definition, so it might not be required to be defined explicitly.
 // I am searching for the minimal example of the use of the data flow classes.
-CPValueObject::CPValueObject (const CPValueObject & X)
+CPValueObject::CPValueObject(const CPValueObject & X) : Lattice(X.part), FiniteLattice(X.part)
    {
      this->value = X.value;
      this->level = X.level;
@@ -216,12 +217,19 @@ return setTop();
 // Return true if this causes the object to change and false otherwise.
 bool CPValueObject::setToEmpty()
 {
-return setBottom();
+  return setBottom();
 }
 
 string
 CPValueObject::str(string indent) const
-   {
+{
+     return strp(part, indent);
+}
+
+string
+CPValueObject::strp(PartPtr part, string indent) const
+{
+    
      ostringstream outs;
      if(level == bottom)
           outs << indent << "[level: bottom]";
@@ -233,19 +241,25 @@ CPValueObject::str(string indent) const
           outs << indent << "[level: top]";
 
      return outs.str();
-   }
-
-
-bool CPValueObject::mayEqual(ValueObjectPtr o) const
-{
-  return mustEqual(o);
 }
 
-bool CPValueObject::mustEqual(ValueObjectPtr o) const
+
+bool CPValueObject::mayEqual(ValueObjectPtr o, PartPtr p) const
+{
+  return mustEqual(o, p);
+}
+
+bool CPValueObject::mustEqual(ValueObjectPtr o, PartPtr p) const
 {
   CPValueObjectPtr that = boost::dynamic_pointer_cast<CPValueObject>(o);
   if(!that) { return false; }
   return (value == that->value) && (level == that->level);
+}
+
+// Allocates a copy of this object and returns a pointer to it
+ValueObjectPtr CPValueObject::copyV() const
+{
+  return boost::make_shared<CPValueObject>(*this);
 }
 
   /* Don't have good idea how to represent a finite number of options 
@@ -406,7 +420,7 @@ ConstantPropagationAnalysisTransfer::visit(SgIntVal *sgn)
    {
      ROSE_ASSERT(sgn);
      //CPValueObjectPtr resLat = getLattice(sgn);
-     CPValueObjectPtr resLat(new CPValueObject(sgn->get_value()));
+     CPValueObjectPtr resLat(new CPValueObject(sgn->get_value(), part));
      ROSE_ASSERT(resLat);
      //resLat->setValue(sgn->get_value());
      //resLat->setLevel(CPValueObject::constantValue);
@@ -538,8 +552,8 @@ ConstantPropagationAnalysisTransfer::finish()
      return modified;
    }
 
-ConstantPropagationAnalysisTransfer::ConstantPropagationAnalysisTransfer(const Function& func, const DataflowNode& n, NodeState& state, const std::vector<Lattice*>& dfInfo, Composer* composer, ConstantPropagationAnalysis* analysis)
-   : VariableStateTransfer<CPValueObject>(func, n, state, dfInfo, analysis->defaultLat, composer, analysis, static_cast<const Part&>(n) /*GB: this should be the real Part*/, constantPropagationAnalysisDebugLevel)
+ConstantPropagationAnalysisTransfer::ConstantPropagationAnalysisTransfer(const Function& func, PartPtr p, NodeState& state, const std::vector<Lattice*>& dfInfo, Composer* composer, ConstantPropagationAnalysis* analysis)
+   : VariableStateTransfer<CPValueObject>(func, state, dfInfo, boost::make_shared<CPValueObject>(p), composer, analysis, p, constantPropagationAnalysisDebugLevel)
    {
    }
 
@@ -551,49 +565,48 @@ ConstantPropagationAnalysisTransfer::ConstantPropagationAnalysisTransfer(const F
 // **********************************************************************
 
 // GB: Is this needed for boost shared-pointers?
-CPValueObjectPtr ConstantPropagationAnalysis::defaultLat;
-
 ConstantPropagationAnalysis::ConstantPropagationAnalysis()
-   {
-    // Initialize the default lattice if needed
-    if(!defaultLat) defaultLat = (CPValueObjectPtr)(new CPValueObject());
-   }
+{
+}
 
 // generates the initial lattice state for the given dataflow node, in the given function, with the given NodeState
 void
-ConstantPropagationAnalysis::genInitState(const Function& func, const DataflowNode& n, const NodeState& state, std::vector<Lattice*>& initLattices, std::vector<NodeFact*>& initFacts)
+ConstantPropagationAnalysis::genInitState(const Function& func, PartPtr p, const NodeState& state, std::vector<Lattice*>& initLattices, std::vector<NodeFact*>& initFacts)
    {
-   ComposerExpr2MemLocPtr ceml(new ComposerExpr2MemLoc(*getComposer(), (Part&)n, *((ComposedAnalysis*)this)));
-      AbstractObjectMap* l = new AbstractObjectMap(new MustEqualFunctor(), defaultLat, ceml);
-  Dbg::dbg << "DivAnalysis::genInitState, returning l="<<l<<" n=<"<<Dbg::escape(n.getNode()->unparseToString())<<" | "<<n.getNode()->class_name()<<" | "<<n.getIndex()<<">\n";
-  Dbg::dbg << "    l="<<l->str("    ")<<endl;
-     initLattices.push_back(l);
+      //ComposerExpr2MemLocPtr ceml(new ComposerExpr2MemLoc(*getComposer(), p, *((ComposedAnalysis*)this)));
+      AbstractObjectMap* l = new AbstractObjectMap(new MustEqualFunctor(), boost::make_shared<CPValueObject>(p)/*, ceml*/, p);
+      Dbg::dbg << "ConstantPropagationAnalysis::genInitState, returning l="<<l<<" n=<"<<Dbg::escape(p.getNode()->unparseToString())<<" | "<<p.getNode()->class_name()<<" | "<<p.getIndex()<<">\n";
+      Dbg::dbg << "    l="<<l->str("    ")<<endl;
+      initLattices.push_back(l);
      
      // GB: WE NEED TO INITIALIZE THIS LATTICE WITH THE CURRENTLY LIVE VARIABLES. E.G. AS INITIALIZATION-TIME
    }
 
   
 bool
-ConstantPropagationAnalysis::transfer(const Function& func, const DataflowNode& n, NodeState& state, const std::vector<Lattice*>& dfInfo)
+ConstantPropagationAnalysis::transfer(const Function& func, PartPtr p, NodeState& state, const std::vector<Lattice*>& dfInfo)
    {
      assert(0); 
      return false;
    }
 
 boost::shared_ptr<IntraDFTransferVisitor>
-ConstantPropagationAnalysis::getTransferVisitor(const Function& func, const DataflowNode& n, NodeState& state, const std::vector<Lattice*>& dfInfo)
+ConstantPropagationAnalysis::getTransferVisitor(const Function& func, PartPtr p, NodeState& state, const std::vector<Lattice*>& dfInfo)
    {
   // Why is the boost shared pointer used here?
-     return boost::shared_ptr<IntraDFTransferVisitor>(new ConstantPropagationAnalysisTransfer(func, n, state, dfInfo, composer, this));
+     return boost::shared_ptr<IntraDFTransferVisitor>(new ConstantPropagationAnalysisTransfer(func, p, state, dfInfo, composer, this));
    }
 
-boost::shared_ptr<ValueObject> ConstantPropagationAnalysis::Expr2Val(SgNode* n, const Part& p)
+ValueObjectPtr ConstantPropagationAnalysis::Expr2Val(SgNode* n, PartPtr part)
 {
-  AbstractObjectMap* cpMap = dynamic_cast<AbstractObjectMap*>(NodeState::getNodeState(p)->getLatticeAbove(this, 0));
+  AbstractObjectMap* cpMap = dynamic_cast<AbstractObjectMap*>(NodeState::getNodeState(part)->getLatticeAbove(this, 0));
   ROSE_ASSERT(cpMap);
-  
-  boost::shared_ptr<MemLocObject> ml = composer->Expr2MemLoc(n, p, this);
-  return boost::dynamic_pointer_cast<ValueObject>(cpMap->get(ml));
+
+  MemLocObjectPtrPair p = composer->Expr2MemLoc(n, part, this);
+  // Return the lattice associated with n's expression since that is likely to be more precise
+  // but if it is not available, used the memory object
+  return (p.expr ? boost::dynamic_pointer_cast<ValueObject>(cpMap->get(p.expr)) :
+                   boost::dynamic_pointer_cast<ValueObject>(cpMap->get(p.mem)));
 }
 
 }; // namespace dataflow;
