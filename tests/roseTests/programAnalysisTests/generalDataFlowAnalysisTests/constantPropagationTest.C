@@ -2,22 +2,29 @@
 #include "compose.h"
 #include "const_prop_analysis.h"
 #include "live_dead_analysis.h"
+#include "ortho_array_analysis.h"
+#include "printAnalysisStates.h"
+#include <vector>
 
+using namespace std;
 using namespace dataflow;
 
 int main(int argc, char** argv)
 {
-	printf("========== S T A R T ==========\n");
+  printf("========== S T A R T ==========\n");
 
-	list<ComposedAnalysis*> analyses;
-	analyses.push_back(new LiveDeadMemAnalysis());
-	analyses.push_back(new ConstantPropagationAnalysis());
-	
-	ChainComposer cc(argc, argv, analyses);
-	//UnstructuredPassInterDataflow up_cc(&cc);
+  list<ComposedAnalysis*> analyses;
+  analyses.push_back(new LiveDeadMemAnalysis());
+  analyses.push_back(new OrthogonalArrayAnalysis());
+  analyses.push_back(new ConstantPropagationAnalysis());
+  analyses.push_back(new OrthogonalArrayAnalysis());
+  analyses.push_back(new ConstantPropagationAnalysis());
+
+  ChainComposer cc(argc, argv, analyses);
+  //UnstructuredPassInterDataflow up_cc(&cc);
   cc.runAnalysis();
-     printf("==========  E  N  D  ==========\n");
-	
+  printf("==========  E  N  D  ==========\n");
+  
   return 0;
 }
 
