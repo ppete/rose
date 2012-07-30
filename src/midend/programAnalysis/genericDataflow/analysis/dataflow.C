@@ -315,8 +315,6 @@ void IntraUniDirectionalDataflow::node_transfer( const Function& func,
           }
 
           dbg_LatticeUpdate(updNextstate);
-          std::cerr << "propagate: " << lattice->id << " -> " << nextLattice->id << std::endl;
-          std::cerr << "| " << as_str(nextLattice, "") << "| " << std::endl;
   }
 }
 
@@ -324,6 +322,8 @@ void IntraUniDirectionalDataflow::edge_transfer(const Function& func, const Data
 {
   LatticePtr          totalNodeLattice(lattice->copy());
   ConnectionContainer descendants = getDescendants(n);
+
+  std::cerr << totalNodeLattice.get() << "  <-copy-  " << lattice.get() << std::endl;
 
   dbg_Descendants(descendants);
 
@@ -333,6 +333,8 @@ void IntraUniDirectionalDataflow::edge_transfer(const Function& func, const Data
           DataflowEdge  thisEdge = *di;
           DataflowNode  nextNode = flowTarget(thisEdge);
           LatticePtr    thisLattice(lattice->copy());
+
+          std::cerr << thisLattice.get() << "  <-copy-  " << lattice.get() << std::endl;
 
           // \pp shall we distinguish between forward / backward flow
           const bool    valid_edge = transfer(func, thisEdge, state, thisLattice);
@@ -367,22 +369,11 @@ void IntraUniDirectionalDataflow::edge_transfer(const Function& func, const Data
 
   // storing the result back in the input lattice (lattice = totalNodeLattice)
   //   implemented through swap
-  swap(lattice, totalNodeLattice);
+  // swap(lattice, totalNodeLattice);
+  lattice->copy(totalNodeLattice.get());
 }
 
 static int logid = 0;
-
-static
-std::string dbg_id(ConstLatticePtr clp)
-{
-  if (!clp.get()) return "";
-
-  std::stringstream out;
-
-  out << clp->id;
-  return out.str();
-}
-
 
 // Runs the intra-procedural analysis on the given function. Returns true if
 // the function's NodeState gets modified as a result and false otherwise.

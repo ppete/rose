@@ -268,6 +268,8 @@ namespace dfpred
       /// \todo    what to do with no longer available expressions?
       bool meet(const PredicateSet& other)
       {
+        std::cerr << "meetUpdate  " << this->size() << "  <-  " << other.size() << std::endl;
+
         // the current implementation just concatenates the two sets
         //   do we need to calculate the over-approximation
         const size_t oldsize = this->size();
@@ -370,11 +372,20 @@ namespace dfpred
     if (!tgt.isInitialized())
     {
       tgt.copy(&src);
+      ROSE_ASSERT(tgt.isInitialized());
+      return true;
     }
 
     tgt.meet(src);
   }
 
+
+  // convenience function to avoid explict casting to Lattice&
+  inline
+  void swap_predicate_lattice_base(Lattice& lhs, Lattice& rhs)
+  {
+    swap(lhs, rhs);
+  }
 
   //
   // dataflow lattice
@@ -400,9 +411,12 @@ namespace dfpred
       void copy(const Lattice* arg)
       {
         const PredicatedLattice* that = dynamic_cast<const PredicatedLattice*>(arg);
-        PredicatedLattice        tmp(*that);
+        PredicatedLattice        tmp(sg::deref(that));
+
+        std::cerr << static_cast<Lattice*>(this) << " <-- " << static_cast<const Lattice*>(that) << std::endl;
 
         swap(*this, tmp);
+        ROSE_ASSERT(this->isInitialized() == that->isInitialized());
       }
 
       void clear() {}
@@ -451,6 +465,9 @@ namespace dfpred
         {
           predset.insert(ConjunctedPredicate<BasePredicate>());
           FiniteLattice::initialize();
+
+          std::cerr << "init'd " << static_cast<Lattice*>(this) << std::endl;
+          ROSE_ASSERT(this->isInitialized());
         }
       }
 
@@ -458,6 +475,8 @@ namespace dfpred
       void swap(PredicatedLattice& lhs, PredicatedLattice& rhs)
       {
         using std::swap;
+
+        swap_predicate_lattice_base(lhs, rhs);
 
         swap(lhs.predset,      rhs.predset);
         swap(lhs.current_node, rhs.current_node);
@@ -475,6 +494,8 @@ namespace dfpred
       friend
       std::ostream& operator<<(std::ostream& os, const PredicatedLattice<_BasePredicate>& lat);
   };
+
+
 
   template <class BasePredicate>
   static inline
@@ -881,7 +902,7 @@ namespace dfpred
   static
   void trace(char c)
   {
-    std::cout << '\n' << c << " - ";
+    std::cerr << '\n' << c << " - ";
   }
 
   // default implementation, chosen when the BasePredicate does not
@@ -1168,22 +1189,11 @@ namespace dfpred
       }
 
       // Generates the initial lattice state for the given dataflow node, in the given function, with the given NodeState
-      void genInitState(const Function& f, const DataflowNode& n, const NodeState& nstate, Lattice*& initLattice, FactContainer& fc)
-      {
-        lattice_type* mylat = new lattice_type;
-
-        mylat->initialize();
-        mylat->current_node = isSgLocatedNode(n.getNode());
-
-        initLattice = mylat;
-      }
-
-      // Generates the initial lattice state for the given dataflow node, in the given function, with the given NodeState
       lattice_type* genLattice(const Function&, const DataflowNode& n, const NodeState&)
       {
         lattice_type* mylat = new lattice_type;
 
-        mylat->initialize(); // \todo what to do here?
+        // mylat->initialize(); // \todo what to do here?
         mylat->current_node = isSgLocatedNode(n.getNode());
 
         return mylat;
@@ -1199,12 +1209,24 @@ namespace dfpred
         lattice_type& l = getLattice<lattice_type>(sg::deref(dfInfo.get()));
 
         // only handle nodes where the lattice has been properly propagated
-        if (!l.isInitialized()) { }
+        if (  !l.isInitialized() )
+        {
+          std::cerr << "noinit: " << dfInfo.get() << std::endl;
+          return false;
+        }
+
+        if ( l.predset.infeasible() )
+        {
+          std::cerr << "infeas: " << dfInfo.get() << std::endl;
+          return false;
+        }
+
+        std::cerr << "goodin: " << dfInfo.get() << std::endl;
 
         l.current_node = isSgLocatedNode(flowSource(e).getNode());
         sg::dispatch(predicateTransfer(e, l), flowSource(e).getNode());
 
-        std::cout << DFEdgePrinter(e) << ": [" << l.predset.size() << "]" << std::endl
+        std::cerr << DFEdgePrinter(e) << ": [" << l.predset.size() << "]" << std::endl
                   << l;
 
         return !l.predset.infeasible();
@@ -1216,7 +1238,7 @@ namespace dfpred
         ROSE_ASSERT(false);
       }
 
-      bool edgeSensitiveAnalysis() const { return true; }
+      bool edgeSensitiveAnalysis() const /* override */ { return true; }
   };
 
   static inline

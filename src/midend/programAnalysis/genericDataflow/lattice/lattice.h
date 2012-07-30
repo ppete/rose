@@ -14,7 +14,7 @@ class Lattice : public printable
         public:
 
         Lattice()
-        : good_state(false), id(++ctr)
+        : good_state(false)
         {}
 
         /// returns a copy of this lattice
@@ -125,14 +125,21 @@ class Lattice : public printable
           return l->str(indent);
         }
 
+        friend
+        void swap(Lattice& lhs, Lattice& rhs);
+
     private:
         bool good_state;
-
-    public:
-        int  id;
-
-        static int ctr;
 };
+
+inline
+void swap(Lattice& lhs, Lattice& rhs)
+{
+  using std::swap;
+
+  swap(lhs.good_state, rhs.good_state);
+}
+
 
 typedef boost::shared_ptr<Lattice>       LatticePtr;
 typedef boost::shared_ptr<const Lattice> ConstLatticePtr;
@@ -151,7 +158,11 @@ LatticePtr clone(ConstLatticePtr orig)
 {
   if (!orig.get()) return LatticePtr(static_cast<Lattice*>(0));
 
-  return LatticePtr(orig->copy());
+  LatticePtr res(orig->copy());
+
+  // std::cerr << res.get() << "  <-cloned- " << orig.get() << std::endl;
+  // ROSE_ASSERT(res.get()->isInitialized() == orig.get()->isInitialized());
+  return res;
 }
 
 

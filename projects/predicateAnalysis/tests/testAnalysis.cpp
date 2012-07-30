@@ -684,13 +684,13 @@ struct PredicateAnalyzer
     const predicate_set* predset = lookup_predicate_set(n);
     if (!predset || (!constrainedBy(n, *predset))) return;
 
-    std::cout << "found interesting predicate-set for: " << n.unparseToString()
+    std::cerr << "found interesting predicate-set for: " << n.unparseToString()
               << " in " << sg::ancestor<SgStatement>(n).unparseToString()
               << ": " << *predset;
 
     SSARep               defset = SSAPredicate::varsUsed(n);
 
-    std::cout << "|" << defset.size() << "|" << std::endl;
+    std::cerr << "|" << defset.size() << "|" << std::endl;
 
     ROSE_ASSERT(defset.size() == 1); // we deal only with a single variable
     ssaanalyzer.analzye(*defset.begin());
@@ -723,7 +723,7 @@ void PredicateAnalysisTraversal::visit(SgNode* n)
 static inline
 void sage_predicates()
 {
-  std::cout << "----------  S a g e  ----------\n";
+  std::cerr << "----------  S a g e  ----------\n";
 
   dfpred::PredicateAnalysis<SimplePredicate> pa;
   UnstructuredPassInterDataflow              analyzer(&pa);
@@ -734,7 +734,7 @@ void sage_predicates()
 static inline
 void ssa_predicates(hssa_private::HeapSSA& hssa, SgProject* proj)
 {
-  std::cout << "----------  S  S  A  ----------\n";
+  std::cerr << "----------  S  S  A  ----------\n";
 
   SSAPredicate::myssa = &hssa;
 
@@ -746,14 +746,14 @@ void ssa_predicates(hssa_private::HeapSSA& hssa, SgProject* proj)
   // perform SSA/predicate based induction variable analysis
   PredicateAnalysisTraversal analysis(&pa, hssa);
 
-  std::cout << std::endl;
+  std::cerr << std::endl;
   analysis.traverseInputFiles(proj, preorder);
 }
 
 static inline
 void vn_predicates(hssa_private::HeapSSA& hssa, SgProject* proj)
 {
-  std::cout << "--- V a l u e n u m b e r s ---\n";
+  std::cerr << "--- V a l u e n u m b e r s ---\n";
 
   scc_private::ValueNumbering               vn(proj, &hssa);
   ContextInsensitiveInterProceduralDataflow ciIPD1(&vn, getCallGraph());
@@ -772,7 +772,7 @@ void vn_predicates(hssa_private::HeapSSA& hssa, SgProject* proj)
 
 int main( int argc, char * argv[] )
 {
-        std::cout << "========== S T A R T ==========\n";
+        std::cerr << "========== S T A R T ==========\n";
 
         // Build the AST used by ROSE
         SgProject* project = frontend(argc,argv);
@@ -790,7 +790,7 @@ int main( int argc, char * argv[] )
         ssa_predicates(hssa, project);
         // vn_predicates(hssa, project);
 
-        std::cout << "==========  E  N  D  ==========\n";
+        std::cerr << "==========  E  N  D  ==========\n";
 
         // Unparse and compile the project (so this can be used for testing)
         return 0;

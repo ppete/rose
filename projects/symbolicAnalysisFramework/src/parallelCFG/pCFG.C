@@ -121,8 +121,12 @@ void pCFGNode::advance(unsigned int pSet, const DataflowNode& n)
 // Advances the given process set to the only outgoing descendant of its current dataflow node
 void pCFGNode::advanceOut(unsigned int pSet)
 {
+        static int ctr = 0;
+
         ROSE_ASSERT(0<=pSet && pSet < pSetDFNodes.size());
         vector<DataflowEdge> edges = pSetDFNodes[pSet].outEdges();
+
+        std::cout << "XXX:" << ++ctr << std::endl;
         ROSE_ASSERT(edges.size()==1);
         pSetDFNodes[pSet] = (*(edges.begin())).target();
 }
