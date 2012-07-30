@@ -45,7 +45,7 @@ INCLUDES = $(ROSE_INCLUDES) \
 #    src/midend/programAnalysis/generalDataFlowAnalysis
 # directory.
 # This test program does not require the rest of ROSE so it can be handled locally
-bin_PROGRAMS  = constantPropagationTest taintedFlowAnalysisTest liveDeadVarAnalysisTest
+bin_PROGRAMS  = constantPropagationTest # taintedFlowAnalysisTest liveDeadVarAnalysisTest
 # bin_PROGRAMS  = constantPropagationTest 
 
 liveDeadVarAnalysisTest_SOURCES = liveDeadVarAnalysisTest.C
