@@ -15,7 +15,15 @@ class Lattice : public printable
 
         Lattice()
         : good_state(false)
-        {}
+        {
+          std::cerr << this << "created" << std::endl;
+        }
+
+        Lattice(const Lattice& l)
+        : good_state(l.good_state)
+        {
+          std::cerr << this << " <-cloned- " << &l << " " << good_state << std::endl;
+        }
 
         /// returns a copy of this lattice
         /// \note   derived classes can use co-variant return types to return more
@@ -138,6 +146,8 @@ void swap(Lattice& lhs, Lattice& rhs)
   using std::swap;
 
   swap(lhs.good_state, rhs.good_state);
+
+  std::cerr << &lhs << " <--> " << &rhs << std::endl;
 }
 
 

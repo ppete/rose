@@ -323,8 +323,6 @@ void IntraUniDirectionalDataflow::edge_transfer(const Function& func, const Data
   LatticePtr          totalNodeLattice(lattice->copy());
   ConnectionContainer descendants = getDescendants(n);
 
-  std::cerr << totalNodeLattice.get() << "  <-copy-  " << lattice.get() << std::endl;
-
   dbg_Descendants(descendants);
 
   for (ConnectionContainer::const_iterator di = descendants.begin(); di != descendants.end(); ++di)
@@ -333,8 +331,6 @@ void IntraUniDirectionalDataflow::edge_transfer(const Function& func, const Data
           DataflowEdge  thisEdge = *di;
           DataflowNode  nextNode = flowTarget(thisEdge);
           LatticePtr    thisLattice(lattice->copy());
-
-          std::cerr << thisLattice.get() << "  <-copy-  " << lattice.get() << std::endl;
 
           // \pp shall we distinguish between forward / backward flow
           const bool    valid_edge = transfer(func, thisEdge, state, thisLattice);

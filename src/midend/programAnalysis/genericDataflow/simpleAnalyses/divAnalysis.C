@@ -368,7 +368,6 @@ bool DivLattice::setBot()
 // returns true if this causes the lattice's state to change, false otherwise
 bool DivLattice::set(long value)
 {
-        std::cerr << "set val = " << value << std::endl;
         bool modified = this->level != valKnown || this->value != value;
         this->value = value;
         div = -1;

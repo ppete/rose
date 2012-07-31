@@ -11,7 +11,6 @@ LiveVarsLattice::LiveVarsLattice() {}
 LiveVarsLattice::LiveVarsLattice(const varID& var)
 {
         liveVars.insert(var);
-        std::cerr << "1";
 }
 
 LiveVarsLattice::LiveVarsLattice(const set<varID>& liveVars) : liveVars(liveVars)
@@ -48,7 +47,6 @@ void LiveVarsLattice::remapVars(const map<varID, varID>& varNameMap, const Funct
                 if(liveVars.find(var->first) != liveVars.end()) {
                         liveVars.erase(var->first);
                         liveVars.insert(var->second);
-                        std::cerr << "2";
                 }
         }
 }
@@ -64,7 +62,6 @@ void LiveVarsLattice::incorporateVars(const Lattice* that_arg)
         for(set<varID>::iterator var=that->liveVars.begin(); var!=that->liveVars.end(); var++)
         {
                 liveVars.insert(*var);
-                std::cerr << "3";
         }
 }
 
@@ -96,7 +93,6 @@ bool LiveVarsLattice::unProject(SgExpression* expr, Lattice* exprState) {
         if(that->liveVars.find(var) != that->liveVars.end()) {
                 modified = modified || (liveVars.find(var) == liveVars.end());
                 liveVars.insert(var);
-                std::cerr << "4";
         }
         return modified;
 }
@@ -114,7 +110,6 @@ bool LiveVarsLattice::meetUpdate(const Lattice* that_arg)
                 if(liveVars.find(*var) == liveVars.end()) {
                         modified = true;
                         liveVars.insert(*var);
-                        std::cerr << "5";
                 }
         }
 
@@ -137,7 +132,6 @@ bool LiveVarsLattice::addVar(const varID& var)
 {
         if(liveVars.find(var) == liveVars.end()) {
                 liveVars.insert(var);
-                std::cerr << "6";
                 return true;
         }
         return false;
@@ -632,8 +626,6 @@ VarsExprsProductLattice::VarsExprsProductLattice
                         varLatticeIndex[*var] = idx;
                         lattices.push_back(perVarLattice->copy());
                 }
-
-                std::cerr << "|lats| = " << lattices.size() << std::endl;
         } else {
                 //Dbg::dbg << "n=<"<<Dbg::escape(n.getNode()->unparseToString()) << " | " << n.getNode()->class_name()<<" | "<<n.getIndex()<<">"<<endl;
                 /*Dbg::dbg << "n->get_parent()=<"<<Dbg::escape(n.getNode()->get_parent()->unparseToString()) << " | " << n.getNode()->get_parent()->class_name()<<">"<<endl;*/

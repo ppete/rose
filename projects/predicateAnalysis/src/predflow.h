@@ -268,8 +268,6 @@ namespace dfpred
       /// \todo    what to do with no longer available expressions?
       bool meet(const PredicateSet& other)
       {
-        std::cerr << "meetUpdate  " << this->size() << "  <-  " << other.size() << std::endl;
-
         // the current implementation just concatenates the two sets
         //   do we need to calculate the over-approximation
         const size_t oldsize = this->size();
@@ -413,8 +411,6 @@ namespace dfpred
         const PredicatedLattice* that = dynamic_cast<const PredicatedLattice*>(arg);
         PredicatedLattice        tmp(sg::deref(that));
 
-        std::cerr << static_cast<Lattice*>(this) << " <-- " << static_cast<const Lattice*>(that) << std::endl;
-
         swap(*this, tmp);
         ROSE_ASSERT(this->isInitialized() == that->isInitialized());
       }
@@ -466,7 +462,6 @@ namespace dfpred
           predset.insert(ConjunctedPredicate<BasePredicate>());
           FiniteLattice::initialize();
 
-          std::cerr << "init'd " << static_cast<Lattice*>(this) << std::endl;
           ROSE_ASSERT(this->isInitialized());
         }
       }
@@ -1189,12 +1184,17 @@ namespace dfpred
       }
 
       // Generates the initial lattice state for the given dataflow node, in the given function, with the given NodeState
-      lattice_type* genLattice(const Function&, const DataflowNode& n, const NodeState&)
+      lattice_type* genLattice(const Function& f, const DataflowNode& n, const NodeState&)
       {
         lattice_type* mylat = new lattice_type;
 
-        // mylat->initialize(); // \todo what to do here?
         mylat->current_node = isSgLocatedNode(n.getNode());
+
+        if (n == cfgUtils::getFuncStartCFG(f.get_definition()))
+        {
+          // \todo what to do here?
+          mylat->initialize();
+        }
 
         return mylat;
       }
@@ -1209,19 +1209,12 @@ namespace dfpred
         lattice_type& l = getLattice<lattice_type>(sg::deref(dfInfo.get()));
 
         // only handle nodes where the lattice has been properly propagated
-        if (  !l.isInitialized() )
+        if (  !l.isInitialized()
+           || l.predset.infeasible()
+           )
         {
-          std::cerr << "noinit: " << dfInfo.get() << std::endl;
           return false;
         }
-
-        if ( l.predset.infeasible() )
-        {
-          std::cerr << "infeas: " << dfInfo.get() << std::endl;
-          return false;
-        }
-
-        std::cerr << "goodin: " << dfInfo.get() << std::endl;
 
         l.current_node = isSgLocatedNode(flowSource(e).getNode());
         sg::dispatch(predicateTransfer(e, l), flowSource(e).getNode());

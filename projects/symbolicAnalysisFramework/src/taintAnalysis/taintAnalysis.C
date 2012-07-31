@@ -254,7 +254,6 @@ void TaintAnalysisTransfer::visit(SgIntVal* sgn)
 {
     ROSE_ASSERT(sgn != NULL);
     ROSE_ASSERT(prodLat); // \pp remove
-    std::cerr << "--->" << prodLat->getLattices().size() << std::endl;
     TaintLattice* res_lattice = getLattice(sgn);
     ROSE_ASSERT(res_lattice);
     modified = true;

@@ -168,6 +168,20 @@ struct IncrementType
   variable_increment  summands;
 };
 
+static inline
+std::ostream& operator<<(std::ostream& o, const SgExpression* exp)
+{
+  return o << exp->unparseToString();
+}
+
+static
+std::ostream& operator<<(std::ostream& o, const IncrementType& inc)
+{
+  if (!inc.valid) return o << "!valid";
+
+  return o << "c = " << inc.base << " " << "[ " << sg::foreach(inc.summands, sg::prn) << " ]";
+}
+
 struct InductionEquation
 {
   typedef ReachingDef::ReachingDefPtr ReachingDefPtr;
@@ -176,6 +190,12 @@ struct InductionEquation
   ReachingDefPtr init;
   increment_type increment;
 };
+
+static
+std::ostream& operator<<(std::ostream& o, const InductionEquation& ieq)
+{
+  return o << ieq.increment;
+}
 
 struct InductionVariableAnalyzer
 {
@@ -201,17 +221,20 @@ struct InductionVariableAnalyzer
   void analzye(ReachingDefPtr rdef)
   {
     // already handled
-    if (loopdata.find(rdef) != loopdata.end()) return;
+    if (loopdata.find(rdef) != loopdata.end()) { std::cerr << "ok." << std::endl; return; };
 
     // we are interested to find induction variables, thus
     //   we start only from phis
-    if (!rdef->isPhiFunction()) return;
+    if (!rdef->isPhiFunction()) { std::cerr << "!phi." << std::endl; return; }
 
     VertexSet res = detectCycles(rdef, rdef).first;
 
-    if (!validateLoopModel(res, rdef)) return;
+    if (!validateLoopModel(res, rdef)) { std::cerr << "!val" << std::endl; return; }
 
     InductionEquation ivar = getInductionEquation(res, rdef);
+
+    std::cerr << ivar << std::endl;
+    std::cerr << "done." << std::endl;
   }
 
   static
@@ -285,9 +308,11 @@ struct SymbolicEvalHandler : sg::DispatchHandler< InductionEquation::increment_t
   // result value constructors
 
   /// constructs an invalid result-type
+  static
   ReturnType invalid() { return ReturnType(); }
 
   /// construct result for un-interpreted nodes
+  static
   ReturnType term(const SgExpression& n)
   {
     ReturnType res;
@@ -298,6 +323,7 @@ struct SymbolicEvalHandler : sg::DispatchHandler< InductionEquation::increment_t
   }
 
   /// return constant increment
+  static
   ReturnType increment(ReturnType::constant_type val)
   {
     ReturnType res;
@@ -532,7 +558,7 @@ static
 InductionEquation::increment_type
 symbolic_eval(ReachingDef::ReachingDefPtr def, const SymbolicEvalHandler::VertexSet& vs)
 {
-  if (def->isPhiFunction()) return InductionEquation::increment_type();
+  if (def->isPhiFunction()) return SymbolicEvalHandler::increment(0);
 
   return sg::dispatch( SymbolicEvalHandler(vs), def->getDefinitionNode() );
 }
