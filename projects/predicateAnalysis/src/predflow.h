@@ -897,7 +897,7 @@ namespace dfpred
   static
   void trace(char c)
   {
-    std::cerr << '\n' << c << " - ";
+    //~ std::cerr << '\n' << c << " - ";
   }
 
   // default implementation, chosen when the BasePredicate does not
@@ -1219,8 +1219,8 @@ namespace dfpred
         l.current_node = isSgLocatedNode(flowSource(e).getNode());
         sg::dispatch(predicateTransfer(e, l), flowSource(e).getNode());
 
-        std::cerr << DFEdgePrinter(e) << ": [" << l.predset.size() << "]" << std::endl
-                  << l;
+        //~ std::cerr << DFEdgePrinter(e) << ": [" << l.predset.size() << "]" << std::endl
+                  //~ << l;
 
         return !l.predset.infeasible();
       }

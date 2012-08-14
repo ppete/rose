@@ -460,8 +460,7 @@ void UnstructuredPassInterDataflow::runAnalysis()
 /*DFStateAtReturns::DFStateAtReturns()
 {}*/
 
-// \pp \todo do not use copy ... b/c they pointers could be null
-DFStateAtReturns::DFStateAtReturns(LatticePtr p_latsAtFuncReturn, LatticePtr p_latsRetVal)
+DFStateAtReturns::DFStateAtReturns(LatticePtr& p_latsAtFuncReturn, LatticePtr& p_latsRetVal)
 : _latsAtFuncReturn(p_latsAtFuncReturn), _latsRetVal(p_latsRetVal)
 {}
 
@@ -487,6 +486,7 @@ bool DFStateAtReturns::mergeReturnStates(const Function& func, FunctionState* fS
         // that the analysis pass simply updates these original lattices in-place, also updating the state of
         // this object in the process.
         if(analysisDebugLevel>=1) Dbg::enterFunc("Merging Return States");
+
         MergeAllReturnStates mars(intraAnalysis, _latsAtFuncReturn, _latsRetVal/*, MergeAllReturnStates::above*/);
         mars.runAnalysis(func, &(fState->state));
 
@@ -656,8 +656,11 @@ ContextInsensitiveInterProceduralDataflow::ContextInsensitiveInterProceduralData
                         LatticePtr empty;
                         funcS->state.setLattice(intraDataflowAnalysis, empty);
                         funcS->retState.setLattice(intraDataflowAnalysis, empty);
-                        funcS->state.addFact(this, 0, new DFStateAtReturns(funcS->state.getLatticeBelowMod((Analysis*)intraDataflowAnalysis),
-                                                                           funcS->retState.getLatticeBelowMod((Analysis*)intraDataflowAnalysis)));
+
+                        LatticePtr& stateLat = funcS->state.getLatticeBelowMod((Analysis*)intraDataflowAnalysis);
+                        LatticePtr& retstLat = funcS->retState.getLatticeBelowMod((Analysis*)intraDataflowAnalysis);
+
+                        funcS->state.addFact(this, 0, new DFStateAtReturns(stateLat, retstLat));
                         Dbg::dbg << "Return state for function " << funcS << " " << funcS->func.get_name().getString() << endl
                                  << "funcS->state" << funcS->state.str(intraDataflowAnalysis) << endl;
                         //                                 << "funcS->retState="<<  funcS->retState.str(intraDataflowAnalysis) << endl;

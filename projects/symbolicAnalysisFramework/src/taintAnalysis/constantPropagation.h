@@ -31,8 +31,7 @@ class ConstantPropagationLattice : public FiniteLattice
           int value;
 
        // bool uninitialized; // Covered by case of bottom.
-
-          bool undefined;
+          // bool undefined;
 
      private:
        // this object's current level in the lattice: (bottom, valKnown, divKnown, top)
@@ -94,7 +93,7 @@ class ConstantPropagationLattice : public FiniteLattice
        // returns true if this causes this to change and false otherwise
           bool meetUpdate(const Lattice* that);
 
-          std::string str(std::string indent="");
+          std::string str(std::string indent="") const;
 
 					void clear() {} // \pp \todo remove
    };

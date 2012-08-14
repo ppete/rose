@@ -265,12 +265,12 @@ class VarsExprsProductLattice: public virtual ProductLattice
         public:
 
         // Overwrites the state of this Lattice with that of that Lattice
-        void copy(Lattice* that);
+        void copy(const Lattice* that);
         // Set this to be a copy of that. It is assumed that the types of all the lattices in  VarsExprsProductLattice
         // that are the same as in this.
         void copy(const VarsExprsProductLattice* that);
 
-        bool meetUpdate(Lattice *that);
+        bool meetUpdate(const Lattice *that);
 
         // Called by analyses to create a copy of this lattice. However, if this lattice maintains any
         //    information on a per-variable basis, these per-variable mappings must be converted from
@@ -288,7 +288,7 @@ class VarsExprsProductLattice: public virtual ProductLattice
         // those variables, while leaving its state for other variables alone.
         // We do not force child classes to define their own versions of this function since not all
         //    Lattices have per-variable information.
-        void incorporateVars(Lattice* that);
+        void incorporateVars(const Lattice* that);
 
         // Returns a Lattice that describes the information known within this lattice
         // about the given expression. By default this could be the entire lattice or any portion of it.
@@ -305,7 +305,7 @@ class VarsExprsProductLattice: public virtual ProductLattice
         // returned by project(). unProject() must incorporate this dataflow state into the overall state it holds.
         // Call must make an internal copy of the passed-in lattice and the caller is responsible for deallocating it.
         // Returns true if this causes this to change and false otherwise.
-        bool unProject(SgExpression* expr, Lattice* exprState);
+        bool unProject(SgExpression* expr, const Lattice* exprState);
 
         // Functions used to inform this lattice that a given variable is now in use (e.g. a variable has entered
         //    scope or an expression is being analyzed) or is no longer in use (e.g. a variable has exited scope or

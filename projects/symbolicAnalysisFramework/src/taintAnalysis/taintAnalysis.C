@@ -137,7 +137,7 @@ bool TaintLattice::operator==(const Lattice *that_arg) const
     return (that->level == this->level);
 }
 
-std::string TaintLattice::str(std::string indent)
+std::string TaintLattice::str(std::string indent) const
 {
     ostringstream outs;
     if(level == taintyes) {
@@ -253,7 +253,6 @@ void TaintAnalysisTransfer::visit(SgFunctionCallExp* sgn)
 void TaintAnalysisTransfer::visit(SgIntVal* sgn)
 {
     ROSE_ASSERT(sgn != NULL);
-    ROSE_ASSERT(prodLat); // \pp remove
     TaintLattice* res_lattice = getLattice(sgn);
     ROSE_ASSERT(res_lattice);
     modified = true;
@@ -349,7 +348,10 @@ TaintAnalysis::genLattice(const Function& func, const DataflowNode& n, const Nod
 {
   typedef std::map<varID, Lattice*> EmptyMap;
 
-  return new FiniteVarsExprsProductLattice(new TaintLattice, EmptyMap(), (Lattice*) NULL, ldva, n, state);
+  FiniteVarsExprsProductLattice* prodlat = new FiniteVarsExprsProductLattice(new TaintLattice, EmptyMap(), (Lattice*) NULL, ldva, n, state);
+
+  prodlat->initialize();
+  return prodlat;
 }
 
 std::vector<NodeFact*>

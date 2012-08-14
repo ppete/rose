@@ -16,14 +16,14 @@ class Lattice : public printable
         Lattice()
         : good_state(false)
         {
-          std::cerr << this << "created" << std::endl;
+          //~ std::cerr << this << "created" << std::endl;
         }
 
-        Lattice(const Lattice& l)
-        : good_state(l.good_state)
-        {
-          std::cerr << this << " <-cloned- " << &l << " " << good_state << std::endl;
-        }
+        //~ Lattice(const Lattice& l)
+        //~ : good_state(l.good_state)
+        //~ {
+          //~ std::cerr << this << " <-cloned- " << &l << " " << good_state << std::endl;
+        //~ }
 
         /// returns a copy of this lattice
         /// \note   derived classes can use co-variant return types to return more
@@ -32,6 +32,9 @@ class Lattice : public printable
         virtual Lattice* copy() const=0;
 
         /// overwrites the state of this Lattice with that of that Lattice
+        /// \note implementation is responsible to also copy the good_state
+        ///       A standard implementation could use the copy constructor
+        ///       and swap as in exception safe assign operators.
         virtual void copy(const Lattice* that)=0;
 
         /// sets lattice to initialized
@@ -146,8 +149,6 @@ void swap(Lattice& lhs, Lattice& rhs)
   using std::swap;
 
   swap(lhs.good_state, rhs.good_state);
-
-  std::cerr << &lhs << " <--> " << &rhs << std::endl;
 }
 
 

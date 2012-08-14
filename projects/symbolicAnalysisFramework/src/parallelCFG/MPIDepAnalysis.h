@@ -16,6 +16,11 @@
 
 extern int MPIDepAnalysisDebugLevel;
 
+class MPIDepLattice;
+
+void dbg_lattice(MPIDepLattice* to, const MPIDepLattice* from);
+
+
 /*!
  * Information about a variable's dependence on MPI_Comm_rank or MPI_Comm_size
  */
@@ -49,18 +54,24 @@ class MPIDepLattice : public FiniteLattice
     }
 
     // copy constructor
-    MPIDepLattice(const MPIDepLattice& that)
-    {
-        this->level = that.level;
-        this->MPIDep = that.MPIDep;
-    }
+    // \pp needs to call base copy constructor
+    //     removed as the deafult implementation covers
+    //     the semantics.
+    //~ MPIDepLattice(const MPIDepLattice& that)
+    //~ {
+        //~ this->level = that.level;
+        //~ this->MPIDep = that.MPIDep;
+    //~ }
 
     // copy from that
     void copy(const Lattice* that);
 
     MPIDepLattice* copy() const
     {
-        return new MPIDepLattice(*this);
+        MPIDepLattice* cpy = new MPIDepLattice(*this);
+
+        dbg_lattice(cpy, this);
+        return cpy;
     }
 
     bool operator==(const Lattice* that) const;
@@ -89,11 +100,9 @@ class MPIDepLattice : public FiniteLattice
         MPIDep = false;
     }
 
-    void initialize() { }
-
     void clear() {} // \pp \todo remove
 
-    string str(string indent="");
+    string str(string indent="") const;
 };
 
 /* inherit VariableStateTransfer

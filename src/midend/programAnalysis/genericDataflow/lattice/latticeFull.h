@@ -170,6 +170,10 @@ class ProductLattice : public virtual Lattice
         : lattices()
         {}
 
+        // \todo \pp IMO this class needs a copy constructor that copies
+        //           all lattices of the vector (instead of duplicating pointers)
+        //
+
         ProductLattice(const std::vector<Lattice*>& initlattices)
         : lattices(initlattices)
         {}

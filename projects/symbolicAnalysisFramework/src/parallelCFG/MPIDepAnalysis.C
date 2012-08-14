@@ -5,8 +5,16 @@ int MPIDepAnalysisDebugLevel = 2;
 void MPIDepLattice::copy(const Lattice* _that)
 {
     const MPIDepLattice* that = dynamic_cast<const MPIDepLattice*> (_that);
+
+    if (that->isInitialized())
+      this->initialize();
+    else
+      this->uninitialize();
+
     this->level = that->level;
     this->MPIDep = that->MPIDep;
+
+    dbg_lattice(this, that);
 }
 
 bool MPIDepLattice::operator==(const Lattice* _that) const
@@ -43,7 +51,7 @@ bool MPIDepLattice::meetUpdate(const Lattice* _that)
     return modified;
 }
 
-std::string MPIDepLattice::str(std::string indent)
+std::string MPIDepLattice::str(std::string indent) const
 {
     ostringstream outs;
     if(level == bottom) {
@@ -80,6 +88,8 @@ bool MPIDepAnalysisTransfer::finish()
 
 void MPIDepAnalysisTransfer::visit(SgFunctionCallExp* sgn)
 {
+    static unsigned fnctr = 0;
+
     ROSE_ASSERT(sgn != NULL);
     // Get arguments associated with function calls
     vector<SgExpression*> sgexprptrlist = (sgn->get_args())->get_expressions();
@@ -93,11 +103,15 @@ void MPIDepAnalysisTransfer::visit(SgFunctionCallExp* sgn)
         SgExpression* arg1 = *(++(sgexprptrlist.begin()));
         assert(arg1 != NULL);
         if(isSgAddressOfOp(arg1) && varID::isValidVarExp( (isSgAddressOfOp(arg1))->get_operand())) {
-                varID dep_var = SgExpr2Var( (isSgAddressOfOp(arg1))->get_operand());
-                MPIDepLattice* res_lattice = dynamic_cast<MPIDepLattice*> ( getLattice (dep_var));
+                varID          dep_var = SgExpr2Var((isSgAddressOfOp(arg1))->get_operand());
+                Lattice*       varlat = getLattice(dep_var);
+                MPIDepLattice* res_lattice = dynamic_cast<MPIDepLattice*>(varlat);
                 // NOTE: res_lattice can be NULL
                 // Why is it not initialized ?
+                std::cerr << "try: " << ++fnctr << "  " << varlat << "  " << res_lattice << std::endl;
+
                 if(res_lattice) {
+                    std::cerr << res_lattice << " -> T" << std::endl;
                     res_lattice->setToYes();
                     modified = true;
                 }
@@ -110,7 +124,10 @@ MPIDepAnalysis::genLattice(const Function& func, const DataflowNode& n, const No
 {
   map<varID, Lattice*> emptyM;
 
-  return new FiniteVarsExprsProductLattice(new MPIDepLattice, emptyM, (Lattice*) NULL, ldva, n, state);
+  FiniteVarsExprsProductLattice* prodLat = new FiniteVarsExprsProductLattice(new MPIDepLattice, emptyM, (Lattice*) NULL, ldva, n, state);
+
+  prodLat->initialize();
+  return prodLat;
 }
 
 std::vector<NodeFact*>
@@ -134,3 +151,22 @@ MPIDepAnalysis::getTransferVisitor(const Function& func, const DataflowNode& n, 
 }
 
 #endif /* OBSOLETE_CODE */
+
+
+void dbg_lattice(MPIDepLattice* to, const MPIDepLattice* from)
+{
+  static bool nl = false;
+
+  ROSE_ASSERT(to && from);
+  if (from->level == MPIDepLattice::yes)
+  {
+    if (nl) { nl = false; std::cerr << endl; }
+
+    std::cerr << from << "  -yes-> " << to << std::endl;
+  }
+  else
+  {
+    nl = true;
+    std::cerr << ".";
+  }
+}

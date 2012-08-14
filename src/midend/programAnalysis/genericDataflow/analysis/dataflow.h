@@ -566,14 +566,14 @@ class DFStateAtReturns : public NodeFact
 {
         // The dataflow state at the end of the function, merged over all the return statements
         // and the implicit return at the end of the function
-        LatticePtr _latsAtFuncReturn; // \todo remove _
+        LatticePtr& _latsAtFuncReturn; // \todo remove _
         // The dataflow state of the return value, merged over all the return statements
-        LatticePtr _latsRetVal; // \todo remove _
+        LatticePtr& _latsRetVal; // \todo remove _
 
         public:
         //DFStateAtReturns();
 
-        DFStateAtReturns(LatticePtr latsAtFuncReturn, LatticePtr latsRetVal);
+        DFStateAtReturns(LatticePtr& latsAtFuncReturn, LatticePtr& latsRetVal);
 
         // Returns a copy of this node fact
         NodeFact* copy() const;
@@ -584,10 +584,10 @@ class DFStateAtReturns : public NodeFact
         bool mergeReturnStates(const Function& func, FunctionState* fState, IntraProceduralDataflow* intraAnalysis);
 
         // Returns a reference to latsAtFuncReturn
-        LatticePtr getLatsAtFuncReturn() { return _latsAtFuncReturn; }
+        LatticePtr& getLatsAtFuncReturn() { return _latsAtFuncReturn; }
 
         // Returns a reference to latsRetVal
-        LatticePtr getLatsRetVal() { return _latsRetVal; }
+        LatticePtr& getLatsRetVal() { return _latsRetVal; }
 
         std::string str(std::string indent);
 };

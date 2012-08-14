@@ -19,8 +19,9 @@ bool pCFGIteratorTransfer::isMpiDepCond(SgIfStmt* sgif)
     MPIDepLattice* dep_lattice = dynamic_cast<MPIDepLattice*>(prodLat->getVarLattice(cond_expr_var));
     ROSE_ASSERT(dep_lattice);
 
+    std::cerr << dep_lattice << " == "  << (dep_lattice->getLevel() == MPIDepLattice::yes) << std::endl;
     if(dep_lattice->getLevel() == MPIDepLattice::yes)
-        return true;
+       return true;
 
     // return false otherwise
     return false;

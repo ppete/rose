@@ -203,10 +203,14 @@ class NodeState
 
         // returns the map containing all the lattices from above the node that are owned by the given analysis
         // (read/write access)
-        LatticePtr getLatticeAboveMod(const Analysis* analysis);
+        // \pp note that the reference to the LatticePtr& is necessary because
+        //     we may access store the lattice location at a time when the lattice is not set.
+        //     This behavior differs from the unmodifiable lattices returned by the functions above!
+        LatticePtr& getLatticeAboveMod(const Analysis* analysis);
+
         // returns the map containing all the lattices from below the node that are owned by the given analysis
         // (read/write access)
-        LatticePtr getLatticeBelowMod(const Analysis* analysis);
+        LatticePtr& getLatticeBelowMod(const Analysis* analysis);
 
         // deletes all lattices above this node associated with the given analysis
         void deleteLatticeAbove(const Analysis* analysis);

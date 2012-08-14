@@ -93,7 +93,7 @@ void NodeState::setLattice(const Analysis* analysis, LatticePtr lattice)
                 wB.release();
         #else
                 // set dfInfoAbove to lattices
-                dfInfoAbove[(Analysis*)analysis] = clone(lattice);
+                dfInfoAbove[(Analysis*)analysis] = lattice;
                 dfInfoBelow[(Analysis*)analysis] = clone(lattice);
         #endif
 
@@ -227,6 +227,11 @@ const AnyLattice& NodeState::getLatticeAbove(const Analysis* analysis, int latti
 }
 #endif /* OBSOLETE_CODE */
 
+// \pp if the nodestate has no information, we return a reference to a dummy-lattice
+//     not sure if this is the best way of handling the absence of state
+//     as in principle the state of the lattice could be accidentally modified.
+static LatticePtr dummyLattice(static_cast<Lattice*>(0));
+
 // returns the map containing all the lattices from above the node that are owned by the given analysis
 // (read-only access)
 ConstLatticePtr NodeState::getLatticeAbove(const Analysis* analysis) const
@@ -245,13 +250,12 @@ ConstLatticePtr NodeState::getLatticeAbove(const Analysis* analysis) const
         #endif
 
         // otherwise, return an empty pointer
-        Lattice* nullLattice = 0;
-        return ConstLatticePtr(nullLattice);
+        return dummyLattice;
 }
 
 // returns the map containing all the lattices from above the node that are owned by the given analysis
 // (read/write access)
-LatticePtr NodeState::getLatticeAboveMod(const Analysis* analysis)
+LatticePtr& NodeState::getLatticeAboveMod(const Analysis* analysis)
 {
         #ifdef THREADED
                 LatticeMap::accessor r;
@@ -265,8 +269,7 @@ LatticePtr NodeState::getLatticeAboveMod(const Analysis* analysis)
         #endif
 
         // otherwise, return an empty vector
-        Lattice* nullLattice = 0;
-        return LatticePtr(nullLattice);
+        return dummyLattice;
 }
 
 #if OBSOLETE_CODE
@@ -293,13 +296,12 @@ ConstLatticePtr NodeState::getLatticeBelow(const Analysis* analysis) const
         #endif
 
         // otherwise, return an empty vector
-        Lattice* nullLattice = 0;
-        return ConstLatticePtr(nullLattice);
+        return dummyLattice;
 }
 
 // returns the map containing all the lattices from below the node that are owned by the given analysis
 // (read/write access)
-LatticePtr NodeState::getLatticeBelowMod(const Analysis* analysis)
+LatticePtr& NodeState::getLatticeBelowMod(const Analysis* analysis)
 {
         #ifdef THREADED
                 LatticeMap::accessor r;
@@ -313,8 +315,7 @@ LatticePtr NodeState::getLatticeBelowMod(const Analysis* analysis)
         #endif
 
         // otherwise, return an empty vector
-        Lattice* nullLattice = 0;
-        return LatticePtr(nullLattice);
+        return dummyLattice;
 }
 
 // deletes all lattices above this node associated with the given analysis

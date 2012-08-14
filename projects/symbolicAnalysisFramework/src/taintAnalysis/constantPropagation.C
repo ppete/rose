@@ -5,47 +5,58 @@
 
 int constantPropagationAnalysisDebugLevel = 2;
 
+static size_t dbgcst = 0;
+
+void inccst()
+{
+  ++dbgcst;
+
+  if (dbgcst == 10)
+  {
+    std::cout << "!";
+  }
+}
+
+
 // **********************************************************************
 //                      ConstantPropagationLattice
 // **********************************************************************
 
 ConstantPropagationLattice::ConstantPropagationLattice()
-   {
-     this->value = 0;
-     this->level = bottom;
-   }
+{
+  this->value = 0;
+  this->level = bottom;
+}
 
 ConstantPropagationLattice::ConstantPropagationLattice( int v )
-   {
-     this->value = v;
-     this->level = constantValue;
-   }
+{
+ this->value = v;
+ this->level = constantValue;
+}
 
 ConstantPropagationLattice::ConstantPropagationLattice( short level, int v )
-   {
-     this->value = v;
-     this->level = level;
-   }
+{
+ this->value = v;
+ this->level = level;
+}
 
 // This is the same as the implicit definition, so it might not be required to be defined explicitly.
 // I am searching for the minimal example of the use of the data flow classes.
 ConstantPropagationLattice::ConstantPropagationLattice (const ConstantPropagationLattice & X)
-   {
-     this->value = X.value;
-     this->level = X.level;
-   }
+: FiniteLattice(X), value(X.value), level(X.level)
+{}
 
 int
 ConstantPropagationLattice::getValue() const
-   {
-     return value;
-   }
+{
+  return value;
+}
 
 short
 ConstantPropagationLattice::getLevel() const
-   {
-     return level;
-   }
+{
+  return level;
+}
 
 bool
 ConstantPropagationLattice::setValue(int x)
@@ -54,6 +65,7 @@ ConstantPropagationLattice::setValue(int x)
      bool modified = this->level != constantValue || this->value != value;
      this->value = x;
      level = constantValue;
+     inccst();
      return modified;
    }
 
@@ -63,6 +75,7 @@ ConstantPropagationLattice::setLevel(short x)
   // These are more than access functions, they return if the state of the lattice has changed.
      bool modified = this->level != x;
      level = x;
+     if (level == constantValue) inccst();
      return modified;
    }
 
@@ -126,7 +139,7 @@ ConstantPropagationLattice::operator==(const Lattice* X) const
 
 
 string
-ConstantPropagationLattice::str(string indent)
+ConstantPropagationLattice::str(string indent) const
    {
      ostringstream outs;
      if(level == bottom)
@@ -490,8 +503,7 @@ ConstantPropagationAnalysisTransfer::finish()
 
 ConstantPropagationAnalysisTransfer::ConstantPropagationAnalysisTransfer(const Function& func, const DataflowNode& n, NodeState& state, Lattice& dfInfo)
    : VariableStateTransfer<ConstantPropagationLattice>(func, n, state, dfInfo, constantPropagationAnalysisDebugLevel)
-   {
-   }
+   {}
 
 
 
@@ -513,9 +525,11 @@ ConstantPropagationAnalysis::genLattice(const Function& func, const DataflowNode
   // vector<Lattice*> initLattices;
 	  typedef std::map<varID, Lattice*> EmptyMap;
 
-	  return new FiniteVarsExprsProductLattice(new ConstantPropagationLattice(), EmptyMap()/*genConstVarLattices()*/,
-	                                           (Lattice*)NULL, ldva, /*func, */n, state);
+    ConstantPropagationLattice*    constlat = new ConstantPropagationLattice;
+	  FiniteVarsExprsProductLattice* prodlat = new FiniteVarsExprsProductLattice(constlat, EmptyMap()/*genConstVarLattices()*/, (Lattice*)NULL, ldva, /*func, */n, state);
 
+    prodlat->initialize();
+    return prodlat;
    }
 
 std::vector<NodeFact*>

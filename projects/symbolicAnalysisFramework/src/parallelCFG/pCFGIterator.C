@@ -138,6 +138,8 @@ void pCFGIterator::resetPSet(unsigned int pSet, LatticePtr dfInfo)
 //     3. Split a process set based on rank dependent condition
 bool pCFGIterator::runAnalysis_pCFG(const Function& func, NodeState* state, pCFG_Checkpoint* chkpt)
 {
+    static int ctr = 0;
+
     std::cout << "CLIENT RUN ANALYSIS PCFG\n";
     string indent="";
     DataflowNode funcCFGStart = cfgUtils::getFuncStartCFG(func.get_definition());
@@ -249,6 +251,13 @@ bool pCFGIterator::runAnalysis_pCFG(const Function& func, NodeState* state, pCFG
                 // initalization happens as the analysis progresses
                 // TODO: Use annotations to decide if the nod should be created
                 pCFGNode descNode(curNode);
+                std::cerr << ++ctr << indent << descNode.str() <<"\n";
+
+                if (ctr == 35)
+                {
+                  std::cerr << "!";
+                }
+
 
                 //TODO: Check if need to merge
                 // merge => two psets at same dataflow node &  same status

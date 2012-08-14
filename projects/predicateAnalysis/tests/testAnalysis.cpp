@@ -221,20 +221,32 @@ struct InductionVariableAnalyzer
   void analzye(ReachingDefPtr rdef)
   {
     // already handled
-    if (loopdata.find(rdef) != loopdata.end()) { std::cerr << "ok." << std::endl; return; };
+    if (loopdata.find(rdef) != loopdata.end())
+    {
+      //~ std::cerr << "ok." << std::endl;
+      return;
+    }
 
     // we are interested to find induction variables, thus
     //   we start only from phis
-    if (!rdef->isPhiFunction()) { std::cerr << "!phi." << std::endl; return; }
+    if (!rdef->isPhiFunction())
+    {
+      //~ std::cerr << "!phi." << std::endl;
+      return;
+    }
 
     VertexSet res = detectCycles(rdef, rdef).first;
 
-    if (!validateLoopModel(res, rdef)) { std::cerr << "!val" << std::endl; return; }
+    if (!validateLoopModel(res, rdef))
+    {
+      //~ std::cerr << "!val" << std::endl;
+      return;
+    }
 
     InductionEquation ivar = getInductionEquation(res, rdef);
 
-    std::cerr << ivar << std::endl;
-    std::cerr << "done." << std::endl;
+    std::cout << ivar << std::endl;
+    std::cout << "done." << std::endl;
   }
 
   static
@@ -710,13 +722,13 @@ struct PredicateAnalyzer
     const predicate_set* predset = lookup_predicate_set(n);
     if (!predset || (!constrainedBy(n, *predset))) return;
 
-    std::cerr << "found interesting predicate-set for: " << n.unparseToString()
-              << " in " << sg::ancestor<SgStatement>(n).unparseToString()
-              << ": " << *predset;
+    //~ std::cerr << "found interesting predicate-set for: " << n.unparseToString()
+              //~ << " in " << sg::ancestor<SgStatement>(n).unparseToString()
+              //~ << ": " << *predset;
 
     SSARep               defset = SSAPredicate::varsUsed(n);
 
-    std::cerr << "|" << defset.size() << "|" << std::endl;
+    //~ std::cerr << "|" << defset.size() << "|" << std::endl;
 
     ROSE_ASSERT(defset.size() == 1); // we deal only with a single variable
     ssaanalyzer.analzye(*defset.begin());

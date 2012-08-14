@@ -118,8 +118,7 @@ class TaintLattice : public FiniteLattice
     void clear() {} // \pp \todo remove
 
     // debug print
-    std::string str(std::string indent="");
-
+    std::string str(std::string indent="") const;
 };
 
 class TaintAnalysisTransfer : public VariableStateTransfer<TaintLattice>

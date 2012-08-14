@@ -680,7 +680,8 @@ VarsExprsProductLattice::VarsExprsProductLattice
 
 // Create a copy of that. It is assumed that the types of all the lattices in  VarsExprsProductLattice that are
 // the same as in this.
-VarsExprsProductLattice::VarsExprsProductLattice(const VarsExprsProductLattice& that) : n(that.n), state(that.state)
+VarsExprsProductLattice::VarsExprsProductLattice(const VarsExprsProductLattice& that)
+: Lattice(that), n(that.n), state(that.state)
 {
         //Dbg::dbg << "    VarsExprsProductLattice::VarsExprsProductLattice(const VarsExprsProductLattice& that)"<<endl;
         allVarLattice=NULL;
@@ -724,10 +725,11 @@ int VarsExprsProductLattice::getVarIndex(const varID& var)
 }
 
 // Overwrites the state of this Lattice with that of that Lattice
-void VarsExprsProductLattice::copy(Lattice* that_arg)
+void VarsExprsProductLattice::copy(const Lattice* that_arg)
 {
-        VarsExprsProductLattice* that = dynamic_cast<VarsExprsProductLattice*>(that_arg);
+        const VarsExprsProductLattice* that = dynamic_cast<const VarsExprsProductLattice*>(that_arg);
         ROSE_ASSERT(that);
+
         copy(that);
 }
 // Overwrites the state of this Lattice with that of that Lattice
@@ -833,10 +835,10 @@ void VarsExprsProductLattice::copy(const VarsExprsProductLattice* that)
         //Dbg::dbg << "    "<<str("        ")<<endl;
 }
 
-bool VarsExprsProductLattice::meetUpdate(Lattice *lThat)
+bool VarsExprsProductLattice::meetUpdate(const Lattice *lThat)
 {
   bool modified = false;
-  VarsExprsProductLattice *that = dynamic_cast<VarsExprsProductLattice *>(lThat);
+  const VarsExprsProductLattice *that = dynamic_cast<const VarsExprsProductLattice *>(lThat);
   ROSE_ASSERT(that);
 
 #if OBSOLETE_CODE
@@ -847,7 +849,7 @@ bool VarsExprsProductLattice::meetUpdate(Lattice *lThat)
   }
 #endif /* OBSOLETE_CODE */
 
-  for (map<varID, int>::iterator i_that = that->varLatticeIndex.begin(); i_that != that->varLatticeIndex.end(); ++i_that) {
+  for (map<varID, int>::const_iterator i_that = that->varLatticeIndex.begin(); i_that != that->varLatticeIndex.end(); ++i_that) {
     map<varID, int>::iterator i_this = varLatticeIndex.find(i_that->first);
     if (varLatticeIndex.end() == i_this) {
       Dbg::dbg << "VarsExprsProductLattice::meetUpdate is missing variable w/ ID" << i_that->first << endl;
@@ -949,11 +951,11 @@ void VarsExprsProductLattice::remapVars(const map<varID, varID>& varNameMap, con
 // those variables, while leaving its state for other variables alone.
 // We do not force child classes to define their own versions of this function since not all
 //    Lattices have per-variable information.
-void VarsExprsProductLattice::incorporateVars(Lattice* that_arg)
+void VarsExprsProductLattice::incorporateVars(const Lattice* that_arg)
 {
         initialize();
 
-        VarsExprsProductLattice* that = dynamic_cast<VarsExprsProductLattice*>(that_arg); ROSE_ASSERT(that);
+        const VarsExprsProductLattice* that = dynamic_cast<const VarsExprsProductLattice*>(that_arg); ROSE_ASSERT(that);
         // Both lattices need to be talking about variables in the same function
         //ROSE_ASSERT(&n == &that->n);
         //ROSE_ASSERT(&state == &that->state);
@@ -963,7 +965,7 @@ void VarsExprsProductLattice::incorporateVars(Lattice* that_arg)
         }
 
         // Iterate through all the lattices of constant variables, copying any lattices in That to This
-        for(map<varID, Lattice*>::iterator var=that->constVarLattices.begin(); var!=that->constVarLattices.end(); var++) {
+        for(map<varID, Lattice*>::const_iterator var=that->constVarLattices.begin(); var!=that->constVarLattices.end(); var++) {
                 if(constVarLattices.find(var->first) != constVarLattices.end()) {
                         ROSE_ASSERT(constVarLattices[var->first]);
                         constVarLattices[var->first]->copy(var->second);
@@ -974,7 +976,7 @@ void VarsExprsProductLattice::incorporateVars(Lattice* that_arg)
         }
 
         // Iterate through all the variables mapped by this lattice, copying any lattices in That to This
-        for(map<varID, int>::iterator var = that->varLatticeIndex.begin(); var != that->varLatticeIndex.end(); var++)
+        for(map<varID, int>::const_iterator var = that->varLatticeIndex.begin(); var != that->varLatticeIndex.end(); var++)
         {
                 if(varLatticeIndex.find(var->first) != varLatticeIndex.end()) {
                         ROSE_ASSERT(lattices[varLatticeIndex[var->first]]);
@@ -1032,16 +1034,16 @@ Lattice* VarsExprsProductLattice::project(SgExpression* expr) const
 // returned by project(). unProject() must incorporate this dataflow state into the overall state it holds.
 // Call must make an internal copy of the passed-in lattice and the caller is responsible for deallocating it.
 // Returns true if this causes this to change and false otherwise.
-bool VarsExprsProductLattice::unProject(SgExpression* expr, Lattice* exprState_arg)
+bool VarsExprsProductLattice::unProject(SgExpression* expr, const Lattice* exprState_arg)
 {
         varID exprVar = SgExpr2Var(expr);
-        VarsExprsProductLattice* exprState = dynamic_cast<VarsExprsProductLattice*>(exprState_arg);
+        const VarsExprsProductLattice* exprState = dynamic_cast<const VarsExprsProductLattice*>(exprState_arg);
         ROSE_ASSERT(exprState);
 
         // Make sure that exprState has a mapping for exprVar
         varID thatVar("$");
         ROSE_ASSERT(exprState->varLatticeIndex.find(thatVar) != exprState->varLatticeIndex.end());
-        int thatIndex = exprState->varLatticeIndex[thatVar];
+        int thatIndex = exprState->varLatticeIndex.find(thatVar)->second;
         Lattice *thatLattice = exprState->lattices[thatIndex];
         ROSE_ASSERT(thatLattice);
 
@@ -1187,10 +1189,12 @@ FiniteVarsExprsProductLattice::FiniteVarsExprsProductLattice(
 }
 
 FiniteVarsExprsProductLattice::FiniteVarsExprsProductLattice(const FiniteVarsExprsProductLattice& that) :
-        VarsExprsProductLattice(that), FiniteProductLattice()
+        Lattice(that), VarsExprsProductLattice(that), FiniteProductLattice()
 {
         //Dbg::dbg << "FiniteVarsExprsProductLattice::copy n="<<n.getNode()<<" = <"<<Dbg::escape(n.getNode()->unparseToString())<<" | "<<n.getNode()->class_name()<<" | "<<n.getIndex()<<">"<<endl;
         verifyFinite();
+
+        ROSE_ASSERT(this->isInitialized() == that.isInitialized());
 }
 
 // returns a copy of this lattice

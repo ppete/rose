@@ -57,21 +57,22 @@ void EvaluationPass::visit(const Function& func, const DataflowNode& n, NodeStat
         i++, j++) {
 
         // check if we are testing for the same varID
-        ROSE_ASSERT((i->str().compare(j->str())) == 0);
+        ROSE_ASSERT(i->str() == j->str());
         ConstantPropagationLattice *cpaVarLattice = dynamic_cast<ConstantPropagationLattice*> (cpa_lat->getVarLattice(*i));
         TaintLattice *taVarLattice = dynamic_cast<TaintLattice*> (ta_lat->getVarLattice(*j));
+
+        ROSE_ASSERT(cpaVarLattice && taVarLattice);
 
         //NOTE: our only taint source is a function returning constant
         if(taVarLattice->getLevel() == TaintLattice::taintyes) {
             if(cpaVarLattice->getLevel() == ConstantPropagationLattice::constantValue) {
-                failure = failure || false;
+                // failure = failure || false;
                 pass++;
             }
             else {
                 failure = true;
                 fail++;
             }
-
         }
     }
 }
