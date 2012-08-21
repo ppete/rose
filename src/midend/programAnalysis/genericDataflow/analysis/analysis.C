@@ -730,6 +730,7 @@ bool ContextInsensitiveInterProceduralDataflow::transfer(
            const Function& func, PartPtr p, NodeState& state, 
            const vector<Lattice*>& dfInfo, vector<Lattice*>** retState, bool fw)
 {
+<<<<<<< HEAD
   bool modified = false;
   SgFunctionCallExp* call = isSgFunctionCallExp(p.getNode());
   Function callee(call);
@@ -770,7 +771,7 @@ bool ContextInsensitiveInterProceduralDataflow::transfer(
       { printf("argParamMap[%s] = %s \n", it->first.str().c_str(), it->second.str().c_str()); }*/
       remappedL->remapVars(argParamMap, callee);
       
-      //Dbg::dbg << "      remappedL=["<<calleeL<<"] "<<remappedL->str("  ")<<endl;
+      Dbg::dbg << "      remappedL=["<<calleeL<<"] "<<remappedL->str("  ")<<endl;
       
       // update the callee's Lattice with the new information at the call site
       modified = calleeL->meetUpdate(remappedL) || modified;
@@ -812,7 +813,7 @@ bool ContextInsensitiveInterProceduralDataflow::transfer(
       // Create a copy of the current lattice, remapped for the callee function's variables
       Lattice* remappedL = calleeL->copy();
       if(analysisDebugLevel>=1)
-        Dbg::dbg << "      remappedL-after=["<<remappedL<<"] "<<calleeL->str("  ")<<endl;
+          Dbg::dbg << "      remappedL-after=["<<remappedL<<"] "<<calleeL->str("  ")<<endl << remappedL->str(" ") << endl;
       map<varID, varID> paramArgByRefMap;
       FunctionState::setParamArgByRefMap(call, paramArgByRefMap);
       /*Dbg::dbg << "#paramArgByRefMap="<<paramArgByRefMap.size()<<endl;
@@ -821,7 +822,7 @@ bool ContextInsensitiveInterProceduralDataflow::transfer(
       remappedL->remapVars(paramArgByRefMap, func);
       
       //Dbg::dbg << "      callerL-after=["<<callerL<<"] "<<callerL->str("  ")<<endl;
-      //Dbg::dbg << "      +remappedL-after=["<<remappedL<<"] "<<remappedL->str("  ")<<endl;
+      Dbg::dbg << "      +remappedL-after=["<<remappedL<<"] "<<remappedL->str("  ")<<endl;
       
       // update the caller's Lattice with the new information at the call site
       callerL->incorporateVars(remappedL);

@@ -154,7 +154,7 @@ if test "x$enableval" = "xyes" ; then
        ],
        [AC_MSG_RESULT([done])],
        gcc_version=`gcc -dumpversion`
-       [AC_MSG_FAILURE([your GCC $gcc_version version is currently NOT supported by ROSE])])
+       [AC_MSG_FAILURE([your GCC $gcc_version version is currently NOT supported by ROSE. GCC 4.0.x to 4.4.x is supported now.])])
       AC_LANG_POP([C])
 else
     AC_MSG_RESULT([skipping])
@@ -494,7 +494,8 @@ AM_CONDITIONAL(ROSE_USING_BOOST_VERSION_1_45,test "x$rose_boost_version" = "x104
 AM_CONDITIONAL(ROSE_USING_BOOST_VERSION_1_46,test "x$rose_boost_version" = "x104600" -o "x$_version" = "x1.46")
 AM_CONDITIONAL(ROSE_USING_BOOST_VERSION_1_46,test "x$rose_boost_version" = "x104601" -o "x$_version" = "x1.46")
 AM_CONDITIONAL(ROSE_USING_BOOST_VERSION_1_47,test "x$rose_boost_version" = "x104700" -o "x$_version" = "x1.47")
-AM_CONDITIONAL(ROSE_USING_BOOST_VERSION_1_48,test "x$rose_boost_version" = "x104800" -o "x$_version" = "x1.48")
+# not ready
+#AM_CONDITIONAL(ROSE_USING_BOOST_VERSION_1_48,test "x$rose_boost_version" = "x104800" -o "x$_version" = "x1.48")
 
 # DQ (10/18/2010): Error checking for Boost version.
 if test "x$rose_boost_version" = "x103600" -o "x$_version" = "x1.36" \
@@ -509,12 +510,13 @@ if test "x$rose_boost_version" = "x103600" -o "x$_version" = "x1.36" \
    -o "x$rose_boost_version" = "x104500" -o "x$_version" = "x1.45" \
    -o "x$rose_boost_version" = "x104600" -o "x$_version" = "x1.46" \
    -o "x$rose_boost_version" = "x104601" -o "x$_version" = "x1.46" \
-   -o "x$rose_boost_version" = "x104700" -o "x$_version" = "x1.47" \
-   -o "x$rose_boost_version" = "x104800" -o "x$_version" = "x1.48"
+   -o "x$rose_boost_version" = "x104700" -o "x$_version" = "x1.47" 
+# Not ready   
+#   -o "x$rose_boost_version" = "x104800" -o "x$_version" = "x1.48"
 then
     echo "Reasonable version of Boost found!"
 else
-    ROSE_MSG_ERROR([Unsupported version of Boost: '$_version' ('$rose_boost_version')])
+    ROSE_MSG_ERROR([Unsupported version of Boost: '$_version' ('$rose_boost_version'). Only 1.36 to 1.47 is supported now.])
 fi
 
 # DQ (12/22/2008): Fix boost configure to handle OS with older version of Boost that will
@@ -1053,6 +1055,9 @@ if test x$edg_opencl = xtrue; then
   AC_MSG_WARN([Add OpenCL specific headers to the include-staging directory.])
   GENERATE_OPENCL_SPECIFIC_HEADERS
 fi
+
+# support for Unified Parallel Runtime, check for CUDA and OpenCL
+ROSE_SUPPORT_UPR
 
 # *********************************************************************
 # Option to control internal support of PPL (Parma Polyhedron Library)
@@ -1891,6 +1896,18 @@ src/3rdPartyLibraries/qrose/Components/Common/icons/Makefile
 src/3rdPartyLibraries/qrose/Components/QueryBox/Makefile
 src/3rdPartyLibraries/qrose/Components/SourceBox/Makefile
 src/3rdPartyLibraries/qrose/Components/TreeBox/Makefile
+src/3rdPartyLibraries/UPR/Makefile
+src/3rdPartyLibraries/UPR/docs/Makefile
+src/3rdPartyLibraries/UPR/docs/doxygen/Makefile
+src/3rdPartyLibraries/UPR/docs/doxygen/doxy.conf
+src/3rdPartyLibraries/UPR/examples/Makefile
+src/3rdPartyLibraries/UPR/examples/cuda/Makefile
+src/3rdPartyLibraries/UPR/examples/opencl/Makefile
+src/3rdPartyLibraries/UPR/examples/xomp/Makefile
+src/3rdPartyLibraries/UPR/include/Makefile
+src/3rdPartyLibraries/UPR/include/UPR/Makefile
+src/3rdPartyLibraries/UPR/lib/Makefile
+src/3rdPartyLibraries/UPR/tools/Makefile
 src/ROSETTA/Makefile
 src/ROSETTA/src/Makefile
 src/frontend/Makefile
