@@ -730,7 +730,6 @@ bool ContextInsensitiveInterProceduralDataflow::transfer(
            const Function& func, PartPtr p, NodeState& state, 
            const vector<Lattice*>& dfInfo, vector<Lattice*>** retState, bool fw)
 {
-<<<<<<< HEAD
   bool modified = false;
   SgFunctionCallExp* call = isSgFunctionCallExp(p.getNode());
   Function callee(call);
