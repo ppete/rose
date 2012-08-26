@@ -1,1 +1,0 @@
-/usr/local/include/./boost/polygon/detail/polygon_45_touch.hpp
