@@ -74,10 +74,10 @@ typedef boost::shared_ptr<OrthoArrayMemLocObject> OrthoArrayMemLocObjectPtr;
  ***** OrthogonalArrayAnalysis *****
  ***********************************/
 
-class OrthogonalArrayAnalysis : virtual public ComposedAnalysis
+class OrthogonalArrayAnalysis : virtual public IntraUndirDataflow
 {
   public:
-  OrthogonalArrayAnalysis() {}
+  OrthogonalArrayAnalysis() : IntraUndirDataflow() {}
   
   void runAnalysis(const Function&  func, NodeState* state, bool, std::set<Function>) { }
   

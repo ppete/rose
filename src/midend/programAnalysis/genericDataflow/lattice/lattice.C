@@ -278,15 +278,20 @@ string IntMaxLattice::str(string indent)
  *** ProductLattice ***
  **********************/
 
+ProductLattice::ProductLattice(const ProductLattice& that) : Lattice(that.part)
+{
+  isFinite = true;
+  level = that.level;
+  init(that.lattices);
+}
+
 ProductLattice::ProductLattice(PartPtr p) : Lattice(p) {
+  isFinite = true;
   level = uninitialized;
 }
 
-/*ProductLattice::ProductLattice() {
-  level = uninitialized;
-}*/
-
 ProductLattice::ProductLattice(const vector<Lattice*>& lattices, PartPtr p) : Lattice(p) {
+  isFinite = true;
   level = uninitialized;
   init(lattices);
 }
@@ -301,6 +306,8 @@ ProductLattice::~ProductLattice()
 void ProductLattice::init(const vector<Lattice*>& lattices)
 {
   this->lattices = lattices;
+  for(std::vector<Lattice*>::const_iterator l=lattices.begin(); l!=lattices.end(); l++)
+    if(!((*l)->finiteLattice())) isFinite = false;
 }
 
 // initializes this Lattice to its default state
@@ -328,6 +335,12 @@ void ProductLattice::copy_lattices(vector<Lattice*>& newLattices) const
     newLattices.push_back((*it)->copy());
 }
 
+// returns a copy of this lattice
+Lattice* ProductLattice::copy() const
+{
+  return new ProductLattice(*this);
+}
+
 // overwrites the state of this Lattice with that of that Lattice
 void ProductLattice::copy(Lattice* that_arg)
 {
@@ -339,6 +352,83 @@ void ProductLattice::copy(Lattice* that_arg)
     delete *lat;
   lattices.clear();
   that->copy_lattices(lattices);
+}
+
+/*// Called by analyses to transfer this lattice's contents from a caller function's scope to the scope of the 
+//    callee function. If this this lattice maintains any information on the basis of individual MemLocObjects 
+//    these mappings must be converted from the caller's context to the callee's through a mapping from the
+//    call arguments to the callee's parameters. Implementations of this function are expected to return a 
+//    newly-allocated lattice that only contains information about MemLocObjects that are in the values of the r2eML 
+//    map and excludes information about the other MemLocObjects previously maintained by this Lattice.
+// r2eML - maps MemLocObjects that identify the arguments of a given function call to the corresponding 
+//    parameters of the callee function.
+//    ASSUMED: full mustEquals information is available for the keys and values of this map. They must be
+//       variable references or expressions.
+// Returns true if this causes the Lattice object to change and false otherwise.
+Lattice* ProductLattice::remapCaller2Callee(const std::map<MemLocObjectPtr, MemLocObjectPtr>& r2eML)
+{
+  ProductLattice* pl = new ProductLattice(part);
+  for(std::vector<Lattice*>::iterator l=lattices.begin(); l!=lattices.end(); l++)
+    pl->lattices.push_back((*l)->remapCaller2Callee(r2eML));
+  return pl;
+}
+
+// Called by analyses to transfer this lattice's contents from a callee function's scope back to the scope of 
+//    the caller function, in a mirror image of what remapCaller2Callee to callee does. remapCaller2Callee 
+//     only keeps the portion of the original lattice callerL that has a corresponding mapping in the callee to 
+//     produce lattice caleeL. Thus, remapCallee2Caller is called on callerL and is given calleeL as an 
+//     argument and must take all the information about all the MemLocObjects that are the values of the r2eML
+//     map and and bring it back to callerL.
+// Returns true if this causes the Lattice object to change and false otherwise.
+bool ProductLattice::remapCallee2Caller(const std::map<MemLocObjectPtr, MemLocObjectPtr>& r2eML, Lattice* calleeL)
+{
+  ProductLattice* pl = dynamic_cast<ProductLattice*>(calleeL);
+  ROSE_ASSERT(pl);
+  ROSE_ASSERT(lattices.size() == pl->lattices.size());
+  
+  bool modified = false;
+  for(std::vector<Lattice*>::iterator rl=lattices.begin(), el=pl->lattices.begin(); 
+      rl!=lattices.end(); rl++, el++)
+    modified = (*rl)->remapCallee2Caller(r2eML, *el) || modified;
+  
+  return modified;
+}*/
+
+// Called by analyses to transfer this lattice's contents from across function scopes from a caller function 
+//    to a callee's scope and vice versa. If this this lattice maintains any information on the basis of 
+//    individual MemLocObjects these mappings must be converted, with MemLocObjects that are keys of the ml2ml 
+//    replaced with their corresponding values. It is assumed that the keys and values of ml2ml correspond to
+//    MemLocObjects that are syntactically explicit in the code (e.g. lexical variables or expressions), 
+//    meaning that must-equal information is available for them with respect to each other and other 
+//    syntactically explicit variables. Implementations of this function are expected to return a 
+//    newly-allocated lattice that only contains information about MemLocObjects that are in the values of the 
+//    ml2ml map or those reachable from these objects via operations such as LabeledAggregate::getElements() or
+//    Pointer::getDereference(). Information about the other MemLocObjects maintained by this Lattice may be 
+//    excluded if it does not contribute to this goal.
+//    ASSUMED: full mustEquals information is available for the keys and values of this map. They must be
+//       variable references or expressions.
+Lattice* ProductLattice::remapML(const std::set<pair<MemLocObjectPtr, MemLocObjectPtr> >& ml2ml) {
+  ProductLattice* pl = new ProductLattice(part);
+  for(std::vector<Lattice*>::iterator l=lattices.begin(); l!=lattices.end(); l++)
+    pl->lattices.push_back((*l)->remapML(ml2ml));
+  return pl;
+}
+
+// Adds information about the MemLocObjects in newL to this Lattice, overwriting any information previously 
+//    maintained in this lattice about them.
+// Returns true if the Lattice state is modified and false otherwise.
+bool ProductLattice::replaceML(Lattice* newL)
+{
+  ProductLattice* nl = dynamic_cast<ProductLattice*>(newL);
+  ROSE_ASSERT(nl);
+  ROSE_ASSERT(lattices.size() == nl->lattices.size());
+  
+  bool modified = false;
+  for(std::vector<Lattice*>::iterator t=lattices.begin(), n=nl->lattices.begin(); 
+      t!=lattices.end(); t++, n++)
+    modified = (*t)->replaceML(*n) || modified;
+  
+  return modified;
 }
 
 // computes the meet of this and that and saves the result in this
@@ -360,7 +450,13 @@ bool ProductLattice::meetUpdate(Lattice* that_arg)
   
   return modified;
 }
-  
+
+// Computes the meet of this and that and returns the result
+bool ProductLattice::finiteLattice()
+{
+  return isFinite;
+}
+
 bool ProductLattice::operator==(Lattice* that_arg)
 {
   ProductLattice* that = dynamic_cast<ProductLattice*>(that_arg);
@@ -427,9 +523,10 @@ bool InfiniteProductLattice::widenUpdate(InfiniteLattice* that)
        return modified;
 }
 
-/*******************************
+/* GB: Deprecated since varIDs are now deprecated.
+/ *******************************
  *** VariablesProductLattice ***
- *******************************/
+ ******************************* /
 
 // maps variables to the index of their respective Lattice objects in a given function
 map<Function, map<varID, int> > VariablesProductLattice::varLatticeIndex;
@@ -462,9 +559,6 @@ VariablesProductLattice::VariablesProductLattice(
   setUpVarLatticeIndex();
   
   varIDSet refVars = getVisibleVars(func);
-/*printf("VariablesProductLattice: in %s(), refVars=\n", func.get_name().str());
-for(varIDSet::iterator it = refVars.begin(); it!= refVars.end(); it++)
-{ printf("    %s\n", (*it).str().c_str()); }*/
   
   // iterate over all the variables (arrays and/or scalars) referenced in this function
   // adding their initial lattices to initState
@@ -473,9 +567,6 @@ for(varIDSet::iterator it = refVars.begin(); it!= refVars.end(); it++)
     lattices.push_back(l);
   }
   
-  /*// add constVarLattices to lattices
-  for(map<varID, Lattice*>::iterator it = constVarLattices.begin(); it!=constVarLattices.end(); it++)
-    lattices.push_back(it->second);*/
   // We don't add constVarLattices because they never change and thus, we don't need to 
   // perform standard dataflow operations on them, such as meets and widenings
   
@@ -603,10 +694,6 @@ Lattice* VariablesProductLattice::getVarLattice(const Function& func, const varI
   // else, if this is a constant variable
   else if((constIt = constVarLattices.find(var)) != constVarLattices.end())
   {
-/*printf("getVarLattice() var=%s -> const lattice %p, var==constIt->first = %d   < =%d, > = %d\n", var.str().c_str(), constIt->second, var==constIt->first, var<constIt->first, var>constIt->first);
-for(map<varID, Lattice*>::iterator it = constVarLattices.begin(); it!=constVarLattices.end(); it++)
-{ cout << "   constant "<<it->first.str()<<" -> "<<it->second->str("")<<"\n"; } */
-
     // return its lattice
     return constIt->second;
   }
@@ -628,12 +715,6 @@ for(map<varID, Lattice*>::iterator it = constVarLattices.begin(); it!=constVarLa
     // otherwise, return NULL, since there is no lattice
     else
     {
-      /*printf("getVarLattice(%s(), %s) returning NULL\n", func.get_name().str(), var.str().c_str());
-      for(map<varID, int>::iterator it = (varLatticeIndex.find(func)->second).begin(); 
-          it!=(varLatticeIndex.find(func)->second).end(); it++)
-      {
-        printf("getVarLattice() pair <%s, %d>\n", it->first.str().c_str(), it->second);
-      }*/
       return NULL;
     }
   }
@@ -682,7 +763,6 @@ void VariablesProductLattice::copy(Lattice* that_arg)
   ProductLattice::copy(that_arg);
 }
 
-
 // Called by analyses to create a copy of this lattice. However, if this lattice maintains any 
 //    information on a per-variable basis, these per-variable mappings must be converted from 
 //    the current set of variables to another set. This may be needed during function calls, 
@@ -690,7 +770,7 @@ void VariablesProductLattice::copy(Lattice* that_arg)
 // varNameMap - maps all variable names that have changed, in each mapping pair, pair->first is the 
 //        old variable and pair->second is the new variable
 // func - the function that the copy Lattice will now be associated with
-/*Lattice**/void VariablesProductLattice::remapVars(const map<varID, varID>& varNameMap, const Function& newFunc)
+void VariablesProductLattice::remapVars(const map<varID, varID>& varNameMap, const Function& newFunc)
 {
 //      printf("remapVars(%s()), func=%s\n", newFunc.get_name().str(), func.get_name().str());
   
@@ -716,7 +796,7 @@ void VariablesProductLattice::copy(Lattice* that_arg)
         varID oldVar = itR->first;
 //            printf("   oldVar = %s\n", oldVar.str().c_str());
         
-        Lattice* l = /*newVPL->*/getVarLattice(func, oldVar);
+        Lattice* l = getVarLattice(func, oldVar);
 //            printf("   l=%p\n", l);
         ROSE_ASSERT(l);
         //newLattices[getVarIndex(newFunc, newVar)] = l;
@@ -730,10 +810,8 @@ void VariablesProductLattice::copy(Lattice* that_arg)
     if(!found)
     {
       // check if this new variable is in fact an old variable 
-      Lattice* l = /*newVPL->*/getVarLattice(func, newVar);
+      Lattice* l = getVarLattice(func, newVar);
       
-      /*cout << "VariablesProductLattice::remapVars() l = "<<l->str("") << "\n";
-      cout << "      getVarIndex(newFunc, newVar)=" << getVarIndex(newFunc, newVar) << "\n";*/
       // if it does, add it at its new index
       if(l)
         //newLattices[getVarIndex(newFunc, newVar)] = l;
@@ -741,15 +819,15 @@ void VariablesProductLattice::copy(Lattice* that_arg)
       // if not, add a fresh lattice for this variable
       else
         //newLattices[getVarIndex(newFunc, newVar)] = perVarLattice->copy();
-        newLattices.push_back(/*perVarLattice->copy()*/NULL);
+        newLattices.push_back(NULL);
     }
   }
   
   // replace newVPL information with the remapped information
-  /*newVPL->*/func = newFunc;
-  /*newVPL->*/lattices.clear();
+  func = newFunc;
+  lattices.clear();
 //      !!! What about old Lattices in lattices ???
-  /*newVPL->*/lattices = newLattices;
+  lattices = newLattices;
 }
 
 // Called by analyses to copy over from the that Lattice dataflow information into this Lattice.
@@ -783,19 +861,6 @@ void VariablesProductLattice::incorporateVars(Lattice* that_arg)
   }
 }
 
-// Functions used to inform this lattice that a given variable is now in use (e.g. a variable has entered 
-//    scope or an expression is being analyzed) or is no longer in use (e.g. a variable has exited scope or
-//    an expression or variable is dead).
-// It is assumed that a newly-added variable has not been added before and that a variable that is being
-//    removed was previously added
-/*void VariablesProductLattice::addVar(varID var)
-{
-}
-void VariablesProductLattice::remVar(varID var)
-{
-  
-}*/
-
 // The string that represents this object
 // If indent!="", every line of this string must be prefixed by indent
 // The last character of the returned string should not be '\n', even if it is a multi-line string.
@@ -817,15 +882,6 @@ string VariablesProductLattice::str(string indent)
     outs  << "\n";       //fflush(stdout);
   }
   
-/*      vector<Lattice*>::const_iterator it = lattices.begin();
-  while(it!=lattices.end())
-  {
-    vector<Lattice*>::const_iterator curIt = it;
-    it++;
-    // print the current variable, but skip the allVarLattice if we're doing it
-    if(!allVarLattice || it!=lattices.end())
-      outs << indent << "    " << it->first.str() << ": " << (*curIt)->str("") << "\n";
-  }*/
   if(allVarLattice)
     outs << indent << "allVarLattice: \n"<<allVarLattice->str(indent)<<"\n";
   
@@ -839,5 +895,5 @@ string VariablesProductLattice::str(string indent)
   }
   outs << indent << "]\n";fflush(stdout);
   return outs.str();
-}
+}*/
 }; // using namespace

@@ -10,14 +10,14 @@
 using namespace std;
 namespace dataflow {
 // Records that this analysis has initialized its state at this node
-void NodeState::initialized(Analysis* analysis)
+void NodeState::initialized(Analysis* init)
 {
         #ifdef THREADED
         BoolMap::accessor wInit;
-        initializedAnalyses.insert(wInit, (Analysis*)analysis);
+        initializedAnalyses.insert(wInit, (Analysis*)init);
         wInit->second = true;
         #else
-        initializedAnalyses[(Analysis*)analysis] = true;
+        initializedAnalyses[(Analysis*)init] = true;
         #endif
 }
 
@@ -357,6 +357,24 @@ bool NodeState::eqLattices(const vector<Lattice*>& latticesA,
                 Dbg::dbg << "        *lA!=lB = "<<(*lA!=lB)<<"\n";
                 Dbg::dbg << "        *lA!=*lB = "<<(*lA!=*lB)<<"\n";*/
                 if(*lA != *lB) return false;
+        }
+        
+        return true;
+}
+// Returns true if the two lattices vectors contain equivalent information and false otherwise
+bool NodeState::equivLattices(const std::vector<Lattice*>& latticesA,
+                              const std::vector<Lattice*>& latticesB)
+{
+        //printf("    latticesA.size()=%d latticesB.size()=%d\n", latticesA.size(), latticesB.size());
+        if(latticesA.size() != latticesB.size())
+                return false;
+        
+        vector<Lattice*>::const_iterator itA, itB;
+        for(itA = latticesA.begin(), itB = latticesB.begin();
+            itA != latticesA.end(), itB != latticesB.end();
+            itA++, itB++)
+        {
+                if(!((*itA)->equiv(*itB))) return false;
         }
         
         return true;
@@ -800,7 +818,7 @@ void NodeState::initNodeStateMap(bool (*filter) (CFGNode cfgn))
                 for(VirtualCFG::iterator it(funcCFGStart); it!=VirtualCFG::iterator::end(); it++)
                 {
                         PartPtr p = *it;
-                        Dbg::dbg << "NodeState::initNodeStateMap() p=<"<<Dbg::escape(p.getNode()->unparseToString())<<" | "<<p.getNode()->class_name()<<">"<<endl;
+                        //Dbg::dbg << "NodeState::initNodeStateMap() p=<"<<Dbg::escape(p.getNode()->unparseToString())<<" | "<<p.getNode()->class_name()<<">"<<endl;
 
                         // the number of NodeStates associated with the given dataflow node
                         int numStates=1;

@@ -139,16 +139,7 @@ class IntMaxLattice : public InfiniteLattice
   //    the result in this lattice
   // returns true if this causes the lattice's state to change, false otherwise
   bool maximum(int value);
-  
-  // Functions used to inform this lattice that a given variable is now in use (e.g. a variable has entered 
-  //    scope or an expression is being analyzed) or is no longer in use (e.g. a variable has exited scope or
-  //    an expression or variable is dead).
-  // It is assumed that a newly-added variable has not been added before and that a variable that is being
-  //    removed was previously added
-  // These are empty in this lattice since it is now explicitly aware of variables.
-  /*void addVar(varID var) {};
-  void remVar(varID var) {};*/
-  
+    
   // Set this Lattice object to represent the set of all possible execution prefixes.
   // Return true if this causes the object to change and false otherwise.
   bool setToFull();
@@ -172,12 +163,15 @@ class ProductLattice : public virtual Lattice
   // This object's current level in the lattice: (uninitialized or initialized)
   short level;
   
+  bool isFinite;
+  
   protected:
   std::vector<Lattice*> lattices;
   
   public:
   //ProductLattice();
   ProductLattice(PartPtr p);
+  ProductLattice(const ProductLattice& that);
   ProductLattice(const std::vector<Lattice*>& lattices, PartPtr p);
   ~ProductLattice();
   
@@ -191,25 +185,67 @@ class ProductLattice : public virtual Lattice
   // initializes the given vector with a copy of the lattices vector
   void copy_lattices(std::vector<Lattice*>& newLattices) const;
   
-  // overwrites the state of this Lattice with that of that Lattice
-  virtual void copy(Lattice* that);
+  // Returns a copy of this lattice
+  Lattice* copy() const;
+        
+  // Overwrites the state of this Lattice with that of that Lattice
+  void copy(Lattice* that);
+  
+  /*
+  // Called by analyses to transfer this lattice's contents from a caller function's scope to the scope of the 
+  //    callee function. If this this lattice maintains any information on the basis of individual MemLocObjects 
+  //    these mappings must be converted from the caller's context to the callee's through a mapping from the
+  //    call arguments to the callee's parameters. Implementations of this function are expected to return a 
+  //    newly-allocated lattice that only contains information about MemLocObjects that are in the values of the r2eML 
+  //    map and excludes information about the other MemLocObjects previously maintained by this Lattice.
+  // r2eML - maps MemLocObjects that identify the arguments of a given function call to the corresponding 
+  //    parameters of the callee function.
+  //    ASSUMED: full mustEquals information is available for the keys and values of this map. They must be
+  //       variable references or expressions.
+  // Returns true if this causes the Lattice object to change and false otherwise.
+  Lattice* remapCaller2Callee(const std::map<MemLocObjectPtr, MemLocObjectPtr>& r2eML);
+
+  // Called by analyses to transfer this lattice's contents from a callee function's scope back to the scope of 
+  //    the caller function, in a mirror image of what remapCaller2Callee to callee does. remapCaller2Callee 
+  //     only keeps the portion of the original lattice callerL that has a corresponding mapping in the callee to 
+  //     produce lattice caleeL. Thus, remapCallee2Caller is called on callerL and is given calleeL as an 
+  //     argument and must take all the information about all the MemLocObjects that are the values of the r2eML
+  //     map and and bring it back to callerL.
+  // Returns true if this causes the Lattice object to change and false otherwise.
+  bool remapCallee2Caller(const std::map<MemLocObjectPtr, MemLocObjectPtr>& r2eML, Lattice* calleeL);*/
+  
+  // Called by analyses to transfer this lattice's contents from across function scopes from a caller function 
+  //    to a callee's scope and vice versa. If this this lattice maintains any information on the basis of 
+  //    individual MemLocObjects these mappings must be converted, with MemLocObjects that are keys of the ml2ml 
+  //    replaced with their corresponding values. If a given key of ml2ml does not appear in the lattice, it must
+  //    be added to the lattice and assigned a default initial value. In many cases (e.g. over-approximate sets 
+  //    of MemLocObjects) this may not require any actual insertions.
+  // It is assumed that the keys and values of ml2ml correspond to MemLocObjects that are syntactically explicit 
+  //    in the code (e.g. lexical variables or expressions), meaning that must-equal information is available 
+  //    for them with respect to each other and other syntactically explicit variables. Implementations of this 
+  //    function are expected to return a newly-allocated lattice that only contains information about 
+  //    MemLocObjects that are in the values of the ml2ml map or those reachable from these objects via 
+  //    operations such as LabeledAggregate::getElements() or Pointer::getDereference(). Information about the 
+  //    other MemLocObjects maintained by this Lattice may be excluded if it does not contribute to this goal.
+  //    ASSUMED: full mustEquals information is available for the keys and values of this map. They must be
+  //       variable references or expressions.
+  Lattice* remapML(const std::set<pair<MemLocObjectPtr, MemLocObjectPtr> >& ml2ml);
+
+  // Adds information about the MemLocObjects in newL to this Lattice, overwriting any information previously 
+  //    maintained in this lattice about them.
+  // Returns true if the Lattice state is modified and false otherwise.
+  bool replaceML(Lattice* newL);
   
   // computes the meet of this and that and saves the result in this
   // returns true if this causes this to change and false otherwise
-  virtual bool meetUpdate(Lattice* that);
+  bool meetUpdate(Lattice* that);
   
-  virtual bool operator==(Lattice* that);
+  // Computes the meet of this and that and returns the result
+  virtual bool finiteLattice();
+  
+  bool operator==(Lattice* that);
   
   int getLevel() { return level; }
-  
-  // Functions used to inform this lattice that a given variable is now in use (e.g. a variable has entered 
-  //    scope or an expression is being analyzed) or is no longer in use (e.g. a variable has exited scope or
-  //    an expression or variable is dead).
-  // It is assumed that a newly-added variable has not been added before and that a variable that is being
-  //    removed was previously added
-  // These are empty in this lattice since it is now explicitly aware of variables.
-  /*void addVar(varID var) {};
-  void remVar(varID var) {};*/
   
   // Set this Lattice object to represent the set of all possible execution prefixes.
   // Return true if this causes the object to change and false otherwise.
@@ -221,24 +257,22 @@ class ProductLattice : public virtual Lattice
   // The string that represents this object
   // If indent!="", every line of this string must be prefixed by indent
   // The last character of the returned string should not be '\n', even if it is a multi-line string.
-  virtual std::string str(std::string indent="");
+  std::string str(std::string indent="");
 };
 
-class FiniteProductLattice : public virtual ProductLattice, public virtual FiniteLattice
+class FiniteProductLattice : public virtual ProductLattice
 {
   public:
-  /*FiniteProductLattice() : ProductLattice(), FiniteLattice()
-  {}*/
 
-  FiniteProductLattice(PartPtr p) : Lattice(p), ProductLattice(p), FiniteLattice(p)
+  FiniteProductLattice(PartPtr p) : Lattice(p), ProductLattice(p)
   {}
   
-  FiniteProductLattice(const std::vector<Lattice*>& lattices, PartPtr p) : Lattice(p), ProductLattice(lattices, p), FiniteLattice(p)
+  FiniteProductLattice(const std::vector<Lattice*>& lattices, PartPtr p) : Lattice(p), ProductLattice(lattices, p)
   {
     verifyFinite();
   }
   
-  FiniteProductLattice(const FiniteProductLattice& that) : Lattice(that.part), ProductLattice(that.lattices, that.part), FiniteLattice(that.part)
+  FiniteProductLattice(const FiniteProductLattice& that) : Lattice(that.part), ProductLattice(that.lattices, that.part)
   {
     verifyFinite();
   }
@@ -249,6 +283,9 @@ class FiniteProductLattice : public virtual ProductLattice, public virtual Finit
         ROSE_ASSERT((*it)->finiteLattice());
   }
   
+  bool finiteLattice()
+  { return true;  }
+  
   // Returns a copy of this lattice
   Lattice* copy() const
   {
@@ -256,20 +293,21 @@ class FiniteProductLattice : public virtual ProductLattice, public virtual Finit
   }
 };
 
-class InfiniteProductLattice : public virtual ProductLattice, public virtual InfiniteLattice
+class InfiniteProductLattice : public virtual ProductLattice
 {
   public:
-  /*InfiniteProductLattice() : ProductLattice(), InfiniteLattice()
-  {}*/
   
-  InfiniteProductLattice(PartPtr p) : Lattice(p), ProductLattice(p), InfiniteLattice(p)
+  InfiniteProductLattice(PartPtr p) : Lattice(p), ProductLattice(p)
   {}
   
-  InfiniteProductLattice(const std::vector<Lattice*>& lattices, PartPtr p) : Lattice(p), ProductLattice(lattices, p), InfiniteLattice(p)
+  InfiniteProductLattice(const std::vector<Lattice*>& lattices, PartPtr p) : Lattice(p), ProductLattice(lattices, p)
   {}
   
-  InfiniteProductLattice(const InfiniteProductLattice& that) : Lattice(that.part), ProductLattice(that.lattices, that.part), InfiniteLattice(that.part)
+  InfiniteProductLattice(const InfiniteProductLattice& that) : Lattice(that.part), ProductLattice(that.lattices, that.part)
   {}
+  
+  bool finiteLattice()
+  { return false; }
   
   // returns a copy of this lattice
   Lattice* copy() const
@@ -282,8 +320,8 @@ class InfiniteProductLattice : public virtual ProductLattice, public virtual Inf
   bool widenUpdate(InfiniteLattice* that);
 };
 
-
-class VariablesProductLattice : public virtual ProductLattice
+/* GB: Deprecated since varIDs are now deprecated.
+ * class VariablesProductLattice : public virtual ProductLattice
 {
   protected:
   // if =true, a lattice is created for each scalar variable
@@ -368,22 +406,14 @@ class VariablesProductLattice : public virtual ProductLattice
   // varNameMap - maps all variable names that have changed, in each mapping pair, pair->first is the 
   //        old variable and pair->second is the new variable
   // func - the function that the copy Lattice will now be associated with
-  /*Lattice**/void remapVars(const std::map<varID, varID>& varNameMap, const Function& newFunc);
+  void remapVars(const std::map<varID, varID>& varNameMap, const Function& newFunc);
   
   // Called by analyses to copy over from the that Lattice dataflow information into this Lattice.
   // that contains data for a set of variables and incorporateVars must overwrite the state of just
   // those variables, while leaving its state for other variables alone.
   // We do not force child classes to define their own versions of this function since not all
   //    Lattices have per-variable information.
-  void incorporateVars(Lattice* that);    
-  
-  // Functions used to inform this lattice that a given variable is now in use (e.g. a variable has entered 
-  //    scope or an expression is being analyzed) or is no longer in use (e.g. a variable has exited scope or
-  //    an expression or variable is dead).
-  // It is assumed that a newly-added variable has not been added before and that a variable that is being
-  //    removed was previously added
-  /*void addVar(varID var);
-  void remVar(varID var);*/
+  void incorporateVars(Lattice* that);
   
   // The string that represents this object
   // If indent!="", every line of this string must be prefixed by indent
@@ -475,6 +505,6 @@ class InfiniteVariablesProductLattice : public virtual VariablesProductLattice, 
   {
     return new InfiniteVariablesProductLattice(*this);
   }
-};
+};*/
 }; // namespace dataflow
 #endif

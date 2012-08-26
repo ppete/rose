@@ -5,7 +5,12 @@ int global;
   return global+arg;
 }*/
 
-void foo()
+int bar(int& q) {
+	q += 123;
+	return 456;
+}
+
+int foo()
 {
   int a=1;
   int b;
@@ -34,9 +39,13 @@ void foo()
   a = array[d]+1;
 
   // array[13] => 13
+  /*int arr2d[1][1];
+  arr2d[0][array[0]] = 1;*/
   array[array[d]] = 13;
   // array[14] => 14
   array[a] = 14;
+  array[a+1] = bar(array[a]);
+  return array[a] + array[a+1];
 
   //global = 1;
   //int e=bar(8);

@@ -82,7 +82,7 @@ Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;"<<objPtr2->str("        ")<<endl;*/
 bool AbstractObjectMap::setToFull()
 {
   bool modified = !isFull;
-  mapElements.clear();
+  items.clear();
   isFull = true;
   return modified;
 }
@@ -91,8 +91,8 @@ bool AbstractObjectMap::setToFull()
 // Return true if this causes the object to change and false otherwise.
 bool AbstractObjectMap::setToEmpty()
 {
-  bool modified = !mapElements.empty();
-  mapElements.clear();
+  bool modified = !items.empty();
+  items.clear();
   return modified;
 }
 
@@ -108,8 +108,8 @@ std::string AbstractObjectMap::strp(PartPtr part, std::string indent)
   oss << "[AbstractObjectMap: ";
   
   //printf("[AbstractObjectMap: "); fflush(stdout);
-  for(list<MapElement>::iterator it = mapElements.begin();
-       it != mapElements.end(); it++) {
+  for(list<MapElement>::iterator it = items.begin();
+       it != items.end(); it++) {
     //printf("\n%s%p => %p\n", indent.c_str(), it->first.get(), it->second.get()); fflush(stdout);
     oss << endl<<indent<<"&nbsp;&nbsp;&nbsp;&nbsp;"<<it->first->strp(part, indent+"&nbsp;&nbsp;&nbsp;&nbsp;")<<" => "<<it->second->str(indent+"&nbsp;&nbsp;&nbsp;&nbsp;");
   }
@@ -138,7 +138,7 @@ bool AbstractObjectMap::insert(AbstractObjectPtr o, LatticePtr lattice) {
   // if we can just combine the new lattice with the old mapping
   list<MapElement>::iterator it;
   int i=0;
-  for(it = mapElements.begin(); it != mapElements.end(); i++) {
+  for(it = items.begin(); it != items.end(); i++) {
     AbstractObjectPtr keyElement = it->first;
     if(AbstractObjectMapDebugLevel>=2) Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;keyElement="<<keyElement->str("            ")<<" mustEqual(o, keyElement, part)="<<mustEqual(o, keyElement, part)<<" insertDone="<<insertDone<<" mustEqualSeen="<<mustEqualSeen<<endl;
     // If we're done inserting, don't do it again
@@ -148,7 +148,7 @@ bool AbstractObjectMap::insert(AbstractObjectPtr o, LatticePtr lattice) {
         if(mustEqualSeen) {
           list<MapElement>::iterator itNext = it;
           itNext++;
-          mapElements.erase(it);
+          items.erase(it);
           it = itNext;
         } else 
           it++;
@@ -177,9 +177,9 @@ bool AbstractObjectMap::insert(AbstractObjectPtr o, LatticePtr lattice) {
         if(AbstractObjectMapDebugLevel>=1) Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;Removing i="<<i<<", inserting "<<o->strp(part, "        ")<<"=>"<<lattice->str("        ")<<endl;
         list<MapElement>::iterator itNext = it;
         itNext++;
-        mapElements.erase(it);
+        items.erase(it);
         it = itNext;
-        mapElements.push_front(MapElement(o, lattice));
+        items.push_front(MapElement(o, lattice));
         retVal = true;
       } else {
         //Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;No Change"<<endl;
@@ -193,7 +193,7 @@ bool AbstractObjectMap::insert(AbstractObjectPtr o, LatticePtr lattice) {
     // If the element on the o-frontier may-equals o then insert a new o->lattice mapping 
     // since the new lattice cannot be combined with the mapping of *it
     else if(mayEqual(o, keyElement, part)) { 
-      mapElements.push_front(MapElement(o, lattice));
+      items.push_front(MapElement(o, lattice));
       it++;
       retVal = true;
       insertDone = true;
@@ -203,7 +203,7 @@ bool AbstractObjectMap::insert(AbstractObjectPtr o, LatticePtr lattice) {
   
   if(!insertDone) {
     // There are no objects within this map on the o-frontier. As such, add an o->lattice mapping
-    mapElements.push_front(MapElement(o, lattice));
+    items.push_front(MapElement(o, lattice));
     
     retVal = true;
   }
@@ -223,12 +223,12 @@ bool AbstractObjectMap::remove(AbstractObjectPtr abstractObjectPtr) {
 // If this map corresponds to all possible mappings, all removals are redundant
   if(isFull) { return false; }
   
-  for (list<MapElement>::iterator it = mapElements.begin();
-       it != mapElements.end(); it++) {
+  for (list<MapElement>::iterator it = items.begin();
+       it != items.end(); it++) {
     AbstractObjectPtr keyElement = it->first;
     // For remove operation, we use must equal policy                                                               
     if (mustEqual(abstractObjectPtr, keyElement, part)) {
-      it = mapElements.erase(it);
+      it = items.erase(it);
       return true;
     }
   }
@@ -252,8 +252,8 @@ LatticePtr AbstractObjectMap::get(AbstractObjectPtr abstractObjectPtr) {
   }
   
   LatticePtr ret;
-  for (list<MapElement>::iterator it = mapElements.begin();
-       it != mapElements.end(); it++) {
+  for (list<MapElement>::iterator it = items.begin();
+       it != items.end(); it++) {
     AbstractObjectPtr keyElement = it->first;
     // For get operation, we can apply either must or may equal policy. This depends on the                         
     // functor
@@ -293,81 +293,219 @@ void AbstractObjectMap::copy(Lattice* thatL) {
   try {
     AbstractObjectMap * that = dynamic_cast <AbstractObjectMap*> (thatL);
     equalFunctor = that->equalFunctor;
-    mapElements = that->mapElements;
+    items = that->items;
   } catch (bad_cast & bc) { 
     ROSE_ASSERT(false);
   }
 }
 
-// Called by analyses to create a copy of this lattice. However, if this lattice maintains any 
-//    information on a per-variable basis, these per-variable mappings must be converted from 
-//    the current set of variables to another set. This may be needed during function calls, 
-//    when dataflow information from the caller/callee needs to be transferred to the callee/calleer.
-// We do not force child classes to define their own versions of this function since not all
-//    Lattices have per-variable information.
-// varNameMap - maps all variable names that have changed, in each mapping pair, pair->first is the 
-//              old variable and pair->second is the new variable
-// func - the function that the copy Lattice will now be associated with
-void AbstractObjectMap::remapVars(const std::map<varID, varID>& varNameMap, const Function& newFunc) 
+/*// Called by analyses to transfer this lattice's contents from a caller function's scope to the scope of the 
+//    callee function. If this this lattice maintains any information on the basis of individual MemLocObjects 
+//    these mappings must be converted from the caller's context to the callee's through a mapping from the
+//    call arguments to the callee's parameters. Implementations of this function are expected to return a 
+//    newly-allocated lattice that only contains information about MemLocObjects that are in the values of the r2eML 
+//    map. Information about the other MemLocObjects maintained by this Lattice may be excluded but only as
+//    long as this does not lose information about the objects in the values of r2eML.
+// r2eML - maps MemLocObjects that identify the arguments of a given function call to the corresponding 
+//    parameters of the callee function.
+//    ASSUMED: full mustEquals information is available for the keys and values of this map. They must be
+//       variable references or expressions.
+// Returns true if this causes the Lattice object to change and false otherwise.
+Lattice* AbstractObjectMap::remapCaller2Callee(const std::map<MemLocObjectPtr, MemLocObjectPtr>& r2eML)
 {
-  // Function needs to be updated to work with AbstractObjects
-}
-
-// Called by analyses to copy over from the that Lattice dataflow information into this Lattice.
-// that contains data for a set of variables and incorporateVars must overwrite the state of just
-// those variables, while leaving its state for other variables alone.
-// We do not force child classes to define their own versions of this function since not all
-//    Lattices have per-variable information.
-void AbstractObjectMap::incorporateVars(Lattice* thatL)
-{
-// TODO
-  try {
-    AbstractObjectMap * that = dynamic_cast <AbstractObjectMap*> (thatL);
-    ROSE_ASSERT(that); // using that to avoid warning
-  } catch (bad_cast & bc) { 
-    ROSE_ASSERT(false);
-  }
-}
-
-// Returns a1 Lattice that describes the information known within this lattice
-// about the given expression. By default this could be the entire lattice or any portion of it.
-// For example, a lattice that maintains lattices for different known variables and expression will 
-// return a lattice for the given expression. Similarly, a lattice that keeps track of constraints
-// on values of variables and expressions will return the portion of the lattice that relates to
-// the given expression. 
-// It it legal for this function to return NULL if no information is available.
-// The function's caller is responsible for deallocating the returned object
-// !!! UNIMPLEMENTED
-Lattice* AbstractObjectMap::project(SgExpression* expr) {
-  // Function needs to be updated to work with AbstractObjects
-  /*AbstractObjectPtr ml = (AbstractObjectPtr)composer->Expr2MemLoc(expr);
-  Lattice* l = get(ml);
-  AbstractObjectMap* newmap = new AbstractObjectMap(equalFunctor);
-  newmap->insert(ml, l);
-  return newmap;*/
+  if(isFull) { return copy(); }
   
-  /* Not quite right, will need to change project API to accept abstractobjects
-  AbstractObjectMap* m = new AbstractObjectMap(equalFunctor, defaultLat, ceo, part);
-  if(isFull) m->setToFull();
-  else {
-    AbstractObjectPtr o = (AbstractObjectPtr)ceo->Expr2Obj(expr);
-    LatticePtr l = AbstractObjectMap::get(o);
-    m->insert(o, l);
+  AbstractObjectMap* newM = new AbstractObjectMap(equalFunctor, defaultLat, part);
+  
+  for(std::list<MapElement>::iterator i=items.begin(); i!=items.end(); i++)
+  {
+    // If the current item is to be transferred from the caller to the callee scopes
+    for(std::map<MemLocObjectPtr, MemLocObjectPtr>::const_iterator r2e=r2eML.begin(); r2e!=r2eML.end(); r2e++) {
+      if(i->first->mustEqual(r2e->first, part)) {
+        // Add the corresponding value and the lattice mapping to the new map 
+        // in the same order as they appear in the original map
+        newM->items.push_back(make_pair(boost::static_pointer_cast<AbstractObject>(r2e->second), i->second));
+        break;
+      }
+    }
   }
   
-  return m; */
-  return NULL;
+  return newM;
 }
 
-// The inverse of project(). The call is provided with an expression and a Lattice that describes
-// the dataflow state that relates to expression. This Lattice must be of the same type as the lattice
-// returned by project(). unProject() must incorporate this dataflow state into the overall state it holds.
-// Call must make an internal copy of the passed-in lattice and the caller is responsible for deallocating it.
-// Returns true if this causes this to change and false otherwise.
-// !!! UNIMPLEMENTED
-bool AbstractObjectMap::unProject(SgExpression* expr, Lattice* exprState) 
-{ //return meetUpdate(exprState); 
-  return false;
+// Called by analyses to transfer this lattice's contents from a callee function's scope back to the scope of 
+//    the caller function, in a mirror image of what remapCaller2Callee to callee does. remapCaller2Callee 
+//     only keeps the portion of the original lattice callerL that has a corresponding mapping in the callee to 
+//     produce lattice caleeL. Thus, remapCallee2Caller is called on callerL and is given calleeL as an 
+//     argument and must take all the information about all the MemLocObjects that are the values of the r2eML
+//     map and and bring it back to callerL.
+// Returns true if this causes the Lattice object to change and false otherwise.
+bool AbstractObjectMap::remapCallee2Caller(const std::map<MemLocObjectPtr, MemLocObjectPtr>& r2eML, Lattice* calleeL)
+{
+  AbstractObjectMap* calleeAOM = dynamic_cast<AbstractObjectMap*>(calleeL);
+  ROSE_ASSERT(calleeAOM);
+  
+  bool modified = false;
+  
+  for(std::map<MemLocObjectPtr, MemLocObjectPtr>::const_iterator r2e=r2eML.begin(); r2e!=r2eML.end(); r2e++) {
+    // Determine if the value of the current caller->callee mapping exists in the callee's map
+    bool existsInCallee=false;
+    LatticePtr calleeLattice;
+    for(std::list<MapElement>::iterator i=calleeAOM->items.begin(); i!=calleeAOM->items.end(); i++) {
+      if(i->first->mustEqual(r2e->second, part)) {
+        existsInCallee = true;
+        calleeLattice = i->second;
+        break;
+      }
+    }
+    
+    // Determine if the key of the current caller->callee mapping exists in this set
+    bool existsInCaller = false;
+    for(std::list<MapElement>::iterator i=items.begin(); i!=items.end(); i++) {
+      if(i->first->mustEqual(r2e->first, part)) {
+        existsInCaller = true;
+        
+        // If it does exist in the caller but not in the callee, remove it from the caller
+        if(!existsInCallee) {
+          std::list<MapElement>::iterator cur = i;
+          i++;
+          items.erase(cur);
+          modified = true;
+        // If it exists in both, copy the lattice from the caller to the callee
+        } else {
+          i->second = calleeLattice;
+          modified = true;
+          // NOTE: we need lattices to support lattice equality checking to determine whether the new lattice
+          //       adds new information
+        }
+        
+        break;
+      }
+    }
+    
+    // If the item exists in the callee but not the caller, add the corresponding key and its value to the caller
+    if(existsInCallee && !existsInCaller) {
+      items.push_back(make_pair(r2e->first, calleeLattice));
+      modified = true;
+    }
+    // If it exists in neither, there is nothing to be done
+  }
+  
+  return modified;
+}*/
+
+// Called by analyses to transfer this lattice's contents from across function scopes from a caller function 
+//    to a callee's scope and vice versa. If this this lattice maintains any information on the basis of 
+//    individual MemLocObjects these mappings must be converted, with MemLocObjects that are keys of the ml2ml 
+//    replaced with their corresponding values. If a given key of ml2ml does not appear in the lattice, it must
+//    be added to the lattice and assigned a default initial value. In many cases (e.g. over-approximate sets 
+//    of MemLocObjects) this may not require any actual insertions.
+// It is assumed that the keys and values of ml2ml correspond to MemLocObjects that are syntactically explicit 
+//    in the code (e.g. lexical variables or expressions), meaning that must-equal information is available 
+//    for them with respect to each other and other syntactically explicit variables. Implementations of this 
+//    function are expected to return a newly-allocated lattice that only contains information about 
+//    MemLocObjects that are in the values of the ml2ml map or those reachable from these objects via 
+//    operations such as LabeledAggregate::getElements() or Pointer::getDereference(). Information about the 
+//    other MemLocObjects maintained by this Lattice may be excluded if it does not contribute to this goal.
+//    ASSUMED: full mustEquals information is available for the keys and values of this map. They must be
+//       variable references or expressions.
+Lattice* AbstractObjectMap::remapML(const std::set<pair<MemLocObjectPtr, MemLocObjectPtr> >& ml2ml)
+{
+  if(isFull) { return copy(); }
+  
+  AbstractObjectMap* newM = new AbstractObjectMap(equalFunctor, defaultLat, part);
+  // Vector of flags that indicate whether a given key in ml2ml has been added to newM or not
+  vector<bool> ml2mlAdded;
+  // Initialize ml2mlAdded to all false
+  for(std::set<pair<MemLocObjectPtr, MemLocObjectPtr> >::const_iterator m=ml2ml.begin(); m!=ml2ml.end(); m++)
+    ml2mlAdded.push_back(false);
+  
+  for(std::list<MapElement>::iterator i=items.begin(); i!=items.end(); i++) {
+    // Flags that indicate whether the current item is mustEqual to any keys in ml2ml
+    bool existsMustEqual=false;
+    Dbg::dbg << "i="<<i->first->str()<<endl;
+    
+    int mIdx=0;
+    for(std::set<pair<MemLocObjectPtr, MemLocObjectPtr> >::const_iterator m=ml2ml.begin(); m!=ml2ml.end(); m++, mIdx++) {
+      Dbg::indent ind;
+      Dbg::dbg << mIdx << ": m="<<m->first->str()<<endl;
+      
+      // If the current item in this set may- or must-equals a key in ml2ml, record this and add the corresponding
+      // value in ml2ml to be added to newS
+      if(i->first->mustEqual(m->first, part)) {
+        existsMustEqual = true;
+        newM->items.push_back(make_pair(boost::static_pointer_cast<AbstractObject>(m->second), i->second));
+        // Remove the current pair from ml2mlCopy so we know that it doesn't need to be assigned the default lattice
+        //ml2mlCopy.erase(m);
+        ml2mlAdded[mIdx]=true;
+      } else if(i->first->mayEqual(m->first, part)) {
+        newM->items.push_front(make_pair(boost::static_pointer_cast<AbstractObject>(m->second), i->second));
+        // Remove the current pair from ml2mlCopy so we know that it doesn't need to be assigned the default lattice
+        //ml2mlCopy.erase(m);
+        ml2mlAdded[mIdx]=true;
+      }
+    }
+    
+    // If this item is not must-equal to some key(s) in ml2ml, copy it over to newS
+    if(!existsMustEqual) newM->items.push_back(make_pair(i->first, i->second));
+    // Otherwise, we skip this item since it will be replaced by the value(s) of the key(s) it was must-equal to
+  }
+  
+  // Iterate through the false mappings in ml2mlAdded (ml2ml keys that were not mapped to any items in this map)
+  // and add to newM a mapping of their values to defaultLat
+  int mIdx=0;
+  for(std::set<pair<MemLocObjectPtr, MemLocObjectPtr> >::iterator m=ml2ml.begin(); m!=ml2ml.end(); m++, mIdx++) {
+    if(!ml2mlAdded[mIdx])
+      newM->items.push_back(make_pair(m->second, defaultLat->copy()));
+  }
+  
+  /*AbstractObjectMap* newM = new AbstractObjectMap(equalFunctor, defaultLat, part);
+  std::set<pair<MemLocObjectPtr, MemLocObjectPtr> > ml2mlCopy = ml2ml;
+  
+  for(std::list<MapElement>::iterator i=items.begin(); i!=items.end(); i++)
+  {
+    // If the current item is to be transferred from the caller to the callee scopes
+    bool remapped = false;
+    for(std::set<pair<MemLocObjectPtr, MemLocObjectPtr> >::iterator m=ml2mlCopy.begin(); m!=ml2mlCopy.end(); m++) {
+      if(i->first->mustEqual(m->first, part)) {
+        // Add the corresponding value and the lattice mapping to the new map 
+        // in the same order as they appear in the original map
+        newM->items.push_back(make_pair(boost::static_pointer_cast<AbstractObject>(m->second), i->second));
+        // Remove the current pair from ml2mlCopy so we know that it doesn't need to be assigned the default lattice
+        ml2mlCopy.erase(m);
+        // Record that the current key has been remapped
+        remapped = true; 
+        break;
+      }
+    }
+    // If the current key was not remapped, add it under its current name
+    if(!remapped)
+      newM->items.push_back(make_pair(i->first, i->second));
+  }
+  
+  // Iterate through the remaining mappings in ml2mlCopy and add to newM a mapping of their values to defaultLat
+  for(std::set<pair<MemLocObjectPtr, MemLocObjectPtr> >::iterator m=ml2mlCopy.begin(); m!=ml2mlCopy.end(); m++) {
+    newM->items.push_back(make_pair(m->second, defaultLat->copy()));
+  }*/
+  
+  return newM;
+}
+
+// Adds information about the MemLocObjects in newL to this Lattice, overwriting any information previously 
+//    maintained in this lattice about them.
+// Returns true if the Lattice state is modified and false otherwise.
+bool AbstractObjectMap::replaceML(Lattice* newL)
+{
+  AbstractObjectMap* calleeAOM = dynamic_cast<AbstractObjectMap*>(newL);
+  ROSE_ASSERT(calleeAOM);
+  
+  bool modified = false;
+  
+  for(std::list<MapElement>::iterator i=calleeAOM->items.begin(); i!=calleeAOM->items.end(); i++) {
+    modified = insert(i->first, i->second) || modified;
+  }
+  
+  return modified;
 }
 
 // Computes the meet of this and that and saves the result in this
@@ -402,7 +540,7 @@ bool AbstractObjectMap::meetUpdate(Lattice* thatL)
     //   be to return the lattice stored under a_p. If a_p and b_q are not mayEqual to each other,
     //   either order is fine with no loss of precision.
     // The algorithm below chooses a simple order that is likely to work well in practice. It connects
-    //   the pairs of elements in this->mapElements(A) and that->mapElements(B) that are mustEqual and then
+    //   the pairs of elements in this->items(A) and that->items(B) that are mustEqual and then
     //   scans over each pair <a_i, b_j> them in the order they appear A, copying all the elements between
     //   the current b_j and the last b_j' if they've not already been copied over and if they don't have a
     //   mustEquals partner in A (these are handled by merging, as described above).
@@ -410,30 +548,30 @@ bool AbstractObjectMap::meetUpdate(Lattice* thatL)
     //   B: b_0 => r => b_1 => t => b_2 => b_3 => s
     //   merged: a_0 => a_1 => b_0 => r => a_2 => b_1 => b_2 => b_3 => s => a_3 => t
     
-    // For each element x in this->mapElements pointers that is mustEqual to an element y in
-    // that->mapElements, keeps the triple
-    //    - iterator that points to x in this->mapElements
-    //    - iterator that points to y in that->mapElements
-    //    - index of y in that->mapElements
-    // Maintained in order of this->mapElements.
+    // For each element x in this->items pointers that is mustEqual to an element y in
+    // that->items, keeps the triple
+    //    - iterator that points to x in this->items
+    //    - iterator that points to y in that->items
+    //    - index of y in that->items
+    // Maintained in order of this->items.
     list<pair<list<MapElement>::iterator, pair<list<MapElement>::iterator, int> > > thisMustEq2thatMustEq;
 
-    // For each element in that->mapElements keeps true if this element is mustEquals to some
-    // element in this->mapElements and false otherwise.
+    // For each element in that->items keeps true if this element is mustEquals to some
+    // element in this->items and false otherwise.
     list<bool> thatMustEq;
 
     // Initialize thatMustEq to all false
-    for(list<MapElement>::iterator itThat=that->mapElements.begin(); itThat!=that->mapElements.end(); itThat++)
+    for(list<MapElement>::iterator itThat=that->items.begin(); itThat!=that->items.end(); itThat++)
       thatMustEq.push_back(false);
 
-    // Determine which elements in this->mapElements are mustEqual to elements in that->mapElements
-    // and for these pairs merge the lattices from that->mapElements to this->mapElements.
-    for(list<MapElement>::iterator itThis=mapElements.begin(); 
-       itThis!=mapElements.end(); itThis++) {
+    // Determine which elements in this->items are mustEqual to elements in that->items
+    // and for these pairs merge the lattices from that->items to this->items.
+    for(list<MapElement>::iterator itThis=items.begin(); 
+       itThis!=items.end(); itThis++) {
       int i=0;
       list<bool>::iterator thatMEIt=thatMustEq.begin();
-      for(list<MapElement>::iterator itThat=that->mapElements.begin(); 
-         itThat!=that->mapElements.end(); itThat++, i++, thatMEIt++) {
+      for(list<MapElement>::iterator itThat=that->items.begin(); 
+         itThat!=that->items.end(); itThat++, i++, thatMEIt++) {
        // If we've found mustEqual pair of keys in this and that 
        if(mustEqual(itThis->first, itThat->first, part)) {
         // Record this pair
@@ -454,42 +592,42 @@ bool AbstractObjectMap::meetUpdate(Lattice* thatL)
     }
     //Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;thisMustEq2thatMustEq.size()="<<thisMustEq2thatMustEq.size()<<"\n";
     
-    // Copy over the mappings of all the elements in that->mapElements that were not mustEqual
-    // to any elements in this->mapElements. Although any order will work for these elements,
-    // keep them their order in that->mapElements.
+    // Copy over the mappings of all the elements in that->items that were not mustEqual
+    // to any elements in this->items. Although any order will work for these elements,
+    // keep them their order in that->items.
     int thatIdx=0;
-    list<MapElement>::iterator thatIt = that->mapElements.begin();
+    list<MapElement>::iterator thatIt = that->items.begin();
     list<bool>::iterator thatMEIt=thatMustEq.begin();
     for(list<pair<list<MapElement>::iterator, pair<list<MapElement>::iterator, int> > >::iterator meIt=thisMustEq2thatMustEq.begin();
        meIt!=thisMustEq2thatMustEq.end(); meIt++) {
-      // Copy over all the mappings from that->mapElements from thatIt to meIt's partner in that->mapElements
+      // Copy over all the mappings from that->items from thatIt to meIt's partner in that->items
       // if they have not already been copied because elements that are mustEqual to each other were ordered
-      // differently in this->mapElements and that->mapElements
+      // differently in this->items and that->items
       if(meIt->second.second >= thatIdx) {
         for(; thatIt!=meIt->second.first; thatIt++, thatIdx++, thatMEIt++)
-          // Copy over the current element from that->mapElements if it doesn't have a mustEqual 
-          // partner in this->mapElements (i.e. its already been handled)
+          // Copy over the current element from that->items if it doesn't have a mustEqual 
+          // partner in this->items (i.e. its already been handled)
           if(!(*thatMEIt)) {
             // NOTE: we do not currently update the part field in the lattice thatIt->second
             //       to refer to this->part. Perhaps we should make a copy of it and update it.
-            mapElements.insert(meIt->first, *thatIt);
+            items.insert(meIt->first, *thatIt);
             modified = true;
           }
-        // Advance thatIt and thatIdx once more to account for the partner in that->mapElements 
-        // of the current entry in this->mapElements
+        // Advance thatIt and thatIdx once more to account for the partner in that->items 
+        // of the current entry in this->items
         thatIt++;
         thatIdx++;
       }
     }
     
-    // Add all the elements from that->mapElements that remain
-    for(; thatIt!=that->mapElements.end(); thatIt++) {
+    // Add all the elements from that->items that remain
+    for(; thatIt!=that->items.end(); thatIt++) {
       // NOTE: we do not currently update the part field in the lattice thatIt->second
       //       to refer to this->part. Perhaps we should make a copy of it and update it.
-      mapElements.push_back(*thatIt);
+      items.push_back(*thatIt);
       modified = true;
     }
-    //Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;mapElements.size()="<<mapElements.size()<<"\n";
+    //Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;items.size()="<<items.size()<<"\n";
     
     // Compress all the elements from that which are now mustEqual to each 
     // other in this->part.
@@ -517,13 +655,13 @@ bool AbstractObjectMap::compressMustEq()
   
   bool modified = false;
   int xIdx=0;
-  for(list<MapElement>::iterator x = mapElements.begin(); x != mapElements.end(); x++, xIdx++) {
+  for(list<MapElement>::iterator x = items.begin(); x != items.end(); x++, xIdx++) {
     //Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;"<<xIdx<<" : x="<<x->first->str("")<<endl;
     // y starts from the element that follows x
     list<MapElement>::iterator y = x;
     y++;
     int yIdx = xIdx+1;
-    for(; y != mapElements.end(); yIdx++) {
+    for(; y != items.end(); yIdx++) {
       //Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"<<yIdx<<" : y="<<y->first->str("")<<endl;
       // If x and y are equal, merge their lattices and remove the later one
       if(mustEqual(x->first, y->first, part)) {
@@ -537,7 +675,7 @@ bool AbstractObjectMap::compressMustEq()
         
         list<MapElement>::iterator tmp = y;
         y++;
-        mapElements.erase(tmp);
+        items.erase(tmp);
         
         //Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;map="<<str("&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;")<<endl;
         

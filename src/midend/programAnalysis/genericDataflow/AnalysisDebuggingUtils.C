@@ -10,7 +10,8 @@
 #include "cfgUtils.h"
 #include "CallGraphTraverse.h"
 #include "analysisCommon.h"
-#include "dataflow.h"
+#include "compose.h"
+#include "functionState.h"
 #include "latticeFull.h"
 #include "printAnalysisStates.h"
 
@@ -134,6 +135,7 @@ void dbgBuf::init(std::streambuf* baseBuf)
         //numDivs = 0;
         parentDivs.empty();
         parentDivs.push_back(0);
+        justSynched = false;
         //cout << "Initially parentDivs (len="<<parentDivs.size()<<")\n";
 }
 
@@ -171,8 +173,39 @@ int dbgBuf::printString(string s)
         return 0;
 }
 
+// Get the current indentation within the current div
+std::string dbgBuf::getIndent()
+{
+  string out = "";
+  if(indents.size()>0) {
+    for(std::list<std::string>::iterator it=indents.rbegin()->begin(); it!=indents.rbegin()->end(); it++)
+      out += *it;
+    //cout << "getIndent("<<out<<")"<<endl;
+  }
+  return out;
+}
+
+// Add more indentation within the current div
+void dbgBuf::addIndent(std::string indent)
+{
+  indents.rbegin()->push_back(indent);
+  /*if(justSynched) {
+    int ret = printString(indent); if(ret != 0) return;
+  }*/
+}
+
+// Remove the most recently added indent within the current div
+void dbgBuf::remIndent()
+{
+  indents.rbegin()->pop_back();
+}
+
 streamsize dbgBuf::xsputn(const char * s, streamsize n)
 {
+  // Reset justSynched since we're now adding new characters after the last line break, meaning that no 
+  // additional indent will be needed for this line
+  justSynched = false;
+  
 //      cout << "xputn() ownerAccess="<<ownerAccess<<" n="<<n<<" s=\""<<string(s)<<"\"\n";
         /*if(synched && !ownerAccess) {
                 int ret2 = printIndent();
@@ -212,6 +245,9 @@ streamsize dbgBuf::xsputn(const char * s, streamsize n)
                                 if(s[j]=='\n') {
                                         ret = baseBuf->sputn(br, sizeof(br)-1);
                                         if(ret != sizeof(br)-1) return 0;
+                                        string indent = getIndent();
+                                        //cout << "New Line indent=\""<<indent<<"\""<<endl;
+                                        baseBuf->sputn(indent.c_str(), indent.size());
                                 } else if(s[j]==' ') {
                                         // If we're at a space and not inside an HTML tag, replace it with an HTML space escape code
                                         if(numOpenAngles==0) {
@@ -259,8 +295,10 @@ int dbgBuf::sync()
 
         //cout << "Synch synched="<<synched<<" ownerAccess="<<ownerAccess<<"\n";
         if(synched && !ownerAccess) {
-                int ret2 = printString("<br>\n");
-                if(ret2 != 0) return 0;
+                int ret;
+                ret = printString("<br>\n");    if(ret != 0) return 0;
+                ret = printString(getIndent()); if(ret != 0) return 0;
+                justSynched=true;
                 synched = false;
         }
         synched = true;
@@ -289,6 +327,8 @@ void dbgBuf::enterFunc(string funcName/*, string indent*/)
         // Add a new level to the parentDivs list, starting the index at 0
         parentDivs.push_back(0);
         //numDivs++;
+        
+        indents.push_back(std::list<std::string>());
 }
 
 void dbgBuf::exitFunc(string funcName)
@@ -305,6 +345,7 @@ void dbgBuf::exitFunc(string funcName)
         funcs.pop_back();
         //indents.pop_back();
         parentDivs.pop_back();
+        indents.pop_back();
 }
 
 /*********************
@@ -579,6 +620,18 @@ string dbgStream::addDOT(dottable& obj)
         return imgFName.str();
 }
 
+// Add a given amount of indent space to all subsequent text within the current function
+void dbgStream::addIndent(string indent)
+{
+        buf.addIndent(indent);
+}
+
+// Remove the most recently added indent
+void dbgStream::remIndent()
+{
+        buf.remIndent();
+}
+
 // Given a reference to an object that can be represented as a dot graph, create an image of it and return the string
 // that must be added to the output to include this image.
 std::string dbgStream::addDOTStr(dottable& obj)
@@ -688,13 +741,78 @@ void dbgStream::addDOT(string imgFName, string graphName, string dot, ostream& r
 
         bool initialized=false;
         dbgStream dbg;
-        
+
+/******************
+ ***** indent *****
+ ******************/
+indent::indent(int curDebugLevel, int targetDebugLevel) {
+  std::string space = "&nbsp;&nbsp;&nbsp;&nbsp;";
+  if(curDebugLevel >= targetDebugLevel) {
+    active = true;
+    //dbg << "Entering indent space=\""<<space<<"\""<<std::endl;
+    dbg.addIndent(space);
+  }
+  else
+    active = false;
+}
+indent::indent(int curDebugLevel, int targetDebugLevel, std::string space) {
+  if(curDebugLevel >= targetDebugLevel) {
+    active = true;
+    //dbg << "Entering indent space=\""<<space<<"\""<<std::endl;
+    dbg.addIndent(space);
+  }
+  else
+    active = false;
+}
+/*indent::indent() {
+  std::string space = "&nbsp;&nbsp;&nbsp;&nbsp;";
+  active = true;
+  //dbg << "Entering indent space=\""<<space<<"\""<<std::endl;
+  dbg.addIndent(space);
+}*/
+indent::indent(std::string space) {
+  active = true;
+  //dbg << "Entering indent space=\""<<space<<"\""<<std::endl;
+  dbg.addIndent(space);
+}
+indent::~indent() {
+  if(active) {
+    //dbg << "Exiting indent"<<std::endl;
+    dbg.remIndent();
+  }
+}
+
+/******************
+ ***** region *****
+ ******************/
+region::region(int curDebugLevel, int targetDebugLevel, int level, std::string label)
+{
+  if(curDebugLevel >= targetDebugLevel) {
+    active = true;
+    this->label = label;
+    enterFunc(label);
+  }
+  else
+    active = false;
+}
+region::region(int level, std::string label)
+{
+  active = true;
+  this->label = label;
+  enterFunc(label);
+}
+region::~region()
+{
+  if(active) {
+    exitFunc(label);
+  }
+}
         // Initializes the debug sub-system
         void init(string title, string workDir, string fName)
         {
                 if(initialized) return;
                         
-                { 
+                {
                         ostringstream cmd; cmd << "mkdir -p "<<workDir;
                         int ret = system(cmd.str().c_str());
                         if(ret == -1) { cout << "Dbg::init() ERROR creating directory \""<<workDir<<"\"!"; exit(-1); }

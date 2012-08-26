@@ -54,7 +54,13 @@ class dbgBuf: public std::streambuf
         
         // The number of divs that have been inserted into the output
         std::list<int> parentDivs;
-
+        // For each div a list of the strings that need to be concatenated to form the indent for each line
+        std::list<std::list<std::string> > indents;
+        
+        // Flag that indicates synch was just called to start a new line (if so then the next time 
+        // we get a new level of indent, it will add to print out the extra indent characters on top
+        // of what was already printed in synch).
+        bool justSynched;
 public:
         
         virtual ~dbgBuf() {};
@@ -76,6 +82,13 @@ private:
         int printString(std::string s);
         
         //virtual int sputc(char c);
+        
+        // Get the current indentation within the current div
+        std::string getIndent();
+        // Add more indentation within the current div
+        void addIndent(std::string indent);
+        // Remove the most recently added indent within the current div
+        void remIndent();
         
         virtual std::streamsize xsputn(const char * s, std::streamsize n);
         
@@ -138,10 +151,35 @@ public:
         std::string addDOT(std::string dot);
         // The common work code for all the addDOT methods
         void addDOT(std::string imgFName, std::string graphName, std::string dot, std::ostream& ret);
+        
+        // Add a given amount of indent space to all subsequent text within the current function
+        void addIndent(std::string indent);
+        // Remove the most recently added indent
+        void remIndent();
 };
 
         extern bool initialized;
         extern dbgStream dbg;
+
+class indent {
+public:
+  bool active;
+  indent(int curDebugLevel, int targetDebugLevel);
+  indent(int curDebugLevel, int targetDebugLevel, std::string space);
+  indent(std::string space="&nbsp;&nbsp;&nbsp;&nbsp;");
+  ~indent();
+};
+
+class region {
+public:
+  bool active;
+  std::string label;
+  static const int topLevel=0;
+  region(int curDebugLevel, int targetDebugLevel, int level, std::string label);
+  region(int level, std::string label);
+  ~region();
+};
+
         
         // Initializes the debug sub-system
         void init(std::string title, std::string workDir, std::string fName="debug");

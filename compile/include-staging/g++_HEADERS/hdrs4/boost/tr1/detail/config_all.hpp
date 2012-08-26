@@ -1,0 +1,1 @@
+/usr/local/include/./boost/tr1/detail/config_all.hpp

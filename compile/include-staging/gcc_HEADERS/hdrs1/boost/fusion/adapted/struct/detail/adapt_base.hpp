@@ -1,0 +1,1 @@
+/usr/local/include/./boost/fusion/adapted/struct/detail/adapt_base.hpp

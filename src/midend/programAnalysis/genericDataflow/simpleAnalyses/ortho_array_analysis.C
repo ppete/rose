@@ -189,7 +189,8 @@ MemLocObjectPtr OrthoArrayMemLocObject::copyML() const
 MemLocObjectPtr OrthogonalArrayAnalysis::Expr2MemLoc(SgNode* n, PartPtr p)
 {
   // If this is a top-most array index expression
-  if(isSgPntrArrRefExp(n) && !isSgPntrArrRefExp(n->get_parent())) {
+  if(isSgPntrArrRefExp(n) && 
+     (!isSgPntrArrRefExp (n->get_parent()) || !isSgPntrArrRefExp (isSgPntrArrRefExp (n->get_parent())->get_lhs_operand()))) {
     SgExpression* arrayNameExp = NULL;
     std::vector<SgExpression*>* subscripts = new std::vector<SgExpression*>;
     SageInterface::isArrayReference(isSgPntrArrRefExp(n), &arrayNameExp, &subscripts);

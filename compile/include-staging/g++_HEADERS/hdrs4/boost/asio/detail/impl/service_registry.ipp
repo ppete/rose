@@ -1,0 +1,1 @@
+/usr/local/include/./boost/asio/detail/impl/service_registry.ipp

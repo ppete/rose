@@ -19,7 +19,7 @@ void LiveDeadMemAnalysis::genInitState(const Function& func, PartPtr p, const No
                                         vector<Lattice*>& initLattices, vector<NodeFact*>& initFacts)
 {
   //ComposerExpr2MemLocPtr ceml(new ComposerExpr2MemLoc(*getComposer(), p, *((ComposedAnalysis*)this)));
-  initLattices.push_back(new AbstractObjectSet(/*ceml, */p));
+  initLattices.push_back(new AbstractObjectSet(/*ceml, */p, AbstractObjectSet::may));
 }
 
 /// Visits live expressions - helper to LiveDeadVarsTransfer
@@ -211,8 +211,10 @@ public:
 //    without its context information: for example, in  a = b; both a and b are represented as
 //    SgVarRefExp. But a is written and b is read.
 //    We should let the ancestor node (like SgAssignOp) decide on the READ/Written of SgVarRefExp.
-//    This is already done.   
-//    ldva.use(sgn); 
+    }
+    
+    void visit(SgReturnStmt *sgn) {
+      ldva.use(sgn->get_expression());
     }
 
     LDMAExpressionTransfer(LiveDeadMemTransfer &base)
@@ -227,7 +229,7 @@ void LiveDeadMemTransfer::assign(SgExpression *sgn)
   MemLocObjectPtrPair p(ceml->Expr2Obj(sgn));
   //return boost::dynamic_pointer_cast<AbstractObject>(cpMap->get(ml));
   if(p.expr) assigned.insert(p.expr);
-  if(p.mem)  assigned.insert(p.mem);
+  //if(p.mem) assigned.insert(p.mem);
 }
 void LiveDeadMemTransfer::assign(AbstractObjectPtr mem)
 {
@@ -239,8 +241,11 @@ void LiveDeadMemTransfer::use(SgExpression *sgn)
 {
   //Dbg::dbg << "LiveDeadMemTransfer::use(sgn=["<<Dbg::escape(sgn->unparseToString())<<" | "<<sgn->class_name()<<"]"<<endl;
   MemLocObjectPtrPair p = ceml->Expr2Obj(sgn);
+  // In almost all cases we only need expressions to use their operands, which are also expressions.
   if(p.expr) used.insert(p.expr);
-  if(p.mem)  used.insert(p.mem);
+  // At statement boundaries SgVarRefExp and SgArrPntrRefExp refer to real memory locations that were written by prior
+  // statements. 
+  if((isSgVarRefExp(sgn) || isSgPntrArrRefExp(sgn)) && p.mem)  used.insert(p.mem);
 }
 void LiveDeadMemTransfer::use(AbstractObjectPtr mem)
 {
@@ -276,10 +281,10 @@ void LiveDeadMemTransfer::visit(SgExpression *sgn)
 }
 
 void LiveDeadMemTransfer::visit(SgInitializedName *sgn) {
-    // If this is the instance of SgInitializedName that occurs immediately after the declaration's initializer AND
-    // this declaration has an initializer, add it as a use
-    if(sgn->get_initializer())
-      use(sgn->get_initializer());
+  // If this is the instance of SgInitializedName that occurs immediately after the declaration's initializer AND
+  // this declaration has an initializer, add it as a use
+  if(sgn->get_initializer())
+    use(sgn->get_initializer());
   
   SgVarRefExp* exp = SageBuilder::buildVarRefExp(sgn);
   /*Dbg::dbg << "LiveDeadMemTransfer::visit(SgInitializedName: sgn=["<<Dbg::escape(sgn->unparseToString())<<" | "<<sgn->class_name()<<"]"<<endl;
@@ -330,30 +335,34 @@ void LiveDeadMemTransfer::visit(SgDoWhileStmt *sgn) {
 
 bool LiveDeadMemTransfer::finish()
 {
+    Dbg::indent ind(analysisDebugLevel, 1);
     // First process assignments, then uses since we may assign and use the same variable
-    // and in the end we want to first remove it and then re-insert it.
-        
+    // and in the end we want to first remove it and then re-insert it.   
     if(liveDeadAnalysisDebugLevel>=1) {
-      Dbg::dbg << indent << "    used=[";
+      
+      Dbg::dbg << "used=[";
       for(AbstractObjectSet::const_iterator asgn=used.begin(); asgn!=used.end(); ) {
-        Dbg::dbg << "        "<<(*asgn)->str("            ");
+        Dbg::indent ind(analysisDebugLevel, 1);
+        Dbg::dbg << (*asgn)->str();
         asgn++;
         if(asgn==used.end()) Dbg::dbg << "]";
         else                 Dbg::dbg << endl;
       }
       Dbg::dbg << endl;
       
-      
-      Dbg::dbg << indent << "    assigned=[";
+      Dbg::dbg << "assigned=[";
       for(AbstractObjectSet::const_iterator asgn=assigned.begin(); asgn!=assigned.end(); ) {
-        Dbg::dbg << "        "<<(*asgn)->str("            ") << endl;
+        Dbg::indent ind(analysisDebugLevel, 1);
+        Dbg::dbg << (*asgn)->str() << endl;
         asgn++;
         if(asgn==used.end()) Dbg::dbg << "]";
         else                 Dbg::dbg << endl;
       }
       Dbg::dbg << endl;
       
-      Dbg::dbg << indent << "    liveLat="<<liveLat->str(indent)<<endl;
+      Dbg::dbg << "liveLat=";
+      {Dbg::indent ind(analysisDebugLevel, 1);
+       Dbg::dbg << liveLat->str(indent)<<endl;}
     }
 
     /* Live-In (node) = use(node) + (Live-Out (node) - Assigned (b))  
@@ -388,7 +397,7 @@ bool LiveDeadMemTransfer::finish()
     for(AbstractObjectSet::const_iterator var=used.begin(); var!=used.end(); var++)
         modified = liveLat->insert(*var) || modified;
         
-    if(liveDeadAnalysisDebugLevel>=1) Dbg::dbg << indent << "    #used="<<used.size()<<" #assigned="<<assigned.size()<<endl;
+    if(liveDeadAnalysisDebugLevel>=1) Dbg::dbg << "#used="<<used.size()<<" #assigned="<<assigned.size()<<endl;
         
     return modified;
 }

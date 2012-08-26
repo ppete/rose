@@ -60,7 +60,8 @@ class Function
         // returns this function's definition or NULL of it does not have one
         SgFunctionDefinition* get_definition() const;
         
-        // returns one of this function's declarations. it is guaranteed to be the same each time get_declaration is called
+        // returns one of this function's declarations. it is guaranteed to be the same each time get_declaration 
+        // is called and to be the canonical declaration
         SgFunctionDeclaration* get_declaration() const;
         
         // returns the file_info of the definition or one of the declarations if there is no definition

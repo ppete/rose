@@ -225,9 +225,18 @@ public:
     // Copy data from the memory location identified by the array index expression to the
     // expression object of the SgPntrArrRefExp.
     MemLocObjectPtrPair p = composer->Expr2MemLoc(sgn, part, analysis);
-    assert(p.mem);
-    Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;Getting "<<p.mem->str("")<<endl;
-    LatticePtr dataLat = getLattice(AbstractObjectPtr(p.mem));
+    LatticePtr dataLat;
+    // If this is a top-level array access expression
+    if(isSgPntrArrRefExp (sgn) && 
+       (!isSgPntrArrRefExp (sgn->get_parent()) || !isSgPntrArrRefExp (isSgPntrArrRefExp (sgn->get_parent())->get_lhs_operand())))
+    {
+      assert(p.mem);
+      Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;Getting "<<p.mem->str("")<<endl;
+      dataLat = getLattice(AbstractObjectPtr(p.mem));
+    } else {
+      Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;Getting "<<p.expr->str("")<<endl;
+      dataLat = getLattice(AbstractObjectPtr(p.expr));
+    }
     Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;Setting "<<p.expr->str("")<<endl;
     Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;to "<<dataLat->str("&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;")<<endl;
     setLattice(AbstractObjectPtr(p.expr), dataLat);

@@ -26,7 +26,15 @@ MemLocObjectPtr SyntacticAnalysis::Expr2MemLoc_noPart(SgNode* n)
   MemLocObjectPtr rt;
 
   assert (n!= NULL);
-  if (isSgPntrArrRefExp (n) && !isSgPntrArrRefExp (n->get_parent())) // only generate MemLocObject for the top level isSgPntrArrRefExp
+  Dbg::dbg << "isSgPntrArrRefExp (n)="<<isSgPntrArrRefExp (n)<<" isSgPntrArrRefExp (n->get_parent())="<<isSgPntrArrRefExp (n->get_parent())<<endl;
+  if(isSgPntrArrRefExp (n->get_parent())) {
+    Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;parent->lhs=["<<Dbg::escape(isSgPntrArrRefExp (n->get_parent())->get_lhs_operand()->unparseToString())<<" | "<<isSgPntrArrRefExp (n->get_parent())->get_lhs_operand()->class_name()<<"]"<<endl;
+    Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;parent->lhs=["<<Dbg::escape(isSgPntrArrRefExp (n->get_parent())->get_rhs_operand()->unparseToString())<<" | "<<isSgPntrArrRefExp (n->get_parent())->get_rhs_operand()->class_name()<<"]"<<endl;
+  }
+  
+  // only generate MemLocObject for the top level isSgPntrArrRefExp
+  if (isSgPntrArrRefExp (n) && 
+      (!isSgPntrArrRefExp (n->get_parent()) || !isSgPntrArrRefExp (isSgPntrArrRefExp (n->get_parent())->get_lhs_operand())))
   {
     SgPntrArrRefExp* r = isSgPntrArrRefExp(n);
     assert (r != NULL);
@@ -635,7 +643,7 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
   //std::string ScalarExprObj::str(const string& indent)
   std::string ScalarExprObj::str(std::string indent) const // pretty print for the object
   {
-    string rt = "ScalarExprObj @" + StringUtility::numberToString(this)+ " "+ ExprObj::str(indent+"    ");
+    string rt = "<u>ScalarExprObj</u> @" + StringUtility::numberToString(this)+ " "+ ExprObj::str(indent+"    ");
     return rt;
   }
   
@@ -671,7 +679,7 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
   //std::string FunctionExprObj::str(const string& indent)
   std::string FunctionExprObj::str(std::string indent) const // pretty print for the object  
   {
-    string rt = "FunctionExprObj @" + StringUtility::numberToString(this)+ " "+ ExprObj::str(indent+"    ");
+    string rt = "<u>FunctionExprObj</u> @" + StringUtility::numberToString(this)+ " "+ ExprObj::str(indent+"    ");
     return rt;
   }
   
@@ -707,7 +715,7 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
   //std::string ArrayExprObj::str(const string& indent)
   std::string ArrayExprObj::str(std::string indent) const // pretty print for the object  
   {
-    string rt = "ArrayExprObj @" + StringUtility::numberToString(this)+ " "+ ExprObj::str(indent+"    ");
+    string rt = "<u>ArrayExprObj</u> @" + StringUtility::numberToString(this)+ " "+ ExprObj::str(indent+"    ");
     return rt;
   }
   
@@ -772,7 +780,7 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
   //std::string PointerExprObj::str(const string& indent)
   std::string PointerExprObj::str(std::string indent) const // pretty print for the object  
   {
-    string rt = "PointerExprObj @" + StringUtility::numberToString(this)+ " "+ ExprObj::str(indent+"    ");
+    string rt = "<u>PointerExprObj</u> @" + StringUtility::numberToString(this)+ " "+ ExprObj::str(indent+"    ");
     return rt;
   }
   
@@ -829,7 +837,7 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
   //std::string LabeledAggregateExprObj::str(const string& indent)
   std::string LabeledAggregateExprObj::str(std::string indent) const // pretty print for the object  
   {
-    std::string rt = "LabeledAggregateExprObj @ " + StringUtility::numberToString (this);
+    std::string rt = "<u>LabeledAggregateExprObj</u> @ " + StringUtility::numberToString (this);
     rt += " "+ ExprObj::str(indent+"    ");
     rt += "   with " + StringUtility::numberToString(fieldCount()) + " fields:\n";
     rt += indent;
@@ -1164,7 +1172,7 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
   //std::string ScalarNamedObj::str(const string& indent)
   std::string ScalarNamedObj::str(std::string indent) const // pretty print for the object  
   {
-    string rt = "ScalarNamedObj @" + StringUtility::numberToString(this)+ " "+ NamedObj::str(indent);
+    string rt = "<u>ScalarNamedObj</u> @" + StringUtility::numberToString(this)+ " "+ NamedObj::str(indent);
     return rt;
   }
   
@@ -1201,7 +1209,7 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
   //std::string FunctionNamedObj::str(const string& indent)
   std::string FunctionNamedObj::str(std::string indent) const // pretty print for the object  
   {
-    string rt = "FunctionNamedObj @" + StringUtility::numberToString(this)+ " "+ NamedObj::str(indent);
+    string rt = "<u>FunctionNamedObj</u> @" + StringUtility::numberToString(this)+ " "+ NamedObj::str(indent);
     return rt;
   }
   
@@ -1266,7 +1274,7 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
   //std::string PointerNamedObj::str(const string& indent)
   std::string PointerNamedObj::str(std::string indent) const // pretty print for the object  
   {
-    string rt = "PointerNamedObj @" + StringUtility::numberToString(this)+ " "+ NamedObj::str(indent);
+    string rt = "<u>PointerNamedObj</u> @" + StringUtility::numberToString(this)+ " "+ NamedObj::str(indent);
     return rt;
   }
   
@@ -1343,7 +1351,7 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
   //std::string LabeledAggregateNamedObj::str(const string& indent)
   std::string LabeledAggregateNamedObj::str(std::string indent) const // pretty print for the object  
   {
-    std::string rt = "LabeledAggregateNamedObj @ " + StringUtility::numberToString (this);
+    std::string rt = "<u>LabeledAggregateNamedObj</u> @ " + StringUtility::numberToString (this);
     rt += " "+ NamedObj::str(indent);
     rt += "   with " + StringUtility::numberToString(fieldCount()) + " fields:\n";
     for (size_t i =0; i< fieldCount(); i++)
@@ -1414,7 +1422,7 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
   //std::string ArrayNamedObj::str(const string& indent)
   std::string ArrayNamedObj::str(std::string indent) const // pretty print for the object  
   {
-    std::string rt = "ArrayNamedObj @ " + StringUtility::numberToString (this);
+    std::string rt = "<u>ArrayNamedObj</u> @ " + StringUtility::numberToString (this);
     rt += " "+ NamedObj::str(indent);
     rt += "   with " + StringUtility::numberToString(getNumDims()) + " dimensions";
 /*     for (size_t i =0; i< fieldCount(); i++)
@@ -1803,35 +1811,35 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
   //std::string ScalarAliasedObj::str(const string& indent)
   std::string ScalarAliasedObj::str(std::string indent) const // pretty print for the object  
   {
-    string rt = "ScalarAliasedObj @ " + StringUtility::numberToString(this)+ " "+ AliasedObj::str(indent);
+    string rt = "<u>ScalarAliasedObj</u> @ " + StringUtility::numberToString(this)+ " "+ AliasedObj::str(indent);
     return rt;
   }
 
   //std::string FunctionAliasedObj::str(const string& indent)
   std::string FunctionAliasedObj::str(std::string indent) const // pretty print for the object  
   {
-    string rt = "FunctionAliasedObj @ " + StringUtility::numberToString(this)+ " "+ AliasedObj::str(indent);
+    string rt = "<u>FunctionAliasedObj</u> @ " + StringUtility::numberToString(this)+ " "+ AliasedObj::str(indent);
     return rt;
   }
 
   //std::string LabeledAggregateAliasedObj::str(const string& indent)
   std::string LabeledAggregateAliasedObj::str(std::string indent) const // pretty print for the object  
   {
-    string rt = "LabeledAggregateAliasedObj @ " + StringUtility::numberToString(this)+ " "+ AliasedObj::str(indent);
+    string rt = "<u>LabeledAggregateAliasedObj</u> @ " + StringUtility::numberToString(this)+ " "+ AliasedObj::str(indent);
     return rt;
   }
   
   //std::string ArrayAliasedObj::str(const string& indent)
   std::string ArrayAliasedObj::str(std::string indent) const // pretty print for the object  
   {
-    string rt = "ArrayAliasedObj @ " + StringUtility::numberToString(this)+ " "+ AliasedObj::str(indent);
+    string rt = "<u>ArrayAliasedObj</u> @ " + StringUtility::numberToString(this)+ " "+ AliasedObj::str(indent);
     return rt;
   }
   
   //std::string PointerAliasedObj::str(const string& indent)
   std::string PointerAliasedObj::str(std::string indent) const // pretty print for the object  
   {
-    string rt = "PointerAliasedObj @ " + StringUtility::numberToString(this)+ " "+ AliasedObj::str(indent);
+    string rt = "<u>PointerAliasedObj</u> @ " + StringUtility::numberToString(this)+ " "+ AliasedObj::str(indent);
     return rt;
   }
 
@@ -1926,17 +1934,17 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
     }
     bool assert_flag = true; 
 
-    if (SageInterface::isScalarType(t))
+    if (SageInterface::isScalarType(t) || (isSgReferenceType(t) && SageInterface::isScalarType(isSgReferenceType(t)->get_base_type())))
     // We define the following SgType as scalar types: 
     // char, short, int, long , void, Wchar, Float, double, long long, string, bool, complex, imaginary 
     { rt = boost::make_shared<ScalarNamedObj>(anchor_symbol, t, parent, iv); }
-    else if (isSgFunctionType(t))
+    else if (isSgFunctionType(t) || (isSgReferenceType(t) && isSgFunctionType(isSgReferenceType(t)->get_base_type())))
     { rt = boost::make_shared<FunctionNamedObj>(anchor_symbol, t, parent, iv); }
-    else if (isSgPointerType(t))
+    else if (isSgPointerType(t) || (isSgReferenceType(t) && isSgPointerType(isSgReferenceType(t)->get_base_type())))
     { rt = boost::make_shared<PointerNamedObj>(anchor_symbol, t, parent, iv); }
-    else if (isSgClassType(t))
+    else if (isSgClassType(t) || (isSgReferenceType(t) && isSgClassType(isSgReferenceType(t)->get_base_type())))
     { rt = boost::make_shared<LabeledAggregateNamedObj>(anchor_symbol, t, parent, iv); }
-    else if (isSgArrayType(t)) // This is for the entire array variable
+    else if (isSgArrayType(t) || (isSgReferenceType(t) && isSgArrayType(isSgReferenceType(t)->get_base_type()))) // This is for the entire array variable
     { rt = boost::make_shared<ArrayNamedObj>(anchor_symbol, t, parent, iv); }
     else
     {
@@ -2033,7 +2041,8 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
     MemLocObjectPtr whole_array_obj;
 
     SgPntrArrRefExp* arr_ref_parent = isSgPntrArrRefExp(r->get_parent());
-    if (arr_ref_parent == NULL) // this is the top level SgPntrArrRefExp
+    //if (arr_ref_parent == NULL) // this is the top level SgPntrArrRefExp
+    if(!arr_ref_parent || !isSgPntrArrRefExp (arr_ref_parent->get_lhs_operand()))
     {
       // try to create the Obj for the whole array first
       SgExpression* arrayNameExp = NULL;
@@ -2102,20 +2111,20 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
 
     if (expr_objset_map[anchor_exp] == NULL)
     { // None found, create a new one depending on its type and update the map
-      if (SageInterface::isScalarType(t))
+      if (SageInterface::isScalarType(t) || (isSgReferenceType(t) && SageInterface::isScalarType(isSgReferenceType(t)->get_base_type())))
         // We define the following SgType as scalar types: 
         // char, short, int, long , void, Wchar, Float, double, long long, string, bool, complex, imaginary 
       { 
         // An array element access could also have a scalar type, but we want to record it as a named object, instead of an expression object
         rt = boost::make_shared<ScalarExprObj>(anchor_exp, t);
       }
-      else if (isSgFunctionType(t))
+      else if (isSgFunctionType(t) || (isSgReferenceType(t) && isSgFunctionType(isSgReferenceType(t)->get_base_type())))
       { rt = boost::make_shared<FunctionExprObj>(anchor_exp,t); }
-      else if (isSgPointerType(t))
+      else if (isSgPointerType(t) || (isSgReferenceType(t) && isSgPointerType(isSgReferenceType(t)->get_base_type())))
       { rt = boost::make_shared<PointerExprObj>(anchor_exp,t); }
-      else if (isSgClassType(t))
+      else if (isSgClassType(t) || (isSgReferenceType(t) && isSgClassType(isSgReferenceType(t)->get_base_type())))
       { rt = boost::make_shared<LabeledAggregateExprObj>(anchor_exp,t); }
-      else if (isSgArrayType(t))
+      else if (isSgArrayType(t) || (isSgReferenceType(t) && isSgArrayType(isSgReferenceType(t)->get_base_type())))
       { rt = boost::make_shared<ArrayExprObj>(anchor_exp, t); }
       else
       {

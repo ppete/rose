@@ -3,6 +3,7 @@
 
 #include "partitions.h"
 #include "abstract_object.h"
+#include "dataflow.h"
 #include "compose.h"
 #include "CallGraphTraverse.h"
 #include <boost/enable_shared_from_this.hpp>
@@ -97,7 +98,7 @@ typedef boost::shared_ptr<StxCodeLocObject> StxCodeLocObjectPtr;
  ***** ANALYSIS *****
  ********************/
 
-class SyntacticAnalysis : virtual public ComposedAnalysis
+class SyntacticAnalysis : virtual public IntraUndirDataflow
 {
   public:
   SyntacticAnalysis() {}
@@ -115,7 +116,7 @@ class SyntacticAnalysis : virtual public ComposedAnalysis
   bool transfer(const Function& func, PartPtr p, NodeState& state, const std::vector<Lattice*>& dfInfo) {
     return true;
   }
-   
+  
   // Maps the given SgNode to an implementation of the ValueObject abstraction.
   ValueObjectPtr   Expr2Val    (SgNode* e, PartPtr p);
   

@@ -118,14 +118,14 @@ class CPValueObject : public FiniteLattice, public ValueObject
 };
 typedef boost::shared_ptr<CPValueObject> CPValueObjectPtr;
 
-class ConstantPropagationAnalysis : public ComposedAnalysis, virtual public IntraFWDataflow
+class ConstantPropagationAnalysis : virtual public IntraFWDataflow
 {
   protected:
   //static std::map<varID, Lattice*> constVars;
   //AbstractObjectMap constVars;
    
   public:
-  ConstantPropagationAnalysis()/* : constVars(new MustEqualFunctor()*/;
+  ConstantPropagationAnalysis();
   
   void genInitState(const Function& func, PartPtr p, const NodeState& state, std::vector<Lattice*>& initLattices, std::vector<NodeFact*>& initFacts);
   

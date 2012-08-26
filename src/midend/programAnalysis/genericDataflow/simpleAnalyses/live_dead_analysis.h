@@ -67,9 +67,13 @@ public:
 LiveDeadMemTransfer(const Function &f, PartPtr p, NodeState &s, const std::vector<Lattice*> &d, ComposerExpr2MemLocPtr ceml_, funcSideEffectUses *fseu_)
     : IntraDFTransferVisitor(f, p, s, d), indent("    "), 
     liveLat(dynamic_cast<AbstractObjectSet*>(*(dfInfo.begin()))), 
-    ceml(ceml_), modified(false), fseu(fseu_), assigned(p), used(p), part(p)
+    ceml(ceml_), modified(false), fseu(fseu_), assigned(p, AbstractObjectSet::may), used(p, AbstractObjectSet::may), part(p)
     {
-        if(liveDeadAnalysisDebugLevel>=1) Dbg::dbg << indent << "LiveDeadMemTransfer: liveLat="<<liveLat->str(indent + "    ")<<std::endl;
+        if(liveDeadAnalysisDebugLevel>=1) {
+          Dbg::dbg << indent << "LiveDeadMemTransfer: liveLat=";
+          Dbg::indent ind(liveDeadAnalysisDebugLevel, 1);
+          Dbg::dbg << liveLat->str("")<<endl;
+        }
         // Make sure that all the lattice is initialized
         liveLat->initialize();
     }
@@ -89,7 +93,7 @@ LiveDeadMemTransfer(const Function &f, PartPtr p, NodeState &s, const std::vecto
 
 class LDMemLocObject;
 
-class LiveDeadMemAnalysis : public ComposedAnalysis, public IntraBWDataflow
+class LiveDeadMemAnalysis : public IntraBWDataflow
 {
 protected:
     funcSideEffectUses* fseu;

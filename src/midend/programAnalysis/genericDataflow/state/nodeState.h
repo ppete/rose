@@ -215,6 +215,10 @@ class NodeState
         static bool eqLattices(const std::vector<Lattice*>& latticesA,
                                const std::vector<Lattice*>& latticesB);
         
+        // Returns true if the two lattices vectors contain equivalent information and false otherwise
+        static bool equivLattices(const std::vector<Lattice*>& latticesA,
+                                  const std::vector<Lattice*>& latticesB);
+        
         // Creates a copy of all the dataflow state (Lattices and Facts) associated with
         // analysis srcA and associates this copied state with analysis tgtA.
         void cloneAnalysisState(const Analysis* srcA, const Analysis* tgtA);
