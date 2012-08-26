@@ -733,7 +733,7 @@ void SetAllReturnStates::visit(const Function& func, PartPtr p, NodeState& state
     }
     
     if(analysisDebugLevel>=1) Dbg::dbg << "    Setting dataflow state of return value" << endl;
-    modified = mergeLats(state.getLatticeAboveMod((Analysis*)analysis), exprLats) || modified; 
+    modified = mergeLats(state.getLatticeBelowMod((Analysis*)analysis), exprLats) || modified; 
     
     // Deallocate the newly-created renamed lattices
     for(vector<Lattice*>::iterator l=exprLats.begin(); l!=exprLats.end(); l++) 
@@ -741,15 +741,14 @@ void SetAllReturnStates::visit(const Function& func, PartPtr p, NodeState& state
   }
   // If this is the end of a function, which is an implicit return that has no return value
   else if(isSgFunctionDefinition(sgn)) {
-    if(analysisDebugLevel>=1)
-      Dbg::dbg << "SetAllReturnStates::visit() isSgFunctionDefinition\n";
+    Dbg::region r(analysisDebugLevel, 1, Dbg::region::topLevel, "Setting dataflow at isSgFunctionDefinition");
     
     //ROSE_ASSERT(NodeState::getNodeStates(p).size()==1);
     //NodeState* state = *(NodeState::getNodeStates(p).begin());
     
     // Incorporate the entire dataflow state at the implicit return statement
     //modified = mergeLats(mergedLatsRetStmt, state->getLatticeAbove((Analysis*)analysis)) || modified;
-    modified = mergeLats(state.getLatticeAboveMod((Analysis*)analysis), lats) || modified;
+    modified = mergeLats(state.getLatticeBelowMod((Analysis*)analysis), lats) || modified;
   }
   
   //Dbg::dbg << "visit >>>: modified="<<modified<<endl;
@@ -774,7 +773,7 @@ bool SetAllReturnStates::mergeLats(vector<Lattice*>& mergedLat, const vector<Lat
   vector<Lattice*>::const_iterator l;
   vector<Lattice*>::iterator ml;
   bool modified = false;
-  if(analysisDebugLevel>=1) Dbg::dbg << "    Updating lattice: \n";
+  if(analysisDebugLevel>=1) Dbg::dbg << "Updating lattice:"<<endl;
   for(l=lats.begin(), ml=mergedLat.begin(); l!=lats.end(); l++, ml++) {
     if(analysisDebugLevel>=1) {
       Dbg::dbg << "Update: "<<(*l)->str("&nbsp;&nbsp;&nbsp;&nbsp;")<<endl;
@@ -1202,7 +1201,7 @@ void ContextInsensitiveInterProceduralDataflow::visit(const CGFunction* funcCG)
       ROSE_ASSERT(paramsListState);
       NodeState* paramsState = paramsListState;
       ROSE_ASSERT(fState->state.getLatticeBelowMod(intraAnalysis).size() == paramsState->getLatticeBelowMod(intraAnalysis).size());
-      afterFuncModified = NodeState::equivLattices(fState->state.getLatticeBelowMod(intraAnalysis), paramsState->getLatticeBelowMod(intraAnalysis));
+      afterFuncModified = !NodeState::equivLattices(fState->state.getLatticeBelowMod(intraAnalysis), paramsState->getLatticeBelowMod(intraAnalysis));
       NodeState::copyLattices_aEQb(intraAnalysis, fState->state, *paramsState);
       /*for(vector<Lattice*>::iterator lA=fState->state.getLatticeAboveMod(intraAnalysis).begin(), lP=paramsState->getLatticeBelowMod(intraAnalysis).begin();
           lA!=fState->state.getLatticeAboveMod(intraAnalysis).end(); lA++, lP++)
