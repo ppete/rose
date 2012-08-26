@@ -1,1 +1,0 @@
-/usr/local/include/./boost/iostreams/detail/adapter/direct_adapter.hpp

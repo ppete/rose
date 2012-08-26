@@ -1,1 +1,0 @@
-/usr/local/include/./boost/fusion/adapted/struct/detail/value_of_data_impl.hpp

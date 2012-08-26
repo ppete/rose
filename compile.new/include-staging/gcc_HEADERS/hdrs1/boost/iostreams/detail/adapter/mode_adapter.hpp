@@ -1,1 +1,0 @@
-/usr/local/include/./boost/iostreams/detail/adapter/mode_adapter.hpp
