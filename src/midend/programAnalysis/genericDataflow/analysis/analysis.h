@@ -6,17 +6,36 @@
 #include "CallGraphTraverse.h"
 #include "analysisCommon.h"
 
+namespace dataflow {
 class Analysis;
+};
 
 #include "lattice.h"
 #include "nodeState.h"
 #include "variables.h"
+#include "partitions.h"
 #include "varSets.h"
 #include <vector>
 #include <set>
 #include <map>
 
+namespace dataflow {
+
 extern int analysisDebugLevel;
+
+// Returns a boost shared pointers to variables that should be
+// deallocated when the shared_ptr's reference count drops. Useful
+// for passing unmanaged memory to code that takes boost shared 
+// pointers as arguments.
+void dummy_dealloc(int *);
+#ifdef ANALYSIS_C
+void dummy_dealloc(int *) {} // Deallocator that does nothing
+#endif
+template <class RefType>
+boost::shared_ptr<RefType> shared_ptr_for_static(RefType& o) 
+{
+  return boost::shared_ptr<RefType>(&o, dummy_dealloc);
+}
 
 class Analysis
 {
@@ -43,7 +62,11 @@ class IntraProceduralAnalysis : virtual public Analysis
         // runs the intra-procedural analysis on the given function, returns true if 
         // the function's NodeState gets modified as a result and false otherwise
         // state - the function's NodeState
-        virtual bool runAnalysis(const Function& func, NodeState* state)=0;
+        
+        /* GB: For some reason the compiler complains that SyntacticAnalysis doesn't implement this
+         when it is implemented in its ancestor IntraProceduralDataflow. As such, 
+         a dummy implementation is provided here. */
+        virtual void runAnalysis(const Function& func, NodeState* state);
         
         virtual ~IntraProceduralAnalysis();
 };
@@ -76,9 +99,9 @@ class UnstructuredPassIntraAnalysis : virtual public IntraProceduralAnalysis
         // runs the intra-procedural analysis on the given function, returns true if 
         // the function's NodeState gets modified as a result and false otherwise
         // state - the function's NodeState
-        bool runAnalysis(const Function& func, NodeState* state);
+        void runAnalysis(const Function& func, NodeState* state);
         
-        virtual void visit(const Function& func, const DataflowNode& n, NodeState& state)=0;
+        virtual void visit(const Function& func, PartPtr p, NodeState& state)=0;
 };
 // A driver class which simply iterates all function definitions one by one and call intra-procedural analysis on each of them.
 class UnstructuredPassInterAnalysis : virtual public InterProceduralAnalysis
@@ -89,5 +112,5 @@ class UnstructuredPassInterAnalysis : virtual public InterProceduralAnalysis
                 
         void runAnalysis();
 };
-
+}; // namespace dataflow
 #endif

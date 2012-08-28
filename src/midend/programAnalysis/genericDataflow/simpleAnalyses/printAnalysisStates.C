@@ -1,5 +1,7 @@
 #include "printAnalysisStates.h"
 
+namespace dataflow {
+
 printAnalysisStates::printAnalysisStates(Analysis* creator, vector<int>& factNames, vector<int>& latticeNames, ab latSide, string indent="")
 {
         this->creator = creator;
@@ -9,9 +11,9 @@ printAnalysisStates::printAnalysisStates(Analysis* creator, vector<int>& factNam
         this->indent = indent;
 }
 
-void printAnalysisStates::visit(const Function& func, const DataflowNode& n, NodeState& state)
+void printAnalysisStates::visit(const Function& func, PartPtr p, NodeState& state)
 {
-        ostringstream funcName; funcName<< "function "<<func.get_name().getString()<<"() node=["<<n.getNode()->class_name()<<" | "<<Dbg::escape(n.getNode()->unparseToString())<<" | "<<n.getIndex()<<"] state="<<(&state)<<" n="<<(&n)<<" sgn="<<n.getNode()<<" creator="<<creator;
+        ostringstream funcName; funcName<< "function "<<func.get_name().getString()<<"() node=["<<p.getNode()->class_name()<<" | "<<Dbg::escape(p.getNode()->unparseToString())<<" | "<<p.getIndex()<<"] state="<<(&state)<<" sgn="<<p.getNode()<<" creator="<<creator;
         Dbg::enterFunc(funcName.str());
         //const vector<Lattice*>* masterLat;
         //if(latSide==above) masterLat = &(state.getLatticeAbove(creator));
@@ -39,3 +41,4 @@ void printAnalysisStates::visit(const Function& func, const DataflowNode& n, Nod
         //printf("    creator=%p, masterLat.size()=%lu\n", creator, (unsigned long)(masterLat->size()));
         Dbg::exitFunc(funcName.str());
 }
+}; // namespace dataflow
