@@ -10,104 +10,105 @@
 #include "cfgUtils.h"
 #include "CallGraphTraverse.h"
 #include "analysisCommon.h"
-#include "dataflow.h"
+#include "compose.h"
+#include "functionState.h"
 #include "latticeFull.h"
 #include "printAnalysisStates.h"
-#include "liveDeadVarAnalysis.h"
 
 
 using namespace std;
-  //------------ function level dot graph output ----------------
-  // this is purposely put outside of the namespace scope for simplicity 
-  class analysisStatesToDOT : virtual public UnstructuredPassIntraAnalysis
+using namespace dataflow;
+using namespace VirtualCFG;
+
+//------------ function level dot graph output ----------------
+// this is purposely put outside of the namespace scope for simplicity 
+class analysisStatesToDOT : virtual public UnstructuredPassIntraAnalysis
+{
+  private:
+    //    LiveDeadVarsAnalysis* lda; // reference to the source analysis
+    Analysis* lda; // reference to the source analysis
+    void printEdge(const DataflowEdge& e); // print data flow edge
+    void printNode(const DataflowNode& n, std::string state_string); // print date flow node
+  public:
+    void visit(const Function& func, PartPtr p, NodeState& state); // visitor function
+    std::ostream* ostr; 
+    // must transfer the custom filter from l, or the default filter will kick in!
+    analysisStatesToDOT (Analysis* l):  lda(l), Analysis(l->filter){ }; 
+};
+
+void analysisStatesToDOT::printEdge (const DataflowEdge& e)
+{
+  (*ostr) << e.source().id() << " -> " << e.target().id() << " [label=\"" << escapeString(e.toString ()) <<
+    "\", style=\"" << "solid" << "\"];\n";
+}
+
+void analysisStatesToDOT::printNode(const DataflowNode& n, std::string state_string)
+{
+  std::string id = n.id();  // node id
+  std::string nodeColor = "black";
+
+  if (isSgStatement(n.getNode()))
+    nodeColor = "blue";
+  else if (isSgExpression(n.getNode()))
+    nodeColor = "green";
+  else if (isSgInitializedName(n.getNode()))
+    nodeColor = "red";
+
+  // node_id [label="", color="", style=""]
+  (*ostr) << id << " [label=\""  << escapeString(n.toString()) <<"\\n" << escapeString (state_string) << "\", color=\"" << nodeColor <<
+    "\", style=\"" << (n.isInteresting()? "solid" : "dotted") << "\"];\n";
+}
+
+// This will be visited only once? Not sure, better check
+void
+analysisStatesToDOT::visit(const Function& func, PartPtr p, NodeState& state)
+{ 
+  std::string state_str = state.str( lda, " ");
+  printNode(p, state_str);
+  std::vector < DataflowEdge> outEdges = p.outEdges();
+  for (unsigned int i = 0; i < outEdges.size(); ++i)
   {
-    private:
-      //LiveDeadVarsAnalysis* lda; // reference to the source analysis
-      Analysis* lda; // reference to the source analysis
-      void printEdge(const DataflowEdge& e); // print data flow edge
-      void printNode(const DataflowNode& n, std::string state_string); // print date flow node
-      void visit(const Function& func, const DataflowNode& n, NodeState& state); // visitor function
-    public:
-      std::ostream* ostr; 
-      // must transfer the custom filter from l, or the default filter will kick in!
-      analysisStatesToDOT (Analysis* l): Analysis(l->filter), lda(l){ }; 
-  };
-  
-  void analysisStatesToDOT::printEdge (const DataflowEdge& e)
-  {
-    (*ostr) << e.source().id() << " -> " << e.target().id() << " [label=\"" << escapeString(e.toString ()) <<
-      "\", style=\"" << "solid" << "\"];\n";
+    printEdge(outEdges[i]);
   }
-  
-  void analysisStatesToDOT::printNode(const DataflowNode& n, std::string state_string)
+}
+//------------ call graph level  driver ----------------
+class IntraAnalysisResultsToDotFiles: public UnstructuredPassInterAnalysis
+{
+  public:
+    // internal function level dot generation, a name for the output file
+    IntraAnalysisResultsToDotFiles(IntraProceduralAnalysis & funcToDot)
+      : InterProceduralAnalysis(&funcToDot), UnstructuredPassInterAnalysis(funcToDot){ }
+    // For each function, call function level Dot file generator to generate separate dot file
+    void runAnalysis() ;
+};
+
+void IntraAnalysisResultsToDotFiles::runAnalysis()
+{
+  set<FunctionState*> allFuncs = FunctionState::getAllDefinedFuncs();
+  // Go through functions one by one, call an intra-procedural analysis on each of them
+  // iterate over all functions with bodies
+  for(set<FunctionState*>::iterator it=allFuncs.begin(); it!=allFuncs.end(); it++)
   {
-    std::string id = n.id();  // node id
-    std::string nodeColor = "black";
-  
-    if (isSgStatement(n.getNode()))
-      nodeColor = "blue";
-    else if (isSgExpression(n.getNode()))
-      nodeColor = "green";
-    else if (isSgInitializedName(n.getNode()))
-      nodeColor = "red";
-  
-    // node_id [label="", color="", style=""]
-    (*ostr) << id << " [label=\""  << escapeString(n.toString()) <<"\\n" << escapeString (state_string) << "\", color=\"" << nodeColor <<
-      "\", style=\"" << (n.isInteresting()? "solid" : "dotted") << "\"];\n";
+    FunctionState* fState = *it;
+    // compose the output file name as filename_mangled_function_name.dot
+    Function *func = & (fState->getFunc());
+    assert (func != NULL);
+    SgFunctionDefinition* proc = func->get_definition();
+    string file_name = StringUtility::stripPathFromFileName(proc->get_file_info()->get_filename());
+    string file_func_name= file_name+ "_"+proc->get_mangled_name().getString();
+
+    string full_output = file_func_name +"_cfg.dot";
+    std::ofstream ostr(full_output.c_str());
+
+    ostr << "digraph " << "mygraph" << " {\n";
+    analysisStatesToDOT* dot_analysis = dynamic_cast <analysisStatesToDOT*> (intraAnalysis);
+    assert (dot_analysis != NULL);
+    dot_analysis->ostr = &ostr;
+    dot_analysis->runAnalysis(fState->func, &(fState->state));
+    ostr << "}\n";
   }
-  
-  // This will be visited only once? Not sure, better check
-    void
-  analysisStatesToDOT::visit(const Function& func, const DataflowNode& n, NodeState& state)
-  { 
-    std::string state_str = state.str( lda, " "); // convert lattice into a string
-    printNode(n, state_str);
-    std::vector < DataflowEdge> outEdges = n.outEdges();
-    for (unsigned int i = 0; i < outEdges.size(); ++i)
-    {
-      printEdge(outEdges[i]);
-    }
-  }
-  //------------ call graph level  driver ----------------
-  class IntraAnalysisResultsToDotFiles: public UnstructuredPassInterAnalysis
-  {
-    public:
-      // internal function level dot generation, a name for the output file
-      IntraAnalysisResultsToDotFiles(IntraProceduralAnalysis & funcToDot)
-        : InterProceduralAnalysis(&funcToDot), UnstructuredPassInterAnalysis(funcToDot){ }
-      // For each function, call function level Dot file generator to generate separate dot file
-      void runAnalysis() ;
-  };
-  
-  void IntraAnalysisResultsToDotFiles::runAnalysis()
-  {
-    set<FunctionState*> allFuncs = FunctionState::getAllDefinedFuncs();
-    // Go through functions one by one, call an intra-procedural analysis on each of them
-    // iterate over all functions with bodies
-    for(set<FunctionState*>::iterator it=allFuncs.begin(); it!=allFuncs.end(); it++)
-    {
-  
-      FunctionState* fState = *it;
-      // compose the output file name as filename_mangled_function_name.dot
-      Function *func = & (fState->getFunc());
-      assert (func != NULL);
-      SgFunctionDefinition* proc = func->get_definition();
-      string file_name = StringUtility::stripPathFromFileName(proc->get_file_info()->get_filename());
-      string file_func_name= file_name+ "_"+proc->get_mangled_name().getString();
-  
-      string full_output = file_func_name +"_cfg.dot";
-      std::ofstream ostr(full_output.c_str());
-  
-      ostr << "digraph " << "mygraph" << " {\n";
-      analysisStatesToDOT* dot_analysis = dynamic_cast <analysisStatesToDOT*> ( intraAnalysis);
-      assert (dot_analysis != NULL);
-      dot_analysis->ostr = &ostr;
-      dot_analysis->runAnalysis(fState->func, &(fState->state));
-      ostr << "}\n";
-    }
-  
-  }
-  
+
+}
 
 /******************
  ***** dbgBuf *****
@@ -134,6 +135,8 @@ void dbgBuf::init(std::streambuf* baseBuf)
         //numDivs = 0;
         parentDivs.empty();
         parentDivs.push_back(0);
+        //justSynched = false;
+        needIndent = false;
         //cout << "Initially parentDivs (len="<<parentDivs.size()<<")\n";
 }
 
@@ -167,12 +170,48 @@ int dbgBuf::overflow(int c)
 int dbgBuf::printString(string s)
 {
         int r = baseBuf->sputn(s.c_str(), s.length());
-        if(((size_t)r)!=s.length()) return -1;
+        if(r!=(int)s.length()) return -1;
         return 0;
+}
+
+// Get the current indentation within the current div
+std::string dbgBuf::getIndent()
+{
+  string out = "";
+  if(indents.size()>0) {
+    for(std::list<std::string>::iterator it=indents.rbegin()->begin(); it!=indents.rbegin()->end(); it++)
+      out += *it;
+    //cout << "getIndent("<<out<<")"<<endl;
+  }
+  return out;
+}
+
+// Add more indentation within the current div
+void dbgBuf::addIndent(std::string indent)
+{
+  indents.rbegin()->push_back(indent);
+  /*if(justSynched) {
+    int ret = printString(indent); if(ret != 0) return;
+  }*/
+}
+
+// Remove the most recently added indent within the current div
+void dbgBuf::remIndent()
+{
+  indents.rbegin()->pop_back();
 }
 
 streamsize dbgBuf::xsputn(const char * s, streamsize n)
 {
+  // Reset justSynched since we're now adding new characters after the last line break, meaning that no 
+  // additional indent will be needed for this line
+  //justSynched = false;
+  
+  if(needIndent) {
+    int ret = printString(getIndent()); if(ret != 0) return 0;
+    needIndent = false;
+  }
+  
 //      cout << "xputn() ownerAccess="<<ownerAccess<<" n="<<n<<" s=\""<<string(s)<<"\"\n";
         /*if(synched && !ownerAccess) {
                 int ret2 = printIndent();
@@ -190,8 +229,8 @@ streamsize dbgBuf::xsputn(const char * s, streamsize n)
                 char spaceHTML[]="&nbsp;";
                 char tab[]="\t";
                 char tabHTML[]="&#09;";
-                //char lt[]="&lt;";
-                //char gt[]="&gt;";
+                char lt[]="&lt;";
+                char gt[]="&gt;";
                 while(i<n) {
                         int j;
                         for(j=i; j<n && s[j]!='\n' && s[j]!=' ' && s[j]!='\t'/* && s[j]!='<' && s[j]!='>'*/; j++) {
@@ -202,6 +241,11 @@ streamsize dbgBuf::xsputn(const char * s, streamsize n)
                         // Send out all the bytes from the start of the string or the 
                         // last line-break until this line-break
                         if(j-i>0) {
+                                if(needIndent) {
+                                  int ret = printString(getIndent()); if(ret != 0) return 0;
+                                  needIndent = false;
+                                }
+                          
                                 ret = baseBuf->sputn(&(s[i]), j-i);
                                 if(ret != (j-i)) return 0;
                                 //cout << "   printing char "<<i<<" - "<<j<<"\n";
@@ -212,6 +256,10 @@ streamsize dbgBuf::xsputn(const char * s, streamsize n)
                                 if(s[j]=='\n') {
                                         ret = baseBuf->sputn(br, sizeof(br)-1);
                                         if(ret != sizeof(br)-1) return 0;
+                                        //string indent = getIndent();
+                                        //cout << "New Line indent=\""<<indent<<"\""<<endl;
+                                        //baseBuf->sputn(indent.c_str(), indent.size());
+                                        needIndent = true;
                                 } else if(s[j]==' ') {
                                         // If we're at a space and not inside an HTML tag, replace it with an HTML space escape code
                                         if(numOpenAngles==0) {
@@ -259,8 +307,10 @@ int dbgBuf::sync()
 
         //cout << "Synch synched="<<synched<<" ownerAccess="<<ownerAccess<<"\n";
         if(synched && !ownerAccess) {
-                int ret2 = printString("<br>\n");
-                if(ret2 != 0) return 0;
+                int ret;
+                ret = printString("<br>\n");    if(ret != 0) return 0;
+                /*ret = printString(getIndent()); if(ret != 0) return 0;
+                justSynched=true;*/
                 synched = false;
         }
         synched = true;
@@ -289,6 +339,8 @@ void dbgBuf::enterFunc(string funcName/*, string indent*/)
         // Add a new level to the parentDivs list, starting the index at 0
         parentDivs.push_back(0);
         //numDivs++;
+        
+        indents.push_back(std::list<std::string>());
 }
 
 void dbgBuf::exitFunc(string funcName)
@@ -305,6 +357,7 @@ void dbgBuf::exitFunc(string funcName)
         funcs.pop_back();
         //indents.pop_back();
         parentDivs.pop_back();
+        indents.pop_back();
 }
 
 /*********************
@@ -579,6 +632,18 @@ string dbgStream::addDOT(dottable& obj)
         return imgFName.str();
 }
 
+// Add a given amount of indent space to all subsequent text within the current function
+void dbgStream::addIndent(string indent)
+{
+        buf.addIndent(indent);
+}
+
+// Remove the most recently added indent
+void dbgStream::remIndent()
+{
+        buf.remIndent();
+}
+
 // Given a reference to an object that can be represented as a dot graph, create an image of it and return the string
 // that must be added to the output to include this image.
 std::string dbgStream::addDOTStr(dottable& obj)
@@ -688,13 +753,78 @@ void dbgStream::addDOT(string imgFName, string graphName, string dot, ostream& r
 
         bool initialized=false;
         dbgStream dbg;
-        
+
+/******************
+ ***** indent *****
+ ******************/
+indent::indent(int curDebugLevel, int targetDebugLevel) {
+  std::string space = "&nbsp;&nbsp;&nbsp;&nbsp;";
+  if(curDebugLevel >= targetDebugLevel) {
+    active = true;
+    //dbg << "Entering indent space=\""<<space<<"\""<<std::endl;
+    dbg.addIndent(space);
+  }
+  else
+    active = false;
+}
+indent::indent(int curDebugLevel, int targetDebugLevel, std::string space) {
+  if(curDebugLevel >= targetDebugLevel) {
+    active = true;
+    //dbg << "Entering indent space=\""<<space<<"\""<<std::endl;
+    dbg.addIndent(space);
+  }
+  else
+    active = false;
+}
+/*indent::indent() {
+  std::string space = "&nbsp;&nbsp;&nbsp;&nbsp;";
+  active = true;
+  //dbg << "Entering indent space=\""<<space<<"\""<<std::endl;
+  dbg.addIndent(space);
+}*/
+indent::indent(std::string space) {
+  active = true;
+  //dbg << "Entering indent space=\""<<space<<"\""<<std::endl;
+  dbg.addIndent(space);
+}
+indent::~indent() {
+  if(active) {
+    //dbg << "Exiting indent"<<std::endl;
+    dbg.remIndent();
+  }
+}
+
+/******************
+ ***** region *****
+ ******************/
+region::region(int curDebugLevel, int targetDebugLevel, int level, std::string label)
+{
+  if(curDebugLevel >= targetDebugLevel) {
+    active = true;
+    this->label = label;
+    enterFunc(label);
+  }
+  else
+    active = false;
+}
+region::region(int level, std::string label)
+{
+  active = true;
+  this->label = label;
+  enterFunc(label);
+}
+region::~region()
+{
+  if(active) {
+    exitFunc(label);
+  }
+}
         // Initializes the debug sub-system
         void init(string title, string workDir, string fName)
         {
                 if(initialized) return;
                         
-                { 
+                {
                         ostringstream cmd; cmd << "mkdir -p "<<workDir;
                         int ret = system(cmd.str().c_str());
                         if(ret == -1) { cout << "Dbg::init() ERROR creating directory \""<<workDir<<"\"!"; exit(-1); }
@@ -764,7 +894,7 @@ void dbgStream::addDOT(string imgFName, string graphName, string dot, ostream& r
         std::string escape(std::string s)
         {
                 string out;
-                for(size_t i=0; i<s.length(); i++) {
+                for(unsigned int i=0; i<s.length(); i++) {
                         // Manage HTML tags
                              if(s[i] == '<') out += "&lt;";
                         else if(s[i] == '>') out += "&gt;";
@@ -776,9 +906,9 @@ void dbgStream::addDOT(string imgFName, string graphName, string dot, ostream& r
         }
 
 
-  void dotGraphGenerator (::Analysis *a) 
+  void dotGraphGenerator (dataflow::Analysis *a) 
   {
-    ::analysisStatesToDOT eas( a);
+    analysisStatesToDOT eas(a);
     IntraAnalysisResultsToDotFiles upia_eas(eas);
     upia_eas.runAnalysis();
   }

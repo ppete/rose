@@ -11,6 +11,8 @@ using std::string;
 using std::pair;
 #include <iostream>
 using std::cout;
+#include <boost/make_shared.hpp>
+#include "partitions.h"
 
 namespace cfgUtils
 {
@@ -1172,9 +1174,10 @@ const SgExpression* cfgUtils::unwrapCasts(const SgExpression* e)
 }
 
 // returns the DataflowNode that represents that start of the CFG of the given function's body
-DataflowNode cfgUtils::getFuncStartCFG(SgFunctionDefinition* func, bool (*f) (CFGNode) /*= defaultFilter*/ )
+dataflow::PartPtr cfgUtils::getFuncStartCFG(SgFunctionDefinition* func, bool (*f) (CFGNode) /*= defaultFilter*/ )
 {
-  return DataflowNode (func->cfgForBeginning(), f);
+  //return boost::make_shared<DataflowNode>(func->cfgForBeginning(), f);
+  return DataflowNode(func->cfgForBeginning(), f);
 #if 0  
   DataflowNode funcCFGStart = (DataflowNode)func->cfgForBeginning();
   for(VirtualCFG::iterator it(funcCFGStart); it!=VirtualCFG::iterator::end(); it++)
@@ -1199,10 +1202,11 @@ DataflowNode cfgUtils::getFuncStartCFG(SgFunctionDefinition* func, bool (*f) (CF
 }
 
 // returns the DataflowNode that represents that end of the CFG of the given function's body
-DataflowNode cfgUtils::getFuncEndCFG(SgFunctionDefinition* func, bool (*f) (CFGNode) /*= defaultFilter*/ )
+dataflow::PartPtr cfgUtils::getFuncEndCFG(SgFunctionDefinition* func, bool (*f) (CFGNode) /*= defaultFilter*/ )
 {
   //return (DataflowNode) func->cfgForEnd();
-  return DataflowNode (func->cfgForEnd(),f);
+  //return boost::make_shared<DataflowNode>(func->cfgForEnd(), f);
+  return DataflowNode(func->cfgForEnd(), f);
 }
 
 // returns a string containing a unique name that is not otherwise used inside this project

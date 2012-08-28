@@ -3,6 +3,7 @@
 
 #include "virtualCFG.h"
 #include "DataflowCFG.h"
+#include "partitions.h"
 //#include "baseCFGIterator.h"
 
 #include <list>
@@ -11,29 +12,28 @@
 
 namespace VirtualCFG{
 
-// Iterates over DataflowNodes in a VirtualCFG, respecting dependences in the graph.
+// Iterates over Parts in a VirtualCFG, respecting dependences in the graph.
 // Supports both forward and backward iteration.
 class iterator/* : public virtual BaseCFG::iterator*/
 {
         //protected:
         public:
                 
-        std::list<DataflowNode> remainingNodes;
-        //map<DataflowNode, bool> visited;
-        std::set<DataflowNode> visited;
+        std::list<dataflow::PartPtr> remainingNodes;
+        std::set<dataflow::PartPtr> visited;
         bool initialized;
 
         public:
         iterator();
         
-        iterator(const DataflowNode &start);
+        iterator(const dataflow::PartPtr start);
         virtual ~iterator() { }
         
-        void init(const DataflowNode &start);
+        void init(const dataflow::PartPtr start);
 
         protected:
-        // returns true if the given DataflowNode is in the remainingNodes list and false otherwise
-        bool isRemaining(DataflowNode n);
+        // returns true if the given dataflow::PartPtr is in the remainingNodes list and false otherwise
+        bool isRemaining(const dataflow::PartPtr p);
                 
         // advances this iterator in the given direction. Forwards if fwDir=true and backwards if fwDir=false.
         // if pushAllChildren=true, all of the current node's unvisited children (predecessors or successors, 
@@ -49,10 +49,10 @@ class iterator/* : public virtual BaseCFG::iterator*/
         
         bool operator!=(const iterator& it) const;
                 
-        DataflowNode& operator * ();
+        dataflow::PartPtr operator * ();
         
         // Returns a fresh iterator that starts at node n
-        static iterator begin(DataflowNode n);
+        static iterator begin(const dataflow::PartPtr n);
         
         // Returns an empty iterator that can be compared to any other iterator to 
         // check if it has completed passing over its iteration space
@@ -62,17 +62,17 @@ class iterator/* : public virtual BaseCFG::iterator*/
         // checkpointed and restarted.
         class checkpoint/* : public virtual BaseCFG::iterator::checkpoint*/
         {
-          std::list<DataflowNode> remainingNodes;
-          std::set<DataflowNode> visited;
+          std::list<dataflow::PartPtr> remainingNodes;
+          std::set<dataflow::PartPtr>  visited;
         
-                public:
-          checkpoint(const std::list<DataflowNode>& remainingNodes, const std::set<DataflowNode>& visited);
+          public:
+          checkpoint(const std::list<dataflow::PartPtr>& remainingNodes, const std::set<dataflow::PartPtr>& visited);
                 
-                checkpoint(const checkpoint& that);
-                
-                std::string str(std::string indent="");
-                
-                friend class iterator;
+          checkpoint(const checkpoint& that);
+          
+          std::string str(std::string indent="");
+          
+          friend class iterator;
         };
         
         // Returns a checkpoint of this iterator's progress.
@@ -89,31 +89,31 @@ class back_iterator : /*public virtual BaseCFG::backiterator, */public virtual i
         public:
         back_iterator(): iterator() {}
         
-        back_iterator(const DataflowNode &end): iterator(end) { }
+        back_iterator(const dataflow::PartPtr end): iterator(end) { }
         
         void operator ++ (int);
 };
 
-class dataflow : /*public virtual BaseCFG::dataflow, */public virtual iterator
+class dataflowIterator : /*public virtual BaseCFG::dataflow, */public virtual iterator
 {
-        DataflowNode terminator;
+        dataflow::PartPtr terminator;
         public:
         //dataflow(): iterator() {}
         
-        dataflow(const DataflowNode &terminator_arg);
+        dataflowIterator(const dataflow::PartPtr terminator_arg);
         
-        //dataflow(const DataflowNode &start) : iterator(start) {}
-        dataflow(const DataflowNode &start, const DataflowNode &terminator_arg);
+        //dataflow(const dataflow::PartPtr &start) : iterator(start) {}
+        dataflowIterator(const dataflow::PartPtr start, const dataflow::PartPtr terminator_arg);
         
-        void init(const DataflowNode &start_arg, const DataflowNode &terminator_arg);
+        void init(const dataflow::PartPtr start_arg, const dataflow::PartPtr terminator_arg);
         
         // Initializes this iterator's terminator node
-        /*void setTerminator(const DataflowNode &terminator) {
+        /*void setTerminator(const dataflow::PartPtr terminator) {
                 initialized = true;
                 this->terminator = terminator;
         }*/
         
-        void add(const DataflowNode &next);
+        void add(const dataflow::PartPtr next);
         
         //void operator ++ (int);
         
@@ -121,17 +121,18 @@ class dataflow : /*public virtual BaseCFG::dataflow, */public virtual iterator
         // iterators to be checkpointed and restarted.
         class checkpoint/* : public virtual BaseCFG::dataflow::checkpoint*/
         {
+                protected:
                 iterator::checkpoint iChkpt;
-                DataflowNode terminator;
+                dataflow::PartPtr terminator;
                 
                 public:
-                checkpoint(const iterator::checkpoint& iChkpt, const DataflowNode& terminator);
+                checkpoint(const iterator::checkpoint& iChkpt, const dataflow::PartPtr terminator);
                 
                 checkpoint(const checkpoint &that);
                         
                 std::string str(std::string indent="");
                 
-                friend class dataflow;
+                friend class dataflowIterator;
         };
         
         // Returns a checkpoint of this dataflow iterator's progress.
@@ -143,16 +144,16 @@ class dataflow : /*public virtual BaseCFG::dataflow, */public virtual iterator
         std::string str(std::string indent="");
 };
 
-class back_dataflow: /*public virtual BaseCFG::back_dataflow,*/ public virtual dataflow
+class back_dataflowIterator: /*public virtual BaseCFG::back_dataflow,*/ public virtual dataflowIterator
 {
         public: 
         //back_dataflow(): back_iterator() {}
         
-        back_dataflow(const DataflowNode &terminator_arg) : dataflow(terminator_arg) {}
+        back_dataflowIterator(const dataflow::PartPtr terminator_arg) : dataflowIterator(terminator_arg) {}
         
-        //back_dataflow(const DataflowNode &end) : iterator(end) {}
+        //back_dataflow(const dataflow::PartPtr &end) : iterator(end) {}
         
-        back_dataflow(const DataflowNode &end, const DataflowNode &terminator_arg);
+        back_dataflowIterator(const dataflow::PartPtr end, const dataflow::PartPtr terminator_arg);
                 
         void operator ++ (int);
 };
