@@ -619,22 +619,23 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
   // statement as well as the node itself, with the deeper ancestors placed towards the front of the list
   list<SgNode*> getAncestorToStmt(SgNode* n) {
     list<SgNode*> ancestors;
-    Dbg::region reg(1,1, Dbg::region::topLevel, "getAncestorToStmt");
+    /*Dbg::region reg(1,1, Dbg::region::topLevel, "getAncestorToStmt");
     Dbg::dbg << "n=["<<n->unparseToString()<<" | "<<n->class_name()<<"]"<<endl;
-    Dbg::indent ind(1, 1);
+    Dbg::indent ind(1, 1);*/
 
     SgNode* a = n;
-    Dbg::dbg << "a=["<<a->unparseToString()<<" | "<<a->class_name()<<"]"<<endl;
+    //Dbg::dbg << "a=["<<a->unparseToString()<<" | "<<a->class_name()<<"]"<<endl;
     while(a!=NULL && !isSgStatement(a)) {
       ancestors.push_front(a);
       a = a->get_parent();
-      if(a) Dbg::dbg << "#ancestors="<<ancestors.size()<<" a=["<<a->unparseToString()<<" | "<<a->class_name()<<"]"<<endl;
-      else  Dbg::dbg << "#ancestors="<<ancestors.size()<<" a=NULL"<<endl;
+      /*if(a) Dbg::dbg << "#ancestors="<<ancestors.size()<<" a=["<<a->unparseToString()<<" | "<<a->class_name()<<"]"<<endl;
+      else  Dbg::dbg << "#ancestors="<<ancestors.size()<<" a=NULL"<<endl;*/
     }
     if(a!=NULL) ancestors.push_front(a);
     return ancestors;
   }
   
+  // Returns true if this MemLocObject is in-scope at the given part and false otherwise
   bool ExprObj::isInScope(PartPtr part) const 
   {
     //RULE 1: Fails because it doesn't account for the fact that between an operand and its parent
@@ -665,21 +666,21 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
     // Otherwise, anchor_exp is only in-scope if shares an ancestor with part.getNode() but part.getNode() 
     // is not that ancestor.
     else {
-      Dbg::dbg << "anchor_exp->get_parent()=["<<anchor_exp->get_parent()->unparseToString()<<" | "<<anchor_exp->get_parent()->class_name()<<"]"<<endl;
+      /*Dbg::dbg << "anchor_exp->get_parent()=["<<anchor_exp->get_parent()->unparseToString()<<" | "<<anchor_exp->get_parent()->class_name()<<"]"<<endl;
       Dbg::dbg << "part.getNode()=["<<part.getNode()->unparseToString()<<" | "<<part.getNode()->class_name()<<"]"<<endl;
-      Dbg::dbg << "isOperand(part.getNode(), anchor_exp)="<<isOperand(part.getNode(), anchor_exp)<<endl;
+      Dbg::dbg << "isOperand(part.getNode(), anchor_exp)="<<isOperand(part.getNode(), anchor_exp)<<endl;*/
       // Get the ancestor lists of both nodes
-      Dbg::dbg << "getAncestorToStmt(anchor_exp)"<<endl;
+      //Dbg::dbg << "getAncestorToStmt(anchor_exp)"<<endl;
       list<SgNode*> anchorAncestors = getAncestorToStmt(anchor_exp);
-      Dbg::dbg << "#anchorAncestors="<<anchorAncestors.size()<<endl;
-      Dbg::dbg << "getAncestorToStmt(part.getNode())"<<endl;
+      //Dbg::dbg << "#anchorAncestors="<<anchorAncestors.size()<<endl;
+      //Dbg::dbg << "getAncestorToStmt(part.getNode())"<<endl;
       list<SgNode*> partAncestors = getAncestorToStmt(part.getNode());
-      Dbg::dbg << "#partAncestors="<<partAncestors.size()<<endl;
+      //Dbg::dbg << "#partAncestors="<<partAncestors.size()<<endl;
       ROSE_ASSERT(isSgStatement(*anchorAncestors.begin()));
       
       // If the roots of the ancestor trees are mismatched, anchor_exp is not in-scope
       if(!isSgStatement(*partAncestors.begin()) || *(anchorAncestors.begin())!=*(partAncestors.begin())) {
-        Dbg::dbg << "OUT-OF-SCOPE partStmt="<<isSgStatement(*partAncestors.begin())<<", sameStmt="<<(*(anchorAncestors.begin())!=*(partAncestors.begin()))<<endl;
+        //Dbg::dbg << "OUT-OF-SCOPE partStmt="<<isSgStatement(*partAncestors.begin())<<", sameStmt="<<(*(anchorAncestors.begin())!=*(partAncestors.begin()))<<endl;
         return false;
       }
       
@@ -692,12 +693,12 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
       
       // If we stopped at the end of either ancestor list then one of the nodes is an ancestor of the other: not in-scope
       if(a==anchorAncestors.end() || p==partAncestors.end()) {
-        Dbg::dbg << "OUT-OF-SCOPE (anchor end="<<(a==anchorAncestors.end())<<", part end="<<(p==partAncestors.end())<<endl;
+        //Dbg::dbg << "OUT-OF-SCOPE (anchor end="<<(a==anchorAncestors.end())<<", part end="<<(p==partAncestors.end())<<endl;
         return false;
       }
       
       // Otherwise, if there are more nodes left on both ancestor lists, then anchor_exp is in-scope
-      Dbg::dbg << "IN-SCOPE"<<endl;
+      //Dbg::dbg << "IN-SCOPE"<<endl;
       return true;
     }
   }
@@ -1234,8 +1235,28 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
     }
   }
   
+  // Returns true if this MemLocObject is in-scope at the given part and false otherwise
   bool NamedObj::isInScope(PartPtr part) const
-  { return true; }
+  { 
+    // This variable is in-scope if part.getNode() is inside the scope that contains its declaration
+    SgScopeStatement* anchor_scope;
+    ROSE_ASSERT(isSgVariableSymbol(anchor_symbol) || isSgFunctionSymbol(anchor_symbol));
+    if(isSgVariableSymbol(anchor_symbol))
+        anchor_scope = isSgVariableSymbol(anchor_symbol)->get_declaration()->get_declaration()->get_scope();
+    else if(isSgFunctionSymbol(anchor_symbol))
+      anchor_scope = isSgVariableSymbol(anchor_symbol)->get_declaration()->get_declaration()->get_scope();
+    
+    SgScopeStatement* partScope = SageInterface::getScope(part.getNode());
+    while(partScope!=NULL && partScope!=anchor_scope) 
+      partScope = SageInterface::getScope(partScope);
+    
+    // The variable is in-scope if part.getNode() is inside its declaration scope
+    Dbg::region reg(1,1, Dbg::region::topLevel, "NamedObj::isInScope");
+    Dbg::dbg << "anchor_symbol=["<<anchor_symbol->unparseToString()<<" | "<<anchor_symbol->class_name()<<"]"<<endl;
+    Dbg::dbg << "part=["<<part.getNode()->unparseToString()<<" | "<<part.getNode()->class_name()<<"]"<<endl;
+    Dbg::dbg << (partScope!=NULL ? "IN-SCOPE" : "OUT-OF-SCOPE")<<endl;
+    return partScope!=NULL;
+  }
   
   //std::string IndexVector_Impl::str(const string& indent)
   std::string IndexVector_Impl::str(std::string indent) const // pretty print for the object  
@@ -2437,7 +2458,7 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
   }
 
   
-  /// Visits live expressions to determine whether the given SgExpression is an operand of the visited Sgxpression
+  /*/// Visits live expressions to determine whether the given SgExpression is an operand of the visited Sgxpression
   class IsOperandVisitor : public ROSE_VisitorPatternDefaultBase
   {
     public:
@@ -2455,14 +2476,14 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
         // Function Reference
         // !!! CURRENTLY WE HAVE NO NOTION OF VARIABLES THAT IDENTIFY FUNCTIONS, SO THIS CASE IS EXCLUDED FOR NOW
         /*} else if(isSgFunctionRefExp(sgn)) {*/
-        /*} else if(isSgMemberFunctionRefExp(sgn)) {*/
+        /*} else if(isSgMemberFunctionRefExp(sgn)) {* /
 
         // !!! DON'T KNOW HOW TO HANDLE THESE
-        /*} else if(isSgStatementExpression(sgn)) {(*/
+        /*} else if(isSgStatementExpression(sgn)) {(* /
 
         // Typeid
         // !!! DON'T KNOW WHAT TO DO HERE SINCE THE RETURN VALUE IS A TYPE AND THE ARGUMENT'S VALUE IS NOT USED
-        /*} else if(isSgTypeIdOp(sgn)) {*/
+        /*} else if(isSgTypeIdOp(sgn)) {* /
         // Var Args
         // !!! DON'T HANDLE THESE RIGHT NOW. WILL HAVE TO IN THE FUTURE
         /*  SgVarArgOp 
@@ -2476,9 +2497,9 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
             SgExpression *  get_operand_expr () const 
             SgVarArgStartOp 
             SgExpression *  get_lhs_operand () const
-            SgExpression *  get_rhs_operand () const */
+            SgExpression *  get_rhs_operand () const * /
         // !!! WHAT IS THIS?
-        /*  SgVariantExpression*/
+        /*  SgVariantExpression* /
 
 
         // TODO: Make this assert(0), because unhandled expression types are likely to give wrong results
@@ -2641,5 +2662,5 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
     }
     
     return false;
-  }  
+  }*/
 }; // namespace dataflow

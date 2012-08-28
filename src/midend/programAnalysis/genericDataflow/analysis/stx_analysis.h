@@ -361,6 +361,7 @@ typedef boost::shared_ptr<StxCodeLocObject> StxCodeLocObjectPtr;
       bool mustEqualML(MemLocObjectPtr o2, PartPtr p) const; 
       bool isConstant () {return isSgValueExp(anchor_exp); } ; // if the expression object represent a constant value (SgValueExp)
       
+      // Returns true if this MemLocObject is in-scope at the given part and false otherwise
       bool isInScope(PartPtr part) const;
       
       std::string str(std::string indent) const; // pretty print for the object
@@ -408,6 +409,7 @@ typedef boost::shared_ptr<StxCodeLocObject> StxCodeLocObjectPtr;
       bool mayEqualML(MemLocObjectPtr o2, PartPtr p) const; 
       bool mustEqualML(MemLocObjectPtr o2, PartPtr p) const; 
       
+      // Returns true if this MemLocObject is in-scope at the given part and false otherwise
       bool isInScope(PartPtr part) const;
   };
 

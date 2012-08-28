@@ -14,7 +14,8 @@ int main(int argc, char** argv)
   printf("========== S T A R T ==========\n");
 
   list<ComposedAnalysis*> analyses;
-  analyses.push_back(new LiveDeadMemAnalysis());
+  analyses.push_back(new ConstantPropagationAnalysis());
+  /*analyses.push_back(new LiveDeadMemAnalysis());
   /*analyses.push_back(new OrthogonalArrayAnalysis());
   analyses.push_back(new ConstantPropagationAnalysis());
   analyses.push_back(new OrthogonalArrayAnalysis());

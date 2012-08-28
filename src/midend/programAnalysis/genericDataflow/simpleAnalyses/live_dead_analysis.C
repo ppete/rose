@@ -22,7 +22,8 @@ void LiveDeadMemAnalysis::genInitState(const Function& func, PartPtr part, const
   AbstractObjectSet* s = new AbstractObjectSet(/*ceml, */part, AbstractObjectSet::may);
   
   // If this part is the return statement of main(), make sure that its return value is live
-  if(func.get_name().getString() == "main" && 
+  //if(func.get_name().getString() == "main" && 
+  if(func.get_declaration() == SageInterface::findMain(SageInterface::getGlobalScope(func.get_declaration())) && 
      isSgReturnStmt(part.getNode())) {
     MemLocObjectPtrPair p(composer->Expr2MemLoc(isSgReturnStmt(part.getNode())->get_expression(), part, this));
     s->insert(p.expr? p.expr : p.mem);

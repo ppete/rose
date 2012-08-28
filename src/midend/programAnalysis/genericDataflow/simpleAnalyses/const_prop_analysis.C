@@ -234,9 +234,9 @@ CPValueObject::strp(PartPtr part, string indent) const
      if(level == bottom)
           outs << "[bottom]";
        else if(level == unknownValue)
-          outs << "[unknownValue: "<<value<<"]";
+          outs << "[unknown: "<<value<<"]";
        else if(level == constantValue)
-          outs << "[constantValue: "<<value<<"]";
+          outs << "[const: "<<value<<"]";
        else if(level == top)
           outs << "[top]";
 
