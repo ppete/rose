@@ -43,6 +43,8 @@ class Lattice : public printable
         //    other MemLocObjects maintained by this Lattice may be excluded if it does not contribute to this goal.
         //    ASSUMED: full mustEquals information is available for the keys and values of this map. They must be
         //       variable references or expressions.
+        // !!! KEYS MAY NOW BE IMPRECISE BECAUSE FOR PASS-BY-REFERENCE WE'RE TALKING ABOUT PASSED MEMORY LOCATIONS
+        // !!! IF THE VALUE OF ML2ML IS NULL, ANY MUST-MATCHES SHOULD BE DELETED
         virtual Lattice* remapML(const std::set<pair<MemLocObjectPtr, MemLocObjectPtr> >& ml2ml) {
           return false;
         }

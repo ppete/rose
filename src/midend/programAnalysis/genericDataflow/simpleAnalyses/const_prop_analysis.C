@@ -232,13 +232,13 @@ CPValueObject::strp(PartPtr part, string indent) const
     
      ostringstream outs;
      if(level == bottom)
-          outs << "[level: bottom]";
+          outs << "[bottom]";
        else if(level == unknownValue)
-          outs << "[level: unknownValue, val = "<<value<<"]";
+          outs << "[unknownValue: "<<value<<"]";
        else if(level == constantValue)
-          outs << "[level: constantValue, val = "<<value<<"]";
+          outs << "[constantValue: "<<value<<"]";
        else if(level == top)
-          outs << "[level: top]";
+          outs << "[top]";
 
      return outs.str();
 }

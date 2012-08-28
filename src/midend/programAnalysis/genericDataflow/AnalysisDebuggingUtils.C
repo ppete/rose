@@ -135,7 +135,8 @@ void dbgBuf::init(std::streambuf* baseBuf)
         //numDivs = 0;
         parentDivs.empty();
         parentDivs.push_back(0);
-        justSynched = false;
+        //justSynched = false;
+        needIndent = false;
         //cout << "Initially parentDivs (len="<<parentDivs.size()<<")\n";
 }
 
@@ -204,7 +205,12 @@ streamsize dbgBuf::xsputn(const char * s, streamsize n)
 {
   // Reset justSynched since we're now adding new characters after the last line break, meaning that no 
   // additional indent will be needed for this line
-  justSynched = false;
+  //justSynched = false;
+  
+  if(needIndent) {
+    int ret = printString(getIndent()); if(ret != 0) return 0;
+    needIndent = false;
+  }
   
 //      cout << "xputn() ownerAccess="<<ownerAccess<<" n="<<n<<" s=\""<<string(s)<<"\"\n";
         /*if(synched && !ownerAccess) {
@@ -235,6 +241,11 @@ streamsize dbgBuf::xsputn(const char * s, streamsize n)
                         // Send out all the bytes from the start of the string or the 
                         // last line-break until this line-break
                         if(j-i>0) {
+                                if(needIndent) {
+                                  int ret = printString(getIndent()); if(ret != 0) return 0;
+                                  needIndent = false;
+                                }
+                          
                                 ret = baseBuf->sputn(&(s[i]), j-i);
                                 if(ret != (j-i)) return 0;
                                 //cout << "   printing char "<<i<<" - "<<j<<"\n";
@@ -245,9 +256,10 @@ streamsize dbgBuf::xsputn(const char * s, streamsize n)
                                 if(s[j]=='\n') {
                                         ret = baseBuf->sputn(br, sizeof(br)-1);
                                         if(ret != sizeof(br)-1) return 0;
-                                        string indent = getIndent();
+                                        //string indent = getIndent();
                                         //cout << "New Line indent=\""<<indent<<"\""<<endl;
-                                        baseBuf->sputn(indent.c_str(), indent.size());
+                                        //baseBuf->sputn(indent.c_str(), indent.size());
+                                        needIndent = true;
                                 } else if(s[j]==' ') {
                                         // If we're at a space and not inside an HTML tag, replace it with an HTML space escape code
                                         if(numOpenAngles==0) {
@@ -297,8 +309,8 @@ int dbgBuf::sync()
         if(synched && !ownerAccess) {
                 int ret;
                 ret = printString("<br>\n");    if(ret != 0) return 0;
-                ret = printString(getIndent()); if(ret != 0) return 0;
-                justSynched=true;
+                /*ret = printString(getIndent()); if(ret != 0) return 0;
+                justSynched=true;*/
                 synched = false;
         }
         synched = true;

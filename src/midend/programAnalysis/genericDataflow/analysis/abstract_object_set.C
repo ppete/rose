@@ -131,7 +131,7 @@ std::string AbstractObjectSet::strp(PartPtr part, std::string indent)
     std::list<AbstractObjectPtr>::iterator it = items.begin();
     while(it != items.end()) {
         if(it != items.begin()) oss << indent;
-        oss << (*it)->strp(part, "    ");
+        oss << (*it)->strp(part, "&nbsp;&nbsp;&nbsp;&nbsp;");
         
         it++;
         if(it!=items.end())
@@ -307,9 +307,11 @@ Lattice* AbstractObjectSet::remapML(const std::set<pair<MemLocObjectPtr, MemLocO
       // value in ml2ml to be added to newS
       if((*i)->mustEqual(m->first, part)) {
         existsMustEqual = true;
-        vals2add.insert(m->second);
+        // Insert the corresponding value in ml2ml if it is not NULL
+        if(m->second) vals2add.insert(m->second);
       } else if(mode == may && (*i)->mayEqual(m->first, part)) {
         existsMayEqual = true;
+        // Insert the corresponding value in ml2ml if it is not NULL
         vals2add.insert(m->second);
       }
     }
@@ -383,6 +385,7 @@ bool AbstractObjectSet::replaceML(Lattice* newL)
 bool AbstractObjectSet::meetUpdate(Lattice* thatL)
 {
   try {
+    Dbg::region reg(AbstractObjectSetDebugLevel, 2, Dbg::region::topLevel, "AbstractObjectSet::meetUpdate");
     AbstractObjectSet *that = dynamic_cast <AbstractObjectSet*> (thatL);
     if(isFull) return false;
     if(that->isFull) {
@@ -393,11 +396,12 @@ bool AbstractObjectSet::meetUpdate(Lattice* thatL)
     // Copy over from that all the elements that don't already exist in this
     bool modified = false;
     if(mode == may) {
-      //Dbg::dbg << "that->items="<<endl;
-      Dbg::indent ind(AbstractObjectSetDebugLevel, 1);
+      if(AbstractObjectSetDebugLevel>=2) Dbg::dbg << "that->items="<<endl;
+      Dbg::indent ind(AbstractObjectSetDebugLevel, 2);
       for(std::list<AbstractObjectPtr>::iterator it=that->items.begin(); it!=that->items.end(); it++) {
-        //Dbg::dbg << "it="<<it->get()->str()<<endl;
+        if(AbstractObjectSetDebugLevel>=2) Dbg::dbg << "it="<<it->get()->str()<<endl;
         modified = insert(*it) || modified;
+        if(AbstractObjectSetDebugLevel>=2) Dbg::dbg << "modified = "<<modified<<endl;
       }
     } else if(mode==must) {
       // Remove all the AbstractObjects in this that do not also appear in that
@@ -406,6 +410,8 @@ bool AbstractObjectSet::meetUpdate(Lattice* thatL)
           modified = remove(*it) || modified;
       }
     }
+
+    return modified;
   } catch (bad_cast & bc) { 
     ROSE_ASSERT(false);
   }

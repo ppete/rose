@@ -318,7 +318,7 @@ boost::shared_ptr<RetObject> ChainComposer::callServerAnalysisFunc(SgNode* n, Pa
       /*Dbg::dbg << "Final State of doneAnalysis="<<endl;
       for(list<ComposedAnalysis*>::iterator a=doneAnalyses.begin(); a!=doneAnalyses.end(); a++)
         Dbg::dbg << "    "<<(*a)->str("        ")<<endl;*/
-      if(composerDebugLevel>=1) Dbg::dbg << "Returning "<<v->str("")<<endl;
+      if(composerDebugLevel>=1) Dbg::dbg << "Returning "<<v->strp(p, "")<<endl;
       if(composerDebugLevel>=1) Dbg::exitFunc(label.str());
       return v;
     } catch (NotImplementedException exc) {
@@ -395,7 +395,7 @@ MemLocObjectPtrPair ChainComposer::Expr2MemLoc(SgNode* n, PartPtr p, ComposedAna
     // Generate a fresh object for n's expression temporary and return it along with mem
     return MemLocObjectPtrPair(
               isSgExpression(n) && !isSgVarRefExp(n) ? 
-                createExpressionMemLocObject(isSgExpression(n), isSgExpression(n)->get_type()) :
+                createExpressionMemLocObject(isSgExpression(n), isSgExpression(n)->get_type(), p) :
                 MemLocObjectPtr(),
               mem);
 }

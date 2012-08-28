@@ -54,7 +54,6 @@ protected:
   void setLattice(SgNode *sgn, LatticePtr lat) {
     ROSE_ASSERT(sgn);
     MemLocObjectPtrPair p = composer->Expr2MemLoc(sgn, part, analysis);
-    Dbg::dbg << "setLattice() p="<<p.str("&nbsp;&nbsp;&nbsp;&nbsp;")<<endl;
     Dbg::dbg << "setLattice() p="<<p.strp(part, "&nbsp;&nbsp;&nbsp;&nbsp;")<<endl;
     
     // Set both p.expr and p.mem to lat 

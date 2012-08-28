@@ -16,12 +16,10 @@ namespace dataflow {
   
 // the top level builder for MemLocObject from any SgNode
 
-MemLocObjectPtr SyntacticAnalysis::Expr2MemLoc(SgNode* n, PartPtr p)
-{ return Expr2MemLoc_noPart(n); }
+MemLocObjectPtr SyntacticAnalysis::Expr2MemLoc(SgNode* n, PartPtr part)
+{ return SyntacticAnalysis::Expr2MemLocStatic(n, part); }
 
-// Maps the given SgNode to an implementation of the MemLocObject abstraction.
-// The Part field is ignored since it makes no difference for the syntactic analysis.
-MemLocObjectPtr SyntacticAnalysis::Expr2MemLoc_noPart(SgNode* n)
+MemLocObjectPtr SyntacticAnalysis::Expr2MemLocStatic(SgNode* n, PartPtr part)
 {
   MemLocObjectPtr rt;
 
@@ -38,25 +36,25 @@ MemLocObjectPtr SyntacticAnalysis::Expr2MemLoc_noPart(SgNode* n)
   {
     SgPntrArrRefExp* r = isSgPntrArrRefExp(n);
     assert (r != NULL);
-    rt = createNamedMemLocObject (r);
+    rt = createNamedMemLocObject (r, part);
   } 
   else if (isSgVarRefExp (n))
   {
     SgVarRefExp* varexp = isSgVarRefExp (n);
     assert (varexp != NULL);
-    rt = createNamedMemLocObject (varexp);
+    rt = createNamedMemLocObject (varexp, part);
   }
   else if (isSgExpression(n)) // the order matters !! Must put after V_SgVarRefExp, SgPntrArrRefExp etc.
   {
     SgExpression* sgexp = isSgExpression (n);
     assert (sgexp != NULL);
-    rt = createExpressionMemLocObject (sgexp, sgexp->get_type());
+    rt = createExpressionMemLocObject (sgexp, sgexp->get_type(), part);
   }
   else if (isSgType(n))
   {
     SgType* t = isSgType(n);
     assert (t != NULL);
-    rt = createAliasedMemLocObject(t);
+    rt = createAliasedMemLocObject(t, part);
   }
   else if (isSgSymbol(n) || isSgInitializedName(n)) // skip SgFunctionSymbol etc
   {
@@ -66,7 +64,7 @@ MemLocObjectPtr SyntacticAnalysis::Expr2MemLoc_noPart(SgNode* n)
     assert (s != NULL);
 
     if (!isMemberVariableDeclarationSymbol (s))
-      rt  = createNamedMemLocObject (s, s->get_type(), MemLocObjectPtr(), IndexVectorPtr()); // parent should be NULL since it is not a member variable symbol
+      rt  = createNamedMemLocObject(s, s->get_type(), part, MemLocObjectPtr(), IndexVectorPtr()); // parent should be NULL since it is not a member variable symbol
                                                    // TODO handle array of arrays ?? , then last IndexVectorPtr should not be NULL   
     else
     {
@@ -80,10 +78,17 @@ MemLocObjectPtr SyntacticAnalysis::Expr2MemLoc_noPart(SgNode* n)
 }
 
 ValueObjectPtr SyntacticAnalysis::Expr2Val(SgNode* n, PartPtr  p)
+{ return SyntacticAnalysis::Expr2ValStatic(n, p); }
+
+ValueObjectPtr SyntacticAnalysis::Expr2ValStatic(SgNode* n, PartPtr  p)
 { return boost::make_shared<StxValueObject>(n); }
 
 CodeLocObjectPtr SyntacticAnalysis::Expr2CodeLoc(SgNode* n, PartPtr p)
+{ return SyntacticAnalysis::Expr2CodeLocStatic(n, p); }
+
+CodeLocObjectPtr SyntacticAnalysis::Expr2CodeLocStatic(SgNode* n, PartPtr p)
 { return boost::make_shared<StxCodeLocObject>(n, p); }
+
 
 
 /**************************
@@ -573,14 +578,18 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
  // concern about the ExprObj itself , not the value it contains/stores
   bool ExprObj::mayEqualML(MemLocObjectPtr o2, PartPtr p) const
   {
+    // If StxMemLocObject says they're definitely equal/not equal, return true/false
+    switch(StxMemLocObject::equal(o2, p)) {
+      case StxMemLocObject::defEqual: return true;
+      case StxMemLocObject::defNotEqual: return false;
+      case StxMemLocObject::unknown: break;
+    }
+    
     //const ExprObj & expr_o2 = dynamic_cast <const ExprObj&> (o2);
     ExprObjPtr expr_o2 = boost::dynamic_pointer_cast <ExprObj> (o2);
     //Dbg::dbg << "ExprObj::mayEqualML this="<<str("")<<endl;
     //Dbg::dbg << "                   o2="<<(o2? o2->str("") : "NULL")<<endl;
     //Dbg::dbg << "    ==>"<<(!expr_o2 ? false: ( this -> anchor_exp  == expr_o2->anchor_exp))<<endl;
-    
-    LDMemLocObjectPtr ld_o2 = boost::dynamic_pointer_cast<LDMemLocObject>(o2);
-    ROSE_ASSERT(!ld_o2);
     
     if(!expr_o2) { return false; }
     return ( this -> anchor_exp  == expr_o2->anchor_exp);
@@ -589,6 +598,13 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
   // reuse the equal operator, which is must equal for ExprObj
   bool ExprObj::mustEqualML(MemLocObjectPtr o2, PartPtr p) const
   {
+    // If StxMemLocObject says they're definitely equal/not equal, return true/false
+    switch(StxMemLocObject::equal(o2, p)) {
+      case StxMemLocObject::defEqual: return true;
+      case StxMemLocObject::defNotEqual: return false;
+      case StxMemLocObject::unknown: break;
+    }
+    
     //const ExprObj & expr_o2 = dynamic_cast <const ExprObj&> (o2);
     ExprObjPtr expr_o2 = boost::dynamic_pointer_cast <ExprObj> (o2);
     /*Dbg::dbg << "ExprObj::mustEqualML this="<<str("")<<endl;
@@ -598,12 +614,99 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
     if(!expr_o2) { return false; }
     return (  this -> anchor_exp  == expr_o2->anchor_exp);
   }
+  
+  // Return the list of this node's ancestors, upto and including the nearest enclosing 
+  // statement as well as the node itself, with the deeper ancestors placed towards the front of the list
+  list<SgNode*> getAncestorToStmt(SgNode* n) {
+    list<SgNode*> ancestors;
+    Dbg::region reg(1,1, Dbg::region::topLevel, "getAncestorToStmt");
+    Dbg::dbg << "n=["<<n->unparseToString()<<" | "<<n->class_name()<<"]"<<endl;
+    Dbg::indent ind(1, 1);
+
+    SgNode* a = n;
+    Dbg::dbg << "a=["<<a->unparseToString()<<" | "<<a->class_name()<<"]"<<endl;
+    while(a!=NULL && !isSgStatement(a)) {
+      ancestors.push_front(a);
+      a = a->get_parent();
+      if(a) Dbg::dbg << "#ancestors="<<ancestors.size()<<" a=["<<a->unparseToString()<<" | "<<a->class_name()<<"]"<<endl;
+      else  Dbg::dbg << "#ancestors="<<ancestors.size()<<" a=NULL"<<endl;
+    }
+    if(a!=NULL) ancestors.push_front(a);
+    return ancestors;
+  }
+  
+  bool ExprObj::isInScope(PartPtr part) const 
+  {
+    //RULE 1: Fails because it doesn't account for the fact that between an operand and its parent
+    //        there may be several more nodes from another sub-branch of the expression tree
+    // The anchor expression is in scope if it is equal to the current SgNode or is its operand
+    //return (anchor_exp==part.getNode() || isOperand(part.getNode(), anchor_exp));
+    
+    //RULE 2: The expression is in-scope at a Part if they're inside the same statement
+    //        This rule is fairly loose but at least it is easy to compute. The right rule
+    //        would have been that the part is on some path between the expression and its
+    //        parent but this would require an expensive graph search
+    //return SageInterface::getEnclosingStatement(anchor_exp) == 
+    //       SageInterface::getEnclosingStatement(part.getNode());
+    
+    //RULE 3: look for a common ancestor between anchor_exp and part.getNode(). If this ancestor
+    //        is part.getNode(), below part.getNode() or anchor_expr is an operand of part.getNode() (it is
+    //        one level above part.getNode()) then it is in-scope.
+    // anchor_exp         a     b
+    //     |                \ /
+    //     c                 d
+    //      \------- e -----/
+    //               |
+    //               f
+    // anchor_exp is in-scope at anchor_exp, a, b, c, d but not e or f.
+    
+    // If part.getNode() is equal to or is a direct ancestor of anchor_exp, then anchor_exp is in-scope
+    if(anchor_exp==part.getNode() || anchor_exp->get_parent()==part.getNode()) return true;
+    // Otherwise, anchor_exp is only in-scope if shares an ancestor with part.getNode() but part.getNode() 
+    // is not that ancestor.
+    else {
+      Dbg::dbg << "anchor_exp->get_parent()=["<<anchor_exp->get_parent()->unparseToString()<<" | "<<anchor_exp->get_parent()->class_name()<<"]"<<endl;
+      Dbg::dbg << "part.getNode()=["<<part.getNode()->unparseToString()<<" | "<<part.getNode()->class_name()<<"]"<<endl;
+      Dbg::dbg << "isOperand(part.getNode(), anchor_exp)="<<isOperand(part.getNode(), anchor_exp)<<endl;
+      // Get the ancestor lists of both nodes
+      Dbg::dbg << "getAncestorToStmt(anchor_exp)"<<endl;
+      list<SgNode*> anchorAncestors = getAncestorToStmt(anchor_exp);
+      Dbg::dbg << "#anchorAncestors="<<anchorAncestors.size()<<endl;
+      Dbg::dbg << "getAncestorToStmt(part.getNode())"<<endl;
+      list<SgNode*> partAncestors = getAncestorToStmt(part.getNode());
+      Dbg::dbg << "#partAncestors="<<partAncestors.size()<<endl;
+      ROSE_ASSERT(isSgStatement(*anchorAncestors.begin()));
+      
+      // If the roots of the ancestor trees are mismatched, anchor_exp is not in-scope
+      if(!isSgStatement(*partAncestors.begin()) || *(anchorAncestors.begin())!=*(partAncestors.begin())) {
+        Dbg::dbg << "OUT-OF-SCOPE partStmt="<<isSgStatement(*partAncestors.begin())<<", sameStmt="<<(*(anchorAncestors.begin())!=*(partAncestors.begin()))<<endl;
+        return false;
+      }
+      
+      // Iterate through the ancestor lists from the deepest point to the shallowest, looking for a deviation
+      list<SgNode*>::iterator a, p;
+      for(a = anchorAncestors.begin(), p = partAncestors.begin(); 
+          a!=anchorAncestors.end() && p!=partAncestors.end(); a++, p++) {
+        if(*a != *p) break;
+      }
+      
+      // If we stopped at the end of either ancestor list then one of the nodes is an ancestor of the other: not in-scope
+      if(a==anchorAncestors.end() || p==partAncestors.end()) {
+        Dbg::dbg << "OUT-OF-SCOPE (anchor end="<<(a==anchorAncestors.end())<<", part end="<<(p==partAncestors.end())<<endl;
+        return false;
+      }
+      
+      // Otherwise, if there are more nodes left on both ancestor lists, then anchor_exp is in-scope
+      Dbg::dbg << "IN-SCOPE"<<endl;
+      return true;
+    }
+  }
  
   //std::string ExprObj::str(const string& indent)
   std::string ExprObj::str(std::string indent) const // pretty print for the object
   {
     string rt;
-
+    
     if (anchor_exp!= NULL)
       rt += anchor_exp->class_name()+ ": " + anchor_exp->unparseToString() + " @ " + StringUtility::numberToString (anchor_exp);
     else
@@ -615,14 +718,67 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
       rt += "  type: NULL";
     return rt;
   }
+
+  std::string ExprObj::strp(PartPtr part, std::string indent) const // pretty print for the object
+  {
+    string rt;
+    
+    if(!isInScope(part)) return "OUT-OF-SCOPE";
+    else                 return str(indent);
+  }
+  
   //------------------
-  std::set<SgType*> ScalarExprObj::getType() const
+  /*std::set<SgType*> ScalarExprObj::getType() const
   {
     std::set<SgType*> rt;
     rt.insert (ExprObj::getType());
     return rt;
-  }
+  }*/
 
+  // -------------------------------
+  // ----- Out-of-scope object -----
+  // -------------------------------
+  
+  // ----- ScalarOutOfScopeObj -----
+  ScalarOutOfScopeObj::ScalarOutOfScopeObj(SgType* t, PartPtr part) : OutOfScope_StxMemLocObject(t, part) {}
+  MemLocObjectPtr ScalarOutOfScopeObj::copyML() const { return boost::make_shared<ScalarOutOfScopeObj>(*this); }
+
+  // ----- FunctionOutOfScopeObj -----
+  FunctionOutOfScopeObj::FunctionOutOfScopeObj(SgType* t, PartPtr part) : OutOfScope_StxMemLocObject(t, part) {}
+  MemLocObjectPtr FunctionOutOfScopeObj::copyML() const { return boost::make_shared<FunctionOutOfScopeObj>(*this); }
+  
+  // ----- LabeledAggregateOutOfScopeObj -----
+  LabeledAggregateOutOfScopeObj::LabeledAggregateOutOfScopeObj(SgType* t, PartPtr part) : OutOfScope_StxMemLocObject(t, part) {}
+  MemLocObjectPtr LabeledAggregateOutOfScopeObj::copyML() const { return boost::make_shared<LabeledAggregateOutOfScopeObj>(*this); }
+    
+  size_t LabeledAggregateOutOfScopeObj::fieldCount() const { ROSE_ASSERT(false); return 0; /*Need to implement field count based on type*/ };
+  // Returns a list of fields
+  std::vector<LabeledAggregateFieldPtr> LabeledAggregateOutOfScopeObj::getElements() const {
+    ROSE_ASSERT(false); /*Need to implement getElements based on type*/
+  }
+  
+  // ----- ArrayOutOfScopeObj -----
+  ArrayOutOfScopeObj::ArrayOutOfScopeObj(SgType* t, PartPtr part) : OutOfScope_StxMemLocObject(t, part) {}
+  MemLocObjectPtr ArrayOutOfScopeObj::copyML() const { return boost::make_shared<ArrayOutOfScopeObj>(*this); }
+    
+  boost::shared_ptr<MemLocObject> ArrayOutOfScopeObj::getElements() { ROSE_ASSERT(false); /*Need to implement based on type*/ };
+  boost::shared_ptr<MemLocObject> ArrayOutOfScopeObj::getElements(IndexVectorPtr ai) { ROSE_ASSERT(false); /*Need to implement based on type*/ };
+  size_t ArrayOutOfScopeObj::getNumDims() { ROSE_ASSERT(false); /*Need to implement based on type*/ };
+  boost::shared_ptr<MemLocObject> ArrayOutOfScopeObj::getDereference() { ROSE_ASSERT(false); /*Need to implement based on type*/ };
+ 
+  // ----- PointerOutOfScopeObj -----
+  PointerOutOfScopeObj::PointerOutOfScopeObj(SgType* t, PartPtr part) : OutOfScope_StxMemLocObject(t, part) {}
+  MemLocObjectPtr PointerOutOfScopeObj::copyML() const { return boost::make_shared<PointerOutOfScopeObj>(*this); }
+
+  // used for a pointer to non-array
+  MemLocObjectPtr PointerOutOfScopeObj::getDereference() { ROSE_ASSERT(false); /*Need to implement based on type*/ };
+  // used for a pointer to an array
+  MemLocObjectPtr PointerOutOfScopeObj::getElements() { ROSE_ASSERT(false); /*Need to implement based on type*/ };
+  
+  // -----------------------------
+  // ----- Expression object -----
+  // -----------------------------
+  
   /* GB: Deprecating the == operator. Now that some objects can contain AbstractObjects any equality test must take the current part as input.
   bool ScalarExprObj::operator == (const MemLocObject& o2) const
   {
@@ -643,21 +799,24 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
   //std::string ScalarExprObj::str(const string& indent)
   std::string ScalarExprObj::str(std::string indent) const // pretty print for the object
   {
-    string rt = "<u>ScalarExprObj</u> @" + StringUtility::numberToString(this)+ " "+ ExprObj::str(indent+"    ");
+    string rt = "<u>ScalarExprObj:str()</u> @" + StringUtility::numberToString(this)+ " "+ ExprObj::str(indent+"    ");
     return rt;
   }
+  
+  std::string ScalarExprObj::strp(PartPtr part, std::string indent) const // pretty print for the object
+  { return "<u>ScalarExprObj:strp()</u> "+ (isInScope(part) ? ExprObj::strp(part, indent+"    "): "OUT-OF-SCOPE "+ExprObj::str(indent+"    ")); }
   
   // Allocates a copy of this object and returns a pointer to it
   MemLocObjectPtr ScalarExprObj::copyML() const
   { return boost::make_shared<ScalarExprObj>(*this); }
   
   //------------------
-  std::set<SgType*> FunctionExprObj::getType() const
+  /*std::set<SgType*> FunctionExprObj::getType() const
   {
     std::set<SgType*> rt;
     rt.insert (ExprObj::getType());
     return rt;
-  }
+  }*/
 
   /* GB: Deprecating the == operator. Now that some objects can contain AbstractObjects any equality test must take the current part as input.
   bool FunctionExprObj::operator == (const MemLocObject& o2) const
@@ -682,18 +841,20 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
     string rt = "<u>FunctionExprObj</u> @" + StringUtility::numberToString(this)+ " "+ ExprObj::str(indent+"    ");
     return rt;
   }
+  std::string FunctionExprObj::strp(PartPtr part, std::string indent) const // pretty print for the object
+  { return "<u>FunctionExprObj:strp()</u> "+ (isInScope(part) ? ExprObj::strp(part, indent+"    "): "OUT-OF-SCOPE "+ExprObj::str(indent+"    ")); }
   
   // Allocates a copy of this object and returns a pointer to it
   MemLocObjectPtr FunctionExprObj::copyML() const
   { return boost::make_shared<FunctionExprObj>(*this); }
 
   //------------------
-   std::set<SgType*> ArrayExprObj::getType()
+  /*std::set<SgType*> ArrayExprObj::getType()
   {
     std::set<SgType*> rt;
     rt.insert (ExprObj::getType());
     return rt;
-  }
+  }*/
 
   /* GB: Deprecating the == operator. Now that some objects can contain AbstractObjects any equality test must take the current part as input.
   bool ArrayExprObj::operator == (const MemLocObject& o2) const
@@ -719,25 +880,35 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
     return rt;
   }
   
+  std::string ArrayExprObj::strp(PartPtr part, std::string indent) const // pretty print for the object
+  { return "<u>ArrayExprObj</u> "+ (isInScope(part) ? ExprObj::str(indent+"    "): "OUT-OF-SCOPE "+ExprObj::str(indent+"    ")); }
+  
   // Allocates a copy of this object and returns a pointer to it
   MemLocObjectPtr ArrayExprObj::copyML() const
   { return boost::make_shared<ArrayExprObj>(*this); }
 
+  // GB: 2012-08-27: should be implementing the following functions here:
+  //                 Array::getElements(), getElements(IndexVectorPtr ai), getNumDims(), getDereference()
+  boost::shared_ptr<MemLocObject> ArrayExprObj::getElements() { ROSE_ASSERT(false); /*Need to implement based on type*/ };
+  boost::shared_ptr<MemLocObject> ArrayExprObj::getElements(IndexVectorPtr ai) { ROSE_ASSERT(false); /*Need to implement based on type*/ };
+  size_t ArrayExprObj::getNumDims() { ROSE_ASSERT(false); /*Need to implement based on type*/ };
+  boost::shared_ptr<MemLocObject> ArrayExprObj::getDereference() { ROSE_ASSERT(false); /*Need to implement based on type*/ };
+  
   //------------------
-  std::set<SgType*> PointerExprObj::getType()
+  /*std::set<SgType*> PointerExprObj::getType()
   {
     std::set<SgType*> rt;
     rt.insert (ExprObj::getType());
     return rt;
-  }
+  }*/
 
   MemLocObjectPtr PointerExprObj::getDereference() 
   {
     // simplest type-based implementation
-    SgType* t = ExprObj::getType();
+    SgType* t = StxMemLocObject::getType();
     SgPointerType* p_t = isSgPointerType(t);
     assert (p_t != NULL);
-    return createAliasedMemLocObject (p_t->get_base_type());
+    return createAliasedMemLocObject (p_t->get_base_type(), part);
   }
 
   MemLocObjectPtr PointerExprObj::getElements() // in case it is a pointer to array
@@ -784,17 +955,20 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
     return rt;
   }
   
+  std::string PointerExprObj::strp(PartPtr part, std::string indent) const // pretty print for the object
+  { return "<u>PointerExprObj</u> "+ (isInScope(part) ? ExprObj::str(indent+"    "): "OUT-OF-SCOPE "+ExprObj::str(indent+"    ")); }
+  
   // Allocates a copy of this object and returns a pointer to it
   MemLocObjectPtr PointerExprObj::copyML() const
   { return boost::make_shared<PointerExprObj>(*this); }
 
   //---------------------
-  LabeledAggregateExprObj::LabeledAggregateExprObj (SgExpression* e, SgType* t): ExprObj (e,t) 
+  LabeledAggregateExprObj::LabeledAggregateExprObj(SgExpression* e, SgType* t, PartPtr part): ExprObj (e,t, part) 
   {
     init(e, t);
   }
   
-  LabeledAggregateExprObj::LabeledAggregateExprObj(const LabeledAggregateExprObj& that):ExprObj(that.anchor_exp, that.type)
+  LabeledAggregateExprObj::LabeledAggregateExprObj(const LabeledAggregateExprObj& that):ExprObj(that.anchor_exp, that.type, that.part)
   {
     init(that.anchor_exp, that.type);
   }
@@ -807,15 +981,15 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
     assert (e->get_type() == t);
     SgClassType * c_t = isSgClassType(t);
     assert (c_t != NULL);
-    fillUpElements (this, LabeledAggregate_Impl::getElements(), c_t);
+    fillUpElements(this, LabeledAggregate_Impl::getElements(), c_t, part);
   }
   
-  std::set<SgType*> LabeledAggregateExprObj::getType()
+  /*std::set<SgType*> LabeledAggregateExprObj::getType()
   {
     std::set<SgType*> rt;
     rt.insert (ExprObj::getType());
     return rt;
-  }
+  }*/
 
   /* GB: Deprecating the == operator. Now that some objects can contain AbstractObjects any equality test must take the current part as input.
   bool LabeledAggregateExprObj::operator == (const MemLocObject& o2) const
@@ -844,6 +1018,23 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
     for (size_t i =0; i< fieldCount(); i++)
     {
       rt += "\t" + (getElements())[i]->str(indent+"    ") + "\n";
+    }
+    return rt; 
+  }
+  
+  std::string LabeledAggregateExprObj::strp(PartPtr part, std::string indent) const // pretty print for the object  
+  {
+    std::string rt = "<u>LabeledAggregateExprObj</u>";
+    if(isInScope(part)) {
+      rt += " "+ ExprObj::str(indent+"    ");
+      rt += "   with " + StringUtility::numberToString(fieldCount()) + " fields:\n";
+      rt += indent;
+      for (size_t i =0; i< fieldCount(); i++)
+      {
+        rt += "\t" + (getElements())[i]->str(indent+"    ") + "\n";
+      }
+    } else {
+      rt += "OUT-OF-SCOPE";
     }
     return rt; 
   }
@@ -882,6 +1073,13 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
   {
     bool rt = false;
     
+    // If StxMemLocObject says they're definitely equal/not equal, return true/false
+    switch(StxMemLocObject::equal(o2, p)) {
+      case StxMemLocObject::defEqual: return true;
+      case StxMemLocObject::defNotEqual: return false;
+      case StxMemLocObject::unknown: break;
+    }
+    
     /*Dbg::dbg << "NamedObj::mayEqualML this="<<str("&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;")<<endl;
     Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;o2="<<(o2? o2->str("&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;") : "NULL")<<endl;
     Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(anchor_symbol == o2->anchor_symbol)="<<(anchor_symbol == o2->anchor_symbol)<<endl;*/
@@ -915,6 +1113,13 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
 
   bool NamedObj::mustEqualML(NamedObjPtr o2, PartPtr p) const
   {
+    // If StxMemLocObject says they're definitely equal/not equal, return true/false
+    switch(StxMemLocObject::equal(o2, p)) {
+      case StxMemLocObject::defEqual: return true;
+      case StxMemLocObject::defNotEqual: return false;
+      case StxMemLocObject::unknown: break;
+    }
+    
     bool rt = false;
     /*Dbg::dbg << "NamedObj::mustEqualML this="<<str("&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;")<<endl;
     Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;o2="<<(o2? o2->str("&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;") : "NULL")<<endl;
@@ -972,6 +1177,13 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
 
   bool NamedObj::mayEqualML(MemLocObjectPtr o2, PartPtr p) const
   {
+    // If StxMemLocObject says they're definitely equal/not equal, return true/false
+    switch(StxMemLocObject::equal(o2, p)) {
+      case StxMemLocObject::defEqual: return true;
+      case StxMemLocObject::defNotEqual: return false;
+      case StxMemLocObject::unknown: break;
+    }
+    
     // three cases:
     
     AliasedObjPtr aliased_o2 = boost::dynamic_pointer_cast <AliasedObj> (o2);
@@ -993,6 +1205,13 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
 
   bool NamedObj::mustEqualML(MemLocObjectPtr o2, PartPtr p) const
   {
+    // If StxMemLocObject says they're definitely equal/not equal, return true/false
+    switch(StxMemLocObject::equal(o2, p)) {
+      case StxMemLocObject::defEqual: return true;
+      case StxMemLocObject::defNotEqual: return false;
+      case StxMemLocObject::unknown: break;
+    }
+    
     // three cases:
     
     AliasedObjPtr aliased_o2 = boost::dynamic_pointer_cast <AliasedObj> (o2);
@@ -1014,6 +1233,9 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
       }
     }
   }
+  
+  bool NamedObj::isInScope(PartPtr part) const
+  { return true; }
   
   //std::string IndexVector_Impl::str(const string& indent)
   std::string IndexVector_Impl::str(std::string indent) const // pretty print for the object  
@@ -1144,12 +1366,12 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
   }
 
   //------------------
-  std::set<SgType*> ScalarNamedObj::getType()
+  /*std::set<SgType*> ScalarNamedObj::getType()
   {
     std::set<SgType*> rt;
     rt.insert (NamedObj::getType());
     return rt;
-  }
+  }*/
 
   /* GB: Deprecating the == operator. Now that some objects can contain AbstractObjects any equality test must take the current part as input.
   // This is a confusing part:  operator == of AbstractObject side is implemented through the operator== () of the NamedObj
@@ -1181,12 +1403,12 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
   { return boost::make_shared<ScalarNamedObj>(*this); }
 
   //------------------
-  std::set<SgType*> FunctionNamedObj::getType()
+  /*std::set<SgType*> FunctionNamedObj::getType()
   {
     std::set<SgType*> rt;
     rt.insert (NamedObj::getType());
     return rt;
-  }
+  }*/
 
   // This is a confusing part:  operator == of AbstractObject side is implemented through the operator== () of the NamedObj
   /* GB: Deprecating the == operator. Now that some objects can contain AbstractObjects any equality test must take the current part as input.
@@ -1218,20 +1440,20 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
   { return boost::make_shared<FunctionNamedObj>(*this); }
 
   //------------------
-  std::set<SgType*> PointerNamedObj::getType() const
+  /*std::set<SgType*> PointerNamedObj::getType() const
   {
     std::set<SgType*> rt;
     rt.insert (NamedObj::getType());
     return rt;
-  }
+  }*/
 
   MemLocObjectPtr PointerNamedObj::getDereference() 
   {
     // simplest type-based implementation
-    SgType* t = NamedObj::getType();
+    SgType* t = StxMemLocObject::getType();
     SgPointerType* p_t = isSgPointerType(t);
     assert (p_t != NULL);
-    return createAliasedMemLocObject (p_t->get_base_type());
+    return createAliasedMemLocObject (p_t->get_base_type(), part);
   }
 
   MemLocObjectPtr PointerNamedObj::getElements() // in case it is a pointer to array
@@ -1282,9 +1504,11 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
   MemLocObjectPtr PointerNamedObj::copyML() const
   { return boost::make_shared<PointerNamedObj>(*this); }
 
+  
+  
   // a helper function to fill up std::vector<LabeledAggregateField*>  from a class/structure type
   // TODO handle static members,they should be treated as global variables , not instances
-  void fillUpElements (MemLocObject* p, std::vector<LabeledAggregateFieldPtr > & elements, SgClassType* c_t)
+  void fillUpElements(MemLocObject* p, std::vector<LabeledAggregateFieldPtr > & elements, SgClassType* c_t, PartPtr part)
   {
     assert (p!= NULL);
     boost::shared_ptr<LabeledAggregate> lp = 
@@ -1311,7 +1535,7 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
         if (var_decl)
         {
           SgVariableSymbol * s = SageInterface::getFirstVarSym(var_decl);
-          MemLocObjectPtr field_obj = createNamedMemLocObject(s, s->get_type(), lp, IndexVectorPtr()); // we don't store explicit index  for elements for now
+          MemLocObjectPtr field_obj = createNamedMemLocObject(s, s->get_type(), part, lp, IndexVectorPtr()); // we don't store explicit index  for elements for now
           boost::shared_ptr<LabeledAggregateField_Impl> f(new LabeledAggregateField_Impl (field_obj, lp));
           elements.push_back(f);
         }  
@@ -1320,12 +1544,12 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
   }
 
   //----------------------
-  LabeledAggregateNamedObj::LabeledAggregateNamedObj(SgSymbol* s, SgType* t, MemLocObjectPtr p, IndexVectorPtr iv): NamedObj(s,t,p, iv)
+  LabeledAggregateNamedObj::LabeledAggregateNamedObj(SgSymbol* s, SgType* t, PartPtr part, MemLocObjectPtr p, IndexVectorPtr iv): NamedObj(s,t,part, p, iv)
   {
     init(s, t, p, iv);
   }
   
-  LabeledAggregateNamedObj::LabeledAggregateNamedObj(const LabeledAggregateNamedObj& that): NamedObj(that.anchor_symbol, that.type, that.parent, that.array_index_vector)
+  LabeledAggregateNamedObj::LabeledAggregateNamedObj(const LabeledAggregateNamedObj& that): NamedObj(that.anchor_symbol, that.type, that.part, that.parent, that.array_index_vector)
   {
     init(that.anchor_symbol, that.type, that.parent, that.array_index_vector);
   }
@@ -1338,15 +1562,15 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
     assert (s->get_type() == t);
     SgClassType * c_t = isSgClassType(t);
 
-    fillUpElements (this, LabeledAggregate_Impl::getElements(), c_t);
+    fillUpElements(this, LabeledAggregate_Impl::getElements(), c_t, part);
   }
 
-  std::set<SgType*> LabeledAggregateNamedObj::getType()
+  /*std::set<SgType*> LabeledAggregateNamedObj::getType()
   {
     std::set<SgType*> rt;
     rt.insert (NamedObj::getType());
     return rt;
-  }
+  }*/
 
   //std::string LabeledAggregateNamedObj::str(const string& indent)
   std::string LabeledAggregateNamedObj::str(std::string indent) const // pretty print for the object  
@@ -1383,14 +1607,14 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
   { return boost::make_shared<LabeledAggregateNamedObj>(*this); }
   
   //---------------------
-  ArrayNamedObj::ArrayNamedObj(SgSymbol* s, SgType* t, MemLocObjectPtr p, IndexVectorPtr iv): NamedObj (s,t,p, iv)
+  ArrayNamedObj::ArrayNamedObj(SgSymbol* s, SgType* t, PartPtr part, MemLocObjectPtr p, IndexVectorPtr iv): NamedObj (s,t, part, p, iv)
   {
     init(s,t,p,iv);
   }
     
-  ArrayNamedObj::ArrayNamedObj(const LabeledAggregateNamedObj& that): NamedObj(that.anchor_symbol, that.type, that.parent, that.array_index_vector)
+  ArrayNamedObj::ArrayNamedObj(const ArrayNamedObj& that): NamedObj(that.anchor_symbol, that.getType(), that.getPart(), that.parent, that.array_index_vector)
   {
-    init(that.anchor_symbol, that.type, that.parent, that.array_index_vector);
+    init(that.anchor_symbol, that.getType(), that.parent, that.array_index_vector);
   }
   
   void ArrayNamedObj::init(SgSymbol* s, SgType* t, MemLocObjectPtr p, IndexVectorPtr iv)
@@ -1404,16 +1628,16 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
     assert (a_t != NULL);
   }
 
-  std::set<SgType*> ArrayNamedObj::getType()
+  /*std::set<SgType*> ArrayNamedObj::getType()
   {
     std::set<SgType*> rt;
     rt.insert (NamedObj::getType());
     return rt;
-  }
+  }*/
 
   size_t ArrayNamedObj::getNumDims () const
   {
-    SgType * a_type = NamedObj::getType();
+    SgType * a_type = StxMemLocObject::getType();
     assert (a_type != NULL);
     assert (isSgArrayType(a_type) != NULL);
     return SageInterface::getDimensionCount (a_type);
@@ -1445,7 +1669,7 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
     SgType* element_type = SageInterface::getArrayElementType (s->get_type());
     assert (element_type != NULL);
 
-    return createNamedMemLocObject(s, element_type, 
+    return createNamedMemLocObject(s, element_type, part, 
                                    boost::dynamic_pointer_cast<MemLocObject>(shared_from_this()), ai);
   }
 
@@ -1544,6 +1768,13 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
   // if type may alias to each other, may equal
   bool AliasedObj::mayEqualML(AliasedObjPtr o2, PartPtr p)  const
   {
+    // If StxMemLocObject says they're definitely equal/not equal, return true/false
+    switch(StxMemLocObject::equal(o2, p)) {
+      case StxMemLocObject::defEqual: return true;
+      case StxMemLocObject::defNotEqual: return false;
+      case StxMemLocObject::unknown: break;
+    }
+    
     SgType* own_type = getType();
     SgType* other_type = o2->getType();
     return isAliased (own_type, other_type);
@@ -1552,6 +1783,13 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
   //identical type means must equal 
   bool AliasedObj::mustEqualML(AliasedObjPtr o2, PartPtr p)  const
   { 
+    // If StxMemLocObject says they're definitely equal/not equal, return true/false
+    switch(StxMemLocObject::equal(o2, p)) {
+      case StxMemLocObject::defEqual: return true;
+      case StxMemLocObject::defNotEqual: return false;
+      case StxMemLocObject::unknown: break;
+    }
+    
     SgType* t1 = getType();
     SgType* t2 = o2->getType();
 
@@ -1614,6 +1852,13 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
 
   bool AliasedObj::mayEqualML(MemLocObjectPtr o2, PartPtr p) const
   {
+    // If StxMemLocObject says they're definitely equal/not equal, return true/false
+    switch(StxMemLocObject::equal(o2, p)) {
+      case StxMemLocObject::defEqual: return true;
+      case StxMemLocObject::defNotEqual: return false;
+      case StxMemLocObject::unknown: break;
+    }
+    
     AliasedObjPtr aliased_o2 = boost::dynamic_pointer_cast <AliasedObj> (o2);
     if(aliased_o2) {
      	// 1. o2 is AliasedObj:
@@ -1632,6 +1877,13 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
 
   bool AliasedObj::mustEqualML(MemLocObjectPtr o2, PartPtr p) const
   {
+    // If StxMemLocObject says they're definitely equal/not equal, return true/false
+    switch(StxMemLocObject::equal(o2, p)) {
+      case StxMemLocObject::defEqual: return true;
+      case StxMemLocObject::defNotEqual: return false;
+      case StxMemLocObject::unknown: break;
+    }
+    
     AliasedObjPtr aliased_o2 = boost::dynamic_pointer_cast <AliasedObj> (o2);
     if(aliased_o2) {
     	// 1. o2 is AliasedObj:
@@ -1647,6 +1899,9 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
       }
     }
   }
+  
+  bool AliasedObj::isInScope(PartPtr part) const
+  { return true; }
 
   /* GB: Deprecating the == operator. Now that some objects can contain AbstractObjects any equality test must take the current part as input.
   bool ScalarAliasedObj::operator == (const MemLocObject& o2) const
@@ -1742,14 +1997,20 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
   MemLocObjectPtr ArrayAliasedObj::copyML() const
   { return boost::make_shared<ArrayAliasedObj>(*this); }
 
+  // GB: 2012-08-27: should be implementing the following functions here:
+  //                 Array::getElements(), getElements(IndexVectorPtr ai), getNumDims(), getDereference()
+  boost::shared_ptr<MemLocObject> ArrayAliasedObj::getElements() { ROSE_ASSERT(false); /*Need to implement based on type*/ };
+  boost::shared_ptr<MemLocObject> ArrayAliasedObj::getElements(IndexVectorPtr ai) { ROSE_ASSERT(false); /*Need to implement based on type*/ };
+  size_t ArrayAliasedObj::getNumDims() { ROSE_ASSERT(false); /*Need to implement based on type*/ };
+  boost::shared_ptr<MemLocObject> ArrayAliasedObj::getDereference() { ROSE_ASSERT(false); /*Need to implement based on type*/ };
 
   MemLocObjectPtr PointerAliasedObj::getDereference()
   {
     // simplest type-based implementation
-    SgType* t = AliasedObj::getType();
+    SgType* t = StxMemLocObject::getType();
     SgPointerType* p_t = isSgPointerType(t);
     assert (p_t != NULL);
-    return createAliasedMemLocObject (p_t->get_base_type());
+    return createAliasedMemLocObject (p_t->get_base_type(), part);
   }
 
   /* GB: Deprecating the == operator. Now that some objects can contain AbstractObjects any equality test must take the current part as input.
@@ -1773,7 +2034,7 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
   MemLocObjectPtr PointerAliasedObj::copyML() const
   { return boost::make_shared<PointerAliasedObj>(*this); }
 
-  std::set<SgType*> ScalarAliasedObj::getType()
+  /*std::set<SgType*> ScalarAliasedObj::getType()
   {
     std::set<SgType*> rt;
     rt.insert (AliasedObj::getType());
@@ -1806,7 +2067,7 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
     std::set<SgType*> rt;
     rt.insert (AliasedObj::getType());
     return rt;
-  }
+  }*/
 
   //std::string ScalarAliasedObj::str(const string& indent)
   std::string ScalarAliasedObj::str(std::string indent) const // pretty print for the object  
@@ -1862,7 +2123,7 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
   }
   // creator for different objects
   // ------------------------------------------------------------------
-  MemLocObjectPtr createAliasedMemLocObject(SgType* t)  // One object per type, Type based alias analysis. A type of the object pointed to by a pointer
+  MemLocObjectPtr createAliasedMemLocObject(SgType* t, PartPtr part)  // One object per type, Type based alias analysis. A type of the object pointed to by a pointer
   {
     bool assert_flag = true; 
     assert (t!= NULL);
@@ -1874,19 +2135,19 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
       if (SageInterface::isScalarType(t))
         // We define the following SgType as scalar types: 
         // char, short, int, long , void, Wchar, Float, double, long long, string, bool, complex, imaginary 
-      { rt = boost::make_shared<ScalarAliasedObj>(t); }
+      { rt = boost::make_shared<ScalarAliasedObj>(t, part); }
       else if (isSgPointerType(t))
-      { rt = boost::make_shared<PointerAliasedObj>(t); }
+      { rt = boost::make_shared<PointerAliasedObj>(t, part); }
       else if (isSgArrayType(t))
-      { 
+      {
         // TODO: We may wan to only generate a single array aliased obj for a multi-dimensional array
         // which will have multiple SgArrayType nodes , each per dimension
-        rt = boost::make_shared<ArrayAliasedObj>(t);
+        rt = boost::make_shared<ArrayAliasedObj>(t, part);
       }
       else if (isSgClassType(t))
-      { rt = boost::make_shared<LabeledAggregateAliasedObj>(t); }
+      { rt = boost::make_shared<LabeledAggregateAliasedObj>(t, part); }
       else if (isSgFunctionType(t))
-      { rt = boost::make_shared<FunctionAliasedObj>(t); }  
+      { rt = boost::make_shared<FunctionAliasedObj>(t, part); }  
       else
       {
         cerr<<"Warning: createAliasedMemLocObject(): unhandled type:"<<t->class_name()<<endl;
@@ -1914,7 +2175,7 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
   //  Pointer
   //  Array
   // ------------------------------------------------------------------
-  MemLocObjectPtr createNamedMemLocObject(SgSymbol* anchor_symbol, SgType* t, MemLocObjectPtr parent, IndexVectorPtr iv)
+  MemLocObjectPtr createNamedMemLocObject(SgSymbol* anchor_symbol, SgType* t, PartPtr part, MemLocObjectPtr parent, IndexVectorPtr iv)
   {
     MemLocObjectPtr rt;
 
@@ -1933,19 +2194,28 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
       assert (anchor_symbol->get_type() == t);
     }
     bool assert_flag = true; 
+    
+    // Check if the given symbol is in-scope
+    /*SgNode ancestor = part.getNode()->get_parent();
+    bool inScope = false;
+    while(ancestor!=NULL) {
+      if(isSgScopeStmt(ancestor) && isSgScopeStmt(ancestor)=anchor_symbol->get_scope();*/
+    /*if(out of scope) {
+      rt = new OutOfScope_StxMemLocObject...
+    }*/
 
     if (SageInterface::isScalarType(t) || (isSgReferenceType(t) && SageInterface::isScalarType(isSgReferenceType(t)->get_base_type())))
     // We define the following SgType as scalar types: 
     // char, short, int, long , void, Wchar, Float, double, long long, string, bool, complex, imaginary 
-    { rt = boost::make_shared<ScalarNamedObj>(anchor_symbol, t, parent, iv); }
+    { rt = boost::make_shared<ScalarNamedObj>(anchor_symbol, t, part, parent, iv); }
     else if (isSgFunctionType(t) || (isSgReferenceType(t) && isSgFunctionType(isSgReferenceType(t)->get_base_type())))
-    { rt = boost::make_shared<FunctionNamedObj>(anchor_symbol, t, parent, iv); }
+    { rt = boost::make_shared<FunctionNamedObj>(anchor_symbol, t, part, parent, iv); }
     else if (isSgPointerType(t) || (isSgReferenceType(t) && isSgPointerType(isSgReferenceType(t)->get_base_type())))
-    { rt = boost::make_shared<PointerNamedObj>(anchor_symbol, t, parent, iv); }
+    { rt = boost::make_shared<PointerNamedObj>(anchor_symbol, t, part, parent, iv); }
     else if (isSgClassType(t) || (isSgReferenceType(t) && isSgClassType(isSgReferenceType(t)->get_base_type())))
-    { rt = boost::make_shared<LabeledAggregateNamedObj>(anchor_symbol, t, parent, iv); }
+    { rt = boost::make_shared<LabeledAggregateNamedObj>(anchor_symbol, t, part, parent, iv); }
     else if (isSgArrayType(t) || (isSgReferenceType(t) && isSgArrayType(isSgReferenceType(t)->get_base_type()))) // This is for the entire array variable
-    { rt = boost::make_shared<ArrayNamedObj>(anchor_symbol, t, parent, iv); }
+    { rt = boost::make_shared<ArrayNamedObj>(anchor_symbol, t, part, parent, iv); }
     else
     {
       cerr<<"Warning: createNamedMemLocObject(): unhandled symbol:"<<anchor_symbol->class_name() << 
@@ -1966,7 +2236,7 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
   //     use lhs of SgDotExp/SgArrowExp as parent
   //         lhs could be SgVarRefExp: find the corresponding NamedObj as parent (top level object, labeled aggregate)
   //         lhs could be another SgDotExp: find its rhs's NamedObj as parent
-  MemLocObjectPtr createNamedMemLocObject(SgVarRefExp* r) // create NamedMemLocObject or aliased object from a variable reference 
+  MemLocObjectPtr createNamedMemLocObject(SgVarRefExp* r, PartPtr part) // create NamedMemLocObject or aliased object from a variable reference 
   {
     assert (r!=NULL);
     SgVariableSymbol * s = r->get_symbol();
@@ -1992,7 +2262,7 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
       assert (lhs != NULL);
       if (isSgVarRefExp(lhs))
       {
-        p_obj = createNamedMemLocObject(isSgVarRefExp(lhs)); // recursion here
+        p_obj = createNamedMemLocObject(isSgVarRefExp(lhs), part); // recursion here
       }
       else if (isSgBinaryOp (lhs)) // another SgDotExp or SgArrowExp
       { // find its rhs's NamedObj as parent
@@ -2001,16 +2271,16 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
         assert (d_e2 != NULL || a_e2 != NULL);
         SgExpression* rhs = isSgBinaryOp (lhs) -> get_rhs_operand_i();
         assert (isSgVarRefExp (rhs) != NULL); // there might be some more cases!!
-        p_obj = createNamedMemLocObject(isSgVarRefExp(rhs));
+        p_obj = createNamedMemLocObject(isSgVarRefExp(rhs), part);
       }
       // now create the child mem obj
-      MemLocObjectPtr mem_obj = createNamedMemLocObject(s, s->get_type(), p_obj, IndexVectorPtr()); // we don't explicitly store index for elements of labeled aggregates for now 
+      MemLocObjectPtr mem_obj = createNamedMemLocObject(s, s->get_type(), part, p_obj, IndexVectorPtr()); // we don't explicitly store index for elements of labeled aggregates for now 
       // assert (mem_obj != NULL); // we may return NULL for cases not yet handled
       return mem_obj;
     }
     else // other symbols
     {
-      MemLocObjectPtr mem_obj = createNamedMemLocObject(s, s->get_type(), MemLocObjectPtr(), IndexVectorPtr()); 
+      MemLocObjectPtr mem_obj = createNamedMemLocObject(s, s->get_type(), part, MemLocObjectPtr(), IndexVectorPtr());
       // assert (mem_obj != NULL); // We may return NULL for cases not yet handled
       return mem_obj;
     }
@@ -2034,7 +2304,7 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
        The creation interface should take care of avoiding duplicated creation of the entire array object.    
     2. Create the array element NamedMemLocObject for  a[4][6], based on parent a, and indexVector <4, 6>
   */
-  MemLocObjectPtr createNamedMemLocObject(SgPntrArrRefExp* r) 
+  MemLocObjectPtr createNamedMemLocObject(SgPntrArrRefExp* r, PartPtr part) 
   {
     MemLocObjectPtr mem_obj;
     assert (r!=NULL);
@@ -2058,7 +2328,7 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
         SgType * t = s->get_type();
         // both array type and pointer type can have subscripts like p[10]
         assert (isSgArrayType(t) != NULL || isSgPointerType(t) != NULL);
-        whole_array_obj = SyntacticAnalysis::Expr2MemLoc_noPart(s);
+        whole_array_obj = SyntacticAnalysis::Expr2MemLocStatic(s, part);
         if (!whole_array_obj)
         {
            cerr<<"Warning. Unhandled case in createNamedMemLocObject(SgPntrArrRefExp*) where the array is part of other aggregate objects."<<endl;
@@ -2073,7 +2343,7 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
       // create the element access then, using symbol, parent, and index
       IndexVectorPtr iv = generateIndexVector(*subscripts);
       assert (iv != 0);
-      mem_obj = createNamedMemLocObject(s, r->get_type(), whole_array_obj, iv);
+      mem_obj = createNamedMemLocObject(s, r->get_type(), part, whole_array_obj, iv);
       
       // GB: Do we need to deallocate subscripts???
     }
@@ -2094,7 +2364,7 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
 
   // ------------------------------------------------------------------
   // Creator for expression MemLocObject
-  MemLocObjectPtr createExpressionMemLocObject(SgExpression* anchor_exp, SgType*t)
+  MemLocObjectPtr createExpressionMemLocObject(SgExpression* anchor_exp, SgType*t, PartPtr part)
   {
     MemLocObjectPtr rt;
     assert (anchor_exp != NULL);
@@ -2107,8 +2377,8 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
     {
       cerr<<"Error. Trying to create an expression object when anchor_exp is a SgVarRefExp, which should be associated with a named object. "<<endl;
       assert (false);
-    }  
-
+    }
+    
     if (expr_objset_map[anchor_exp] == NULL)
     { // None found, create a new one depending on its type and update the map
       if (SageInterface::isScalarType(t) || (isSgReferenceType(t) && SageInterface::isScalarType(isSgReferenceType(t)->get_base_type())))
@@ -2116,25 +2386,25 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
         // char, short, int, long , void, Wchar, Float, double, long long, string, bool, complex, imaginary 
       { 
         // An array element access could also have a scalar type, but we want to record it as a named object, instead of an expression object
-        rt = boost::make_shared<ScalarExprObj>(anchor_exp, t);
+        rt = boost::make_shared<ScalarExprObj>(anchor_exp, t, part);
       }
       else if (isSgFunctionType(t) || (isSgReferenceType(t) && isSgFunctionType(isSgReferenceType(t)->get_base_type())))
-      { rt = boost::make_shared<FunctionExprObj>(anchor_exp,t); }
+      { rt = boost::make_shared<FunctionExprObj>(anchor_exp, t, part); }
       else if (isSgPointerType(t) || (isSgReferenceType(t) && isSgPointerType(isSgReferenceType(t)->get_base_type())))
-      { rt = boost::make_shared<PointerExprObj>(anchor_exp,t); }
+      { rt = boost::make_shared<PointerExprObj>(anchor_exp, t, part); }
       else if (isSgClassType(t) || (isSgReferenceType(t) && isSgClassType(isSgReferenceType(t)->get_base_type())))
-      { rt = boost::make_shared<LabeledAggregateExprObj>(anchor_exp,t); }
+      { rt = boost::make_shared<LabeledAggregateExprObj>(anchor_exp, t, part); }
       else if (isSgArrayType(t) || (isSgReferenceType(t) && isSgArrayType(isSgReferenceType(t)->get_base_type())))
-      { rt = boost::make_shared<ArrayExprObj>(anchor_exp, t); }
+      { rt = boost::make_shared<ArrayExprObj>(anchor_exp, t, part); }
       else
       {
         cerr<<"Warning: createExprMemLocObject(): unhandled expression:"<<anchor_exp->class_name() << 
           " string : " <<  anchor_exp->unparseToString() << " type: "<< t->class_name()<< " @ "<<StringUtility::numberToString(anchor_exp) <<endl;
         assert_flag = false;
       }
-      
+
       if (assert_flag) assert (rt); // we cannot always assert this since not all SgType are supported now
-      
+
       // update the map  only if something has been created
       if (rt)
         expr_objset_map[anchor_exp] = rt;
@@ -2143,19 +2413,19 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
     {
       rt = expr_objset_map[anchor_exp];
     }
-  
+    
     if (assert_flag)
       assert (rt); // we cannot assert this since not all SgType are supported now
     return rt;
   }
-
+  
   // a helper function to check if a symbol is corresponding to a member variable declaration within SgClassDefinition or not
   bool isMemberVariableDeclarationSymbol(SgSymbol * s)
   {
-    bool rt = false; 
+    bool rt = false;
     assert (s!=NULL);
     // Only relevant for SgVariableSymbol for now
-    SgVariableSymbol* vs = isSgVariableSymbol (s); 
+    SgVariableSymbol* vs = isSgVariableSymbol (s);
     if (vs != NULL)
     {
       SgInitializedName* i_name = vs->get_declaration();
@@ -2163,7 +2433,213 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
       if (isSgClassDefinition(i_name->get_scope()))
         rt = true;
     }
-    return rt; 
+    return rt;
   }
 
+  
+  /// Visits live expressions to determine whether the given SgExpression is an operand of the visited Sgxpression
+  class IsOperandVisitor : public ROSE_VisitorPatternDefaultBase
+  {
+    public:
+    bool isOperand;
+    SgExpression* op;
+
+    IsOperandVisitor(SgExpression* op) : isOperand(false), op(op) {}
+
+    // Should only be called on expressions
+    void visit(SgNode *) { assert(0); }
+
+    // Catch up any other expressions that are not yet handled
+    void visit(SgExpression *)
+    {
+        // Function Reference
+        // !!! CURRENTLY WE HAVE NO NOTION OF VARIABLES THAT IDENTIFY FUNCTIONS, SO THIS CASE IS EXCLUDED FOR NOW
+        /*} else if(isSgFunctionRefExp(sgn)) {*/
+        /*} else if(isSgMemberFunctionRefExp(sgn)) {*/
+
+        // !!! DON'T KNOW HOW TO HANDLE THESE
+        /*} else if(isSgStatementExpression(sgn)) {(*/
+
+        // Typeid
+        // !!! DON'T KNOW WHAT TO DO HERE SINCE THE RETURN VALUE IS A TYPE AND THE ARGUMENT'S VALUE IS NOT USED
+        /*} else if(isSgTypeIdOp(sgn)) {*/
+        // Var Args
+        // !!! DON'T HANDLE THESE RIGHT NOW. WILL HAVE TO IN THE FUTURE
+        /*  SgVarArgOp 
+            SgExpression *  get_operand_expr () const 
+            SgVarArgCopyOp
+            SgExpression *  get_lhs_operand () const
+            SgExpression *  get_rhs_operand () const  
+            SgVarArgEndOp 
+            SgExpression *  get_operand_expr 
+            SgVarArgStartOneOperandOp 
+            SgExpression *  get_operand_expr () const 
+            SgVarArgStartOp 
+            SgExpression *  get_lhs_operand () const
+            SgExpression *  get_rhs_operand () const */
+        // !!! WHAT IS THIS?
+        /*  SgVariantExpression*/
+
+
+        // TODO: Make this assert(0), because unhandled expression types are likely to give wrong results
+    }
+    // Initializer for a variable
+    void visit(SgAssignInitializer *sgn) {
+      if(op == sgn->get_operand()) isOperand = true;
+    }
+    // Initializer for a function arguments
+    void visit(SgConstructorInitializer *sgn) {
+        SgExprListExp* exprList = sgn->get_args();
+        for(SgExpressionPtrList::iterator expr=exprList->get_expressions().begin();
+            expr!=exprList->get_expressions().end(); expr++)
+          if(op == *expr) {
+            isOperand = true;
+            return;
+          }
+    }
+    // Initializer that captures internal stucture of structs or arrays ("int x[2] = {1,2};", it is the "1,2")
+    // NOTE: Should this use abstractMemory interface ?
+    void visit(SgAggregateInitializer *sgn) {
+        SgExprListExp* exprList = sgn->get_initializers();
+        for(SgExpressionPtrList::iterator expr=exprList->get_expressions().begin();
+            expr!=exprList->get_expressions().end(); expr++)
+          if(op == *expr) {
+            isOperand = true;
+            return;
+          }
+    }
+    // Designated Initializer 
+    void visit(SgDesignatedInitializer *sgn) {
+        SgExprListExp* exprList = sgn->get_designatorList();
+        for(SgExpressionPtrList::iterator expr=exprList->get_expressions().begin();
+            expr!=exprList->get_expressions().end(); expr++)
+          if(op == *expr) {
+            isOperand = true;
+            return;
+          }
+    }
+    // Binary Operations
+    void visit(SgBinaryOp *sgn) {
+      if(op == sgn->get_lhs_operand()) { isOperand = true; return; }
+      if(op == sgn->get_rhs_operand()) { isOperand = true; return; }
+    }
+    // Unary Operations
+    void visit(SgUnaryOp *sgn) {
+      if(op == sgn->get_operand()) isOperand = true;
+    }
+    // Conditionals (condE ? trueE : falseE)
+    void visit(SgConditionalExp *sgn) {
+      if(op == sgn->get_conditional_exp()) { isOperand = true; return; }
+      if(op == sgn->get_true_exp())        { isOperand = true; return; }
+      if(op == sgn->get_false_exp())       { isOperand = true; return; }
+    }
+    // Delete
+    void visit(SgDeleteExp *sgn) {
+        if(op == sgn->get_variable()) isOperand = true;
+    }
+    // New
+    void visit(SgNewExp *sgn) {
+        // The placement arguments are used
+        SgExprListExp* exprList = sgn->get_placement_args();
+        // NOTE: placement args are optional
+        // exprList could be NULL
+        // check for NULL before adding to used set
+        if(exprList) {
+            for(SgExpressionPtrList::iterator expr=exprList->get_expressions().begin();
+                expr!=exprList->get_expressions().end(); expr++)
+              if(op == *expr) {
+                isOperand = true;
+                return;
+              }
+        }
+
+        // The placement arguments are used
+        // check for NULL before adding to used set
+        // not sure if this check is required for get_constructor_args()
+        exprList = sgn->get_constructor_args()->get_args();
+        if(exprList) {
+            for(SgExpressionPtrList::iterator expr=exprList->get_expressions().begin();
+                expr!=exprList->get_expressions().end(); expr++)
+              if(op == *expr) {
+                isOperand = true;
+                return;
+              }
+        }
+
+        // The built-in arguments are used (DON'T KNOW WHAT THESE ARE!)
+        // check for NULL before adding to used set
+        // not sure if this check is required for get_builtin_args()
+        if(sgn->get_builtin_args()) {
+            if(op == sgn->get_builtin_args()) { isOperand = true; return; }
+        }
+    }
+    // Function Calls
+    void visit(SgFunctionCallExp *sgn) {
+      SgExprListExp* exprList = sgn->get_args();
+      for(SgExpressionPtrList::iterator expr=exprList->get_expressions().begin();
+            expr!=exprList->get_expressions().end(); expr++)
+        if(op == *expr) {
+          isOperand = true;
+          break;
+        }
+    }
+    // Sizeof
+    void visit(SgSizeOfOp *sgn) {
+        // XXX: The argument is NOT used, but its type is
+        // NOTE: get_operand_expr() returns NULL when sizeof(type)
+        // FIX: use get_operand_expr() only when sizeof() involves expr
+        if(sgn->get_operand_expr()) {
+          if(op == sgn->get_operand_expr()) { isOperand = true; return; }
+        }
+    }
+    // This
+    void visit(SgThisExp *sgn) {
+    }
+    // Variable Reference (we know this expression is live)
+    void visit(SgVarRefExp *sgn) {
+    }
+
+    void visit(SgReturnStmt *sgn) {
+      if(op == sgn->get_expression()) { isOperand = true; return; }
+    }
+  }; // class IsOperandVisitor
+
+  // Return true if op is an operand of the given SgNode n and false otherwise.
+  bool isOperand(SgNode* n, SgExpression* op) {
+    if(isSgExpression(n)) {
+      IsOperandVisitor helper(op);
+      n->accept(helper);
+      return helper.isOperand;
+    } else if(isSgInitializedName(n)) {
+      if(op==isSgInitializedName(n)->get_initializer()) return true;
+    } else if(isSgReturnStmt(n)) {
+      if(op==isSgReturnStmt(n)->get_expression()) return true;
+    } else if(isSgExprStatement(n)) {
+      if(op==isSgExprStatement(n)->get_expression()) return true;
+    } else if(isSgCaseOptionStmt(n)) {
+      if(op==isSgCaseOptionStmt(n)->get_key()) return true;
+      if(op==isSgCaseOptionStmt(n)->get_key_range_end()) return true;
+    } else if(isSgIfStmt(n)) {
+      ROSE_ASSERT(isSgExprStatement(isSgIfStmt(n)->get_conditional()));
+      if(op==isSgExprStatement(isSgIfStmt(n)->get_conditional())->get_expression()) return true;
+    } else if(isSgForStatement(n)) {
+      ROSE_ASSERT(isSgExprStatement(isSgForStatement(n)->get_test()));
+      if(op==isSgExprStatement(isSgForStatement(n)->get_test())->get_expression()) return true;
+      if(op==isSgForStatement(n)->get_increment()) return true;
+    } else if(isSgWhileStmt(n)) {
+      ROSE_ASSERT(isSgExprStatement(isSgWhileStmt(n)->get_condition()));
+      if(op==isSgExprStatement(isSgWhileStmt(n)->get_condition())->get_expression()) return true;
+    } else if(isSgDoWhileStmt(n)) {
+      ROSE_ASSERT(isSgExprStatement(isSgDoWhileStmt(n)->get_condition()));
+      if(op==isSgExprStatement(isSgDoWhileStmt(n)->get_condition())->get_expression()) return true;
+    } else if(isSgInitializedName(n)) {
+      if(op==isSgInitializedName(n)->get_initializer()) return true;
+    } else if(isSgInitializedName(n)) {
+      if(op==isSgInitializedName(n)->get_initializer()) return true;
+    } else {
+       // For now we ignore the other cases but should make sure to cover them all in the future
+    }
+    
+    return false;
+  }  
 }; // namespace dataflow

@@ -57,10 +57,14 @@ class dbgBuf: public std::streambuf
         // For each div a list of the strings that need to be concatenated to form the indent for each line
         std::list<std::list<std::string> > indents;
         
-        // Flag that indicates synch was just called to start a new line (if so then the next time 
+        /*// Flag that indicates synch was just called to start a new line (if so then the next time 
         // we get a new level of indent, it will add to print out the extra indent characters on top
         // of what was already printed in synch).
-        bool justSynched;
+        bool justSynched;*/
+        
+        // Flag that indicates that a new line has begun and thus before the next printed character
+        // we need to print the indent
+        bool needIndent;
 public:
         
         virtual ~dbgBuf() {};

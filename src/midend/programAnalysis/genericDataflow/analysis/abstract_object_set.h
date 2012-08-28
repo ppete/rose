@@ -80,11 +80,11 @@ public:
     {}
     
     AbstractObjectSet(const AbstractObjectSet* that) : 
-      isFull(that->isFull), items(that->items), mode(that->mode), Lattice(that->part), FiniteLattice(that->part)
+      isFull(that->isFull), mode(that->mode), items(that->items), Lattice(that->part), FiniteLattice(that->part)
     {}
     
     AbstractObjectSet(const AbstractObjectSet& that) :
-      items(that.items), isFull(that.isFull), mode(that.mode), Lattice(that.part), FiniteLattice(that.part)
+      items(that.items), mode(that.mode), isFull(that.isFull), Lattice(that.part), FiniteLattice(that.part)
     {}
 
     ~AbstractObjectSet() { }

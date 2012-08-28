@@ -105,7 +105,7 @@ std::string AbstractObjectMap::str(std::string indent) {
 std::string AbstractObjectMap::strp(PartPtr part, std::string indent)
 {
   ostringstream oss;
-  oss << "[AbstractObjectMap: ";
+  oss << "[AbstractObjectMap ("<<part.getNode()->class_name()<<"): ";
   
   //printf("[AbstractObjectMap: "); fflush(stdout);
   for(list<MapElement>::iterator it = items.begin();
@@ -160,18 +160,15 @@ bool AbstractObjectMap::insert(AbstractObjectPtr o, LatticePtr lattice) {
   
     // If the o-frontier contains an object that must-equal to 
     if(mustEqual(o, keyElement, part)) {
-      // Determine whether the old and new mappings of o are identical
-      LatticePtr c(it->second->copy());
       if(AbstractObjectMapDebugLevel==1) Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;keyElement="<<keyElement->str("            ")<<" mustEqual(o, keyElement, part)="<<mustEqual(o, keyElement, part)<<" insertDone="<<insertDone<<" mustEqualSeen="<<mustEqualSeen<<endl;
       if(AbstractObjectMapDebugLevel>=1) {
         Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;Must Equal"<<endl;
         Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;lattice="<<lattice->str("&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;")<<endl;
         Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;it="<<it->second->str("&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;")<<endl;
       }
-      // If the lattice got modified as a result of being combined with the prior mapping,
-      // they are different and thus, we remove the old mapping and add a new one
-  /*!!!*/      c = LatticePtr(c->copy());
-      if(c->meetUpdate(lattice.get()))
+
+      // If the old and new mappings of o are different,  we remove the old mapping and add a new one 
+      if(!it->second->equiv(lattice.get()))
       {
         if(AbstractObjectMapDebugLevel==1) Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;keyElement="<<keyElement->str("            ")<<" mustEqual(o, keyElement, part)="<<mustEqual(o, keyElement, part)<<" insertDone="<<insertDone<<" mustEqualSeen="<<mustEqualSeen<<endl;
         if(AbstractObjectMapDebugLevel>=1) Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;Removing i="<<i<<", inserting "<<o->strp(part, "        ")<<"=>"<<lattice->str("        ")<<endl;
@@ -434,12 +431,14 @@ Lattice* AbstractObjectMap::remapML(const std::set<pair<MemLocObjectPtr, MemLocO
       // value in ml2ml to be added to newS
       if(i->first->mustEqual(m->first, part)) {
         existsMustEqual = true;
-        newM->items.push_back(make_pair(boost::static_pointer_cast<AbstractObject>(m->second), i->second));
+        // Insert the corresponding value in ml2ml if it is not NULL
+        if(m->second) newM->items.push_back(make_pair(boost::static_pointer_cast<AbstractObject>(m->second), i->second));
         // Remove the current pair from ml2mlCopy so we know that it doesn't need to be assigned the default lattice
         //ml2mlCopy.erase(m);
         ml2mlAdded[mIdx]=true;
       } else if(i->first->mayEqual(m->first, part)) {
-        newM->items.push_front(make_pair(boost::static_pointer_cast<AbstractObject>(m->second), i->second));
+        // Insert the corresponding value in ml2ml if it is not NULL
+        if(m->second) newM->items.push_front(make_pair(boost::static_pointer_cast<AbstractObject>(m->second), i->second));
         // Remove the current pair from ml2mlCopy so we know that it doesn't need to be assigned the default lattice
         //ml2mlCopy.erase(m);
         ml2mlAdded[mIdx]=true;
@@ -452,10 +451,10 @@ Lattice* AbstractObjectMap::remapML(const std::set<pair<MemLocObjectPtr, MemLocO
   }
   
   // Iterate through the false mappings in ml2mlAdded (ml2ml keys that were not mapped to any items in this map)
-  // and add to newM a mapping of their values to defaultLat
+  // and add to newM a mapping of their values to defaultLat (as long as the values are not NULL)
   int mIdx=0;
   for(std::set<pair<MemLocObjectPtr, MemLocObjectPtr> >::iterator m=ml2ml.begin(); m!=ml2ml.end(); m++, mIdx++) {
-    if(!ml2mlAdded[mIdx])
+    if(!ml2mlAdded[mIdx] && m->second)
       newM->items.push_back(make_pair(m->second, defaultLat->copy()));
   }
   
