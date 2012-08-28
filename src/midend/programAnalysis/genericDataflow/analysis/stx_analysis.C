@@ -1160,19 +1160,19 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
   {
     // three cases:
     try {
-    	// case 1:
-    	const AliasedObj & aliased_o2 = dynamic_cast <const AliasedObj&> (o2);
+        // case 1:
+        const AliasedObj & aliased_o2 = dynamic_cast <const AliasedObj&> (o2);
       return isAliased (getType(), aliased_o2.getType());
-		} catch (std::bad_cast& bc) {
-			try{
-				// case 2:
-				const NamedObj& named_o2 = dynamic_cast <const NamedObj&> (o2);
-				return *this == named_o2;
-			} catch (std::bad_cast& bc) {
-				//case 3:
+                } catch (std::bad_cast& bc) {
+                        try{
+                                // case 2:
+                                const NamedObj& named_o2 = dynamic_cast <const NamedObj&> (o2);
+                                return *this == named_o2;
+                        } catch (std::bad_cast& bc) {
+                                //case 3:
         // Only Expression Obj is left, always return false 
-				return false;
-			}
+                                return false;
+                        }
     }
   } */
 
@@ -1189,13 +1189,13 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
     
     AliasedObjPtr aliased_o2 = boost::dynamic_pointer_cast <AliasedObj> (o2);
     if(aliased_o2) {
-    	// case 1:
+        // case 1:
       return isAliased(getType(), aliased_o2->getType());
     } else { 
       NamedObjPtr named_o2 = boost::dynamic_pointer_cast <NamedObj> (o2);
       if(named_o2) {
-      	// case 2:
-      	return NamedObj::mayEqualML(named_o2, p);
+        // case 2:
+        return NamedObj::mayEqualML(named_o2, p);
       } else {
         //case 3:
         // Only Expression Obj is left, always return false 
@@ -1217,13 +1217,13 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
     
     AliasedObjPtr aliased_o2 = boost::dynamic_pointer_cast <AliasedObj> (o2);
     if(aliased_o2) {
-    	// case 1:
+        // case 1:
       Dbg::dbg << "NamedObj::mustEqualML o2="<<o2->str("")<<", o2.get()"<<o2.get()<<", aliased_o2.get()="<<aliased_o2.get()<<endl;
       ROSE_ASSERT(aliased_o2 || !aliased_o2); // Using aliased_o2 to avoid a warning.
       return false; //TODO accurate alias analysis can answer this question better. For now, we cannot decide. 
     }
     else { 
-    	// case 2:
+        // case 2:
       NamedObjPtr named_o2 = boost::dynamic_pointer_cast <NamedObj> (o2);
       if(named_o2) {
         return NamedObj::mustEqualML(named_o2, p);
@@ -1242,20 +1242,29 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
     SgScopeStatement* anchor_scope;
     ROSE_ASSERT(isSgVariableSymbol(anchor_symbol) || isSgFunctionSymbol(anchor_symbol));
     if(isSgVariableSymbol(anchor_symbol))
-        anchor_scope = isSgVariableSymbol(anchor_symbol)->get_declaration()->get_declaration()->get_scope();
-    else if(isSgFunctionSymbol(anchor_symbol))
       anchor_scope = isSgVariableSymbol(anchor_symbol)->get_declaration()->get_declaration()->get_scope();
+    else if(isSgFunctionSymbol(anchor_symbol))
+      anchor_scope = isSgFunctionSymbol(anchor_symbol)->get_declaration()->get_declaration()->get_scope();
     
+    /*cout << "part.getNode()=["<<part.getNode()->unparseToString()<<" | "<<part.getNode()->class_name()<<"]"<<endl;
     SgScopeStatement* partScope = SageInterface::getScope(part.getNode());
-    while(partScope!=NULL && partScope!=anchor_scope) 
-      partScope = SageInterface::getScope(partScope);
+    while(partScope!=NULL && partScope!=anchor_scope) {
+      cout << "partScope=["<<partScope->unparseToString()<<" | "<<partScope->class_name()<<"]"<<endl;
+      partScope = SageInterface::getScope(partScope->get_parent());
+    }
     
     // The variable is in-scope if part.getNode() is inside its declaration scope
     Dbg::region reg(1,1, Dbg::region::topLevel, "NamedObj::isInScope");
     Dbg::dbg << "anchor_symbol=["<<anchor_symbol->unparseToString()<<" | "<<anchor_symbol->class_name()<<"]"<<endl;
     Dbg::dbg << "part=["<<part.getNode()->unparseToString()<<" | "<<part.getNode()->class_name()<<"]"<<endl;
     Dbg::dbg << (partScope!=NULL ? "IN-SCOPE" : "OUT-OF-SCOPE")<<endl;
-    return partScope!=NULL;
+    return partScope!=NULL;*/
+    
+    Dbg::dbg << "anchor_scope=["<<anchor_scope->unparseToString()<<" | "<<anchor_scope->class_name()<<"]"<<endl;
+    Dbg::dbg << "getEnclosingFunctionDefinition(part.getNode())=["<<SageInterface::getEnclosingFunctionDefinition(part.getNode())->unparseToString()<<" | "<<SageInterface::getEnclosingFunctionDefinition(part.getNode())->class_name()<<"]"<<endl;
+    Dbg::dbg << "part=["<<part.getNode()->unparseToString()<<" | "<<part.getNode()->class_name()<<"]"<<endl;
+    Dbg::dbg << (anchor_scope == SageInterface::getEnclosingFunctionDefinition(part.getNode()) ? "IN-SCOPE" : "OUT-OF-SCOPE")<<endl;
+    return anchor_scope == SageInterface::getEnclosingFunctionDefinition(part.getNode());
   }
   
   //std::string IndexVector_Impl::str(const string& indent)
@@ -1882,16 +1891,16 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
     
     AliasedObjPtr aliased_o2 = boost::dynamic_pointer_cast <AliasedObj> (o2);
     if(aliased_o2) {
-     	// 1. o2 is AliasedObj:
-     	return mayEqualML(aliased_o2, p);
+        // 1. o2 is AliasedObj:
+        return mayEqualML(aliased_o2, p);
     } else {
       NamedObjPtr named_o2 = boost::dynamic_pointer_cast <NamedObj> (o2);
       if(named_o2) {
-      	// 2. o2 is Named Obj: return operator == (AliasedObj&o1, NamedObj & o2)
-      	return isAliased (getType(), named_o2->getType());
+        // 2. o2 is Named Obj: return operator == (AliasedObj&o1, NamedObj & o2)
+        return isAliased (getType(), named_o2->getType());
       } else {
-      	// 3. o2 is  ExpressionObj: always return false
-      	return false;
+        // 3. o2 is  ExpressionObj: always return false
+        return false;
       }
     }
   }
@@ -1907,15 +1916,15 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
     
     AliasedObjPtr aliased_o2 = boost::dynamic_pointer_cast <AliasedObj> (o2);
     if(aliased_o2) {
-    	// 1. o2 is AliasedObj:
+        // 1. o2 is AliasedObj:
       return mustEqualML(aliased_o2, p);
     } else {
       NamedObjPtr named_o2 = boost::dynamic_pointer_cast <NamedObj> (o2);
       if(named_o2) {
-      	// 2. o2 is  NamedObj: no way they can be equal mem object
+        // 2. o2 is  NamedObj: no way they can be equal mem object
         return false;
       } else {
-      	// 3. o2 is  ExpressionObj: always return false
+        // 3. o2 is  ExpressionObj: always return false
         return false;
       }
     }
