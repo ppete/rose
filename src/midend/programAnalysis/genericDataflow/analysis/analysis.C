@@ -752,7 +752,7 @@ bool ContextInsensitiveInterProceduralDataflow::transfer(
                         for(map<varID, varID>::iterator it = argParamMap.begin(); it!=argParamMap.end(); it++)
                         { printf("argParamMap[%s] = %s \n", it->first.str().c_str(), it->second.str().c_str()); }*/
                         remappedL->remapVars(argParamMap, callee);
-                        Dbg::dbg << "      remappedL=["<<calleeL<<"] "<<remappedL->str("        ")<<endl;
+                        Dbg::dbg << "      remappedL=["<<remappedL.get()<<"] "<<remappedL->str("        ")<<endl;
                         // update the callee's Lattice with the new information at the call site
                         modified = funcLatticesBefore->meetUpdate(remappedL.get()) || modified;
 

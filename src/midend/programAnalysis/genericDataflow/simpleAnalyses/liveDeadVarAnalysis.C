@@ -31,7 +31,7 @@ void LiveVarsLattice::copy(const Lattice* that)
 }
 
 // replace variables with a new set of variables
-// varNameMap - maps all variable names that have changed, in each mapping pair, pair->first is the 
+// varNameMap - maps all variable names that have changed, in each mapping pair, pair->first is the
 //              old variable and pair->second is the new variable
 // func - the function that the copy Lattice will now be associated with
 void LiveVarsLattice::remapVars(const map<varID, varID>& varNameMap, const Function& newFunc)
@@ -65,7 +65,7 @@ void LiveVarsLattice::incorporateVars(const Lattice* that_arg)
 // For example, a lattice that maintains lattices for different known variables and expression will
 // return a lattice for the given expression. Similarly, a lattice that keeps track of constraints
 // on values of variables and expressions will return the portion of the lattice that relates to
-// the given expression. 
+// the given expression.
 
 // It is legal for this function to return NULL if no information is available.
 // The function's caller is responsible for deallocating the returned object
@@ -581,8 +581,8 @@ getLiveOutVarsAt(LiveDeadVarsAnalysis* ldva, SgNode* n, unsigned int index /* = 
 // Minimal constructor that initializes just the portions of the object required to make an
 // initial blank VarsExprsProductLattice
 VarsExprsProductLattice::VarsExprsProductLattice(const DataflowNode& n, const NodeState& state, bool (*filter) (CFGNode cfgn)) : n(n), state(state), filter(filter)
-{ 
-}                       
+{
+}
 
 //Collect all expressions, not just variable reference expression, in the AST
 // The reason is that the temp expressions are often useful to propagate data flow information (lattices)
@@ -609,12 +609,12 @@ class collectAllVarRefs: public AstSimpleProcessing {
 // n - the dataflow node that this lattice will be associated with
 // state - the NodeState at this dataflow node
 VarsExprsProductLattice::VarsExprsProductLattice
-                       (Lattice* perVarLattice, 
-                        const map<varID, Lattice*>& constVarLattices, 
+                       (Lattice* perVarLattice,
+                        const map<varID, Lattice*>& constVarLattices,
                         Lattice* allVarLattice,
-                        LiveDeadVarsAnalysis* ldva, 
-                        const DataflowNode& n, 
-                        const NodeState& state) : 
+                        LiveDeadVarsAnalysis* ldva,
+                        const DataflowNode& n,
+                        const NodeState& state) :
                               perVarLattice(perVarLattice), allVarLattice(allVarLattice), constVarLattices(constVarLattices), ldva(ldva), n(n), state(state)
 {
         // If a LiveDeadVarsAnalysis was provided, create a lattice only for each live object
@@ -633,9 +633,9 @@ VarsExprsProductLattice::VarsExprsProductLattice
                 // Get all the variables that were accessed in the function that contains the given DataflowNode
                 set<SgInitializedName *> readVars, writeVars;
                 SgNode* cur = n.getNode();
-                while(cur && !isSgFunctionDefinition(cur)) 
+                while(cur && !isSgFunctionDefinition(cur))
                 { /*Dbg::dbg << "    cur=<"<<Dbg::escape(cur->unparseToString()) << " | " << cur->class_name()<<">"<<endl;*/
-                 cur = cur->get_parent(); 
+                 cur = cur->get_parent();
                 }
                 /*SgFunctionDefinition *func;
                      if(isSgFunctionDefinition(n.getNode()))    func = isSgFunctionDefinition(n.getNode());
@@ -888,7 +888,7 @@ void VarsExprsProductLattice::remapVars(const map<varID, varID>& varNameMap, con
 
         // Fill newLattices with lattices associated with variables in the new function
         DataflowNode funcCFGStart = cfgUtils::getFuncStartCFG(newFunc.get_definition(),filter); //TODO This function is never being used somehow
-        //Akshatha(08/12): To handle cases which do not require LiveDeadVars Analysis        
+        //Akshatha(08/12): To handle cases which do not require LiveDeadVars Analysis
         varIDSet newRefVars;
         if(ldva)
             newRefVars = getAllLiveVarsAt(ldva, *NodeState::getNodeState(funcCFGStart, 0), "    ");
@@ -896,11 +896,11 @@ void VarsExprsProductLattice::remapVars(const map<varID, varID>& varNameMap, con
         {
 
             //Obtain the SgNode for newFunc, traverse up to get its FunctionDefinition, and finally populate the newRefVars vector with varID's of all the variables present in this function
-            
+
             SgNode* cur = newFunc.get_definition();
             //SgNode* cur = n.getNode();
-        
-            ROSE_ASSERT(cur != NULL);    
+
+            ROSE_ASSERT(cur != NULL);
             while(cur && !isSgFunctionDefinition(cur))
             { /*Dbg::dbg << "    cur=<"<<Dbg::escape(cur->unparseToString()) << " | " << cur->class_name()<<">"<<endl;*/
                  cur = cur->get_parent();
@@ -919,7 +919,7 @@ void VarsExprsProductLattice::remapVars(const map<varID, varID>& varNameMap, con
         }
         //Akshatha(08/12): End of Code changes
 
-        // Iterate through all the variables that are live at the top of newFunc and for each one 
+        // Iterate through all the variables that are live at the top of newFunc and for each one
         int idx=0;
         for(varIDSet::iterator it = newRefVars.begin(); it!=newRefVars.end(); it++ /*, idx++*/)
         {
@@ -962,7 +962,7 @@ void VarsExprsProductLattice::remapVars(const map<varID, varID>& varNameMap, con
                                 // Erase the original mapping of newVar in varLatticeIndex
                                 newVarLatticeIndex[newVar] = idx;
                                 idx++;
-               
+
                                 varLatticeIndex.erase(newVar);
                         // If not, add a fresh lattice for this variable
                         } else
@@ -1165,7 +1165,7 @@ string VarsExprsProductLattice::str(string indent) const
         //outs << "[VarsExprsProductLattice: n="<<n.getNode()<<" = <"<<Dbg::escape(n.getNode()->unparseToString())<<" | "<<n.getNode()->class_name()<<" | "<<n.getIndex()<<"> level="<<(getLevel()==uninitialized ? "uninitialized" : "initialized")<<endl;
         //outs << "[VarsExprsProductLattice: n="<<n.getNode()<<" level="<<(getLevel()==uninitialized ? "uninitialized" : "initialized")<<endl;
         // Liao 7/1/2012, avoid print out changing memory address info. so the string output can be used to verify correctness of analysis
-        outs << "[VarsExprsProductLattice: level="<<(getLevel()==uninitialized ? "uninitialized" : "initialized")<<endl;
+        outs << "[VarsExprsProductLattice: level="<<(isInitialized() ? "initialized" : "uninitialized")<<endl;
         //varIDSet refVars;// = getVisibleVars(func);
         //for(varIDSet::iterator it = refVars.begin(); it!=refVars.end(); it++)
         for(map<varID, int>::const_iterator varIdx=varLatticeIndex.begin(); varIdx!=varLatticeIndex.end(); varIdx++)
@@ -1204,7 +1204,7 @@ FiniteVarsExprsProductLattice::FiniteVarsExprsProductLattice(const DataflowNode&
 {}
 
 // Retrns a blank instance of a VarsExprsProductLattice that only has the fields n and state set
-VarsExprsProductLattice* FiniteVarsExprsProductLattice::blankVEPL(const DataflowNode& n, const NodeState& state)
+VarsExprsProductLattice* FiniteVarsExprsProductLattice::blankVEPL(const DataflowNode& n, const NodeState& state) const
 {
         return new FiniteVarsExprsProductLattice(n, state);
 }
@@ -1255,7 +1255,7 @@ FiniteVarsExprsProductLattice* FiniteVarsExprsProductLattice::copy() const
 
 // Minimal constructor that initializes just the portions of the object required to make an
 // initial blank VarsExprsProductLattice
-InfiniteVarsExprsProductLattice::InfiniteVarsExprsProductLattice(const DataflowNode& n, const NodeState& state) : 
+InfiniteVarsExprsProductLattice::InfiniteVarsExprsProductLattice(const DataflowNode& n, const NodeState& state) :
                 VarsExprsProductLattice(n, state,filter)
 {}
 
