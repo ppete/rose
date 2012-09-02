@@ -1,6 +1,8 @@
 #ifndef LATTICE_H
 #define LATTICE_H
 
+// #include "CallGraphTraverse.h"
+// #include "variables.h"
 #include <string>
 #include <map>
 
@@ -12,7 +14,6 @@
 class Lattice : public printable
 {
         public:
-
         Lattice()
         : good_state(false)
         {
@@ -59,7 +60,7 @@ class Lattice : public printable
         //              old variable and pair->second is the new variable
         // func - the function that the copy Lattice will now be associated with
         virtual /*Lattice**/void remapVars(const std::map<varID, varID>& varNameMap, const Function& newFunc) {}
-
+        
         // Called by analyses to copy over from the that Lattice dataflow information into this Lattice.
         // that contains data for a set of variables and incorporateVars must overwrite the state of just
         // those variables, while leaving its state for other variables alone.
@@ -67,29 +68,28 @@ class Lattice : public printable
         //    Lattices have per-variable information.
         virtual void incorporateVars(const Lattice* that) {}
 
-        // Returns a Lattice that describes the information known within this lattice
-        // about the given expression. By default this could be the entire lattice or any portion of it.
-        // For example, a lattice that maintains lattices for different known variables and expression will
         // return a lattice for the given expression. Similarly, a lattice that keeps track of constraints
         // on values of variables and expressions will return the portion of the lattice that relates to
         // the given expression.
-        // It it legal for this function to return NULL if no information is available.
+        // It is legal for this function to return NULL or an empty lattice if no information is available.
         // The function's caller is responsible for deallocating the returned object
+       // TODO: this function name really does not refect what it does. 
+       // A better name: Lattice * createRelevantLattice(SgExpression* expr)
         // \pp \todo can we require the function to always return a legal lattice?
         virtual Lattice* project(SgExpression* expr) const { return copy(); }
-
+        
         // The inverse of project(). The call is provided with an expression and a Lattice that describes
         // the dataflow state that relates to expression. This Lattice must be of the same type as the lattice
         // returned by project(). unProject() must incorporate this dataflow state into the overall state it holds.
         // Call must make an internal copy of the passed-in lattice and the caller is responsible for deallocating it.
         // Returns true if this causes this to change and false otherwise.
         virtual bool unProject(SgExpression* expr, const Lattice* exprState) { return meetUpdate(exprState); }
-
+       
         // computes the meet of this and that and saves the result in this
         // returns true if this causes this to change and false otherwise
         virtual
         bool meetUpdate(const Lattice* that) = 0;
-
+        
         // returns true for finite domains
         virtual bool finiteLattice() const = 0;
 
@@ -98,7 +98,7 @@ class Lattice : public printable
         {
           return lhs->good_state == rhs->good_state;
         }
-
+        
         virtual
         bool operator==(const Lattice* that) const = 0;
 

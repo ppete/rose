@@ -233,8 +233,8 @@ bool IntraUniDirectionalDataflow::propagateStateToNextNode(
 
         if(analysisDebugLevel>=1){
                 Dbg::dbg << "\n        Propagating to Next Node: "<<nextNode.getNode()<<"["<<nextNode.getNode()->class_name()<<" | "<<Dbg::escape(nextNode.getNode()->unparseToString())<<"]"<<endl;
-                Dbg::dbg << "        Cur node: Lattice: \n            " << currNodeState->str("            ") << endl;
-                Dbg::dbg << "        Next node: Lattice: \n            " << nextNodeState->str("            ") << endl;
+                Dbg::dbg << "        Current node: Lattice: \n            " << currNodeState->str("            ") << endl;
+                Dbg::dbg << "        Next/Descendant node: Lattice before propagataion: \n            " << nextNodeState->str("            ") << endl;
         }
 
         // Update forward info above nextNode from the forward info below currNode.
@@ -247,6 +247,9 @@ bool IntraUniDirectionalDataflow::propagateStateToNextNode(
                 // must also perform widening to ensure convergence.
                 if (currNodeState->finiteLattice())
                 {
+                        if(analysisDebugLevel>=1)
+                           Dbg::dbg << "        Finite lattice: using regular meetUpdate from current'lattic into next node's lattice... "<<endl;
+
                         modified = nextNodeState->meetUpdate(currNodeState.get()) || modified;
                 }
                 else
@@ -278,7 +281,7 @@ bool IntraUniDirectionalDataflow::propagateStateToNextNode(
                         Dbg::dbg << "        Propagated: Lattice: \n            " << nextNodeState->str("            ")<<endl;
                 }
                 else
-                        Dbg::dbg << "        No modification on this node"<<endl;
+                        Dbg::dbg << "        Next node's lattice is *unchanged* by the propagation. "<<endl;
         }
 
         return modified;
@@ -749,9 +752,7 @@ bool ContextInsensitiveInterProceduralDataflow::transfer(
                         for(map<varID, varID>::iterator it = argParamMap.begin(); it!=argParamMap.end(); it++)
                         { printf("argParamMap[%s] = %s \n", it->first.str().c_str(), it->second.str().c_str()); }*/
                         remappedL->remapVars(argParamMap, callee);
-
-                        //Dbg::dbg << "      remappedL=["<<calleeL<<"] "<<remappedL->str("        ")<<endl;
-
+                        Dbg::dbg << "      remappedL=["<<calleeL<<"] "<<remappedL->str("        ")<<endl;
                         // update the callee's Lattice with the new information at the call site
                         modified = funcLatticesBefore->meetUpdate(remappedL.get()) || modified;
 
@@ -787,7 +788,7 @@ bool ContextInsensitiveInterProceduralDataflow::transfer(
 
                         FunctionState::setParamArgByRefMap(call, paramArgByRefMap);
                         remappedL->remapVars(paramArgByRefMap, func);
-
+                        Dbg::dbg << "      +remappedL-after=["<<remappedL<<"] "<<remappedL->str("        ")<<endl;
                         // update the caller's Lattice with the new information at the call site
                         dfInfo->incorporateVars(remappedL.get());
 

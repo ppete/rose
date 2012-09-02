@@ -232,6 +232,7 @@ const AnyLattice& NodeState::getLatticeAbove(const Analysis* analysis, int latti
 //     as in principle the state of the lattice could be accidentally modified.
 static LatticePtr dummyLattice(static_cast<Lattice*>(0));
 
+
 // returns the map containing all the lattices from above the node that are owned by the given analysis
 // (read-only access)
 ConstLatticePtr NodeState::getLatticeAbove(const Analysis* analysis) const

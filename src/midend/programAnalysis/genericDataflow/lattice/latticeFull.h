@@ -148,6 +148,7 @@ class IntMaxLattice : public InfiniteLattice
   ### Utility lattices ###
   ########################*/
 
+// A container lattice to store other lattices
 class ProductLattice : public virtual Lattice
 {
         public:
@@ -285,14 +286,14 @@ class InfiniteProductLattice : public virtual ProductLattice, public virtual Inf
 
 class VariablesProductLattice : public virtual ProductLattice
 {
-        protected:
+    protected:
         // if =true, a lattice is created for each scalar variable
         bool includeScalars;
         // if =true, a lattice is created for each array variable
         bool includeArrays;
         // the function that this lattice is associated with
         Function func;
-        // map of lattices that correspond to constant variables
+        // map of lattices that correspond to constant variables, for quick search
         std::map<varID, Lattice*> constVarLattices;
         // lattice that corresponds to allVar;
         Lattice* allVarLattice;
