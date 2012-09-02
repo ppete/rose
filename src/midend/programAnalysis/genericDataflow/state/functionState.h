@@ -61,17 +61,17 @@ class FunctionState
   // Given a function call, sets argParamMap to map all arguments of this function call to their 
   // corresponding parameters.
   // Supports caller->callee transfers for forwards analyses and callee->caller transfers for backwards analyses.
-  static void setArgParamMap(SgFunctionCallExp* call, 
-                              std::set<pair<MemLocObjectPtr, MemLocObjectPtr> >& argParamMap,
-                              Composer* composer, ComposedAnalysis* analysis);
+  static void setArgParamMap(PartPtr callPart, SgFunctionCallExp* call, 
+                             std::set<pair<MemLocObjectPtr, MemLocObjectPtr> >& argParamMap,
+                             Composer* composer, ComposedAnalysis* analysis);
 
   // Given a function call, sets paramArgByRef2ParamMap to map all arguments of this function call that are passed by 
   // reference to their corresponding parameters and to map the call's SgFunctionCallExp expression to the MemLocObject 
   // that denotes the function's declaration (associated with its return value).
   // Supports callee->caller transfers for forwards analyses and caller->callee transfers for backwards analyses.
-  static void setArgByRef2ParamMap(SgFunctionCallExp* call, 
-                                  std::set<pair<MemLocObjectPtr, MemLocObjectPtr> >& paramArgByRef2ParamMap,
-                                  Composer* composer, ComposedAnalysis* analysis);
+  static void setArgByRef2ParamMap(PartPtr callPart, SgFunctionCallExp* call, 
+                                   std::set<pair<MemLocObjectPtr, MemLocObjectPtr> >& paramArgByRef2ParamMap,
+                                   Composer* composer, ComposedAnalysis* analysis);
 
   // Given a map produced by setArgParamMap or setArgByRef2ParamMap, return the same map but where the key->value 
   // mappings are inverted to value->key

@@ -13,7 +13,7 @@ namespace dataflow
 
 // General version of mayEqual and mustEqual that implements may/must equality with respect to ExprObj
 // and uses the derived class' may/mustEqual check for all the other cases
-bool MemLocObject::mayEqual(MemLocObjectPtr o, PartPtr p) const
+bool MemLocObject::mayEqual(MemLocObjectPtr o, PartPtr p)
 {
   // If both this and that are both expression objects or both not expression objects, use the
   // derived class' equality check
@@ -24,7 +24,7 @@ bool MemLocObject::mayEqual(MemLocObjectPtr o, PartPtr p) const
   // Otherwise, we know they're not equal
   { return false; }
 }
-bool MemLocObject::mustEqual(MemLocObjectPtr o, PartPtr p) const
+bool MemLocObject::mustEqual(MemLocObjectPtr o, PartPtr p)
 {
   // If both this and that are both expression objects or both not expression objects, use the
   // derived class' equality check
@@ -37,14 +37,14 @@ bool MemLocObject::mustEqual(MemLocObjectPtr o, PartPtr p) const
   { return false; }
 }
 
-bool MemLocObject::mayEqual(AbstractObjectPtr o, PartPtr p) const
+bool MemLocObject::mayEqual(AbstractObjectPtr o, PartPtr p)
 {
   MemLocObjectPtr mo = boost::dynamic_pointer_cast<MemLocObject>(o);
   if(mo) return mayEqual(mo, p);
   else   return false;
 }
 
-bool MemLocObject::mustEqual(AbstractObjectPtr o, PartPtr p) const
+bool MemLocObject::mustEqual(AbstractObjectPtr o, PartPtr p)
 {
   MemLocObjectPtr mo = boost::dynamic_pointer_cast<MemLocObject>(o);
   if(mo) return mustEqual(mo, p);
@@ -56,7 +56,7 @@ bool MemLocObject::mustEqual(AbstractObjectPtr o, PartPtr p) const
    ############################### */
 
 // Returns whether this object may/must be equal to o within the given Part p
-bool MemLocObjectPtrPair::mayEqual(MemLocObjectPtrPair that, PartPtr p) const
+bool MemLocObjectPtrPair::mayEqual(MemLocObjectPtrPair that, PartPtr p)
 {
   // Both this and that have the same structure
   assert((expr && that.expr) || (!mem && !that.mem));
@@ -66,7 +66,7 @@ bool MemLocObjectPtrPair::mayEqual(MemLocObjectPtrPair that, PartPtr p) const
          (mem  ? mem->mayEqual (that.mem, p): false); 
 }
 
-bool MemLocObjectPtrPair::mustEqual(MemLocObjectPtrPair that, PartPtr p) const
+bool MemLocObjectPtrPair::mustEqual(MemLocObjectPtrPair that, PartPtr p)
 {
   // Both this and that have the same structure
   assert((expr && that.expr) || (!mem && !that.mem));
@@ -183,7 +183,7 @@ std::string MemLocObjectPtrPair::strp(PartPtr part, std::string indent)
    ################################ */
 
 // Returns whether this object may/must be equal to o within the given Part p
-bool CodeLocObjectPtrPair::mayEqual(CodeLocObjectPtrPair that, PartPtr p) const
+bool CodeLocObjectPtrPair::mayEqual(CodeLocObjectPtrPair that, PartPtr p)
 {
   // Both this and that have the same structure
   assert((expr && that.expr) || (!mem && !that.mem));
@@ -193,7 +193,7 @@ bool CodeLocObjectPtrPair::mayEqual(CodeLocObjectPtrPair that, PartPtr p) const
          (mem  ? mem->mayEqual (that.mem, p): false); 
 }
 
-bool CodeLocObjectPtrPair::mustEqual(CodeLocObjectPtrPair that, PartPtr p) const
+bool CodeLocObjectPtrPair::mustEqual(CodeLocObjectPtrPair that, PartPtr p)
 {
   // Both this and that have the same structure
   assert((expr && that.expr) || (!mem && !that.mem));
@@ -326,15 +326,15 @@ std::string IndexVector::str(std::string indent)
  ROSE_ASSERT (false);
  return "";  
 }
-bool IndexVector::mayEqual (IndexVectorPtr other, const Part& p) const
+bool IndexVector::mayEqual (IndexVectorPtr other, const Part& p)
 {
- cerr<<"Error. Direct call to base class (IndexVector)'s operator==() is not allowed."<<endl;
+ cerr<<"Error. Direct call to base class (IndexVector)'s mayEqual() is not allowed."<<endl;
  ROSE_ASSERT (false);
  return false;  
 }
-bool IndexVector::mustEqual (IndexVectorPtr other, const Part& p) const
+bool IndexVector::mustEqual (IndexVectorPtr other, const Part& p)
 {
- cerr<<"Error. Direct call to base class (IndexVector)'s operator==() is not allowed."<<endl;
+ cerr<<"Error. Direct call to base class (IndexVector)'s mustEqual is not allowed."<<endl;
  ROSE_ASSERT (false);
  return false;  
 }

@@ -140,8 +140,8 @@ class LDMemLocObject : public virtual MemLocObject
   LDMemLocObject(MemLocObjectPtr parent_, LiveDeadMemAnalysis* ldma, PartPtr p);
   LDMemLocObject(const LDMemLocObject& that);
 
-  bool mayEqualML(MemLocObjectPtr o, PartPtr p) const;
-  bool mustEqualML(MemLocObjectPtr o, PartPtr p) const;
+  bool mayEqualML(MemLocObjectPtr o, PartPtr p);
+  bool mustEqualML(MemLocObjectPtr o, PartPtr p);
   
   // pretty print for the object
   std::string str(std::string indent="") const;
@@ -168,8 +168,8 @@ class LDScalar : virtual public LDMemLocObject, virtual public Scalar
    LDScalar(MemLocObjectPtr parent, LiveDeadMemAnalysis* ldma, PartPtr p);
    
   // Implement the required functions by calling the real copies in LDMemLocObject
-  bool mayEqual(MemLocObjectPtr o, PartPtr p) const  { return LDMemLocObject::mayEqual(o, p); }
-  bool mustEqual(MemLocObjectPtr o, PartPtr p) const { return LDMemLocObject::mayEqual(o, p); }
+  bool mayEqual(MemLocObjectPtr o, PartPtr p)  { return LDMemLocObject::mayEqual(o, p); }
+  bool mustEqual(MemLocObjectPtr o, PartPtr p) { return LDMemLocObject::mayEqual(o, p); }
   std::string str(std::string indent="") const { return LDMemLocObject::str(indent); }
   std::string str(std::string indent="") { return LDMemLocObject::str(indent); }
   std::string strp(PartPtr part, std::string indent="") { return LDMemLocObject::strp(part, indent); }
@@ -184,8 +184,8 @@ public:
   LDFunctionMemLoc(MemLocObjectPtr parent, LiveDeadMemAnalysis* ldma, PartPtr p);
   
   // Implement the required functions by calling the real copies in LDMemLocObject
-  bool mayEqual(MemLocObjectPtr o, PartPtr p) const  { return LDMemLocObject::mayEqual(o, p); }
-  bool mustEqual(MemLocObjectPtr o, PartPtr p) const { return LDMemLocObject::mayEqual(o, p); }
+  bool mayEqual(MemLocObjectPtr o, PartPtr p)  { return LDMemLocObject::mayEqual(o, p); }
+  bool mustEqual(MemLocObjectPtr o, PartPtr p) { return LDMemLocObject::mayEqual(o, p); }
   std::string str(std::string indent="") const { return LDMemLocObject::str(indent); }
   std::string str(std::string indent="") { return LDMemLocObject::str(indent); }
   std::string strp(PartPtr part, std::string indent="") { return LDMemLocObject::strp(part, indent); }
@@ -206,8 +206,8 @@ class LDLabeledAggregate: virtual public LDMemLocObject, virtual public LabeledA
    std::vector<boost::shared_ptr<LabeledAggregateField> > getElements() const; 
    
   // Implement the required functions by calling the real copies in LDMemLocObject
-  bool mayEqual(MemLocObjectPtr o, PartPtr p) const  { return LDMemLocObject::mayEqual(o, p); }
-  bool mustEqual(MemLocObjectPtr o, PartPtr p) const { return LDMemLocObject::mayEqual(o, p); }
+  bool mayEqual(MemLocObjectPtr o, PartPtr p)  { return LDMemLocObject::mayEqual(o, p); }
+  bool mustEqual(MemLocObjectPtr o, PartPtr p) { return LDMemLocObject::mayEqual(o, p); }
   std::string str(std::string indent="") const { return LDMemLocObject::str(indent); }
   std::string str(std::string indent="") { return LDMemLocObject::str(indent); }
   std::string strp(PartPtr part, std::string indent="") { return LDMemLocObject::strp(part, indent); }
@@ -236,8 +236,8 @@ class LDArray: virtual public LDMemLocObject, virtual public Array
    MemLocObjectPtr getDereference();
    
   // Implement the required functions by calling the real copies in LDMemLocObject
-  bool mayEqual(MemLocObjectPtr o, PartPtr p) const  { return LDMemLocObject::mayEqual(o, p); }
-  bool mustEqual(MemLocObjectPtr o, PartPtr p) const { return LDMemLocObject::mayEqual(o, p); }
+  bool mayEqual(MemLocObjectPtr o, PartPtr p)  { return LDMemLocObject::mayEqual(o, p); }
+  bool mustEqual(MemLocObjectPtr o, PartPtr p) { return LDMemLocObject::mayEqual(o, p); }
   std::string str(std::string indent="") const { return LDMemLocObject::str(indent); }
   std::string str(std::string indent="") { return LDMemLocObject::str(indent); }
   std::string strp(PartPtr part, std::string indent="") { return LDMemLocObject::strp(part, indent); }
@@ -255,8 +255,8 @@ class LDPointer: virtual public LDMemLocObject, virtual public Pointer
    bool equalPoints(const Pointer & that);
    
   // Implement the required functions by calling the real copies in LDMemLocObject
-  bool mayEqual(MemLocObjectPtr o, PartPtr p) const  { return LDMemLocObject::mayEqual(o, p); }
-  bool mustEqual(MemLocObjectPtr o, PartPtr p) const { return LDMemLocObject::mayEqual(o, p); }
+  bool mayEqual(MemLocObjectPtr o, PartPtr p)  { return LDMemLocObject::mayEqual(o, p); }
+  bool mustEqual(MemLocObjectPtr o, PartPtr p) { return LDMemLocObject::mayEqual(o, p); }
   std::string str(std::string indent="") const { return LDMemLocObject::str(indent); }
   std::string str(std::string indent="") { return LDMemLocObject::str(indent); }
   std::string strp(PartPtr part, std::string indent="") { return LDMemLocObject::strp(part, indent); }

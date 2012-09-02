@@ -452,7 +452,7 @@ LDMemLocObject::LDMemLocObject(MemLocObjectPtr parent_, LiveDeadMemAnalysis* ldm
 LDMemLocObject::LDMemLocObject(const LDMemLocObject& that) : parent(that.parent), ldma(that.ldma), part(that.part)
 {}
 
-bool LDMemLocObject::mayEqualML(MemLocObjectPtr o, PartPtr part) const
+bool LDMemLocObject::mayEqualML(MemLocObjectPtr o, PartPtr part)
 {
   LDMemLocObjectPtr that = boost::dynamic_pointer_cast<LDMemLocObject>(o);
   //ROSE_ASSERT(that);
@@ -479,7 +479,7 @@ bool LDMemLocObject::mayEqualML(MemLocObjectPtr o, PartPtr part) const
   { /*Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;==>FALSE"<<endl;*/ return false; }
 }
 
-bool LDMemLocObject::mustEqualML(MemLocObjectPtr o, PartPtr part) const
+bool LDMemLocObject::mustEqualML(MemLocObjectPtr o, PartPtr part)
 {
   //bool isThatLive = isLiveMay(o, ldma, n, *NodeState::getNodeState(n), "");
   LDMemLocObjectPtr that = boost::dynamic_pointer_cast<LDMemLocObject>(o);

@@ -104,8 +104,8 @@ class CPValueObject : public FiniteLattice, public ValueObject
   std::string str(std::string indent="") { return ((const CPValueObject*)this)->str(indent); }
   std::string strp(PartPtr part, std::string indent="") const;
     
-  bool mayEqual(ValueObjectPtr o, PartPtr p) const;
-  bool mustEqual(ValueObjectPtr o, PartPtr p) const;
+  bool mayEqual(ValueObjectPtr o, PartPtr p);
+  bool mustEqual(ValueObjectPtr o, PartPtr p);
   
   // Allocates a copy of this object and returns a pointer to it
   ValueObjectPtr copyV() const;

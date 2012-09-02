@@ -1176,29 +1176,19 @@ const SgExpression* cfgUtils::unwrapCasts(const SgExpression* e)
 // returns the DataflowNode that represents that start of the CFG of the given function's body
 dataflow::PartPtr cfgUtils::getFuncStartCFG(SgFunctionDefinition* func, bool (*f) (CFGNode) /*= defaultFilter*/ )
 {
-  //return boost::make_shared<DataflowNode>(func->cfgForBeginning(), f);
-  return DataflowNode(func->cfgForBeginning(), f);
-#if 0  
-  DataflowNode funcCFGStart = (DataflowNode)func->cfgForBeginning();
+  //return DataflowNode(func->cfgForBeginning(), f);
+
+  // Find the SgFunctionParameterList node by walking the CFG forwards from the function's start
+  DataflowNode funcCFGStart(func->cfgForBeginning(), f);
   for(VirtualCFG::iterator it(funcCFGStart); it!=VirtualCFG::iterator::end(); it++)
   {
-         //cout << "getFuncStartCFG(): (*it)=<"<<(*it).getNode()->unparseToString()<<" | "<<(*it).getNode()->class_name()<<">\n"; cout.flush();
-    //          printf("getFuncStartCFG(): isSgFunctionParameterList((*it).getNode())=%d (*it)=<%s | %s>\n", isSgFunctionParameterList((*it).getNode()), (*it).getNode()->unparseToString().c_str(), (*it).getNode()->class_name().c_str());
     if(isSgFunctionParameterList((*it).getNode()))
     {
-      //                        printf("getFuncStartCFG(): returning a SgFunctionParameterList\n");
       return (*it);
     }
   }
-  //    printf("getFuncStartCFG(): returning function's declaration\n");
-  return funcCFGStart;
-  /*
-     SgBasicBlock *funcBody = func->get_body();
-     DataflowNode bodyStart = (DataflowNode)funcBody->cfgForBeginning();
-     ROSE_ASSERT(bodyStart.outEdges().size());
-
-     return (*(bodyStart.outEdges().begin())).target();*/
-#endif     
+  // We should never get here
+  ROSE_ASSERT(0);
 }
 
 // returns the DataflowNode that represents that end of the CFG of the given function's body

@@ -244,12 +244,12 @@ CPValueObject::strp(PartPtr part, string indent) const
 }
 
 
-bool CPValueObject::mayEqual(ValueObjectPtr o, PartPtr p) const
+bool CPValueObject::mayEqual(ValueObjectPtr o, PartPtr p)
 {
   return mustEqual(o, p);
 }
 
-bool CPValueObject::mustEqual(ValueObjectPtr o, PartPtr p) const
+bool CPValueObject::mustEqual(ValueObjectPtr o, PartPtr p)
 {
   CPValueObjectPtr that = boost::dynamic_pointer_cast<CPValueObject>(o);
   if(!that) { return false; }

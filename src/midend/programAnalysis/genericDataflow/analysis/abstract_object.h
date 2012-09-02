@@ -37,8 +37,8 @@ class AbstractObject : public printable
 {
   public:
   // Returns whether this object may/must be equal to o within the given Part p
-  virtual bool mayEqual(AbstractObjectPtr o, PartPtr p) const=0;
-  virtual bool mustEqual(AbstractObjectPtr o, PartPtr p) const=0;
+  virtual bool mayEqual(AbstractObjectPtr o, PartPtr p)=0;
+  virtual bool mustEqual(AbstractObjectPtr o, PartPtr p)=0;
   
   // Allocates a copy of this object and returns a pointer to it
   virtual AbstractObjectPtr copyAO() const=0;
@@ -76,17 +76,17 @@ class MemLocObject : public AbstractObject
 private:
   // Returns whether this object may/must be equal to o within the given Part p
   // These methods are private to prevent analyses from calling them directly.
-  virtual bool mayEqualML(MemLocObjectPtr o, PartPtr p) const=0;
-  virtual bool mustEqualML(MemLocObjectPtr o, PartPtr p) const=0;
+  virtual bool mayEqualML(MemLocObjectPtr o, PartPtr p)=0;
+  virtual bool mustEqualML(MemLocObjectPtr o, PartPtr p)=0;
   
 public:
   // General version of mayEqual and mustEqual that implements may/must equality with respect to ExprObj
   // and uses the derived class' may/mustEqual check for all the other cases
-  bool mayEqual(MemLocObjectPtr o, PartPtr p) const;
-  bool mustEqual(MemLocObjectPtr o, PartPtr p) const;
+  bool mayEqual(MemLocObjectPtr o, PartPtr p);
+  bool mustEqual(MemLocObjectPtr o, PartPtr p);
   
-  bool mayEqual(AbstractObjectPtr o, PartPtr p) const;
-  bool mustEqual(AbstractObjectPtr o, PartPtr p) const;
+  bool mayEqual(AbstractObjectPtr o, PartPtr p);
+  bool mustEqual(AbstractObjectPtr o, PartPtr p);
   
   // Allocates a copy of this object and returns a pointer to it
   virtual MemLocObjectPtr copyML() const=0;
@@ -124,8 +124,8 @@ public:
   {}
   
   // Returns whether this object may/must be equal to o within the given Part p
-  bool mayEqual(MemLocObjectPtrPair that, PartPtr p) const;
-  bool mustEqual(MemLocObjectPtrPair that, PartPtr p) const;
+  bool mayEqual(MemLocObjectPtrPair that, PartPtr p);
+  bool mustEqual(MemLocObjectPtrPair that, PartPtr p);
   
   // Returns a copy of this object
   MemLocObjectPtrPair copyML() const;
@@ -150,17 +150,17 @@ class ValueObject : public AbstractObject
 { 
   public:
   // Returns whether this object may/must be equal to o within the given Part p
-  virtual bool mayEqual(ValueObjectPtr o, PartPtr p) const=0;
-  virtual bool mustEqual(ValueObjectPtr o, PartPtr p) const=0;
+  virtual bool mayEqual(ValueObjectPtr o, PartPtr p)=0;
+  virtual bool mustEqual(ValueObjectPtr o, PartPtr p)=0;
   
-  bool mayEqual(AbstractObjectPtr o, PartPtr p) const
+  bool mayEqual(AbstractObjectPtr o, PartPtr p)
   {
     ValueObjectPtr vo = boost::dynamic_pointer_cast<ValueObject>(o);
     if(vo) return mayEqual(vo, p);
     else   return false;
   }
   
-  bool mustEqual(AbstractObjectPtr o, PartPtr p) const
+  bool mustEqual(AbstractObjectPtr o, PartPtr p)
   {
     ValueObjectPtr vo = boost::dynamic_pointer_cast<ValueObject>(o);
     if(vo) return mustEqual(vo, p);
@@ -179,29 +179,29 @@ class CodeLocObject : public AbstractObject
 { 
   public:
   // Returns whether this object may/must be equal to o within the given Part p
-  virtual bool mayEqualCL(CodeLocObjectPtr o, PartPtr p) const=0;
-  virtual bool mustEqualCL(CodeLocObjectPtr o, PartPtr p) const=0;
+  virtual bool mayEqualCL(CodeLocObjectPtr o, PartPtr p)=0;
+  virtual bool mustEqualCL(CodeLocObjectPtr o, PartPtr p)=0;
   
   // General version of mayEqual and mustEqual that implements may/must equality with respect to ExprObj
   // and uses the derived class' may/mustEqual check for all the other cases
   // GREG: Currently nothing interesting here since we don't support ExprObjs for CodeLocObjects
-  bool mayEqual(CodeLocObjectPtr o, PartPtr p) const
+  bool mayEqual(CodeLocObjectPtr o, PartPtr p)
   {
     return mayEqualCL(o, p);
   }
-  bool mustEqual(CodeLocObjectPtr o, PartPtr p) const
+  bool mustEqual(CodeLocObjectPtr o, PartPtr p)
   {
     return mustEqualCL(o, p);
   }
   
-  bool mayEqual(AbstractObjectPtr o, PartPtr p) const
+  bool mayEqual(AbstractObjectPtr o, PartPtr p)
   {
     CodeLocObjectPtr co = boost::dynamic_pointer_cast<CodeLocObject>(o);
     if(co) return mayEqual(co, p);
     else   return false;
   }
   
-  bool mustEqual(AbstractObjectPtr o, PartPtr p) const
+  bool mustEqual(AbstractObjectPtr o, PartPtr p)
   {
     CodeLocObjectPtr co = boost::dynamic_pointer_cast<CodeLocObject>(o);
     if(co) return mustEqual(co, p);
@@ -228,8 +228,8 @@ public:
   {}
   
   // Returns whether this object may/must be equal to o within the given Part p
-  bool mayEqual(CodeLocObjectPtrPair that, PartPtr p) const;
-  bool mustEqual(CodeLocObjectPtrPair that, PartPtr p) const;
+  bool mayEqual(CodeLocObjectPtrPair that, PartPtr p);
+  bool mustEqual(CodeLocObjectPtrPair that, PartPtr p);
   
   // Returns a copy of this object
   CodeLocObjectPtrPair copyCL() const;
@@ -344,8 +344,8 @@ class IndexVector
    //virtual std::string str(const std::string& indent);
    virtual std::string str(std::string indent); // pretty print for the object
    // equal operator
-   virtual bool mayEqual (IndexVectorPtr other, const Part& p) const;
-   virtual bool mustEqual (IndexVectorPtr other, const Part& p) const;
+   virtual bool mayEqual (IndexVectorPtr other, const Part& p);
+   virtual bool mustEqual (IndexVectorPtr other, const Part& p);
 };
 
 #if 0 // Still not clear if users will get confused by this class

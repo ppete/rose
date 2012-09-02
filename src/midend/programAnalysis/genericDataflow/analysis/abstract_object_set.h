@@ -76,15 +76,15 @@ private:
 public:
     // constructor
     AbstractObjectSet(PartPtr part, conserv mode): 
-      isFull(false), mode(mode), Lattice(part), FiniteLattice(part)
+      Lattice(part), FiniteLattice(part), isFull(false), mode(mode)
     {}
     
     AbstractObjectSet(const AbstractObjectSet* that) : 
-      isFull(that->isFull), mode(that->mode), items(that->items), Lattice(that->part), FiniteLattice(that->part)
+      Lattice(that->part), FiniteLattice(that->part), isFull(that->isFull), mode(that->mode), items(that->items)
     {}
     
     AbstractObjectSet(const AbstractObjectSet& that) :
-      items(that.items), mode(that.mode), isFull(that.isFull), Lattice(that.part), FiniteLattice(that.part)
+      Lattice(that.part), FiniteLattice(that.part), items(that.items), mode(that.mode), isFull(that.isFull)
     {}
 
     ~AbstractObjectSet() { }

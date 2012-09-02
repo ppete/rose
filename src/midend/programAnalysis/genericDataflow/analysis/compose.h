@@ -267,7 +267,8 @@ class IntraUniDirectionalDataflow : public IntraUnitDataflow
                                           DataflowNode (DataflowEdge::*edgeFn)() const);
 
   virtual NodeState*initializeFunctionNodeState(const Function &func, NodeState *fState) = 0;
-  virtual VirtualCFG::dataflowIterator*
+  //virtual VirtualCFG::dataflowIterator*
+  virtual std::list<PartPtr>
     getInitialWorklist(const Function &func, bool analyzeFromDirectionStart, const set<Function> &calleesUpdated, NodeState *fState) = 0;
   virtual vector<Lattice*> getLatticeAnte(NodeState *state) = 0;
   virtual vector<Lattice*> getLatticePost(NodeState *state) = 0;
@@ -343,7 +344,8 @@ class IntraFWDataflow  : public ComposedAnalysis
   {}
   
   NodeState* initializeFunctionNodeState(const Function &func, NodeState *fState);
-  VirtualCFG::dataflowIterator*
+  //VirtualCFG::dataflowIterator*
+  std::list<PartPtr>
     getInitialWorklist(const Function &func/*, bool firstVisit*/, bool analyzeDueToCallers, const set<Function> &calleesUpdated, NodeState *fState);
   vector<Lattice*> getLatticeAnte(NodeState *state);
   vector<Lattice*> getLatticePost(NodeState *state);
@@ -363,7 +365,8 @@ class IntraBWDataflow  : public ComposedAnalysis
   {}
   
   NodeState* initializeFunctionNodeState(const Function &func, NodeState *fState);
-  VirtualCFG::dataflowIterator*
+  //VirtualCFG::dataflowIterator*
+  std::list<PartPtr>
     getInitialWorklist(const Function &func/*, bool firstVisit*/, bool analyzeDueToCallers, const set<Function> &calleesUpdated, NodeState *fState);
   virtual vector<Lattice*> getLatticeAnte(NodeState *state);
   virtual vector<Lattice*> getLatticePost(NodeState *state);
@@ -385,8 +388,9 @@ class IntraUndirDataflow  : public ComposedAnalysis
   {}
   
   NodeState* initializeFunctionNodeState(const Function &func, NodeState *fState) { return NULL; }
-  VirtualCFG::dataflowIterator*
-    getInitialWorklist(const Function &func/*, bool firstVisit*/, bool analyzeDueToCallers, const set<Function> &calleesUpdated, NodeState *fState) { return NULL; }
+  //VirtualCFG::dataflowIterator*
+  std::list<PartPtr>
+    getInitialWorklist(const Function &func/*, bool firstVisit*/, bool analyzeDueToCallers, const set<Function> &calleesUpdated, NodeState *fState) { std::list<PartPtr> empty; return empty; } //return NULL; }
   vector<Lattice*> getLatticeAnte(NodeState *state) { vector<Lattice*> empty; return empty; }
   vector<Lattice*> getLatticePost(NodeState *state) { vector<Lattice*> empty; return empty; }
   void transferFunctionCall(const Function &func, PartPtr p, NodeState *state) {};

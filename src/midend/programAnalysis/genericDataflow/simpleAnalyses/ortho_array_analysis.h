@@ -25,8 +25,8 @@ class OrthoIndexVector_Impl : public IndexVector
     std::string str(std::string indent) const; // pretty print for the object
     std::string str(std::string indent) { return ((const OrthoIndexVector_Impl*)this)->str(indent); }
 
-    bool mayEqual(IndexVectorPtr other, const Part& p) const ;
-    bool mustEqual(IndexVectorPtr other, const Part& p) const ;
+    bool mayEqual(IndexVectorPtr other, const Part& p);
+    bool mustEqual(IndexVectorPtr other, const Part& p);
 };
 typedef boost::shared_ptr<OrthoIndexVector_Impl> OrthoIndexVector_ImplPtr;
 

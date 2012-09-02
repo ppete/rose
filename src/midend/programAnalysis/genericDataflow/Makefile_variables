@@ -2,11 +2,9 @@ mpaGenericDataflow_includes=\
 	-I$(mpaGenericDataflowPath)/.. \
 	-I$(mpaGenericDataflowPath)/ \
 	-I$(mpaGenericDataflowPath)/analysis \
-	-I$(mpaGenericDataflowPath)/arrIndexLabeler \
 	-I$(mpaGenericDataflowPath)/cfgUtils \
 	-I$(mpaGenericDataflowPath)/lattice \
 	-I$(mpaGenericDataflowPath)/simpleAnalyses \
-	-I$(mpaGenericDataflowPath)/rwAccessLabeler \
 	-I$(mpaGenericDataflowPath)/state \
 	-I$(mpaGenericDataflowPath)/variables \
 	-I$(mpaGenericDataflowPath)/../CFG
@@ -24,7 +22,6 @@ mpaGenericDataflow_la_sources=\
 	$(mpaGenericDataflowPath)/simpleAnalyses/live_dead_analysis.C \
 	$(mpaGenericDataflowPath)/simpleAnalyses/ortho_array_analysis.C \
 	$(mpaGenericDataflowPath)/AnalysisDebuggingUtils.C \
-	$(mpaGenericDataflowPath)/arrIndexLabeler/arrIndexLabeler.C \
 	$(mpaGenericDataflowPath)/cfgUtils/CallGraphTraverse.C \
 	$(mpaGenericDataflowPath)/cfgUtils/cfgUtils.C \
 	$(mpaGenericDataflowPath)/cfgUtils/CFGRewrite.C \
@@ -32,7 +29,6 @@ mpaGenericDataflow_la_sources=\
 	$(mpaGenericDataflowPath)/cfgUtils/VirtualCFGIterator.C \
 	$(mpaGenericDataflowPath)/genUID.C \
 	$(mpaGenericDataflowPath)/lattice/lattice.C \
-	$(mpaGenericDataflowPath)/rwAccessLabeler/rwAccessLabeler.C \
 	$(mpaGenericDataflowPath)/state/functionState.C \
 	$(mpaGenericDataflowPath)/state/nodeState.C \
 	$(mpaGenericDataflowPath)/simpleAnalyses/printAnalysisStates.C \
@@ -66,7 +62,6 @@ mpaGenericDataflow_includeHeaders=\
 	$(mpaGenericDataflowPath)/simpleAnalyses/live_dead_analysis.h \
 	$(mpaGenericDataflowPath)/simpleAnalyses/ortho_array_analysis.h \
 	$(mpaGenericDataflowPath)/AnalysisDebuggingUtils.h \
-	$(mpaGenericDataflowPath)/arrIndexLabeler/arrIndexLabeler.h \
 	$(mpaGenericDataflowPath)/cfgUtils/baseCFGIterator.h \
 	$(mpaGenericDataflowPath)/cfgUtils/CallGraphTraverse.h \
 	$(mpaGenericDataflowPath)/cfgUtils/cfgUtils.h \
@@ -77,7 +72,6 @@ mpaGenericDataflow_includeHeaders=\
 	$(mpaGenericDataflowPath)/genUID.h \
 	$(mpaGenericDataflowPath)/lattice/lattice.h \
 	$(mpaGenericDataflowPath)/lattice/latticeFull.h \
-	$(mpaGenericDataflowPath)/rwAccessLabeler/rwAccessLabeler.h \
 	$(mpaGenericDataflowPath)/simpleAnalyses/VariableStateTransfer.h \
 	$(mpaGenericDataflowPath)/state/functionState.h \
 	$(mpaGenericDataflowPath)/state/LogicalCond.h \

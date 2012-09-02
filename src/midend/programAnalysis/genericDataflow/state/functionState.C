@@ -79,7 +79,7 @@ FunctionState* FunctionState::getFuncState(const Function& func)
 // Given a function call, sets argParamMap to map all arguments of this function call to their 
 // corresponding parameters.
 // Supports caller->callee transfers for forwards analyses and callee->caller transfers for backwards analyses.
-void FunctionState::setArgParamMap(SgFunctionCallExp* call, 
+void FunctionState::setArgParamMap(PartPtr callPart, SgFunctionCallExp* call, 
                                    std::set<pair<MemLocObjectPtr, MemLocObjectPtr> >& argParamMap,
                                    Composer* composer, ComposedAnalysis* analysis)
 {
@@ -101,14 +101,14 @@ void FunctionState::setArgParamMap(SgFunctionCallExp* call,
       itA!=args.end() && itP!=params.end(); 
       itA++, itP++)
   {
-    /*MemLocObjectPtrPair argP = composer->Expr2MemLoc(*itA, funcNode, analysis);
-    // The argument MemLoc is preferrably the argument expression but may be a memory location if it is 
+    MemLocObjectPtrPair argP = composer->Expr2MemLoc(*itA, funcNode, analysis);
+    // The argument MemLoc is preferrably the argument expression but may be a memory location if the expression is not available
     MemLocObjectPtr arg;
     if(argP.expr) arg = argP.expr;
-    else          arg = argP.mem;*/
+    else          arg = argP.mem;
     
-    Dbg::dbg << "argParamMap["<<composer->Expr2MemLoc(*itA, funcNode, analysis).mem->str()<<"]="<< composer->Expr2MemLoc(*itP, funcNode, analysis).mem->str()<<endl;
-    argParamMap.insert(make_pair(composer->Expr2MemLoc(*itA, funcNode, analysis).mem,
+    Dbg::dbg << "argParamMap["<<arg->str()<<"]="<< composer->Expr2MemLoc(*itP, funcNode, analysis).mem->str()<<endl;
+    argParamMap.insert(make_pair(arg,
                                  composer->Expr2MemLoc(*itP, funcNode, analysis).mem));
   }
 }
@@ -117,9 +117,9 @@ void FunctionState::setArgParamMap(SgFunctionCallExp* call,
 // reference to their corresponding parameters and to map the call's SgFunctionCallExp expression to the MemLocObject 
 // that denotes the function's declaration (associated with its return value).
 // Supports callee->caller transfers for forwards analyses and caller->callee transfers for backwards analyses.
-void FunctionState::setArgByRef2ParamMap(SgFunctionCallExp* call, 
-                                        std::set<pair<MemLocObjectPtr, MemLocObjectPtr> >& paramArgByRef2ParamMap,
-                                        Composer* composer, ComposedAnalysis* analysis)
+void FunctionState::setArgByRef2ParamMap(PartPtr callPart, SgFunctionCallExp* call, 
+                                         std::set<pair<MemLocObjectPtr, MemLocObjectPtr> >& paramArgByRef2ParamMap,
+                                         Composer* composer, ComposedAnalysis* analysis)
 {
   Dbg::indent(analysisDebugLevel, 1);
   Function func(call);
@@ -140,18 +140,26 @@ void FunctionState::setArgByRef2ParamMap(SgFunctionCallExp* call,
     if(isSgReferenceType(typeParam)) {
         // If the current argument expression corresponds to a real memory location, make its key the MemLocObject 
         // that corresponds to its memory location
+        /*Dbg::region reg(1,1, Dbg::region::topLevel, "setArgByRef2ParamMap");
+        Dbg::dbg << "itParams=["<<(*itParams)->unparseToString()<<" | "<<(*itParams)->class_name()<<"]"<<endl;
+        Dbg::dbg << "itParams MemLoc = "<<composer->Expr2MemLoc(*itParams, funcNode, analysis).strp(funcNode)<<endl;*/
         if(isSgVarRefExp(*itArgs) || isSgPntrArrRefExp(*itArgs))
-          paramArgByRef2ParamMap.insert(make_pair(composer->Expr2MemLoc(*itArgs, funcNode, analysis).mem,
-                                                composer->Expr2MemLoc(*itParams, funcNode, analysis).mem));
+          paramArgByRef2ParamMap.insert(make_pair(composer->Expr2MemLoc(*itArgs,   callPart, analysis).mem,
+                                                  composer->Expr2MemLoc(*itParams, funcNode, analysis).mem));
         // Otherwise, use the expression MemLocObject
         else
-          paramArgByRef2ParamMap.insert(make_pair(composer->Expr2MemLoc(*itArgs, funcNode, analysis).expr,
+          paramArgByRef2ParamMap.insert(make_pair(composer->Expr2MemLoc(*itArgs,   callPart, analysis).expr,
                                                   composer->Expr2MemLoc(*itParams, funcNode, analysis).mem));
     }
   }
   
   // Add the mapping from the function's declaration (denotes the return value) to the function's call expression
-  paramArgByRef2ParamMap.insert(make_pair(composer->Expr2MemLoc(call, funcNode, analysis).expr,
+  /*Dbg::dbg << "declSymbol=["<<func.get_declaration()->search_for_symbol_from_symbol_table()->unparseToString()<<" | "<<func.get_declaration()->search_for_symbol_from_symbol_table()->class_name()<<"]"<<endl;
+  Dbg::dbg << "declSymbol MemLoc = "<<composer->Expr2MemLoc(func.get_declaration()->search_for_symbol_from_symbol_table(), funcNode, analysis).str()<<endl;
+  Dbg::dbg << "declSymbol MemLoc (funcNode)= "<<composer->Expr2MemLoc(func.get_declaration()->search_for_symbol_from_symbol_table(), funcNode, analysis).strp(funcNode)<<endl;
+  Dbg::dbg << "declSymbol MemLoc (callPart)= "<<composer->Expr2MemLoc(func.get_declaration()->search_for_symbol_from_symbol_table(), funcNode, analysis).strp(callPart)<<endl;*/
+
+  paramArgByRef2ParamMap.insert(make_pair(composer->Expr2MemLoc(call, callPart, analysis).expr,
                                           composer->Expr2MemLoc(func.get_declaration()->search_for_symbol_from_symbol_table(), funcNode, analysis).mem));
 }
 

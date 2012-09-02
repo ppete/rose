@@ -60,21 +60,25 @@ NodeState* IntraFWDataflow::initializeFunctionNodeState(const Function &func, No
   return entryState;
 }
 
-VirtualCFG::dataflowIterator*
+//VirtualCFG::dataflowIterator*
+list<PartPtr>
 IntraFWDataflow::getInitialWorklist(const Function &func, bool analyzeFromDirectionStart, const set<Function> &calleesUpdated, NodeState *fState)
 {
   PartPtr funcCFGStart = cfgUtils::getFuncStartCFG(func.get_definition(),filter);
   PartPtr funcCFGEnd   = cfgUtils::getFuncEndCFG(func.get_definition(),filter);
   
   // Initialize the set of nodes that this dataflow will iterate over
-  VirtualCFG::dataflowIterator *it = new VirtualCFG::dataflowIterator(funcCFGEnd);
+  //VirtualCFG::dataflowIterator *dfIt = new VirtualCFG::dataflowIterator(funcCFGEnd);
+  list<PartPtr> dfIt;
 
   // If we're analyzing this function for the first time or because the dataflow information coming in from its
   // callers has changed, add the function's entry point
   if(analyzeFromDirectionStart)
-    it->add(funcCFGStart);
+    //dfIt->add(funcCFGStart);
+    dfIt.push_back(funcCFGStart);
   else {
-    // If we're analyzing this function because of a change in the exit dataflow states of some of the 
+    /*
+     * // If we're analyzing this function because of a change in the exit dataflow states of some of the 
     // functions called by this function (these functions are recorded in calleesUpdated), add the calls
     // by this function to those functions to the dataflow iterator
     FindAllFunctionCalls fafc(calleesUpdated);
@@ -82,21 +86,69 @@ IntraFWDataflow::getInitialWorklist(const Function &func, bool analyzeFromDirect
     for(map<Function, set<PartPtr> >::iterator callee=fafc.getFuncCalls().begin(); callee!=fafc.getFuncCalls().end(); callee++)
       for(set<PartPtr>::iterator callNode=callee->second.begin(); callNode!=callee->second.end(); callNode++)
         {
-          it->add(*callNode);
-        }
+          //dfIt->add(*callNode);
+          dfIt.push_back(*callNode);
+        }*/
+    
+      /* This doesn't work because it is possible to process a single call that appears early in the function,
+         get no updates from it and stop, without processing any subsequent calls.*/
+      
+    // Iterate over the function in the forward direction, identifying the calls to functions in calleesUpdated.
+    // Calls are added to the dfIt in the order they were discovered. This is done to ensure that when the intra
+    // analysis is run it is likely to take all effects of the function calls into account with the calls
+    // that appear early in the list (earlier in the CFG) and for the later ones will terminate quickly.
+    PartPtr funcCFGStart = cfgUtils::getFuncStartCFG(func.get_definition(),filter);
+    PartPtr funcCFGEnd   = cfgUtils::getFuncEndCFG(func.get_definition(), filter);
+    //set<PartPtr> tainted;
+
+    // iterate over all the nodes in this function
+    for(VirtualCFG::iterator it(funcCFGStart); it!=VirtualCFG::iterator::end(); it++)
+    {
+      PartPtr p = *it;
+      SgNode* n = p.getNode();
+      
+      // Flag that indicates whether this node is tained.
+      // A node is tainted if a predecessor has tainted it
+      //bool pTaint = (tainted.find(p)!=tainted.end());
+      
+      // If this is a call to one of the functions that have had their information updated that is
+      // not reachable from another call to such function
+      if(/*!pTaint &&*/ isSgFunctionCallExp(n)) {
+        for(set<Function>::const_iterator func=calleesUpdated.begin(); func!=calleesUpdated.end(); func++) {
+          if((*func).get_declaration() == isSgFunctionCallExp(n)->getAssociatedFunctionDeclaration()) {
+            // Add it to the start set of the dataflow iterator
+            //dfIt->add(*callNode); 
+              dfIt.push_back(p); 
+            
+            // A node is also tainted if it is a member of the start set
+            //pTaint = true;
+            break;
+        }}
+      }
+      
+      // If the current node is tainted, taint its successors
+      /*if(pTaint)
+      vector<PartPtr> desc = IntraFWDataflow::getDescendants(p);
+      for(vector<PartPtr>::iterator d=desc.begin(); d!=desc.end(); d++)
+        tainted.insert(*d);*/
+    }
   }
   //Dbg::dbg << "analyzeFromDirectionStart="<<analyzeFromDirectionStart<<" #calleesUpdated="<<calleesUpdated.size()<<" it="<<it.str()<<endl;
 
-  return it;
+  return dfIt;
 }
 
-VirtualCFG::dataflowIterator*
+//VirtualCFG::dataflowIterator*
+list<PartPtr>
 IntraBWDataflow::getInitialWorklist(const Function &func, bool analyzeFromDirectionStart, const set<Function> &calleesUpdated, NodeState *fState)
 {
   PartPtr funcCFGStart = cfgUtils::getFuncStartCFG(func.get_definition(),filter);
   PartPtr funcCFGEnd   = cfgUtils::getFuncEndCFG(func.get_definition(),filter);
 
-  return new VirtualCFG::back_dataflowIterator(funcCFGEnd, funcCFGStart);
+  //return new VirtualCFG::back_dataflowIterator(funcCFGEnd, funcCFGStart);
+  list<PartPtr> dfIt;
+  dfIt.push_back(funcCFGEnd);
+  return dfIt;
 }
 
 vector<Lattice*> IntraFWDataflow::getLatticeAnte(NodeState *state) { return state->getLatticeAbove(this); }
@@ -186,218 +238,183 @@ PartPtr IntraBWDataflow::getUltimate(const Function &func)
 void IntraUniDirectionalDataflow::runAnalysis(const Function& func, NodeState* fState, bool analyzeFromDirectionStart, 
                                               set<Function> calleesUpdated)
 {
-        // Make sure that we've been paired with a valid inter-procedural dataflow analysis
-        ROSE_ASSERT(dynamic_cast<InterProceduralDataflow*>(interAnalysis));
+  // Make sure that we've been paired with a valid inter-procedural dataflow analysis
+  ROSE_ASSERT(dynamic_cast<InterProceduralDataflow*>(interAnalysis));
 
-        ostringstream funcNameStr; funcNameStr << "Function "<<func.get_name().getString()<<"()";
-        if(analysisDebugLevel>=1) {
-                Dbg::enterFunc(funcNameStr.str());
-                Dbg::dbg << "analyzeFromDirectionStart="<<analyzeFromDirectionStart<<" calleesUpdated=";
-                for(set<Function>::iterator f=calleesUpdated.begin(); f!=calleesUpdated.end(); f++)
-                        Dbg::dbg << f->get_name().getString()<<", ";
-                Dbg::dbg << endl;
-        }
-        
-       // Initialize the function's entry NodeState 
-        //Akshatha(08/12): Uncommenting the code which updates the function's entry( As per Greg's suggestion)
-        //GB - Don't need this
-        //NodeState* entryState = initializeFunctionNodeState(func, fState);
+  ostringstream funcNameStr; funcNameStr << "Intra-analysis Function "<<func.get_name().getString()<<"()";
+  Dbg::region reg(analysisDebugLevel, 1, Dbg::region::topLevel, funcNameStr.str());
+  if(analysisDebugLevel>=1) {
+      Dbg::dbg << "analyzeFromDirectionStart="<<analyzeFromDirectionStart<<" calleesUpdated=";
+      for(set<Function>::iterator f=calleesUpdated.begin(); f!=calleesUpdated.end(); f++)
+          Dbg::dbg << f->get_name().getString()<<", ";
+      Dbg::dbg << endl;
+  }
 
-        // int i=0;
-        //Dbg::dbg << "after: entryState-above="<<endl;
-        //for(vector<Lattice*>::const_iterator l=entryState->getLatticeAbove(this).begin(); l!=entryState->getLatticeAbove(this).end(); l++, i++)
-        //      Dbg::dbg << "Lattice "<<i<<": "<<(*l)->str("            ")<<endl;
-        
-        //printf("IntraFWDataflow::runAnalysis() function %s()\n", func.get_name().getString());
-        
-        auto_ptr<VirtualCFG::dataflowIterator> workList(getInitialWorklist(func, analyzeFromDirectionStart, calleesUpdated, fState));
+   // Initialize the function's entry NodeState 
+  //Akshatha(08/12): Uncommenting the code which updates the function's entry( As per Greg's suggestion)
+  //GB - Don't need this
+  //NodeState* entryState = initializeFunctionNodeState(func, fState);
 
-        VirtualCFG::dataflowIterator &it = *workList;
-        VirtualCFG::iterator itEnd = VirtualCFG::dataflowIterator::end();
+  // int i=0;
+  //Dbg::dbg << "after: entryState-above="<<endl;
+  //for(vector<Lattice*>::const_iterator l=entryState->getLatticeAbove(this).begin(); l!=entryState->getLatticeAbove(this).end(); l++, i++)
+  //    Dbg::dbg << "Lattice "<<i<<": "<<(*l)->str("      ")<<endl;
+
+  //printf("IntraFWDataflow::runAnalysis() function %s()\n", func.get_name().getString());
+  
+  //list<PartPtr> startingParts = getInitialWorklist(func, analyzeFromDirectionStart, calleesUpdated, fState);
+  
+  // Re-analyze it from scratch
+  list<PartPtr> startingParts = getInitialWorklist(func, true, calleesUpdated, fState);
+  for(list<PartPtr>::iterator start=startingParts.begin(); start!=startingParts.end(); start++) {
+    ostringstream startStr; startStr << "Starting from ["<<(*start).getNode()->unparseToString()<<" | "<<(*start).getNode()->class_name()<<"]"<<endl;
+    Dbg::region reg(analysisDebugLevel, 1, Dbg::region::topLevel, startStr.str());
+    
+    // Iterate over the nodes in this function that are downstream from the nodes added above
+    VirtualCFG::dataflowIterator it(cfgUtils::getFuncEndCFG(func.get_definition(),filter));
+    it.add(*start);
+    for(; it!=VirtualCFG::dataflowIterator::end(); )
+    {
+      PartPtr p = *it;
+      SgNode* sgn = p.getNode();
+      ostringstream nodeNameStr;
+      nodeNameStr << "Current Node "<<sgn<<"["<<sgn->class_name()<<" | "<<Dbg::escape(sgn->unparseToString())<<" | "<<p.getIndex()<<"]";
+      Dbg::region reg(analysisDebugLevel, 1, Dbg::region::topLevel, nodeNameStr.str());
+      bool modified = false;
+      
+      // the number of NodeStates associated with the given dataflow node
+      int numStates=NodeState::numNodeStates(p);
+      ROSE_ASSERT(numStates == 1);
+      // the NodeStates themselves
+      const vector<NodeState*> nodeStates = NodeState::getNodeStates(p);
+      //printf("                               nodeStates.size()=%d\n", nodeStates.size());
+      int i=0;
+      //NodeState* state = NodeState::getNodeState(n, 0);
+      NodeState* state = NULL;
+      //ROSE_ASSERT(state);
+      
+      // Iterate over all of this node's NodeStates
+      //for(int i=0; i<numStates;)
+      for(vector<NodeState*>::const_iterator itS = nodeStates.begin(); itS!=nodeStates.end(); )
+      {
+        state = *itS;
+        //printf("                               state=%p\n", state);
+                
+        // reset the modified state, since only the last NodeState's change matters
+        //modified = false; 
+
+        // =================== Copy incoming lattices to outgoing lattices ===================
+        const vector<Lattice*> dfInfoAnte = getLatticeAnte(state);
+        const vector<Lattice*> dfInfoPost = getLatticePost(state);
+                                
+        // Overwrite the Lattices below this node with the lattices above this node.
+        // The transfer function will then operate on these Lattices to produce the
+        // correct state below this node.
         
-        // Iterate over the nodes in this function that are downstream from the nodes added above
-        for(; it != itEnd; it++)
+        //printf("                 dfInfoAnte.size()=%d, dfInfoPost.size()=%d, this=%p\n", dfInfoAnte.size(), dfInfoPost.size(), this);
+        vector<Lattice*>::const_iterator itA, itP;
+        int j=0;
+        for(itA  = dfInfoAnte.begin(), itP  = dfInfoPost.begin();
+            itA != dfInfoAnte.end() && itP != dfInfoPost.end(); 
+            itA++, itP++, j++)
         {
-                PartPtr p = *it;
-                SgNode* sgn = p.getNode();
-                ostringstream nodeNameStr;
-                nodeNameStr << "Current Node "<<sgn<<"["<<sgn->class_name()<<" | "<<Dbg::escape(sgn->unparseToString())<<" | "<<p.getIndex()<<"]";
-                if(analysisDebugLevel>=1){
-                        Dbg::enterFunc(nodeNameStr.str());
-                }
-                bool modified = false;
-                
-                // the number of NodeStates associated with the given dataflow node
-                int numStates=NodeState::numNodeStates(p);
-                ROSE_ASSERT(numStates == 1);
-                // the NodeStates themselves
-                const vector<NodeState*> nodeStates = NodeState::getNodeStates(p);
-                //printf("                               nodeStates.size()=%d\n", nodeStates.size());
-                int i=0;
-                //NodeState* state = NodeState::getNodeState(n, 0);
-                NodeState* state = NULL;
-                //ROSE_ASSERT(state);
-                
-                // Iterate over all of this node's NodeStates
-                //for(int i=0; i<numStates;)
-                for(vector<NodeState*>::const_iterator itS = nodeStates.begin(); itS!=nodeStates.end(); )
-                {
-                        state = *itS;
-                        //printf("                               state=%p\n", state);
-                                
-                        // reset the modified state, since only the last NodeState's change matters
-                        //modified = false; 
+           if(analysisDebugLevel>=1){
+             Dbg::dbg << " ==================================  "<<endl;
+             Dbg::dbg << "  Copying incoming Lattice "<<j<<":"<<endl;
+             {Dbg::indent ind(analysisDebugLevel, 1);
+              Dbg::dbg <<(*itA)->str()<<endl; }
+             Dbg::dbg << "  To outgoing Lattice "<<j<<":"<<endl;
+             {Dbg::indent ind(analysisDebugLevel, 1);
+              Dbg::dbg <<(*itP)->str()<<endl; }
+           }
+           (*itP)->copy(*itA);
+           /*if(analysisDebugLevel>=1){
+                   Dbg::dbg << "    Copied Meet Below: Lattice "<<j<<": \n        "<<(*itB)->str("            ")<<endl;
+           }*/
+        }
+        
+        // =================== TRANSFER FUNCTION ===================
+        
+        if(analysisDebugLevel>=1){
+          Dbg::dbg << " ==================================  "<<endl;
+          Dbg::dbg << "  Transferring the outgoing  Lattice ... "<<endl;
+        }
+        if (isSgFunctionCallExp(sgn))
+          transferFunctionCall(func, p, state);
 
-                        // =================== Copy incoming lattices to outgoing lattices ===================
-                        const vector<Lattice*> dfInfoAnte = getLatticeAnte(state);
-                        const vector<Lattice*> dfInfoPost = getLatticePost(state);
-                                                
-                        // Overwrite the Lattices below this node with the lattices above this node.
-                        // The transfer function will then operate on these Lattices to produce the
-                        // correct state below this node.
-                        
-                        //printf("                 dfInfoAnte.size()=%d, dfInfoPost.size()=%d, this=%p\n", dfInfoAnte.size(), dfInfoPost.size(), this);
-                        vector<Lattice*>::const_iterator itA, itP;
-                        int j=0;
-                        for(itA  = dfInfoAnte.begin(), itP  = dfInfoPost.begin();
-                            itA != dfInfoAnte.end() && itP != dfInfoPost.end(); 
-                            itA++, itP++, j++)
-                        {
-                                if(analysisDebugLevel>=1){
-                                        Dbg::dbg << " ==================================  "<<endl;
-                                        Dbg::dbg << "  Copying incoming Lattice "<<j<<":"<<endl;
-                                        {Dbg::indent ind(analysisDebugLevel, 1);
-                                         Dbg::dbg <<(*itA)->str()<<endl; }
-                                        Dbg::dbg << "  To outgoing Lattice "<<j<<":"<<endl;
-                                        {Dbg::indent ind(analysisDebugLevel, 1);
-                                         Dbg::dbg <<(*itP)->str()<<endl; }
-                                }
-                                (*itP)->copy(*itA);
-                                /*if(analysisDebugLevel>=1){
-                                        Dbg::dbg << "    Copied Meet Below: Lattice "<<j<<": \n        "<<(*itB)->str("            ")<<endl;
-                                }*/
-                        }
-                        
-                        // =================== TRANSFER FUNCTION ===================
-                       
-                        if(analysisDebugLevel>=1){
-                          Dbg::dbg << " ==================================  "<<endl;
-                          Dbg::dbg << "  Transferring the outgoing  Lattice ... "<<endl;
-                        }
-                        if (isSgFunctionCallExp(sgn))
-                          transferFunctionCall(func, p, state);
+        boost::shared_ptr<IntraDFTransferVisitor> transferVisitor = getTransferVisitor(func, p, *state, dfInfoPost);
+        sgn->accept(*transferVisitor);
+        modified = transferVisitor->finish() || modified;
 
-                        boost::shared_ptr<IntraDFTransferVisitor> transferVisitor = getTransferVisitor(func, p, *state, dfInfoPost);
-                        sgn->accept(*transferVisitor);
-                        modified = transferVisitor->finish() || modified;
-
-                        // =================== TRANSFER FUNCTION ===================
-                        if(analysisDebugLevel>=1)
-                        {
-                                j=0;
-                                for(itP = dfInfoPost.begin();
-                                    itP != dfInfoPost.end(); itP++, j++)
-                                {
-                                        Dbg::dbg << "    Transferred: outgoing Lattice "<<j<<":"<<endl;
-                                        {Dbg::indent ind(analysisDebugLevel, 1);
-                                         Dbg::dbg <<(*itP)->str()<<endl;}
-                                }
-                                Dbg::dbg << "    transferred, modified="<<modified<<endl;
-                        }
-
-
-                        // XXX: Greg believes this plurality of
-                        // NodeState objects per DataflowNode is due
-                        // to FunctionCallExp, and may not even be
-                        // used there anymore, either
-
-                        // Look at the next NodeState
-                        i++; itS++;
-
-#if 0 // FW
-                        // if this is not the last NodeState associated with this CFG node
-                        //if((i+1)<numStates)
-                        if(itS!=nodeStates.end())
-                        {
-                                // Get the next NodeState
-                                //NodeState* nextState = NodeState::getNodeState(n, i);
-                                NodeState* nextState = *itS;
-                                ROSE_ASSERT(nextState);
-                                modified = propagateStateToNextNode(
-                                 dfInfoBelow, n, i-1,
-                                 nextState->getLatticeAbove((Analysis*)this), p) || modified;
-                        }
-#elseif 0 // BW version
-                        if(itS!=nodeStates.rend())
-                        {
-                                // Get the next NodeState
-                                //NodeState* nextState = NodeState::getNodeState(n, i);
-                                NodeState* nextState = *itS;
-                                ROSE_ASSERT(nextState);
-                                modified = propagateStateToNextNode(
-                                 dfInfoAbove, n, i-1,
-                                 nextState->getLatticeBelow((Analysis*)this), p) || modified;
-                        }
-#endif
-                //        if(analysisDebugLevel>=1){
-                 //               Dbg::dbg << "    ------------------"<<endl;
-                  //      }
-                }
-                ROSE_ASSERT(state);
-                
-                // =================== Populate the generated outgoing lattice to descendants (meetUpdate) ===================
-/*                      // if there has been a change in the dataflow state immediately below this node AND*/
-                // If this is not the last node in the function
-                if(/*modified && */*it != getUltimate(func))
-                {
-                        if(analysisDebugLevel>=1){
-                          Dbg::dbg << " ==================================  "<<endl;
-                          Dbg::dbg << " Propagating/Merging the outgoing  Lattice to all descendant nodes ... "<<endl;
-                        }
-                        // iterate over all descendants
-                        vector<PartPtr> descendants = getDescendants(p);
-                        if(analysisDebugLevel>=1) {
-                                Dbg::dbg << "    Descendants ("<<descendants.size()<<"):"<<endl;
-                                Dbg::dbg << "    ~~~~~~~~~~~~"<<endl;
-                        }
-                        
-                        for(vector<PartPtr>::iterator di = descendants.begin(); di != descendants.end(); di++)
-                        {
-                                // The CFG node corresponding to the current descendant of n
-                                PartPtr nextNode = *di;
-                                SgNode *nextSgNode = nextNode.getNode();
-                                ROSE_ASSERT  (nextSgNode != NULL);
-                                if(analysisDebugLevel>=1)
-                                        Dbg::dbg << "    Descendant: "<<nextSgNode<<"["<<nextSgNode->class_name()<<" | "<<Dbg::escape(nextSgNode->unparseToString())<<"]"<<endl;
-                        
-                                NodeState* nextState = NodeState::getNodeState(nextNode, 0);
-                                ROSE_ASSERT(nextSgNode && nextState);
-                                
-                                // Propagate the Lattices below this node to its descendant
-                                modified = propagateStateToNextNode(getLatticePost(state), p, numStates-1, getLatticeAnte(nextState), nextNode);
-                                if(analysisDebugLevel>=1){
-                                        Dbg::dbg << "    propagated/merged, modified="<<modified<<endl;
-                                        Dbg::dbg << "    ^^^^^^^^^^^^^^^^^^"<<endl;
-                                }
-                                // If the next node's state gets modified as a result of the propagation, 
-                                // add the node to the processing queue.
-                                if(modified)
-                                        it.add(nextNode);
-                        }
-                }
-                
-                if(analysisDebugLevel>=1) Dbg::exitFunc(nodeNameStr.str());
-                
-    /*Dbg::enterFunc(nodeNameStr.str()+" State");
-    std::vector<int> factNames;
-    std::vector<int> latticeNames;
-    latticeNames.push_back(0);
-    printAnalysisStates paa(this, factNames, latticeNames, printAnalysisStates::below, "::::");
-    UnstructuredPassInterAnalysis up_paa(paa);
-    up_paa.runAnalysis();
-    Dbg::exitFunc(nodeNameStr.str()+" State");*/
+        // =================== TRANSFER FUNCTION ===================
+        if(analysisDebugLevel>=1)
+        {
+          j=0;
+          for(itP = dfInfoPost.begin();
+              itP != dfInfoPost.end(); itP++, j++)
+          {
+            Dbg::dbg << "    Transferred: outgoing Lattice "<<j<<":"<<endl;
+            {Dbg::indent ind(analysisDebugLevel, 1);
+             Dbg::dbg <<(*itP)->str()<<endl;}
+          }
+          Dbg::dbg << "    transferred, modified="<<modified<<endl;
         }
 
+        // Look at the next NodeState
+        i++; itS++;
+      }
+      ROSE_ASSERT(state);
+        
+      // =================== Populate the generated outgoing lattice to descendants (meetUpdate) ===================
+/*              // if there has been a change in the dataflow state immediately below this node AND*/
+        // If this is not the last node in the function
+      if(/*modified && */*it != getUltimate(func))
+      {
+        if(analysisDebugLevel>=1){
+          Dbg::dbg << " ==================================  "<<endl;
+          Dbg::dbg << " Propagating/Merging the outgoing  Lattice to all descendant nodes ... "<<endl;
+        }
+        Dbg::indent ind(analysisDebugLevel, 1);
+        
+        // iterate over all descendants
+        vector<PartPtr> descendants = getDescendants(p);
+        if(analysisDebugLevel>=1) {
+          Dbg::dbg << "Descendants ("<<descendants.size()<<"):"<<endl;
+          Dbg::dbg << "~~~~~~~~~~~~"<<endl;
+        }
+        
+        for(vector<PartPtr>::iterator di = descendants.begin(); di != descendants.end(); di++)
+        {
+          // The CFG node corresponding to the current descendant of n
+          PartPtr nextNode = *di;
+          SgNode *nextSgNode = nextNode.getNode();
+          ROSE_ASSERT  (nextSgNode != NULL);
+          if(analysisDebugLevel>=1)
+            Dbg::dbg << "    Descendant: "<<nextSgNode<<"["<<nextSgNode->class_name()<<" | "<<Dbg::escape(nextSgNode->unparseToString())<<"]"<<endl;
+        
+          NodeState* nextState = NodeState::getNodeState(nextNode, 0);
+          ROSE_ASSERT(nextSgNode && nextState);
+          
+          // Propagate the Lattices below this node to its descendant
+          modified = propagateStateToNextNode(getLatticePost(state), p, numStates-1, getLatticeAnte(nextState), nextNode);
+          if(analysisDebugLevel>=1){
+            Dbg::dbg << "propagated/merged, modified="<<modified<<endl;
+            Dbg::dbg << "^^^^^^^^^^^^^^^^^^"<<endl;
+            Dbg::dbg << "it before="<<it.str()<<endl;
+          }
+          // If the next node's state gets modified as a result of the propagation, 
+          // add the node to the processing queue.
+          if(modified) it.add(nextNode);
+          
+          if(analysisDebugLevel>=1)
+            Dbg::dbg << "it after="<<it.str()<<endl;
+        }
+      }
+      if(analysisDebugLevel>=1) Dbg::dbg << "it final="<<it.str()<<endl;
+      it++;
+      if(analysisDebugLevel>=1) Dbg::dbg << "it post-increment="<<it.str()<<endl;   
+    }
+  }
 #if 0
         Dbg::dbg << "(*(NodeState::getNodeStates(funcCFGEnd).begin()))->getLatticeAbove((Analysis*)this) == fState->getLatticeBelow((Analysis*)this):"<<endl;
         printf("fState->getLatticeBelow((Analysis*)this).size()=%d\n", fState->getLatticeBelow((Analysis*)interAnalysis).size());
@@ -444,8 +461,6 @@ void IntraUniDirectionalDataflow::runAnalysis(const Function& func, NodeState* f
         NodeState* exitState = *(NodeState::getNodeStates(funcCFGStart).rbegin());
         NodeState::copyLattices_aEQb(/*interAnalysis*/this, *fState, /*this, */*exitState);
 #endif
-        
-        if(analysisDebugLevel>=1) Dbg::exitFunc(funcNameStr.str());
   
 // GB: There is no need to check for modification since now the inter-procedural analysis
 //     does this by merging all the states at all the return points      

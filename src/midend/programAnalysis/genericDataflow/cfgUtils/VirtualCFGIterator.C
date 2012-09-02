@@ -60,8 +60,8 @@ bool iterator::isRemaining(const PartPtr n)
 void iterator::advance(bool fwDir, bool pushAllChildren)
 {
         ROSE_ASSERT(initialized);
-        /*printf("   iterator::advance(%d) remainingNodes.size()=%d\n", fwDir, remainingNodes.size());
-        cout<<"        visited=\n";
+        Dbg::dbg << "iterator::advance(fwDir="<<fwDir<<") #remainingNodes="<<remainingNodes.size()<<endl;
+        /*cout<<"        visited=\n";
         for(set<PartPtr>::iterator it=visited.begin(); it!=visited.end(); it++)
                 cout << "            <"<<it.getNode()->class_name()<<" | "<<it.getNode()<<" | "<<it.getNode()->unparseToString()<<">\n";*/
         if(remainingNodes.size()>0)
@@ -267,13 +267,13 @@ string iterator::str(string indent)
         
         if(initialized) {
                 outs << "[iterator:\n";
-                outs << "    remainingNodes = \n";
+                outs << "&nbsp;&nbsp;&nbsp;&nbsp;remainingNodes(#"<<remainingNodes.size()<<") = "<<endl;
                 for(list<PartPtr>::iterator it=remainingNodes.begin(); it!=remainingNodes.end(); it++)
-                { outs << "        <"<<(*it).getNode()->class_name()<<" | "<<(*it).getNode()->unparseToString()<<" | "<<(*it).getIndex()<<"\n"; }
+                { outs << "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;["<<(*it).getNode()->class_name()<<" | "<<(*it).getNode()->unparseToString()<<" | "<<(*it).getIndex()<<"]\n"; }
                 
-                outs << "    visited = \n";
+                outs << "&nbsp;&nbsp;&nbsp;&nbsp;visited(#"<<visited.size()<<")  = \n";
                 for(set<PartPtr>::iterator it=visited.begin(); it!=visited.end(); it++)
-                { outs << "        <"<<(*it).getNode()->class_name()<<" | "<<(*it).getNode()->unparseToString()<<" | "<<(*it).getIndex()<<"\n"; }
+                { outs << "&nbsp;&nbsp;&nbsp;&nbsp;["<<(*it).getNode()->class_name()<<" | "<<(*it).getNode()->unparseToString()<<" | "<<(*it).getIndex()<<"]\n"; }
                 
                 outs << "]";
         } else {
