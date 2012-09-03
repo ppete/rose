@@ -400,19 +400,18 @@ void IntraUniDirectionalDataflow::runAnalysis(const Function& func, NodeState* f
           if(analysisDebugLevel>=1){
             Dbg::dbg << "propagated/merged, modified="<<modified<<endl;
             Dbg::dbg << "^^^^^^^^^^^^^^^^^^"<<endl;
-            Dbg::dbg << "it before="<<it.str()<<endl;
+//            Dbg::dbg << "it before="<<it.str()<<endl;
           }
           // If the next node's state gets modified as a result of the propagation, 
           // add the node to the processing queue.
           if(modified) it.add(nextNode);
           
-          if(analysisDebugLevel>=1)
-            Dbg::dbg << "it after="<<it.str()<<endl;
+//          if(analysisDebugLevel>=1) Dbg::dbg << "it after="<<it.str()<<endl;
         }
       }
-      if(analysisDebugLevel>=1) Dbg::dbg << "it final="<<it.str()<<endl;
+//      if(analysisDebugLevel>=1) Dbg::dbg << "it final="<<it.str()<<endl;
       it++;
-      if(analysisDebugLevel>=1) Dbg::dbg << "it post-increment="<<it.str()<<endl;   
+//      if(analysisDebugLevel>=1) Dbg::dbg << "it post-increment="<<it.str()<<endl;   
     }
   }
 #if 0

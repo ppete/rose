@@ -199,11 +199,11 @@ MemLocObjectPtr OrthogonalArrayAnalysis::Expr2MemLoc(SgNode* n, PartPtr p)
     
     OrthoIndexVector_ImplPtr iv = boost::make_shared<OrthoIndexVector_Impl>();
     
-    Dbg::dbg << "Predecessor Nodes #("<<p.inEdges().size()<<")="<<endl;
+    /*Dbg::dbg << "Predecessor Nodes #("<<p.inEdges().size()<<")="<<endl;
     Dbg::indent ind(1,1);
     for(std::vector<DataflowEdge>::const_iterator in=p.inEdges().begin(); in!=p.inEdges().end(); in++)
       Dbg::dbg << "["<<((*in).source().getNode() ? (*in).source().getNode()->unparseToString() : "NULL")<<" | "<<
-                       ((*in).source().getNode() ? (*in).source().getNode()->class_name()      : "NULL")<<" | "<<(*in).source().getIndex()<<"]"<<endl;
+                       ((*in).source().getNode() ? (*in).source().getNode()->class_name()      : "NULL")<<" | "<<(*in).source().getIndex()<<"]"<<endl;*/
     
     for (std::vector<SgExpression*>::iterator iter = subscripts->begin(); iter != subscripts->end(); iter++) {
       //CFGNode subNode(*iter, 2);

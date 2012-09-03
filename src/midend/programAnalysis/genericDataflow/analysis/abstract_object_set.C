@@ -176,113 +176,14 @@ void AbstractObjectSet::copy(Lattice* thatL)
   }
 }
 
-/*// Called by analyses to transfer this lattice's contents from a caller function's scope to the scope of the 
-//    callee function. If this this lattice maintains any information on the basis of individual MemLocObjects 
-//    these mappings must be converted from the caller's context to the callee's through a mapping from the
-//    call arguments to the callee's parameters. Implementations of this function are expected to return a 
-//    newly-allocated lattice that only contains information about MemLocObjects that are in the values of the r2eML 
-//    map. Information about the other MemLocObjects maintained by this Lattice may be excluded but only as
-//    long as this does not lose information about the objects in the values of r2eML.
-// r2eML - maps MemLocObjects that identify the arguments of a given function call to the corresponding 
-//    parameters of the callee function.
-//    ASSUMED: full mustEquals information is available for the keys and values of this map. They must be
-//       variable references or expressions.
-// Returns true if this causes the Lattice object to change and false otherwise.
-// remapCaller2Callee() : It is assumed that all entries in the mapping are expression objects, meaning that full mustEqual
-//             information will be available for them. Thus, in both modes we empty the set and for each MemLocObject 
-//             o that was originally in the set if there exists a pair <old, new> in memNameMap such that o mustEquals 
-//             old, then new will be included in the final set.
-Lattice* AbstractObjectSet::remapCaller2Callee(const std::map<MemLocObjectPtr, MemLocObjectPtr>& r2eML)
-{
-  AbstractObjectSet* newS = new AbstractObjectSet(part, mode);
-  
-  for(std::list<AbstractObjectPtr>::iterator i=items.begin(); i!=items.end(); i++)
-  {
-    MemLocObjectPtr ml = boost::dynamic_pointer_cast<MemLocObject>(*i);
-    ROSE_ASSERT(ml);
-    
-    // If the current item is to be transferred from the caller to the callee scopes
-    for(std::map<MemLocObjectPtr, MemLocObjectPtr>::const_iterator r2e=r2eML.begin(); r2e!=r2eML.end(); r2e++) {
-      if(ml->mustEqual(r2e->first, part)) {
-        // Add the corresponding value to the new set
-        newS->items.push_back(r2e->second);
-        break;
-      }
-    }
-  }
-  
-  return newS;
-}
-
-// Called by analyses to transfer this lattice's contents from a callee function's scope back to the scope of 
-//    the caller function, in a mirror image of what remapCaller2Callee to callee does. remapCaller2Callee 
-//     only keeps the portion of the original lattice callerL that has a corresponding mapping in the callee to 
-//     produce lattice caleeL. Thus, remapCallee2Caller is called on callerL and is given calleeL as an 
-//     argument and must take all the information about all the MemLocObjects that are the values of the r2eML
-//     map and and bring it back to callerL.
-// Returns true if this causes the Lattice object to change and false otherwise.
-// remapCallee2Caller(r2eML, calleAOS) : It is assumed that all entries in the mapping are expression objects, meaning 
-//             that full mustEqual information will be available for them. Thus, in both modes looks at all the keys in 
-//             considers all the values of r2eML and for each, if celleeAOS contains the corresponding MemLocObject,
-//             the corresponding key MemLocObject is inserted into the set. Otherwise, the corresponding key 
-//             MemLocObject is removed.
-bool AbstractObjectSet::remapCallee2Caller(const std::map<MemLocObjectPtr, MemLocObjectPtr>& r2eML, Lattice* calleeL)
-{
-  AbstractObjectSet* calleeAOS = dynamic_cast<AbstractObjectSet*>(calleeL);
-  ROSE_ASSERT(calleeAOS);
-  
-  bool modified = false;
-  
-  for(std::map<MemLocObjectPtr, MemLocObjectPtr>::const_iterator r2e=r2eML.begin(); r2e!=r2eML.end(); r2e++) {
-    // Determine if the value of the current caller->callee mapping exists in the callee's set
-    bool existsInCallee=false;
-    for(std::list<AbstractObjectPtr>::iterator i=calleeAOS->items.begin(); i!=calleeAOS->items.end(); i++) {
-      MemLocObjectPtr ml = boost::dynamic_pointer_cast<MemLocObject>(*i);
-      ROSE_ASSERT(ml);
-      
-      if(ml->mustEqual(r2e->second, part)) {
-        existsInCallee = true;
-        break;
-      }
-    }
-    
-    // Determine if the key of the current caller->callee mapping exists in this set
-    bool existsInCaller = false;
-    for(std::list<AbstractObjectPtr>::iterator i=items.begin(); i!=items.end(); i++) {
-      MemLocObjectPtr ml = boost::dynamic_pointer_cast<MemLocObject>(*i);
-      ROSE_ASSERT(ml);
-      
-      if(ml->mustEqual(r2e->first, part)) {
-        existsInCaller = true;
-        
-        // If it does exist in the caller but not in the callee, remove it from the caller
-        if(!existsInCallee) {
-          std::list<AbstractObjectPtr>::iterator cur = i;
-          i++;
-          items.erase(cur);
-          modified = true;
-        }
-        // If it exists in both, there is nothing to be done
-        
-        break;
-      }
-    }
-    
-    // If the item exists in the callee but not the caller, add the corresponding key to the caller
-    if(existsInCallee && !existsInCaller) {
-      items.push_back(r2e->first);
-      modified = true;
-    }
-    // If it exists in neither, there is nothing to be done
-  }
-}*/
-
 // Called by analyses to transfer this lattice's contents from across function scopes from a caller function 
 //    to a callee's scope and vice versa. If this this lattice maintains any information on the basis of 
 //    individual MemLocObjects these mappings must be converted, with MemLocObjects that are keys of the ml2ml 
 //    replaced with their corresponding values. If a given key of ml2ml does not appear in the lattice, it must
 //    be added to the lattice and assigned a default initial value. In many cases (e.g. over-approximate sets 
-//    of MemLocObjects) this may not require any actual insertions.
+//    of MemLocObjects) this may not require any actual insertions. If the value of a given ml2ml mapping is 
+//    NULL (empty boost::shared_ptr), any information for MemLocObjects that must-equal to the key should be 
+//    deleted.
 // The function takes newPart, the part within which the values of ml2ml should be interpreted. It corresponds
 //    to the code region(s) to which we are remapping.
 // In must mode for each MemLocObject o in the set, if there exist any pairs <old, new> in ml2ml such that 

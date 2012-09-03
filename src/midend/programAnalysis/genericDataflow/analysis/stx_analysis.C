@@ -671,8 +671,8 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
     //        This rule is fairly loose but at least it is easy to compute. The right rule
     //        would have been that the part is on some path between the expression and its
     //        parent but this would require an expensive graph search
-    //return SageInterface::getEnclosingStatement(anchor_exp) == 
-    //       SageInterface::getEnclosingStatement(part.getNode());
+    return SageInterface::getEnclosingStatement(anchor_exp) == 
+           SageInterface::getEnclosingStatement(part.getNode());
     
     //RULE 3: look for a common ancestor between anchor_exp and part.getNode(). If this ancestor
     //        is part.getNode(), below part.getNode() or anchor_expr is an operand of part.getNode() (it is
@@ -687,15 +687,15 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
     //Dbg::region reg(1, 1, Dbg::region::topLevel, string("ExprObj::isLive[")+anchor_exp->unparseToString()+string(" | ")+anchor_exp->class_name()+string(">"));
     
     // If part.getNode() is equal to anchor_expr or uses it as an operand, then anchor_exp is in-scope
-    if(anchor_exp==part.getNode() || isOperand(part.getNode(), anchor_exp)) { //anchor_exp->get_parent()==part.getNode()) {
+    /*if(anchor_exp==part.getNode() || isOperand(part.getNode(), anchor_exp)) { //anchor_exp->get_parent()==part.getNode()) {
       //Dbg::dbg << "IN-SCOPE"<<endl;
       return true;
     // Otherwise, anchor_exp is only in-scope if shares an ancestor with part.getNode() but part.getNode() 
     // is not that ancestor.
     } else {
-      /*Dbg::dbg << "anchor_exp->get_parent()=["<<anchor_exp->get_parent()->unparseToString()<<" | "<<anchor_exp->get_parent()->class_name()<<"]"<<endl;
-      Dbg::dbg << "part.getNode()=["<<part.getNode()->unparseToString()<<" | "<<part.getNode()->class_name()<<"]"<<endl;
-      Dbg::dbg << "isOperand(part.getNode(), anchor_exp)="<<isOperand(part.getNode(), anchor_exp)<<endl;*/
+      //Dbg::dbg << "anchor_exp->get_parent()=["<<anchor_exp->get_parent()->unparseToString()<<" | "<<anchor_exp->get_parent()->class_name()<<"]"<<endl;
+      //Dbg::dbg << "part.getNode()=["<<part.getNode()->unparseToString()<<" | "<<part.getNode()->class_name()<<"]"<<endl;
+      //Dbg::dbg << "isOperand(part.getNode(), anchor_exp)="<<isOperand(part.getNode(), anchor_exp)<<endl;
       // Get the ancestor lists of both nodes
       //Dbg::dbg << "getAncestorToStmt(anchor_exp)"<<endl;
       list<SgNode*> anchorAncestors = getAncestorToStmt(anchor_exp);
@@ -727,7 +727,7 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
       // Otherwise, if there are more nodes left on both ancestor lists, then anchor_exp is in-scope
       //Dbg::dbg << "IN-SCOPE"<<endl;
       return true;
-    }
+    }*/
   }
  
   //std::string ExprObj::str(const string& indent)
@@ -2641,6 +2641,16 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
             isOperand = true;
             return;
           }
+    }
+    // Array References
+    void visit(SgPntrArrRefExp *sgn) {
+      SgExpression* arrayNameExp = NULL;
+      std::vector<SgExpression*>* subscripts = new std::vector<SgExpression*>;
+      SageInterface::isArrayReference(sgn, &arrayNameExp, &subscripts);
+      
+      for (std::vector<SgExpression*>::iterator i = subscripts->begin(); i != subscripts->end(); i++) {
+        if(op==*i) { isOperand = true; return; }
+      }
     }
     // Binary Operations
     void visit(SgBinaryOp *sgn) {

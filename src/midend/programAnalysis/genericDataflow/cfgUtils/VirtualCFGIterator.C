@@ -60,7 +60,7 @@ bool iterator::isRemaining(const PartPtr n)
 void iterator::advance(bool fwDir, bool pushAllChildren)
 {
         ROSE_ASSERT(initialized);
-        Dbg::dbg << "iterator::advance(fwDir="<<fwDir<<") #remainingNodes="<<remainingNodes.size()<<endl;
+        //Dbg::dbg << "iterator::advance(fwDir="<<fwDir<<") #remainingNodes="<<remainingNodes.size()<<endl;
         /*cout<<"        visited=\n";
         for(set<PartPtr>::iterator it=visited.begin(); it!=visited.end(); it++)
                 cout << "            <"<<it.getNode()->class_name()<<" | "<<it.getNode()<<" | "<<it.getNode()->unparseToString()<<">\n";*/
