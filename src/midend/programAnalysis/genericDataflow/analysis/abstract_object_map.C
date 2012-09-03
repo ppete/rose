@@ -125,7 +125,13 @@ bool AbstractObjectMap::insert(AbstractObjectPtr o, LatticePtr lattice) {
     Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;o="<<o->strp(part, "")<<" lattice="<<lattice->str("&nbsp;&nbsp;&nbsp;&nbsp;")<<" isFull="<<isFull<<endl;
     Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"<<str("&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;")<<endl;
   }
-
+  
+  // Do not insert mappings for dead keys
+  if(!o->isLive(part)) { 
+    if(AbstractObjectMapDebugLevel>=1) Dbg::dbg << "<b>AbstractObjectMap::insert() WARNING: attempt to insert dead mapping "<<o->strp(part)<<" => "<<lattice->str()<<"<\b>"<<endl;
+    return false;
+  }
+  
   isFinite = isFinite && lattice->finiteLattice();
   // If this map corresponds to all possible mappings, all insertions are redundant
   if(isFull) { return false; }
@@ -397,20 +403,24 @@ bool AbstractObjectMap::remapCallee2Caller(const std::map<MemLocObjectPtr, MemLo
 //    replaced with their corresponding values. If a given key of ml2ml does not appear in the lattice, it must
 //    be added to the lattice and assigned a default initial value. In many cases (e.g. over-approximate sets 
 //    of MemLocObjects) this may not require any actual insertions.
-// It is assumed that the keys and values of ml2ml correspond to MemLocObjects that are syntactically explicit 
-//    in the code (e.g. lexical variables or expressions), meaning that must-equal information is available 
-//    for them with respect to each other and other syntactically explicit variables. Implementations of this 
-//    function are expected to return a newly-allocated lattice that only contains information about 
-//    MemLocObjects that are in the values of the ml2ml map or those reachable from these objects via 
-//    operations such as LabeledAggregate::getElements() or Pointer::getDereference(). Information about the 
-//    other MemLocObjects maintained by this Lattice may be excluded if it does not contribute to this goal.
-//    ASSUMED: full mustEquals information is available for the keys and values of this map. They must be
-//       variable references or expressions.
-Lattice* AbstractObjectMap::remapML(const std::set<pair<MemLocObjectPtr, MemLocObjectPtr> >& ml2ml)
+// The function takes newPart, the part within which the values of ml2ml should be interpreted. It corresponds
+//    to the code region(s) to which we are remapping.
+Lattice* AbstractObjectMap::remapML(const std::set<pair<MemLocObjectPtr, MemLocObjectPtr> >& ml2ml, PartPtr newPart)
 {
   if(isFull) { return copy(); }
   
-  AbstractObjectMap* newM = new AbstractObjectMap(equalFunctor, defaultLat, part);
+  if(AbstractObjectMapDebugLevel>=1) {
+    // If either the key or the value of this mapping is dead within its respective part, we skip it.
+    // Print notices of this skipping once
+    for(std::set<pair<MemLocObjectPtr, MemLocObjectPtr> >::const_iterator m=ml2ml.begin(); m!=ml2ml.end(); m++)
+      // If either the key or the value of this mapping is dead within its respective part, skip it
+      if(!m->first->isLive(part) || !m->second->isLive(newPart))
+        Dbg::dbg << "<b>AbstractObjectMap::remapML() WARNING: Skipping dead ml2ml mapping "<<m->first->strp(part)<<"(live="<<m->first->isLive(part)<<") => "<<m->second->strp(newPart)<<"(live="<<m->second->isLive(newPart)<<")"<<endl
+                 << "&nbsp;&nbsp;&nbsp;&nbsp;part=["<<part.getNode()->unparseToString()<<" | "<<part.getNode()->class_name()<<"]"<<endl
+                 << "&nbsp;&nbsp;&nbsp;&nbsp;part=["<<newPart.getNode()->unparseToString()<<" | "<<newPart.getNode()->class_name()<<"]</b>"<<endl;
+  }
+  
+  AbstractObjectMap* newM = new AbstractObjectMap(equalFunctor, defaultLat, newPart);
   // Vector of flags that indicate whether a given key in ml2ml has been added to newM or not
   vector<bool> ml2mlAdded;
   // Initialize ml2mlAdded to all false
@@ -425,7 +435,10 @@ Lattice* AbstractObjectMap::remapML(const std::set<pair<MemLocObjectPtr, MemLocO
     int mIdx=0;
     for(std::set<pair<MemLocObjectPtr, MemLocObjectPtr> >::const_iterator m=ml2ml.begin(); m!=ml2ml.end(); m++, mIdx++) {
       Dbg::indent ind;
-      Dbg::dbg << mIdx << ": m="<<m->first->str()<<endl;
+      Dbg::dbg << mIdx << ": m="<<m->first->strp(part)<<endl;
+      
+      // If either the key or the value of this mapping is dead within its respective part, skip it
+      if(!m->first->isLive(part) || !m->second->isLive(newPart)) continue;
       
       // If the current item in this set may- or must-equals a key in ml2ml, record this and add the corresponding
       // value in ml2ml to be added to newS
@@ -446,7 +459,11 @@ Lattice* AbstractObjectMap::remapML(const std::set<pair<MemLocObjectPtr, MemLocO
     }
     
     // If this item is not must-equal to some key(s) in ml2ml, copy it over to newS
-    if(!existsMustEqual) newM->items.push_back(make_pair(i->first, i->second));
+    if(!existsMustEqual) {
+      // Skip items that are dead in newPart
+      if(!i->first->isLive(newPart)) continue;
+      newM->items.push_back(make_pair(i->first, i->second));
+    }
     // Otherwise, we skip this item since it will be replaced by the value(s) of the key(s) it was must-equal to
   }
   
@@ -454,6 +471,9 @@ Lattice* AbstractObjectMap::remapML(const std::set<pair<MemLocObjectPtr, MemLocO
   // and add to newM a mapping of their values to defaultLat (as long as the values are not NULL)
   int mIdx=0;
   for(std::set<pair<MemLocObjectPtr, MemLocObjectPtr> >::iterator m=ml2ml.begin(); m!=ml2ml.end(); m++, mIdx++) {
+    // If either the key or the value of this mapping is dead within its respective part, skip it
+    if(!m->first->isLive(part) || !m->second->isLive(newPart)) continue;
+    
     if(!ml2mlAdded[mIdx] && m->second)
       newM->items.push_back(make_pair(m->second, defaultLat->copy()));
   }
@@ -501,8 +521,11 @@ bool AbstractObjectMap::replaceML(Lattice* newL)
   bool modified = false;
   
   for(std::list<MapElement>::iterator i=calleeAOM->items.begin(); i!=calleeAOM->items.end(); i++) {
+    // Do not copy over mappings with keys that are dead in this map's host part
+    if(!i->first->isLive(part)) continue;
     modified = insert(i->first, i->second) || modified;
   }
+  
   
   return modified;
 }
@@ -628,14 +651,16 @@ bool AbstractObjectMap::meetUpdate(Lattice* thatL)
     }
     //Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;items.size()="<<items.size()<<"\n";
     
-    // Compress all the elements from that which are now mustEqual to each 
-    // other in this->part.
+    // Compress all the elements from that are now mustEqual to each other in this->part.
     // Note: the optimal way to do this is to compress that->mustEqual first and then
     //       merge but we're not allowed to modify that so the compression would need
     //       to be done non-destructively via some additional datastructure. We avoid
     //       this complication for now but should revisit this question if we identify
     //       this code region as a performance bottleneck.
     compressMustEq();
+    
+    // Remove all the dead keys
+    compressDead();
     
     return modified;
   } catch (bad_cast & bc) { 
@@ -686,6 +711,30 @@ bool AbstractObjectMap::compressMustEq()
 
   return modified;
 };
+
+// Remove all mappings with dead keys from this map.
+// Return true if this causes the object to change and false otherwise.
+bool AbstractObjectMap::compressDead()
+{
+  if(isFull) { return false; }
+        
+  bool modified = false;
+  for(list<MapElement>::iterator i = items.begin(); i != items.end(); ) {
+    // Remove mappings with dead keys
+    if(!(i->first->isLive(part))) {
+      list<MapElement>::iterator nextI = i;
+      nextI++;
+      
+      items.erase(i);
+      modified = true;
+      
+      i = nextI;
+    } else
+      i++;
+  }
+  
+  return modified;
+}
 
 bool AbstractObjectMap::finiteLattice()
 {

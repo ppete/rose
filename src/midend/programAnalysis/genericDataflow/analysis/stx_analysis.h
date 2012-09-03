@@ -110,6 +110,11 @@ class StxCodeLocObject : public CodeLocObject
   
   bool mayEqualCL(CodeLocObjectPtr o, PartPtr p);
   bool mustEqualCL(CodeLocObjectPtr o, PartPtr p);
+  
+  // Returns true if this object is live at the given part and false otherwise
+  // We don't currently support scope analysis for CodeLocObjects, so we default to them all being live.
+  bool isLive(PartPtr p) const
+  { return true; }
 
   /* Don't have good idea how to represent a finite number of options 
   bool isFiniteSet();
@@ -142,21 +147,15 @@ typedef boost::shared_ptr<StxCodeLocObject> StxCodeLocObjectPtr;
 
   class StxMemLocObject;
   typedef boost::shared_ptr<StxMemLocObject> StxMemLocObjectPtr;
-  class StxMemLocObject
+  class StxMemLocObject: public virtual MemLocObject
   {
     protected:
-    // Flag indicating whether this MemLocObject is currently in scope. For memory locations that are tied to concrete
-    // lexical entities such as expressions or static variables it is easy to tell if the object cannot exist within
-    // a given part because it is out of scope. We default to treating all aliased objects as being in scope.
-    //bool inScope;
-      
     SgType* type;
         
     PartPtr part;
     
     public:
     StxMemLocObject(SgType* t, PartPtr part);
-    //StxMemLocObject(bool inScope, SgType* t, PartPtr part) : inScope(inScope), type(t), part(part) {}
     
     // equal() should be called by mayEqualML and mustEqualML of any derived classes
     // to ensure that the in-scope or out-of-scope issues are taken into account. 
@@ -165,12 +164,6 @@ typedef boost::shared_ptr<StxCodeLocObject> StxCodeLocObjectPtr;
     // mustEqualML should continue more refined processing.
     typedef enum {defEqual, defNotEqual, unknown} eqType;
     eqType equal(MemLocObjectPtr that_arg, PartPtr part);
-    eqType equal(StxMemLocObjectPtr that, PartPtr part);
-    
-    /*bool cachedIsInScope;
-    PartPtr cachedIsInScopePart;
-    typedef enum {inScope*/
-    virtual bool isInScope(PartPtr part) const=0;
     
     SgType* getType() const {return type;}
     /*std::set<SgType*> getType() const
@@ -188,7 +181,8 @@ typedef boost::shared_ptr<StxCodeLocObject> StxCodeLocObjectPtr;
     public:
     OutOfScope_StxMemLocObject(SgType* t, PartPtr part) : StxMemLocObject(/*false, */t, part) {}
     
-    bool isInScope(PartPtr part) const { return false; }
+    // Returns true if this MemLocObject is in-scope at the given part and false otherwise
+      bool isLive(PartPtr part) const { return false; }
   };
 
   // A simple implementation of the abstract memory object interface
@@ -345,10 +339,10 @@ typedef boost::shared_ptr<StxCodeLocObject> StxCodeLocObjectPtr;
       bool operator== (const MemLocObject& o2) const; */
       bool mayEqualML(MemLocObjectPtr o2, PartPtr p); 
       bool mustEqualML(MemLocObjectPtr o2, PartPtr p); 
-      bool isConstant () {return isSgValueExp(anchor_exp); } ; // if the expression object represent a constant value (SgValueExp)
+      bool isConstant() {return isSgValueExp(anchor_exp); } ; // if the expression object represent a constant value (SgValueExp)
       
       // Returns true if this MemLocObject is in-scope at the given part and false otherwise
-      bool isInScope(PartPtr part) const;
+      bool isLive(PartPtr part) const;
       
       std::string str(std::string indent) const; // pretty print for the object
       std::string str(std::string indent) { return ((const ExprObj*)this)->str(indent); }
@@ -399,7 +393,7 @@ typedef boost::shared_ptr<StxCodeLocObject> StxCodeLocObjectPtr;
       bool mustEqualML(MemLocObjectPtr o2, PartPtr p); 
       
       // Returns true if this MemLocObject is in-scope at the given part and false otherwise
-      bool isInScope(PartPtr part) const;
+      bool isLive(PartPtr part) const;
   };
 
   //  Memory regions that may be accessible via a pointer, such as heap memory
@@ -426,7 +420,8 @@ typedef boost::shared_ptr<StxCodeLocObject> StxCodeLocObjectPtr;
       bool mayEqualML(MemLocObjectPtr o2, PartPtr p); 
       bool mustEqualML(MemLocObjectPtr o2, PartPtr p);
       
-      bool isInScope(PartPtr part) const;
+      // Returns true if this MemLocObject is in-scope at the given part and false otherwise
+      bool isLive(PartPtr part) const;
   };
 
 

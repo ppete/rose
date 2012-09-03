@@ -2,7 +2,7 @@
 #define LATTICE_H
 
 #include "CallGraphTraverse.h"
-#include "variables.h"
+//#include "variables.h"
 #include "partitions.h"
 #include "abstract_object.h"
 #include <string>
@@ -34,7 +34,9 @@ class Lattice : public printable
         //    replaced with their corresponding values. If a given key of ml2ml does not appear in the lattice, it must
         //    be added to the lattice and assigned a default initial value. In many cases (e.g. over-approximate sets 
         //    of MemLocObjects) this may not require any actual insertions.
-        // It is assumed that the keys and values of ml2ml correspond to MemLocObjects that are syntactically explicit 
+        // The function takes newPart, the part within which the values of ml2ml should be interpreted. It corresponds
+        //    to the code region(s) to which we are remapping.
+        /*// It is assumed that the keys and values of ml2ml correspond to MemLocObjects that are syntactically explicit 
         //    in the code (e.g. lexical variables or expressions), meaning that must-equal information is available 
         //    for them with respect to each other and other syntactically explicit variables. Implementations of this 
         //    function are expected to return a newly-allocated lattice that only contains information about 
@@ -42,10 +44,10 @@ class Lattice : public printable
         //    operations such as LabeledAggregate::getElements() or Pointer::getDereference(). Information about the 
         //    other MemLocObjects maintained by this Lattice may be excluded if it does not contribute to this goal.
         //    ASSUMED: full mustEquals information is available for the keys and values of this map. They must be
-        //       variable references or expressions.
+        //       variable references or expressions. */
         // !!! KEYS MAY NOW BE IMPRECISE BECAUSE FOR PASS-BY-REFERENCE WE'RE TALKING ABOUT PASSED MEMORY LOCATIONS
         // !!! IF THE VALUE OF ML2ML IS NULL, ANY MUST-MATCHES SHOULD BE DELETED
-        virtual Lattice* remapML(const std::set<pair<MemLocObjectPtr, MemLocObjectPtr> >& ml2ml) {
+        virtual Lattice* remapML(const std::set<pair<MemLocObjectPtr, MemLocObjectPtr> >& ml2ml, PartPtr newPart) {
           return false;
         }
         

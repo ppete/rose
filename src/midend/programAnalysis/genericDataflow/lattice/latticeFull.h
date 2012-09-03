@@ -2,7 +2,7 @@
 #define LATTICE_FULL_H
 
 #include "cfgUtils.h"
-#include "variables.h"
+//#include "variables.h"
 #include "nodeState.h"
 #include "lattice.h"
 #include <string>
@@ -220,6 +220,8 @@ class ProductLattice : public virtual Lattice
   //    replaced with their corresponding values. If a given key of ml2ml does not appear in the lattice, it must
   //    be added to the lattice and assigned a default initial value. In many cases (e.g. over-approximate sets 
   //    of MemLocObjects) this may not require any actual insertions.
+  // The function takes newPart, the part within which the values of ml2ml should be interpreted. It corresponds
+  //    to the code region(s) to which we are remapping.
   // It is assumed that the keys and values of ml2ml correspond to MemLocObjects that are syntactically explicit 
   //    in the code (e.g. lexical variables or expressions), meaning that must-equal information is available 
   //    for them with respect to each other and other syntactically explicit variables. Implementations of this 
@@ -229,7 +231,7 @@ class ProductLattice : public virtual Lattice
   //    other MemLocObjects maintained by this Lattice may be excluded if it does not contribute to this goal.
   //    ASSUMED: full mustEquals information is available for the keys and values of this map. They must be
   //       variable references or expressions.
-  Lattice* remapML(const std::set<pair<MemLocObjectPtr, MemLocObjectPtr> >& ml2ml);
+  Lattice* remapML(const std::set<pair<MemLocObjectPtr, MemLocObjectPtr> >& ml2ml, PartPtr newPart);
 
   // Adds information about the MemLocObjects in newL to this Lattice, overwriting any information previously 
   //    maintained in this lattice about them.

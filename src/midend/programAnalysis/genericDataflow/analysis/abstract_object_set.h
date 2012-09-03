@@ -94,7 +94,7 @@ public:
 
     // insert ObjSet into the list only if not mustEqual
     // O(n) time -- inefficient due to lack of any strcuture in data
-    bool insert(const AbstractObjectPtr);
+    bool insert(AbstractObjectPtr);
 
     // remove all ObjSet* that are mustEqual with this
     // worst case O(n)
@@ -159,18 +159,9 @@ public:
     //    replaced with their corresponding values. If a given key of ml2ml does not appear in the lattice, it must
     //    be added to the lattice and assigned a default initial value. In many cases (e.g. over-approximate sets 
     //    of MemLocObjects) this may not require any actual insertions.
-    // It is assumed that the keys and values of ml2ml correspond to MemLocObjects that are syntactically explicit 
-    //    in the code (e.g. lexical variables or expressions), meaning that must-equal information is available 
-    //    for them with respect to each other and other syntactically explicit variables. Implementations of this 
-    //    function are expected to return a newly-allocated lattice that only contains information about 
-    //    MemLocObjects that are in the values of the ml2ml map or those reachable from these objects via 
-    //    operations such as LabeledAggregate::getElements() or Pointer::getDereference(). Information about the 
-    //    other MemLocObjects maintained by this Lattice may be excluded if it does not contribute to this goal.
-    //    ASSUMED: full mustEquals information is available for the keys and values of this map. They must be
-    //       variable references or expressions.
-    // Since mustEqual information is always available, in both modes for each MemLocObject o in the set, if there 
-    //    exists a pair <old, new> in m such that o mustEquals old, then new will be included in the final set.
-    Lattice* remapML(const std::set<pair<MemLocObjectPtr, MemLocObjectPtr> >& ml2ml);
+    // The function takes newPart, the part within which the values of ml2ml should be interpreted. It corresponds
+    //    to the code region(s) to which we are remapping.
+    Lattice* remapML(const std::set<pair<MemLocObjectPtr, MemLocObjectPtr> >& ml2ml, PartPtr newPart);
 
     // Adds information about the MemLocObjects in newL to this Lattice, overwriting any information previously 
     //    maintained in this lattice about them.

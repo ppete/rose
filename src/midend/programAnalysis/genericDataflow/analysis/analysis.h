@@ -12,9 +12,9 @@ class Analysis;
 
 #include "lattice.h"
 #include "nodeState.h"
-#include "variables.h"
+//#include "variables.h"
 #include "partitions.h"
-#include "varSets.h"
+//#include "varSets.h"
 #include <vector>
 #include <set>
 #include <map>

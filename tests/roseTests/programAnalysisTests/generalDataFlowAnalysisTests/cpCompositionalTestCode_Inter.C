@@ -30,11 +30,11 @@ int main()
   // W : 102
   int X = LDPropThroughArg(W);
   // X : 202
-  // W : 202
+  // W : 303
   int Y = LDPropThroughRet(X);
   // Y : 503
   int array[100000];
-  array[a] = LDPropThroughRet(Y);
+  array[a] = 12345;//LDPropThroughRet(Y);
   // array[1] : 804
   array[array[d-c]] = array[a];
   // array[804] : 804

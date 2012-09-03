@@ -25,6 +25,28 @@
  *  how can the framework verify this?
  */
 
+/* GB 2012-09-02: DESIGN NOTE
+ * All actions on and queries of AbstractObjects are done in the context of some Part. This is manifested differently
+ * in different scenarios.
+ * AbstractObjects from prior analyses - pointers to these are used throughout client analyses and thus, they should
+ *    not maintain a reference to a host Part. Since they come from completed analyses it is sufficient for callers
+ *    to pass a Part into the call and for the response to be computed with respect to this part, based on the results
+ *    of the prior analysis. For example, the liveness of a given MemLocObject at a given Part can be determined
+ *    by looking at the lattice left behind at that Part by the live-dead analysis.
+ * AbstractObjects being kept by current analysis - these are propagated in dataflow style throughout the CFG within
+ *    a given analysis. The analysis' transfer functions should ensure that every time the meaning of an AbstractObject
+ *    changes as a result of being propagated across Parts, this is reflected in the object's internal information 
+ *    without maintaining an explicit dependence on the Part. This, however, is not a strict requirement since there
+ *    may be syntactic information relevant to the meaning of the object that requires a reference to the origin Part.
+ * Containers that include just objects from current analysis - like above, should maintain no reference to their 
+ *    source part since it is not needed. Further, the typical use-case will be to have one copy of a container for 
+ *    each Part, meaning that they can maintain their identity without explicitly knowing the part
+ * Containers that include some of both types of objects (prior and current) - there should be a separate instance of
+ *    these containers for each Part and each should maintain explicit reference to its host part. Thus, when it needs
+ *    to provide the part to calls to functions within AbstractObjects from prior analyses, this part is always 
+ *    available.
+ */
+
 // ----------------------------
 // ----- Abstract Objects -----
 // ----------------------------
@@ -39,6 +61,9 @@ class AbstractObject : public printable
   // Returns whether this object may/must be equal to o within the given Part p
   virtual bool mayEqual(AbstractObjectPtr o, PartPtr p)=0;
   virtual bool mustEqual(AbstractObjectPtr o, PartPtr p)=0;
+  
+  // Returns true if this object is live at the given part and false otherwise
+  virtual bool isLive(PartPtr p) const=0;
   
   // Allocates a copy of this object and returns a pointer to it
   virtual AbstractObjectPtr copyAO() const=0;
@@ -166,6 +191,11 @@ class ValueObject : public AbstractObject
     if(vo) return mustEqual(vo, p);
     else   return false;
   }
+  
+  // Returns true if this object is live at the given part and false otherwise.
+  // Values are always live.
+  bool isLive(PartPtr p) const
+  { return true; }
   
   // Allocates a copy of this object and returns a pointer to it
   virtual ValueObjectPtr copyV() const=0;

@@ -7,11 +7,10 @@
 #include <utility>
 #include <stdint.h>
 
-#include "rwAccessLabeler.h"
+//#include "rwAccessLabeler.h"
 #include "CFGRewrite.h"
 
 using namespace std;
-using namespace rwAccessLabeler;
 
 /*** PULLED FROM replaceExpressionWithStatement.C ***/
                         void FixSgTree(SgNode*);
@@ -23,8 +22,6 @@ namespace VirtualCFG {
         
 void initCFGRewrite(SgProject* project)
 {
-        // add the annotations that identify each part of the AST as used for read or write accesses
-        addRWAnnotations(project);
 }
 
 // returns true if the given SgNode is a value expression or a computational expression with no side-effects
@@ -234,58 +231,6 @@ CFGNode theOutEdge(CFGNode n) {
   ROSE_ASSERT (e.size() == 1);
   return e.front().target();
 }
-
-// FIXME -- these functions need to split subexpressions, since the expression
-// evaluation order in the CFG and the one used by the compiler may be
-// different
-
-// replace expr with (newNode, expr)
-// returns the resulting SgExpression
-SgExpression* insertBeforeExpression(SgExpression* expr, SgExpression* newNode) {
-        // Do the real insertion of a comma operator
-        SgNode* oldParent = expr->get_parent();
-        SgCommaOpExp* co = new SgCommaOpExp(SgDefaultFile, newNode, expr);
-        // copy the access type from the original expression to the new comma expression
-        cloneAccessType(co, expr);
-        // wrap this comma expression in parentheses
-        co->set_need_paren(true);
-        replaceExpressionChecked(oldParent, expr, co);
-        expr->set_parent(co);
-        newNode->set_parent(co);
-        
-        return co;
-}
-
-// replaces expr with (expr, newNode)
-// returns the resulting SgExpression
-SgExpression* insertAfterExpression(SgExpression* expr, SgExpression* newNode) {
-        // Do the real insertion of a comma operator
-        SgNode* oldParent = expr->get_parent();
-        SgCommaOpExp* co = new SgCommaOpExp(SgDefaultFile, expr, newNode);
-        // copy the access type from the new expression to the comma expression
-        cloneAccessType(co, expr);
-        // wrap this comma expression in parentheses
-        co->set_need_paren(true);
-        replaceExpressionChecked(oldParent, expr, co);
-        expr->set_parent(co);
-        newNode->set_parent(co);
-        
-        return co;
-}
-
-
-// replace stmt; with {newNode; stmt;}
-void replaceStatementByBlockBefore(SgStatement* stmt, SgStatement* newNode) {
-        // Insert a block to wrap the two statements
-        SgNode* parent = stmt->get_parent();
-        SgBasicBlock* b = new SgBasicBlock(SgDefaultFile);
-        b->get_statements().push_back(newNode);
-        b->get_statements().push_back(stmt);
-        newNode->set_parent(b);
-        stmt->set_parent(b);
-        replaceStatement(parent, stmt, b);
-}
-
 /*** PULLED FROM replaceExpressionWithStatement.C ***/
                         
                         class AndOpGenerator: public SageInterface::StatementGenerator
@@ -449,210 +394,6 @@ SgVarRefExp* varRefFromInitName(SgInitializedName* initName)
         
         return refExp;
 }
-
-/*** MODIFIED FROM replaceExpressionWithStatement.C ***/
-// Add a new temporary variable to contain the value of from
-// Change reference to from to use this new variable
-// if byReference==true, the new variable carries the reference to from, rather than its value 
-//    (useful for expressions that identify an address to be modified, like the "a" in a=???)
-// Assumptions: from is not within the test of a loop or if
-//              not currently traversing from or the statement it is in
-SgAssignInitializer* splitExpression_GB(SgExpression* from, SgVarRefExp* &replacement, string newName, bool byReference) {
-        if (!SageInterface::isCopyConstructible(from->get_type())) {
-                std::cerr << "Type " << from->get_type()->unparseToString() << " of expression " << from->unparseToString() << " is not copy constructible" << std::endl;
-                ROSE_ASSERT (false);
-        }
-        assert (SageInterface::isCopyConstructible(from->get_type())); // How do we report errors?
-        SgStatement* stmt = getStatementOfExpression(from);
-        assert (stmt);
-        
-        // if the from's surrounding statement is the test condition of a for loop, let the for loop be 
-        // the surrounding statement, since we'll be inserting the new variable declaration before the for loop
-        if(isSgForStatement(stmt->get_parent()) && isSgForStatement(stmt->get_parent())->get_test()==stmt)
-                stmt = isSgForStatement(stmt->get_parent());
-        
-        SgScopeStatement* parent = isSgScopeStatement(stmt->get_parent());
-        // cout << "parent is a " << (parent ? parent->sage_class_name() : "NULL") << endl;
-        if (!parent && isSgForInitStatement(stmt->get_parent()))
-                parent = isSgScopeStatement(stmt->get_parent()->get_parent()->get_parent());
-        assert (parent);
-        
-        // transform the from expression into a statement
-        SgNode* fromparent = from->get_parent();
-        list<SgExpression*> ancestors;
-        for (SgExpression* anc = isSgExpression(fromparent); anc != 0;
-             anc = isSgExpression(anc->get_parent())) {
-                if (isSgAndOp(anc) || isSgOrOp(anc) || isSgConditionalExp(anc))
-                        ancestors.push_front(anc); // Closest last
-        }
-        // cout << "This expression to split has " << ancestors.size() << " ancestor(s)" << endl;
-        for (list<SgExpression*>::iterator ai = ancestors.begin(); ai != ancestors.end(); ++ai)
-        {
-                SageInterface::StatementGenerator* gen;
-                switch ((*ai)->variantT()) {
-                        case V_SgAndOp: 
-                                gen = new AndOpGenerator(isSgAndOp(*ai)); break;
-                        case V_SgOrOp:
-                                gen = new OrOpGenerator(isSgOrOp(*ai)); break;
-                        case V_SgConditionalExp:
-                                gen = new ConditionalExpGenerator(isSgConditionalExp(*ai)); break;
-                        default: assert (!"Should not happen");
-                }
-                SageInterface::replaceExpressionWithStatement(*ai, gen);
-                delete gen;
-        }
-        if (ancestors.size() != 0) {
-                return SageInterface::splitExpression(from); 
-                // Need to recompute everything if there were ancestors
-        }
-        
-        // Create the new temporary variable and insert it before
-        SgName varName;
-        SgInitializedName* initName;
-        SgType* varType;
-        SgVariableDeclaration* varDecl;
-        createTmpVarInit(from->get_type(), newName, byReference, varName, initName, varType, varDecl);
-
-        // replace the original expression with a reference to the temporary variable
-        replacement = varRefFromInitName(initName);
-        // copy from's access type into its corresponding temporary variable reference
-        cloneAccessType(replacement, from);
-        replaceExpressionWithExpression(from, replacement);
-        // std::cout << "Unparsed 3: " << fromparent->sage_class_name() << " --- " << fromparent->unparseToString() << endl;
-        // cout << "From is a " << from->sage_class_name() << endl;
-        // std::cout << " --- " << isSgExpressionRoot(fromparent)->get_operand_i()->unparseToString() << " --- " << isSgExpressionRoot(fromparent)->get_statement()->unparseToString() << std::endl;
-        
-        // Create the temporary variable's initialization
-        SgAssignInitializer* ai = new SgAssignInitializer(SgDefaultFile, from, varType);
-        from->set_parent(ai);
-        initName->set_initializer(ai);
-        ai->set_parent(initName);
-        //  }
-        initName->set_parent(varDecl);
-//printf("calling myStatementInsert(%s)\n", stmt->unparseToString().c_str());
-/*printf("                get_parent()=<%s | %s>\n", stmt->get_parent()->unparseToString().c_str(), stmt->get_parent()->class_name().c_str());
-if(isSgForStatement(stmt->get_parent())){
-        SgStatementPtrList& siblings_ptr = isSgScopeStatement(stmt->get_parent())->getStatementList();
-        for(SgStatementPtrList::iterator it=siblings_ptr.begin(); it!=siblings_ptr.end(); it++)
-        {
-                printf("                sibling=<%s | %s>\n", (*it)->unparseToString().c_str(), (*it)->class_name().c_str());
-        }
-}*/
-        myStatementInsert(stmt, varDecl, true);
-        // vardecl->set_parent(stmt->get_parent());
-        // FixSgTree(vardecl);
-        // FixSgTree(parent);
-        parent->insert_symbol(varName, (SgSymbol*)varSymFromInitName(initName));
-        return ai;
-}
-/*** MODIFIED FROM replaceExpressionWithStatement.C ***/
-
-/*** MODIFIED FROM replaceExpressionWithStatement.C ***/
-// Replace the expression "from" with another expression "to", wherever it
-// appears in the AST.  The expression "from" is not deleted, and may be
-// reused elsewhere in the AST.
-void replaceExpressionWithExpression_GB(SgExpression* from, SgExpression* to, SgNode* fromParent=NULL) {
-        if(fromParent==NULL)
-        fromParent = from->get_parent();
-        
-        // DQ (11/7/2006): I think i have fixed this up correctly.
-        // SgExpressionRoot* toRoot = isSgExpressionRoot(to);
-        SgExpression* toRoot = isSgExpression(to);
-        
-        to->set_parent(fromParent);
-        // The parent of an expression should only be a statement if the expression
-        // is a SgExpressionRoot
-        if (isSgExprStatement(fromParent)) {
-                ROSE_ASSERT (toRoot);
-                isSgExprStatement(fromParent)->set_expression(toRoot);
-        } else if (isSgReturnStmt(fromParent)) {
-                ROSE_ASSERT (toRoot);
-                isSgReturnStmt(fromParent)->set_expression(to);
-        } else if (isSgDoWhileStmt(fromParent)) {
-                ROSE_ASSERT (!"FIXME -- this case is present for when the test of a do-while statement is changed to an expression rather than a statement");
-        } else if (isSgForStatement(fromParent)) {
-                ROSE_ASSERT (isSgForStatement(fromParent)->get_increment()
-                             == from); // If not, fromParent should be an SgExpressionRoot
-                ROSE_ASSERT (toRoot);
-                isSgForStatement(fromParent)->set_increment(toRoot);
-        } else if (isSgExpression(fromParent)) {
-                // std::cout << "Unparsed: " << fromParent->sage_class_name() << " --- " << from->unparseToString() << std::endl;
-                // std::cout << "Unparsed 2: " << varref->sage_class_name() << " --- " << varref->unparseToString() << std::endl;
-                int worked = isSgExpression(fromParent)->replace_expression(from, to);
-                ROSE_ASSERT (worked);
-        } else {
-                ROSE_ASSERT (!"Parent of expression is an unhandled case");
-        }
-}
-/*** MODIFIED FROM replaceExpressionWithStatement.C ***/
-
-// replaces the given SgExpression with a SgAssignOp (lhsVar = orig)
-// returns the SgAssignOp
-SgAssignOp * replaceExprWithAssignOp(SgExpression* orig, SgVarRefExp* lhsVar)
-{
-        SgNode* origParent = orig->get_parent();
-        SgAssignOp *asgn = new SgAssignOp(SgDefaultFile, lhsVar, orig, orig->get_type());
-        // copy from's access type into its corresponding temporary variable reference
-        cloneAccessType(lhsVar, orig);
-        replaceExpressionWithExpression_GB(orig, asgn, origParent);
-        return asgn;
-}
-
-// Creates a declaration of a new temporary variable of type varType and inserts it before anchor
-// if before=true, the temporary variable in inserted before anchor and otherwise, after anchor
-// sets initName to the SgInitializedName of the declaration
-void insertVarDecl(SgStatement *anchor, SgType *varType, bool before, SgInitializedName*& initName)
-{
-        SgName varName;
-        SgType* newType;
-        SgVariableDeclaration* varDecl;
-        createTmpVarInit(varType, "", false, varName, initName, newType, varDecl);
-        
-        myStatementInsert(anchor, varDecl, before);
-}
-
-// inserts the given expression before or after a given SgVariableDeclaration that appears inside a SgForStatement
-void insertAroundForInit(SgVariableDeclaration* n, SgExpression *newNode, bool before)
-{
-        SgForInitStatement* init = isSgForInitStatement(n->get_parent());
-        ROSE_ASSERT(init);
-        SgStatementPtrList initStmts = init->get_init_stmt();
-        SgForStatement* parentFor = isSgForStatement(init->get_parent());
-        ROSE_ASSERT(parentFor);
-        
-        // create a new loop initializer that only contains the declarations that follow n
-        SgForInitStatement* newInit = new SgForInitStatement(SgDefaultFile);
-        
-        /*SgStatementPtrList::iterator it2 = initStmts.begin();
-                it2++;it2++;
-        n = isSgVariableDeclaration(*it2);*/
-        
-        SgStatementPtrList::iterator it = initStmts.begin();
-        for(; it!=initStmts.end() && (*it)!=n; it++) { }
-        // if we want to insert after n, do not leave it in the for loop's initializers list
-        if(!before)
-                if(it!=initStmts.end()) it++;
-                
-        for(; it!=initStmts.end(); it++)
-        {
-                newInit->append_init_stmt(*it);
-                (*it)->set_parent(newInit);
-        }
-        parentFor->set_for_init_stmt(newInit);
-        newInit->set_parent(parentFor);
-
-        // place n and the declarations that came before it before the for loop
-        it = initStmts.begin();
-        for(; it!=initStmts.end() && (*it)!=n; it++)
-                myStatementInsert(parentFor, *it, true, true);
-        // if we want to insert after n, put it before the for loop
-        if(!before)
-                myStatementInsert(parentFor, *it, true, true);
-        
-        // insert the new expression before the for loop
-        myStatementInsert(parentFor, convertToStatement(newNode), true, true);
-}
-
 
 /************************
  *** cfgRWTransaction ***

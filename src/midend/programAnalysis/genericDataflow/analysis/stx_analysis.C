@@ -14,25 +14,21 @@ namespace dataflow {
  ***** StxMemLocObject *****
  ***************************/
 StxMemLocObject::StxMemLocObject(SgType* t, PartPtr part) : 
-  type(t), part(part), everOutOfScope(false)
+  type(t), part(part)
 {}
 
 StxMemLocObject::eqType StxMemLocObject::equal(MemLocObjectPtr that_arg, PartPtr part) 
 {
   StxMemLocObjectPtr that = boost::dynamic_pointer_cast <StxMemLocObject> (that_arg);
-  return equal(that, part);
-}
-
-StxMemLocObject::eqType StxMemLocObject::equal(StxMemLocObjectPtr that, PartPtr part) 
-{
-  if(isInScope(part)) {
+  
+  if(isLive(part)) {
     // One is in-scope but the other is out-of-scope: different classes
-    if(!that->isInScope(part)) return defNotEqual;
+    if(!that->isLive(part)) return defNotEqual;
     // Both are in-scope: need more refined processing
     else               return unknown;
   } else {
     // Both are out-of-scope: same class
-    if(!that->isInScope(part)) return defEqual;
+    if(!that->isLive(part)) return defEqual;
     // One is in-scope but the other is out-of-scope: different classes
     else               return defNotEqual;
   }
@@ -664,7 +660,7 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
   }
   
   // Returns true if this MemLocObject is in-scope at the given part and false otherwise
-  bool ExprObj::isInScope(PartPtr part) const 
+  bool ExprObj::isLive(PartPtr part) const 
   {
     //RULE 1: Fails because it doesn't account for the fact that between an operand and its parent
     //        there may be several more nodes from another sub-branch of the expression tree
@@ -688,7 +684,7 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
     //               |
     //               f
     // anchor_exp is in-scope at anchor_exp, a, b, c, d but not e or f.
-    //Dbg::region reg(1, 1, Dbg::region::topLevel, string("ExprObj::isInScope[")+anchor_exp->unparseToString()+string(" | ")+anchor_exp->class_name()+string(">"));
+    //Dbg::region reg(1, 1, Dbg::region::topLevel, string("ExprObj::isLive[")+anchor_exp->unparseToString()+string(" | ")+anchor_exp->class_name()+string(">"));
     
     // If part.getNode() is equal to anchor_expr or uses it as an operand, then anchor_exp is in-scope
     if(anchor_exp==part.getNode() || isOperand(part.getNode(), anchor_exp)) { //anchor_exp->get_parent()==part.getNode()) {
@@ -755,7 +751,7 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
   {
     string rt;
     
-    if(!isInScope(part)) return "OUT-OF-SCOPE";
+    if(!isLive(part)) return "OUT-OF-SCOPE";
     else                 return str(indent);
   }
   
@@ -836,7 +832,7 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
   }
   
   std::string ScalarExprObj::strp(PartPtr part, std::string indent) const // pretty print for the object
-  { return "<u>ScalarExprObj:strp()</u> "+ (isInScope(part) ? ExprObj::strp(part, indent+"    "): "OUT-OF-SCOPE "+ExprObj::str(indent+"    ")); }
+  { return "<u>ScalarExprObj:strp()</u> "+ (isLive(part) ? ExprObj::strp(part, indent+"    "): "OUT-OF-SCOPE "+ExprObj::str(indent+"    ")); }
   
   // Allocates a copy of this object and returns a pointer to it
   MemLocObjectPtr ScalarExprObj::copyML() const
@@ -874,7 +870,7 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
     return rt;
   }
   std::string FunctionExprObj::strp(PartPtr part, std::string indent) const // pretty print for the object
-  { return "<u>FunctionExprObj:strp()</u> "+ (isInScope(part) ? ExprObj::strp(part, indent+"    "): "OUT-OF-SCOPE "+ExprObj::str(indent+"    ")); }
+  { return "<u>FunctionExprObj:strp()</u> "+ (isLive(part) ? ExprObj::strp(part, indent+"    "): "OUT-OF-SCOPE "+ExprObj::str(indent+"    ")); }
   
   // Allocates a copy of this object and returns a pointer to it
   MemLocObjectPtr FunctionExprObj::copyML() const
@@ -913,7 +909,7 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
   }
   
   std::string ArrayExprObj::strp(PartPtr part, std::string indent) const // pretty print for the object
-  { return "<u>ArrayExprObj</u> "+ (isInScope(part) ? ExprObj::str(indent+"    "): "OUT-OF-SCOPE "+ExprObj::str(indent+"    ")); }
+  { return "<u>ArrayExprObj</u> "+ (isLive(part) ? ExprObj::str(indent+"    "): "OUT-OF-SCOPE "+ExprObj::str(indent+"    ")); }
   
   // Allocates a copy of this object and returns a pointer to it
   MemLocObjectPtr ArrayExprObj::copyML() const
@@ -988,7 +984,7 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
   }
   
   std::string PointerExprObj::strp(PartPtr part, std::string indent) const // pretty print for the object
-  { return "<u>PointerExprObj</u> "+ (isInScope(part) ? ExprObj::str(indent+"    "): "OUT-OF-SCOPE "+ExprObj::str(indent+"    ")); }
+  { return "<u>PointerExprObj</u> "+ (isLive(part) ? ExprObj::str(indent+"    "): "OUT-OF-SCOPE "+ExprObj::str(indent+"    ")); }
   
   // Allocates a copy of this object and returns a pointer to it
   MemLocObjectPtr PointerExprObj::copyML() const
@@ -1057,7 +1053,7 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
   std::string LabeledAggregateExprObj::strp(PartPtr part, std::string indent) const // pretty print for the object  
   {
     std::string rt = "<u>LabeledAggregateExprObj</u>";
-    if(isInScope(part)) {
+    if(isLive(part)) {
       rt += " "+ ExprObj::str(indent+"    ");
       rt += "   with " + StringUtility::numberToString(fieldCount()) + " fields:\n";
       rt += indent;
@@ -1267,7 +1263,7 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
   }
   
   // Returns true if this MemLocObject is in-scope at the given part and false otherwise
-  bool NamedObj::isInScope(PartPtr part) const
+  bool NamedObj::isLive(PartPtr part) const
   {
     // This variable is in-scope if part.getNode() is inside the scope that contains its declaration
     SgScopeStatement* anchor_scope;
@@ -1285,7 +1281,7 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
     }
     
     // The variable is in-scope if part.getNode() is inside its declaration scope
-    Dbg::region reg(1,1, Dbg::region::topLevel, "NamedObj::isInScope");
+    Dbg::region reg(1,1, Dbg::region::topLevel, "NamedObj::isLive");
     Dbg::dbg << "anchor_symbol=["<<anchor_symbol->unparseToString()<<" | "<<anchor_symbol->class_name()<<"]"<<endl;
     Dbg::dbg << "part=["<<part.getNode()->unparseToString()<<" | "<<part.getNode()->class_name()<<"]"<<endl;
     Dbg::dbg << (partScope!=NULL ? "IN-SCOPE" : "OUT-OF-SCOPE")<<endl;
@@ -1308,7 +1304,7 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
     } else
       anchorFD = NULL; // SageInterface::getEnclosingFunctionDefinition(isSgFunctionSymbol(anchor_symbol)->get_declaration()->get_scope(), true);
  
-    /*Dbg::region reg(1,1, Dbg::region::topLevel, string("NamedObj::isInScope(")+anchor_symbol->get_name().getString()+string(")")+string(isSgFunctionSymbol(anchor_symbol) || (isSgVariableSymbol(anchor_symbol) && (anchorFD == partFD)) ?  "IN-SCOPE" : "OUT-OF-SCOPE"));
+    /*Dbg::region reg(1,1, Dbg::region::topLevel, string("NamedObj::isLive(")+anchor_symbol->get_name().getString()+string(")")+string(isSgFunctionSymbol(anchor_symbol) || (isSgVariableSymbol(anchor_symbol) && (anchorFD == partFD)) ?  "IN-SCOPE" : "OUT-OF-SCOPE"));
     Dbg::dbg << "anchorFD=";
     if(anchorFD) Dbg::dbg << "["<<anchorFD->unparseToString()<<" | "<<anchorFD->class_name()<<"]"<<endl;
     else         Dbg::dbg << "SgFunctionSymbol"<<endl;
@@ -1450,7 +1446,7 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
   {
     string rt;
     
-    if(!isInScope(part)) return "OUT-OF-SCOPE";
+    if(!isLive(part)) return "OUT-OF-SCOPE";
     else                 return str(indent);
   }
 
@@ -1489,7 +1485,7 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
   }
 
   std::string ScalarNamedObj::strp(PartPtr part, std::string indent) const // pretty print for the object
-  { return "<u>ScalarNamedObj</u> "+ (isInScope(part) ? NamedObj::str(indent+"    "): "OUT-OF-SCOPE "+NamedObj::str(indent+"    ")); }
+  { return "<u>ScalarNamedObj</u> "+ (isLive(part) ? NamedObj::str(indent+"    "): "OUT-OF-SCOPE "+NamedObj::str(indent+"    ")); }
   
   // Allocates a copy of this object and returns a pointer to it
   MemLocObjectPtr ScalarNamedObj::copyML() const
@@ -1529,7 +1525,7 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
   }
   
   std::string FunctionNamedObj::strp(PartPtr part, std::string indent) const // pretty print for the object
-  { return "<u>FunctionNamedObj</u> "+ (isInScope(part) ? NamedObj::str(indent+"    "): "OUT-OF-SCOPE "+NamedObj::str(indent+"    ")); }
+  { return "<u>FunctionNamedObj</u> "+ (isLive(part) ? NamedObj::str(indent+"    "): "OUT-OF-SCOPE "+NamedObj::str(indent+"    ")); }
   
   // Allocates a copy of this object and returns a pointer to it
   MemLocObjectPtr FunctionNamedObj::copyML() const
@@ -1597,7 +1593,7 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
   }
   
   std::string PointerNamedObj::strp(PartPtr part, std::string indent) const // pretty print for the object
-  { return "<u>PointerNamedObj</u> "+ (isInScope(part) ? NamedObj::str(indent+"    "): "OUT-OF-SCOPE "+NamedObj::str(indent+"    ")); }
+  { return "<u>PointerNamedObj</u> "+ (isLive(part) ? NamedObj::str(indent+"    "): "OUT-OF-SCOPE "+NamedObj::str(indent+"    ")); }
   
   // Allocates a copy of this object and returns a pointer to it
   MemLocObjectPtr PointerNamedObj::copyML() const
@@ -1687,7 +1683,7 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
   std::string LabeledAggregateNamedObj::strp(PartPtr part, std::string indent) const // pretty print for the object  
   {
     std::string rt = "<u>LabeledAggregateNamedObj</u>";
-    if(isInScope(part)) {
+    if(isLive(part)) {
       rt += " "+ NamedObj::str(indent);
       rt += "   with " + StringUtility::numberToString(fieldCount()) + " fields:\n";
       for (size_t i =0; i< fieldCount(); i++)
@@ -1710,7 +1706,7 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
   bool LabeledAggregateNamedObj::mayEqualML(const MemLocObjectPtr o2, PartPtr p)
   { 
     return (NamedObj::mayEqualML(o2, p));
-  } 
+  }
 
   bool LabeledAggregateNamedObj::mustEqualML(const MemLocObjectPtr o2, PartPtr p)
   { 
@@ -1775,7 +1771,7 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
   std::string ArrayNamedObj::strp(PartPtr part, std::string indent) const // pretty print for the object  
   {
     std::string rt = "<u>ArrayNamedObj</u>";
-    if(isInScope(part)) {
+    if(isLive(part)) {
       rt += " "+ NamedObj::str(indent);
       rt += "   with " + StringUtility::numberToString(getNumDims()) + " dimensions";
    } else {
@@ -2028,7 +2024,7 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
     }
   }
   
-  bool AliasedObj::isInScope(PartPtr part) const
+  bool AliasedObj::isLive(PartPtr part) const
   { return true; }
 
   /* GB: Deprecating the == operator. Now that some objects can contain AbstractObjects any equality test must take the current part as input.

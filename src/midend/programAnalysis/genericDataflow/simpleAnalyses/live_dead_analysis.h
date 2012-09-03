@@ -142,6 +142,9 @@ class LDMemLocObject : public virtual MemLocObject
 
   bool mayEqualML(MemLocObjectPtr o, PartPtr p);
   bool mustEqualML(MemLocObjectPtr o, PartPtr p);
+
+  // Returns true if this object is live at the given part and false otherwise
+  bool isLive(PartPtr p) const;
   
   // pretty print for the object
   std::string str(std::string indent="") const;

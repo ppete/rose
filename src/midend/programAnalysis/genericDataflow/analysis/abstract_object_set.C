@@ -15,9 +15,16 @@ int AbstractObjectSetDebugLevel=1;
 //             would also be conservative if we replaced multiple AbstractObject with a single AbstractObject that 
 //             over-approximates their union. In must mode insert would also be conservative if we removed any 
 //             AbstractObject from the set.
-bool AbstractObjectSet::insert(const AbstractObjectPtr that) 
+bool AbstractObjectSet::insert(AbstractObjectPtr that) 
 {
-    ROSE_ASSERT(that);
+  ROSE_ASSERT(that);
+    
+  // Do not insert mappings for dead keys
+  if(!that->isLive(part)) { 
+    if(AbstractObjectSetDebugLevel>=1) Dbg::dbg << "<b>AbstractObjectSet::insert() WARNING: attempt to insert dead element "<<that->strp(part)<<"<\b>"<<endl;
+    return false;
+  }
+    
     bool retval = false;
     if(!containsMust(that)) {
         items.push_back(that);
@@ -276,24 +283,24 @@ bool AbstractObjectSet::remapCallee2Caller(const std::map<MemLocObjectPtr, MemLo
 //    replaced with their corresponding values. If a given key of ml2ml does not appear in the lattice, it must
 //    be added to the lattice and assigned a default initial value. In many cases (e.g. over-approximate sets 
 //    of MemLocObjects) this may not require any actual insertions.
-// It is assumed that the keys and values of ml2ml correspond to MemLocObjects that are syntactically explicit 
-//    in the code (e.g. lexical variables or expressions), meaning that must-equal information is available 
-//    for them with respect to each other and other syntactically explicit variables. Implementations of this 
-//    function are expected to return a newly-allocated lattice that only contains information about 
-//    MemLocObjects that are in the values of the ml2ml map or those reachable from these objects via 
-//    operations such as LabeledAggregate::getElements() or Pointer::getDereference(). Information about the 
-//    other MemLocObjects maintained by this Lattice may be excluded if it does not contribute to this goal.
-//    ASSUMED: full mustEquals information is available for the keys and values of this map. They must be
-//       variable references or expressions.
-/* // Since mustEqual information is always available, in both modes for each MemLocObject o in the set, if there 
-//    exists a pair <old, new> in m such that o mustEquals old, then new will be included in the final set. */
+// The function takes newPart, the part within which the values of ml2ml should be interpreted. It corresponds
+//    to the code region(s) to which we are remapping.
 // In must mode for each MemLocObject o in the set, if there exist any pairs <old, new> in ml2ml such that 
 //    o mustEquals old, then new will be included in the final set.
 // May mode is the same, except if for some pair <old, new> old mayEquals o but not mustEquals o then new is 
 //    included in the final set but o is not removed.
-Lattice* AbstractObjectSet::remapML(const std::set<pair<MemLocObjectPtr, MemLocObjectPtr> >& ml2ml)
+Lattice* AbstractObjectSet::remapML(const std::set<pair<MemLocObjectPtr, MemLocObjectPtr> >& ml2ml, PartPtr newPart)
 {
-  AbstractObjectSet* newS = new AbstractObjectSet(part, mode);
+  if(AbstractObjectSetDebugLevel>=1) {
+    // If either the key or the value of this mapping is dead within its respective part, we skip it.
+    // Print notices of this skipping once
+    for(std::set<pair<MemLocObjectPtr, MemLocObjectPtr> >::const_iterator m=ml2ml.begin(); m!=ml2ml.end(); m++)
+      // If either the key or the value of this mapping is dead within its respective part, skip it
+      if(!m->first->isLive(part) || m->second->isLive(newPart))
+        Dbg::dbg << "AbstractObjectSet::remapML() WARNING: Skipping dead ml2ml mapping "<<m->first->strp(part)<<" => "<<m->second->strp(newPart)<<endl;
+  }
+  
+  AbstractObjectSet* newS = new AbstractObjectSet(newPart, mode);
   // Set of ml2ml values that need to be added to newS because they match (may-equal or must-equal)
   // MemLocObjects currently in items
   set<MemLocObjectPtr> vals2add;
@@ -303,6 +310,9 @@ Lattice* AbstractObjectSet::remapML(const std::set<pair<MemLocObjectPtr, MemLocO
     bool existsMayEqual=false;
 
     for(std::set<pair<MemLocObjectPtr, MemLocObjectPtr> >::const_iterator m=ml2ml.begin(); m!=ml2ml.end(); m++) {
+      // If either the key or the value of this mapping is dead within its respective part, skip it
+      if(!m->first->isLive(part) || m->second->isLive(newPart)) continue;
+      
       // If the current item in this set may- or must-equals a key in ml2ml, record this and add the corresponding
       // value in ml2ml to be added to newS
       if((*i)->mustEqual(m->first, part)) {
@@ -317,7 +327,10 @@ Lattice* AbstractObjectSet::remapML(const std::set<pair<MemLocObjectPtr, MemLocO
     }
     
     // If this item is not must-equal to some key(s) in ml2ml, copy it over to newS
-    if(!existsMustEqual) newS->items.push_back(*i);
+    if(!existsMustEqual) 
+      // Skip items that are dead in newPart
+      if(!(*i)->isLive(newPart)) continue;
+      newS->items.push_back(*i);
     // Otherwise, we skip this item since it will be replaced by the value(s) of the key(s) it was must-equal to
   }
   
@@ -371,6 +384,9 @@ bool AbstractObjectSet::replaceML(Lattice* newL)
   for(std::list<AbstractObjectPtr>::iterator i=calleeAOS->items.begin(); i!=calleeAOS->items.end(); i++) {
     MemLocObjectPtr ml = boost::dynamic_pointer_cast<MemLocObject>(*i);
     ROSE_ASSERT(ml);
+    // Do not copy over mappings with keys that are dead in this set's host part
+    if(!ml->isLive(part)) continue;
+    
     modified = insert(ml) || modified;
   }
   
@@ -399,6 +415,9 @@ bool AbstractObjectSet::meetUpdate(Lattice* thatL)
       if(AbstractObjectSetDebugLevel>=2) Dbg::dbg << "that->items="<<endl;
       Dbg::indent ind(AbstractObjectSetDebugLevel, 2);
       for(std::list<AbstractObjectPtr>::iterator it=that->items.begin(); it!=that->items.end(); it++) {
+        // Do not copy over mappings with keys that are dead in this set's host part
+        if(!(*it)->isLive(part)) continue;
+        
         if(AbstractObjectSetDebugLevel>=2) Dbg::dbg << "it="<<it->get()->str()<<endl;
         modified = insert(*it) || modified;
         if(AbstractObjectSetDebugLevel>=2) Dbg::dbg << "modified = "<<modified<<endl;
@@ -406,6 +425,9 @@ bool AbstractObjectSet::meetUpdate(Lattice* thatL)
     } else if(mode==must) {
       // Remove all the AbstractObjects in this that do not also appear in that
       for(std::list<AbstractObjectPtr>::iterator it=that->items.begin(); it!=that->items.end(); it++) {
+        // Do not copy over mappings with keys that are dead in this set's host part
+        if(!(*it)->isLive(part)) continue;
+        
         if(!containsMust(*it))
           modified = remove(*it) || modified;
       }

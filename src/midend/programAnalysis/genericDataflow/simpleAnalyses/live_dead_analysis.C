@@ -505,6 +505,10 @@ bool LDMemLocObject::mustEqualML(MemLocObjectPtr o, PartPtr part)
   { /*Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;==>FALSE"<<endl;*/ return false; }
 }
 
+// Returns true if this object is live at the given part and false otherwise
+bool LDMemLocObject::isLive(PartPtr p) const
+{ return isLiveMay(parent, ldma, part, *NodeState::getNodeState(part), ""); }
+
 // pretty print for the object
 std::string LDMemLocObject::str(std::string indent) const
 {

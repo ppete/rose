@@ -601,7 +601,7 @@ ValueObjectPtr ConstantPropagationAnalysis::Expr2Val(SgNode* n, PartPtr part)
 {
   AbstractObjectMap* cpMap = dynamic_cast<AbstractObjectMap*>(NodeState::getNodeState(part)->getLatticeAbove(this, 0));
   ROSE_ASSERT(cpMap);
-
+  
   MemLocObjectPtrPair p = composer->Expr2MemLoc(n, part, this);
   // Return the lattice associated with n's expression since that is likely to be more precise
   // but if it is not available, used the memory object

@@ -25,12 +25,6 @@
         <in>partitions.h</in>
         <in>stx_analysis.C</in>
         <in>stx_analysis.h</in>
-        <in>stx_analysis.orig.C</in>
-        <in>stx_analysis.orig.h</in>
-      </df>
-      <df name="arrIndexLabeler">
-        <in>arrIndexLabeler.C</in>
-        <in>arrIndexLabeler.h</in>
       </df>
       <df name="cfgUtils">
         <in>CFGRewrite.C</in>
@@ -57,10 +51,6 @@
         <in>lattice.C</in>
         <in>lattice.h</in>
         <in>latticeFull.h</in>
-      </df>
-      <df name="rwAccessLabeler">
-        <in>rwAccessLabeler.C</in>
-        <in>rwAccessLabeler.h</in>
       </df>
       <df name="simpleAnalyses">
         <df name="non_compositional">

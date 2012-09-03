@@ -6,6 +6,17 @@
 #include "abstract_object.h"
 #include "partitions.h"
 
+/* GB 2012-09-02: DESIGN NOTE
+   Analyses and abstract objects written for the compositional framework must support a wide range of functionality,
+   both mandatory (e.g. mayEqual/mustEqual in AbstractObjects) and optional (e.g. Expr2MemLoc() in ComposedAnalysis).
+   In general optional functionality should go into the composer, which will then find an implementor for this 
+ * functionality. Mandatory functionality should be placed as body-less virtual methods that are required for specific
+ * instances of AbstractObject and ComposedAnalysis. Note that although we do currently have a way for ComposedAnalyses
+ * to provide optional functionality and have the Composer find it, the same is not true for AbstractObjects because
+ * thus far we have not found a use-case where we wanted AbstractObject functionality to be optional. This issue
+ * may need to be revisited.
+*/
+
 // ------------------------------
 // ----- Composition Driver -----
 // ------------------------------

@@ -86,7 +86,7 @@ void FunctionState::setArgParamMap(PartPtr callPart, SgFunctionCallExp* call,
   Dbg::indent(analysisDebugLevel, 1);
   Function func(call);
   // Part that corresponds to the function, which for now is set to be the start of its definition
-  PartPtr funcNode = DataflowNode(func.get_definition()->cfgForBeginning(), analysis->filter);
+  PartPtr funcNode = cfgUtils::getFuncStartCFG(func.get_definition(), analysis->filter);
 
   SgExpressionPtrList args = call->get_args()->get_expressions();
   //SgInitializedNamePtrList params = funcArgToParamByRef(call);
@@ -124,7 +124,7 @@ void FunctionState::setArgByRef2ParamMap(PartPtr callPart, SgFunctionCallExp* ca
   Dbg::indent(analysisDebugLevel, 1);
   Function func(call);
   // Part that corresponds to the function, which for now is set to be the start of its definition
-  PartPtr funcNode = DataflowNode(func.get_definition()->cfgForBeginning(), analysis->filter);
+  PartPtr funcNode = cfgUtils::getFuncStartCFG(func.get_definition(), analysis->filter);
 
   SgExpressionPtrList args = call->get_args()->get_expressions(); 
   SgInitializedNamePtrList params = func.get_params();

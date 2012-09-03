@@ -278,7 +278,7 @@ void IntraUniDirectionalDataflow::runAnalysis(const Function& func, NodeState* f
       PartPtr p = *it;
       SgNode* sgn = p.getNode();
       ostringstream nodeNameStr;
-      nodeNameStr << "Current Node "<<sgn<<"["<<sgn->class_name()<<" | "<<Dbg::escape(sgn->unparseToString())<<" | "<<p.getIndex()<<"]";
+      nodeNameStr << "Current Node ["<<sgn->class_name()<<" | "<<Dbg::escape(sgn->unparseToString())<<" | "<<p.getIndex()<<"] "<<sgn;
       Dbg::region reg(analysisDebugLevel, 1, Dbg::region::topLevel, nodeNameStr.str());
       bool modified = false;
       

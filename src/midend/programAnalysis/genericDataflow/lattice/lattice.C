@@ -397,20 +397,15 @@ bool ProductLattice::remapCallee2Caller(const std::map<MemLocObjectPtr, MemLocOb
 // Called by analyses to transfer this lattice's contents from across function scopes from a caller function 
 //    to a callee's scope and vice versa. If this this lattice maintains any information on the basis of 
 //    individual MemLocObjects these mappings must be converted, with MemLocObjects that are keys of the ml2ml 
-//    replaced with their corresponding values. It is assumed that the keys and values of ml2ml correspond to
-//    MemLocObjects that are syntactically explicit in the code (e.g. lexical variables or expressions), 
-//    meaning that must-equal information is available for them with respect to each other and other 
-//    syntactically explicit variables. Implementations of this function are expected to return a 
-//    newly-allocated lattice that only contains information about MemLocObjects that are in the values of the 
-//    ml2ml map or those reachable from these objects via operations such as LabeledAggregate::getElements() or
-//    Pointer::getDereference(). Information about the other MemLocObjects maintained by this Lattice may be 
-//    excluded if it does not contribute to this goal.
-//    ASSUMED: full mustEquals information is available for the keys and values of this map. They must be
-//       variable references or expressions.
-Lattice* ProductLattice::remapML(const std::set<pair<MemLocObjectPtr, MemLocObjectPtr> >& ml2ml) {
+//    replaced with their corresponding values. If a given key of ml2ml does not appear in the lattice, it must
+//    be added to the lattice and assigned a default initial value. In many cases (e.g. over-approximate sets 
+//    of MemLocObjects) this may not require any actual insertions.
+// The function takes newPart, the part within which the values of ml2ml should be interpreted. It corresponds
+//    to the code region(s) to which we are remapping.
+Lattice* ProductLattice::remapML(const std::set<pair<MemLocObjectPtr, MemLocObjectPtr> >& ml2ml, PartPtr newPart) {
   ProductLattice* pl = new ProductLattice(part);
   for(std::vector<Lattice*>::iterator l=lattices.begin(); l!=lattices.end(); l++)
-    pl->lattices.push_back((*l)->remapML(ml2ml));
+    pl->lattices.push_back((*l)->remapML(ml2ml, newPart));
   return pl;
 }
 

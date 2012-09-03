@@ -198,8 +198,19 @@ MemLocObjectPtr OrthogonalArrayAnalysis::Expr2MemLoc(SgNode* n, PartPtr p)
     assert(array.isArray());
     
     OrthoIndexVector_ImplPtr iv = boost::make_shared<OrthoIndexVector_Impl>();
-    for (std::vector<SgExpression*>::iterator iter = subscripts->begin(); iter != subscripts->end(); iter++)
+    
+    Dbg::dbg << "Predecessor Nodes #("<<p.inEdges().size()<<")="<<endl;
+    Dbg::indent ind(1,1);
+    for(std::vector<DataflowEdge>::const_iterator in=p.inEdges().begin(); in!=p.inEdges().end(); in++)
+      Dbg::dbg << "["<<((*in).source().getNode() ? (*in).source().getNode()->unparseToString() : "NULL")<<" | "<<
+                       ((*in).source().getNode() ? (*in).source().getNode()->class_name()      : "NULL")<<" | "<<(*in).source().getIndex()<<"]"<<endl;
+    
+    for (std::vector<SgExpression*>::iterator iter = subscripts->begin(); iter != subscripts->end(); iter++) {
+      //CFGNode subNode(*iter, 2);
+      Dbg::dbg << "subNode = ["<<(*iter)->unparseToString()<<" | "<<(*iter)->class_name()<<"]"<<endl;
+      //DataflowNode subNodeDF(subNode, filter);
       iv->index_vector.push_back(composer->Expr2Val(*iter, p, this));
+    }
 
     // GB: Do we need to deallocate subscripts???
     Dbg::dbg << "OrthogonalArrayAnalysis::Expr2MemLoc() array->getElements(iv)"<<endl;

@@ -15,8 +15,12 @@ int main(int argc, char** argv)
 
   list<ComposedAnalysis*> analyses;
   analyses.push_back(new ConstantPropagationAnalysis());
+  analyses.push_back(new OrthogonalArrayAnalysis());
+  analyses.push_back(new ConstantPropagationAnalysis());
+  analyses.push_back(new OrthogonalArrayAnalysis());
+  analyses.push_back(new ConstantPropagationAnalysis());
   /*analyses.push_back(new LiveDeadMemAnalysis());
-  /*analyses.push_back(new OrthogonalArrayAnalysis());
+  /*
   analyses.push_back(new ConstantPropagationAnalysis());
   analyses.push_back(new OrthogonalArrayAnalysis());
   analyses.push_back(new ConstantPropagationAnalysis());*/
