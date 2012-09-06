@@ -5,17 +5,19 @@
 #undef NO_FUNCTION_STATE_H
 #include "functionState.h"
 
-using namespace std;
+#include <boost/make_shared.hpp>
 
+using namespace std;
+namespace dataflow {
 // Records that this analysis has initialized its state at this node
-void NodeState::initialized(Analysis* analysis)
+void NodeState::initialized(Analysis* init)
 {
         #ifdef THREADED
         BoolMap::accessor wInit;
-        initializedAnalyses.insert(wInit, (Analysis*)analysis);
+        initializedAnalyses.insert(wInit, (Analysis*)init);
         wInit->second = true;
         #else
-        initializedAnalyses[(Analysis*)analysis] = true;
+        initializedAnalyses[(Analysis*)init] = true;
         #endif
 }
 
@@ -202,37 +204,11 @@ void NodeState::setLatticeBelow(const Analysis* analysis, vector<Lattice*>& latt
 
 static vector<Lattice*> emptyLatVec;
 
-//! returns all the lattices from above the CFG node (corresponding to SgNode and an CFG index) that are owned by the given analysis
-// (read-only access)
-const std::vector<Lattice*>& NodeState::getLatticeAbove(const Analysis* a, SgNode* n, unsigned int index ) 
-{
-  assert (a!= NULL);
-  assert (n != NULL);
-
-  NodeState *state =  NodeState::getNodeState(n, index);
-  assert (state != NULL);
-
-  return state->getLatticeAbove(a);
-}
-
-// returns all the lattices from below the CFG node (corresponding to SgNode and an CFG index) that are owned by the given analysis
-// (read-only access)
-const std::vector<Lattice*>& NodeState::getLatticeBelow(const Analysis* a, SgNode* n, unsigned int index) 
-{
-  assert (a!= NULL);
-  assert (n != NULL);
-
-  NodeState *state =  NodeState::getNodeState(n, index);
-  assert (state != NULL);
-  return state->getLatticeBelow(a);
-}
-
 // returns the given lattice from above the node, which owned by the given analysis
 Lattice* NodeState::getLatticeAbove(const Analysis* analysis, int latticeName) const
 {
         return getLattice_ex(dfInfoAbove, analysis, latticeName);
 }
-
 
 // returns the map containing all the lattices from above the node that are owned by the given analysis
 // (read-only access)
@@ -381,6 +357,24 @@ bool NodeState::eqLattices(const vector<Lattice*>& latticesA,
                 Dbg::dbg << "        *lA!=lB = "<<(*lA!=lB)<<"\n";
                 Dbg::dbg << "        *lA!=*lB = "<<(*lA!=*lB)<<"\n";*/
                 if(*lA != *lB) return false;
+        }
+        
+        return true;
+}
+// Returns true if the two lattices vectors contain equivalent information and false otherwise
+bool NodeState::equivLattices(const std::vector<Lattice*>& latticesA,
+                              const std::vector<Lattice*>& latticesB)
+{
+        //printf("    latticesA.size()=%d latticesB.size()=%d\n", latticesA.size(), latticesB.size());
+        if(latticesA.size() != latticesB.size())
+                return false;
+        
+        vector<Lattice*>::const_iterator itA, itB;
+        for(itA = latticesA.begin(), itB = latticesB.begin();
+            itA != latticesA.end(), itB != latticesB.end();
+            itA++, itB++)
+        {
+                if(!((*itA)->equiv(*itB))) return false;
         }
         
         return true;
@@ -760,19 +754,19 @@ void NodeState::deleteState(const Analysis* analysis)
 }
 
 // ====== STATIC ======
-map<DataflowNode, vector<NodeState*> > NodeState::nodeStateMap;
+map<PartPtr, vector<NodeState*> > NodeState::nodeStateMap;
 bool NodeState::nodeStateMapInit = false;
 
 // returns the NodeState object associated with the given dataflow node.
 // index is used when multiple NodeState objects are associated with a given node
 // (ex: SgFunctionCallExp has 3 NodeStates: entry, function body, exit)
-NodeState* NodeState::getNodeState(const DataflowNode& n, int index)
+NodeState* NodeState::getNodeState(PartPtr p, int index)
 {
         // if we haven't assigned a NodeState for every dataflow node
         if(!nodeStateMapInit)
-                initNodeStateMap(n.filter);
+                initNodeStateMap(p.filter);
         
-        return nodeStateMap[n][index];
+        return nodeStateMap[p][index];
 }
 
 NodeState* NodeState::getNodeState(SgNode * n, int index/*=0 */)
@@ -781,28 +775,29 @@ NodeState* NodeState::getNodeState(SgNode * n, int index/*=0 */)
   assert (index >= 0);
 
   CFGNode cfgn(n, (unsigned int)index);
-  DataflowNode dfn(cfgn, defaultFilter);
-  return getNodeState (dfn, index);
+  //PartPtr p = boost::make_shared<DataflowNode>(cfgn, defaultFilter);
+  PartPtr p(cfgn, defaultFilter);
+  return getNodeState(p, index);
 }
 
 // returns a vector of NodeState objects associated with the given dataflow node.
-const vector<NodeState*> NodeState::getNodeStates(const DataflowNode& n)
+const vector<NodeState*> NodeState::getNodeStates(PartPtr p)
 {
         // if we haven't assigned a NodeState for every dataflow node
         if(!nodeStateMapInit)
-                initNodeStateMap(n.filter);
+                initNodeStateMap(p.filter);
         
-        return nodeStateMap[n];
+        return nodeStateMap[p];
 }
 
 // returns the number of NodeStates associated with the given DataflowNode
-int NodeState::numNodeStates(DataflowNode& n)
+int NodeState::numNodeStates(PartPtr p)
 {
         // if we haven't assigned a NodeState for every dataflow node
         if(!nodeStateMapInit)
-                initNodeStateMap(n.filter);
+                initNodeStateMap(p.filter);
         
-        return nodeStateMap[n].size();
+        return nodeStateMap[p].size();
 }
 
 // initializes the nodeStateMap
@@ -814,13 +809,16 @@ void NodeState::initNodeStateMap(bool (*filter) (CFGNode cfgn))
         for(set<FunctionState*>::iterator it=allFuncs.begin(); it!=allFuncs.end(); it++)
         {
                 const Function& func = (*it)->func;
-                DataflowNode funcCFGStart = cfgUtils::getFuncStartCFG(func.get_definition(),filter);
-                DataflowNode funcCFGEnd = cfgUtils::getFuncEndCFG(func.get_definition(), filter);
-                
+                /*PartPtr funcCFGStart = boost::make_shared<DataflowNode>(*(cfgUtils::getFuncStartCFG(func.get_definition()).get()), filter);
+                PartPtr funcCFGEnd   = boost::make_shared<DataflowNode>(*(cfgUtils::getFuncEndCFG(func.get_definition()).get()), filter);*/
+                PartPtr funcCFGStart(cfgUtils::getFuncStartCFG(func.get_definition()), filter);
+                PartPtr funcCFGEnd  (cfgUtils::getFuncEndCFG(func.get_definition()), filter);
+                  
                 // Iterate over all the dataflow nodes in this function
-                for(VirtualCFG::iterator it(funcCFGStart); it!=VirtualCFG::dataflow::end(); it++)
+                for(VirtualCFG::iterator it(funcCFGStart); it!=VirtualCFG::iterator::end(); it++)
                 {
-                        DataflowNode n = *it;
+                        PartPtr p = *it;
+                        //Dbg::dbg << "NodeState::initNodeStateMap() p=<"<<Dbg::escape(p.getNode()->unparseToString())<<" | "<<p.getNode()->class_name()<<">"<<endl;
 
                         // the number of NodeStates associated with the given dataflow node
                         int numStates=1;
@@ -830,7 +828,7 @@ void NodeState::initNodeStateMap(bool (*filter) (CFGNode cfgn))
                                 numStates=3;*/
                         
                         for(int i=0; i<numStates; i++)
-                                nodeStateMap[n].push_back(new NodeState(/*n*/));
+                                nodeStateMap[p].push_back(new NodeState());
                 }
         }
         
@@ -1101,3 +1099,4 @@ string NodeState::str(Analysis* analysis, string indent) const
         
         return oss.str();
 }
+}; // namespace dataflow

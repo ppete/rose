@@ -13,6 +13,7 @@ class DataflowEdge;
 
 bool defaultFilter (CFGNode cfgn);
 
+class DataflowNode;
 class DataflowNode {
         public:
         CFGNode n;
@@ -23,6 +24,9 @@ class DataflowNode {
         // By default, the default filter function is used unless otherwise specified
 //        DataflowNode(CFGNode n, bool (*f) (CFGNode) = defaultFilter): n(n), filter(f) {}
         DataflowNode(const DataflowNode& dfn): n(dfn.n), filter (dfn.filter) {} 
+        DataflowNode(const DataflowNode& dfn, bool (*f) (CFGNode)): n(dfn.n), filter (f) {} 
+        //DataflowNode(boost::shared_ptr<DataflowNode> dfn): n(dfn->n), filter(dfn.filter) {}
+        //DataflowNode(boost::shared_ptr<DataflowNode> dfn, bool (*f) (CFGNode)): n(dfn->n), filter(f) {}
 
         std::string toString() const {return n.toString();}
         std::string toStringForDebugging() const {return n.toStringForDebugging();}

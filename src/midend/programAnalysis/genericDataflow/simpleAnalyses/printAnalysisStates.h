@@ -10,10 +10,12 @@
 #include "dataflow.h"
 #include "latticeFull.h"
 #include "lattice.h"
+#include "partitions.h"
 
 #include <vector>
 #include <string>
 
+namespace dataflow {
 class printAnalysisStates : public UnstructuredPassIntraAnalysis
 {
         public:
@@ -26,7 +28,7 @@ class printAnalysisStates : public UnstructuredPassIntraAnalysis
                 
         printAnalysisStates(Analysis* creator, std::vector<int>& factNames, std::vector<int>& latticeNames, ab latSide, std::string indent);
         
-        void visit(const Function& func, const DataflowNode& n, NodeState& state);
+        void visit(const Function& func, PartPtr p, NodeState& state);
 };
-
+}; // namespace dataflow
 #endif
