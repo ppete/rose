@@ -222,11 +222,24 @@ std::string CodeLocObjectPtrPair::str(std::string indent)
   return oss.str();
 }
 
+std::string CodeLocObjectPtrPair::strp(PartPtr part, std::string indent)
+{ 
+  ostringstream oss;
+  oss << "[";
+  if(expr) oss << "expr=" << expr->strp(part, indent) << endl;
+  if(mem) {
+    if(expr) oss << indent;
+    oss << "mem="  << mem->strp(part, indent);
+  }
+  oss << "]";
+  return oss.str();
+}
+
 /* ############################
    ##### LabeledAggregate ##### 
    ############################ */
 
-std::vector<boost::shared_ptr<LabeledAggregateField> > LabeledAggregate::getElements() const 
+std::vector<boost::shared_ptr<LabeledAggregateField> > LabeledAggregate::getElements(PartPtr part) const 
 {
   std::vector<boost::shared_ptr<LabeledAggregateField> > rt;
   cerr<<"Error. Direct call to base class's getElements() is not allowed."<<endl;
@@ -234,7 +247,7 @@ std::vector<boost::shared_ptr<LabeledAggregateField> > LabeledAggregate::getElem
   return rt;
 }
 
-size_t LabeledAggregate::fieldCount()
+size_t LabeledAggregate::fieldCount(PartPtr part)
 {
   cerr<<"Error. Direct call to base class's filedCount() is not allowed."<<endl;
   ROSE_ASSERT (false);
@@ -268,12 +281,12 @@ std::string LabeledAggregateField::getName()
  return "";  
 }
 
-boost::shared_ptr<MemLocObject> LabeledAggregateField::getField()
+MemLocObjectPtr LabeledAggregateField::getField()
 {
 
  cerr<<"Error. Direct call to base class's getField() is not allowed."<<endl;
  ROSE_ASSERT (false);
- boost::shared_ptr<MemLocObject> p;
+ MemLocObjectPtr p;
  return p;
 }
 size_t LabeledAggregateField::getIndex()
@@ -294,7 +307,7 @@ std::string LabeledAggregateField::str(std::string indent)
  return "";  
 }
 
-void LabeledAggregateField::setField(boost::shared_ptr<MemLocObject> f)
+void LabeledAggregateField::setField(MemLocObjectPtr f)
 {
   cerr<<"Error. Direct call to base class's setField() is not allowed."<<endl;
   ROSE_ASSERT (false);
@@ -343,34 +356,34 @@ bool IndexVector::mustEqual (IndexVectorPtr other, const Part& p)
    ##### Array ##### 
    ################# */
 
-boost::shared_ptr<MemLocObject> Array::getElements()
+MemLocObjectPtr Array::getElements(PartPtr part)
 {
   cerr<<"Error. Direct call to base class (Array)'s getElements() is not allowed."<<endl;
   ROSE_ASSERT (false);
-  boost::shared_ptr<MemLocObject> p;
+  MemLocObjectPtr p;
   return p;  
 }
 
-boost::shared_ptr<MemLocObject> Array::getElements(IndexVectorPtr ai)
+MemLocObjectPtr Array::getElements(IndexVectorPtr ai, PartPtr part)
 {
   cerr<<"Error. Direct call to base class (Array)'s getElements(IndexVector* ai) is not allowed."<<endl;
   ROSE_ASSERT (false);
-  boost::shared_ptr<MemLocObject> p;
+  MemLocObjectPtr p;
   return p;
 }
 
-size_t Array::getNumDims()
+size_t Array::getNumDims(PartPtr part)
 {
   cerr<<"Error. Direct call to base class (Array)'s getNumDims( ) is not allowed."<<endl;
   ROSE_ASSERT (false);
   return 0;
 }
 
-boost::shared_ptr<MemLocObject> Array::getDereference()
+MemLocObjectPtr Array::getDereference(PartPtr part)
 {
   cerr<<"Error. Direct call to base class (Array)'s getDereference( ) is not allowed."<<endl;
   ROSE_ASSERT (false);
-  boost::shared_ptr<MemLocObject> p;
+  MemLocObjectPtr p;
   return p;
 }
 /*
@@ -393,11 +406,11 @@ boost::shared_ptr<MemLocObject> Array::getDereference()
    ##### Pointer ##### 
    ################### */
 
-boost::shared_ptr<MemLocObject> Pointer::getDereference()
+MemLocObjectPtr Pointer::getDereference(PartPtr part)
 {
   cerr<<"Error. Direct call to base class (Pointer)'s getDereference( ) is not allowed."<<endl;
   ROSE_ASSERT (false);
-  boost::shared_ptr<MemLocObject> p;
+  MemLocObjectPtr p;
   return p;
 }
 

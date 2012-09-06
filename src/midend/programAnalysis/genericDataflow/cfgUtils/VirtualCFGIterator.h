@@ -96,6 +96,7 @@ class back_iterator : /*public virtual BaseCFG::backiterator, */public virtual i
 
 class dataflowIterator : /*public virtual BaseCFG::dataflow, */public virtual iterator
 {
+        protected:
         dataflow::PartPtr terminator;
         public:
         //dataflow(): iterator() {}
@@ -115,7 +116,7 @@ class dataflowIterator : /*public virtual BaseCFG::dataflow, */public virtual it
         
         void add(const dataflow::PartPtr next);
         
-        //void operator ++ (int);
+        void operator ++ (int);
         
         // Contains the state of an dataflow iterator, allowing dataflow 
         // iterators to be checkpointed and restarted.
@@ -156,6 +157,8 @@ class back_dataflowIterator: /*public virtual BaseCFG::back_dataflow,*/ public v
         back_dataflowIterator(const dataflow::PartPtr end, const dataflow::PartPtr terminator_arg);
                 
         void operator ++ (int);
+        
+        std::string str(std::string indent="");
 };
 }
 #endif

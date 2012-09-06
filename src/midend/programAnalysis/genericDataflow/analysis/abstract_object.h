@@ -269,8 +269,7 @@ public:
   
   // Variant of the str method that can produce information specific to the current Part.
   // Useful since AbstractObjects can change from one Part to another.
-  virtual std::string strp(PartPtr part, std::string indent="")
-  { return str(indent); }
+  std::string strp(PartPtr part, std::string indent="");
 };
 
 //memory object that has no internal structure
@@ -320,10 +319,10 @@ class LabeledAggregate: public virtual MemLocObject
 {
  public:
    // number of fields
-   virtual size_t fieldCount();
+   virtual size_t fieldCount(PartPtr part);
 
    // Returns a list of field
-   virtual std::vector<boost::shared_ptr<LabeledAggregateField> > getElements() const; 
+   virtual std::vector<boost::shared_ptr<LabeledAggregateField> > getElements(PartPtr part) const; 
    // Returns true if this object and that object may/must refer to the same labeledAggregate memory object.
    //virtual bool operator == (const LabeledAggregate& that) const;
    //Total order relations (implemented by interface)
@@ -409,18 +408,18 @@ class Array: public virtual MemLocObject
 {
  public:
    // Returns a memory object that corresponds to all the elements in the given array
-   virtual MemLocObjectPtr getElements();
+   virtual MemLocObjectPtr getElements(PartPtr part);
    // Returns the memory object that corresponds to the elements described by the given abstract index, 
    // which represents one or more indexes within the array
-   virtual MemLocObjectPtr getElements(IndexVectorPtr ai) ;
+   virtual MemLocObjectPtr getElements(IndexVectorPtr ai, PartPtr part) ;
 
    // number of dimensions of the array
-   virtual size_t getNumDims();
+   virtual size_t getNumDims(PartPtr part);
 
    //--- pointer like semantics
    // support dereference of array object, similar to the dereference of pointer
    // Return the element object: array[0]
-   virtual MemLocObjectPtr getDereference();
+   virtual MemLocObjectPtr getDereference(PartPtr part);
    //virtual bool operator == (const ObjSet & that) const;
    //virtual bool operator < (const ObjSet & that) const;
 };
@@ -428,7 +427,7 @@ class Array: public virtual MemLocObject
 class Pointer: public virtual MemLocObject
 {
  public:
-   virtual MemLocObjectPtr getDereference() ;
+   virtual MemLocObjectPtr getDereference(PartPtr part) ;
    // Returns true if this pointer refers to the same abstract object as that pointer.
    virtual bool equalPoints(const Pointer & that);
    // Returns true if this object and that object may/must refer to the same pointer memory object.

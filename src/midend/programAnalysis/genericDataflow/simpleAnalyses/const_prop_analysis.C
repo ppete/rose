@@ -575,8 +575,8 @@ ConstantPropagationAnalysis::genInitState(const Function& func, PartPtr p, const
    {
       //ComposerExpr2MemLocPtr ceml(new ComposerExpr2MemLoc(*getComposer(), p, *((ComposedAnalysis*)this)));
       AbstractObjectMap* l = new AbstractObjectMap(new MustEqualFunctor(), boost::make_shared<CPValueObject>(p)/*, ceml*/, p);
-      Dbg::dbg << "ConstantPropagationAnalysis::genInitState, returning l="<<l<<" n=<"<<Dbg::escape(p.getNode()->unparseToString())<<" | "<<p.getNode()->class_name()<<" | "<<p.getIndex()<<">\n";
-      Dbg::dbg << "    l="<<l->str("    ")<<endl;
+      /*Dbg::dbg << "ConstantPropagationAnalysis::genInitState, returning l="<<l<<" n=<"<<Dbg::escape(p.getNode()->unparseToString())<<" | "<<p.getNode()->class_name()<<" | "<<p.getIndex()<<">\n";
+      Dbg::dbg << "    l="<<l->str("    ")<<endl;*/
       initLattices.push_back(l);
      
      // GB: WE NEED TO INITIALIZE THIS LATTICE WITH THE CURRENTLY LIVE VARIABLES. E.G. AS INITIALIZATION-TIME

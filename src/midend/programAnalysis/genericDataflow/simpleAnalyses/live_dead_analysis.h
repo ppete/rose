@@ -37,7 +37,6 @@ class LiveDeadMemAnalysis;
 
 class LiveDeadMemTransfer : public IntraDFTransferVisitor
 {
-    std::string indent;
     AbstractObjectSet* liveLat;
     LiveDeadMemAnalysis* ldma;
     ComposerExpr2MemLocPtr ceml;
@@ -65,17 +64,24 @@ class LiveDeadMemTransfer : public IntraDFTransferVisitor
     // Note that the variable corresponding to this expression is used
     void use(SgExpression *);
     void use(AbstractObjectPtr mem);
+    // Note that the memory location denoted by the corresponding SgVarRefExp is used
+    void useMem(SgVarRefExp* e);
+    // Note that the memory location denoted by the corresponding SgPntrArrRefExp is used
+    void useMem(SgPntrArrRefExp* e);
+    
+    // Returns true if the given expression is currently live and false otherwise
+    bool isMemLocLive(SgExpression* expr);
 
 public:
 LiveDeadMemTransfer(const Function &f, PartPtr p, NodeState &s, const std::vector<Lattice*> &d, 
                     LiveDeadMemAnalysis* ldma,
                     ComposerExpr2MemLocPtr ceml, funcSideEffectUses *fseu)
-    : IntraDFTransferVisitor(f, p, s, d), indent("    "), 
+    : IntraDFTransferVisitor(f, p, s, d),
     liveLat(dynamic_cast<AbstractObjectSet*>(*(dfInfo.begin()))), 
-    ldma(ldma), ceml(ceml), modified(false), fseu(fseu), assigned(p, AbstractObjectSet::may), used(p, AbstractObjectSet::may), part(p)
+    ldma(ldma), ceml(ceml), modified(false), assigned(p, AbstractObjectSet::may), used(p, AbstractObjectSet::may), part(p), fseu(fseu)
     {
         if(liveDeadAnalysisDebugLevel>=1) {
-          Dbg::dbg << indent << "LiveDeadMemTransfer: liveLat=";
+          Dbg::dbg << "LiveDeadMemTransfer: liveLat=";
           Dbg::indent ind(liveDeadAnalysisDebugLevel, 1);
           Dbg::dbg << liveLat->str("")<<endl;
         }
@@ -133,11 +139,9 @@ class LDMemLocObject : public virtual MemLocObject
   protected:
   MemLocObjectPtr parent;
   LiveDeadMemAnalysis* ldma;
-  PartPtr part;
-  //bool iAmLive;
 
   public:
-  LDMemLocObject(MemLocObjectPtr parent_, LiveDeadMemAnalysis* ldma, PartPtr p);
+  LDMemLocObject(MemLocObjectPtr parent_, LiveDeadMemAnalysis* ldma);
   LDMemLocObject(const LDMemLocObject& that);
 
   bool mayEqualML(MemLocObjectPtr o, PartPtr p);
@@ -162,13 +166,13 @@ typedef boost::shared_ptr<LDMemLocObject> LDMemLocObjectPtr;
 
 // Creates an instance of an LDMemLocObject that belongs to one of the MemLocObject categories
 // (LDMemLocObject sub-classes): LDScalar, LDFunctionMemLoc, LDLabeledAggregate, LDArray or LDPointer.
-LDMemLocObjectPtr createLDMemLocObjectCategory(MemLocObjectPtr parent, LiveDeadMemAnalysis* ldma, PartPtr p);
+LDMemLocObjectPtr createLDMemLocObjectCategory(MemLocObjectPtr parent, LiveDeadMemAnalysis* ldma);
 
 //memory object that has no internal structure
 class LDScalar : virtual public LDMemLocObject, virtual public Scalar
 {
  public:
-   LDScalar(MemLocObjectPtr parent, LiveDeadMemAnalysis* ldma, PartPtr p);
+   LDScalar(MemLocObjectPtr parent, LiveDeadMemAnalysis* ldma);
    
   // Implement the required functions by calling the real copies in LDMemLocObject
   bool mayEqual(MemLocObjectPtr o, PartPtr p)  { return LDMemLocObject::mayEqual(o, p); }
@@ -184,7 +188,7 @@ typedef boost::shared_ptr<LDScalar> LDScalarPtr;
 class LDFunctionMemLoc: virtual public LDMemLocObject, virtual public FunctionMemLoc
 {
 public:  
-  LDFunctionMemLoc(MemLocObjectPtr parent, LiveDeadMemAnalysis* ldma, PartPtr p);
+  LDFunctionMemLoc(MemLocObjectPtr parent, LiveDeadMemAnalysis* ldma);
   
   // Implement the required functions by calling the real copies in LDMemLocObject
   bool mayEqual(MemLocObjectPtr o, PartPtr p)  { return LDMemLocObject::mayEqual(o, p); }
@@ -200,13 +204,13 @@ typedef boost::shared_ptr<LDFunctionMemLoc> LDFunctionMemLocPtr;
 class LDLabeledAggregate: virtual public LDMemLocObject, virtual public LabeledAggregate
 {
  public:
-   LDLabeledAggregate(MemLocObjectPtr parent, LiveDeadMemAnalysis* ldma, PartPtr p);
+   LDLabeledAggregate(MemLocObjectPtr parent, LiveDeadMemAnalysis* ldma);
    
    // number of fields
-   size_t fieldCount();
+   size_t fieldCount(PartPtr part);
 
    // Returns a list of field
-   std::vector<boost::shared_ptr<LabeledAggregateField> > getElements() const; 
+   std::vector<boost::shared_ptr<LabeledAggregateField> > getElements(PartPtr part) const; 
    
   // Implement the required functions by calling the real copies in LDMemLocObject
   bool mayEqual(MemLocObjectPtr o, PartPtr p)  { return LDMemLocObject::mayEqual(o, p); }
@@ -222,21 +226,21 @@ typedef boost::shared_ptr<LDLabeledAggregate> LDLabeledAggregatePtr;
 class LDArray: virtual public LDMemLocObject, virtual public Array
 {
  public:
-   LDArray(MemLocObjectPtr parent, LiveDeadMemAnalysis* ldma, PartPtr p);
+   LDArray(MemLocObjectPtr parent, LiveDeadMemAnalysis* ldma);
    
    // Returns a memory object that corresponds to all the elements in the given array
-   MemLocObjectPtr getElements() ;
+   MemLocObjectPtr getElements(PartPtr part);
    // Returns the memory object that corresponds to the elements described by the given abstract index, 
    // which represents one or more indexes within the array
-   MemLocObjectPtr getElements(IndexVectorPtr ai) ;
+   MemLocObjectPtr getElements(IndexVectorPtr ai, PartPtr part);
 
    // number of dimensions of the array
-   size_t getNumDims();
+   size_t getNumDims(PartPtr part);
 
    //--- pointer like semantics
    // support dereference of array object, similar to the dereference of pointer
    // Return the element object: array[0]
-   MemLocObjectPtr getDereference();
+   MemLocObjectPtr getDereference(PartPtr part);
    
   // Implement the required functions by calling the real copies in LDMemLocObject
   bool mayEqual(MemLocObjectPtr o, PartPtr p)  { return LDMemLocObject::mayEqual(o, p); }
@@ -251,9 +255,9 @@ typedef boost::shared_ptr<LDArray> LDArrayPtr;
 class LDPointer: virtual public LDMemLocObject, virtual public Pointer
 {
  public:
-   LDPointer(MemLocObjectPtr parent, LiveDeadMemAnalysis* ldma, PartPtr p);
+   LDPointer(MemLocObjectPtr parent, LiveDeadMemAnalysis* ldma);
    
-   MemLocObjectPtr getDereference() ;
+   MemLocObjectPtr getDereference(PartPtr part);
    // Returns true if this pointer refers to the same abstract object as that pointer.
    bool equalPoints(const Pointer & that);
    

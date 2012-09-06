@@ -186,7 +186,7 @@ MemLocObjectPtr OrthoArrayMemLocObject::copyML() const
  *******************************/
 
 // Maps the given SgNode to an implementation of the MemLocObject abstraction.
-MemLocObjectPtr OrthogonalArrayAnalysis::Expr2MemLoc(SgNode* n, PartPtr p)
+MemLocObjectPtr OrthogonalArrayAnalysis::Expr2MemLoc(SgNode* n, PartPtr part)
 {
   // If this is a top-most array index expression
   if(isSgPntrArrRefExp(n) && 
@@ -194,7 +194,7 @@ MemLocObjectPtr OrthogonalArrayAnalysis::Expr2MemLoc(SgNode* n, PartPtr p)
     SgExpression* arrayNameExp = NULL;
     std::vector<SgExpression*>* subscripts = new std::vector<SgExpression*>;
     SageInterface::isArrayReference(isSgPntrArrRefExp(n), &arrayNameExp, &subscripts);
-    MemLocObjectPtrPair array = composer->Expr2MemLoc(arrayNameExp, p, this);
+    MemLocObjectPtrPair array = composer->Expr2MemLoc(arrayNameExp, part, this);
     assert(array.isArray());
     
     OrthoIndexVector_ImplPtr iv = boost::make_shared<OrthoIndexVector_Impl>();
@@ -209,22 +209,22 @@ MemLocObjectPtr OrthogonalArrayAnalysis::Expr2MemLoc(SgNode* n, PartPtr p)
       //CFGNode subNode(*iter, 2);
       Dbg::dbg << "subNode = ["<<(*iter)->unparseToString()<<" | "<<(*iter)->class_name()<<"]"<<endl;
       //DataflowNode subNodeDF(subNode, filter);
-      iv->index_vector.push_back(composer->Expr2Val(*iter, p, this));
+      iv->index_vector.push_back(composer->Expr2Val(*iter, part, this));
     }
 
     // GB: Do we need to deallocate subscripts???
     Dbg::dbg << "OrthogonalArrayAnalysis::Expr2MemLoc() array->getElements(iv)"<<endl;
-    Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;array="<<array.str("&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;")<<endl;
+    Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;array="<<array.strp(part, "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;")<<endl;
     Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;iv="<<iv->str("&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;")<<endl;
     
-    MemLocObjectPtr tmp = array.mem ? MemLocObject::isArray(array.mem)->getElements(iv) :
-                                      MemLocObject::isArray(array.expr)->getElements(iv);
+    MemLocObjectPtr tmp = array.mem ? MemLocObject::isArray(array.mem)->getElements(iv, part) :
+                                      MemLocObject::isArray(array.expr)->getElements(iv, part);
     //Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;result="<<tmp<<"="<<tmp.get()<<endl;
     //Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;result="<<tmp->str("&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;")<<endl;
     return tmp;
     //return boost::make_shared<OrthoArrayMemLocObject>(array, iv, p);
   } else {
-    MemLocObjectPtrPair notArray = composer->Expr2MemLoc(n, p, this);
+    MemLocObjectPtrPair notArray = composer->Expr2MemLoc(n, part, this);
     // Return the memory location if possible but if not, return the expression object
     return (notArray.mem ? notArray.mem : notArray.expr);
     //return boost::make_shared<OrthoArrayMemLocObject>(notArray, p);

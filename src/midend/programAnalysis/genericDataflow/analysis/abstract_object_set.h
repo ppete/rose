@@ -61,16 +61,16 @@ class AbstractObjectSet : public FiniteLattice
 public:
 
 private:
+    // NOTE: container only stores boost::shared_ptr pointer
+    // NOTE: shared_ptr is assumed to be used by all analysis
+    std::list<AbstractObjectPtr> items;
+  
     bool isFull;
     
 public:
     typedef enum {may=0, must=1} conserv;
 private:
     conserv mode;
-    
-    // NOTE: container only stores boost::shared_ptr pointer
-    // NOTE: shared_ptr is assumed to be used by all analysis
-    std::list<AbstractObjectPtr> items;
     
     //ComposerExpr2ObjPtr ceo;
 public:
@@ -80,11 +80,11 @@ public:
     {}
     
     AbstractObjectSet(const AbstractObjectSet* that) : 
-      Lattice(that->part), FiniteLattice(that->part), isFull(that->isFull), mode(that->mode), items(that->items)
+      Lattice(that->part), FiniteLattice(that->part), items(that->items), isFull(that->isFull), mode(that->mode)
     {}
     
     AbstractObjectSet(const AbstractObjectSet& that) :
-      Lattice(that.part), FiniteLattice(that.part), items(that.items), mode(that.mode), isFull(that.isFull)
+      Lattice(that.part), FiniteLattice(that.part), items(that.items), isFull(that.isFull), mode(that.mode)
     {}
 
     ~AbstractObjectSet() { }

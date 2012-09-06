@@ -42,6 +42,9 @@ namespace cfgUtils
   // given a function's declaration, returns the function's definition.
   // handles the case where decl->get_definition()==NULL
   SgFunctionDefinition* funcDeclToDef(SgFunctionDeclaration* decl);
+  
+  // Returns a string representation of this node's key information
+  std::string SgNode2Str(SgNode* sgn);
 
 }
 

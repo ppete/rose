@@ -1,10 +1,5 @@
 int global;
 
-/*int bar(int arg)
-{
-  return global+arg;
-}*/
-
 int noLDProp(int q) {
 	q = 101;
 	return 102;
@@ -14,8 +9,16 @@ int LDPropThroughArg(int& q) {
 	int dummyToTestForNoProp;
 	return 202;
 }
-int LDPropThroughRet(int q) {
+int LDPropThroughRet1(int q) {
 	q += 301;
+	return q;
+}
+int LDPropThroughRet2(int q) {
+	q += 401;
+	return q;
+}
+int LDPropThroughRet3(int q) {
+	q += 501;
 	return q;
 }
 
@@ -31,15 +34,17 @@ int main()
   int X = LDPropThroughArg(W);
   // X : 202
   // W : 303
-  int Y = LDPropThroughRet(X);
+  int Y = LDPropThroughRet1(X);
   // Y : 503
   int array[100000];
-  array[a] = 12345;//LDPropThroughRet(Y);
-  // array[1] : 804
+  array[a] = LDPropThroughRet3(Y);
+  array[b] = Y;
+  // array[1] : 1004 
+  // array[2] : 503
   array[array[d-c]] = array[a];
-  // array[804] : 804
-  array[b] = LDPropThroughRet(LDPropThroughRet(array[804]));
-  // array[2] : 1406;
+  // array[1004] : 1004
+  array[c] = LDPropThroughRet2(LDPropThroughRet3(array[b]));
+  // array[3] : 1405;
 
   return array[1];
 }

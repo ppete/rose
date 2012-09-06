@@ -57,61 +57,65 @@ bool iterator::isRemaining(const PartPtr n)
 // advances this iterator in the given direction. Forwards if fwDir=true and backwards if fwDir=false.
 // if pushAllChildren=true, all of the current node's unvisited children (predecessors or successors, 
 //    depending on fwDir) are pushed onto remainingNodes
+// It is assumed that for a given iterator pushAllChildren either always = true or always = false.
 void iterator::advance(bool fwDir, bool pushAllChildren)
 {
-        ROSE_ASSERT(initialized);
-        //Dbg::dbg << "iterator::advance(fwDir="<<fwDir<<") #remainingNodes="<<remainingNodes.size()<<endl;
-        /*cout<<"        visited=\n";
-        for(set<PartPtr>::iterator it=visited.begin(); it!=visited.end(); it++)
-                cout << "            <"<<it.getNode()->class_name()<<" | "<<it.getNode()<<" | "<<it.getNode()->unparseToString()<<">\n";*/
-        if(remainingNodes.size()>0)
-        {
-                // pop the next CFG node from the front of the list
-                PartPtr cur = remainingNodes.front();
-                remainingNodes.pop_front();
-                
-                if(pushAllChildren)
-                {
-                        // find its followers (either successors or predecessors, depending on value of fwDir), push back 
-                        // those that have not yet been visited
-                        vector<DataflowEdge> nextE;
-                        if(fwDir)
-                                nextE = cur.outEdges();
-                        else
-                                nextE = cur.inEdges();
-                        for(vector<DataflowEdge>::iterator it=nextE.begin(); it!=nextE.end(); it++)
-                        {
-                                //PartPtr nextN = boost::make_shared<DataflowNode>((*it).target()/* need to put something here because DataflowNodes don't have a default constructor*/);
-                                PartPtr nextN((*it).target()/* need to put something here because DataflowNodes don't have a default constructor*/);
+  ROSE_ASSERT(initialized);
+  //Dbg::dbg << "iterator::advance(fwDir="<<fwDir<<") #remainingNodes="<<remainingNodes.size()<<endl;
+  /*cout<<"        visited=\n";
+  for(set<PartPtr>::iterator it=visited.begin(); it!=visited.end(); it++)
+          cout << "            ["<<it.getNode()->class_name()<<" | "<<it.getNode()<<" | "<<it.getNode()->unparseToString()<<"]\n";*/
+  if(remainingNodes.size()>0)
+  {
+    // pop the next CFG node from the front of the list
+    PartPtr cur = remainingNodes.front();
+    remainingNodes.pop_front();
+    //Dbg::dbg << "#remainingNodes="<<remainingNodes.size()<<" cur=["<<cur.getNode()->unparseToString()<<" | "<<cur.getNode()->class_name()<<"]"<<endl;
+    
+    if(pushAllChildren)
+    {
+      // find its followers (either successors or predecessors, depending on value of fwDir), push back 
+      // those that have not yet been visited
+      vector<DataflowEdge> nextE;
+      if(fwDir)
+              nextE = cur.outEdges();
+      else
+              nextE = cur.inEdges();
+      for(vector<DataflowEdge>::iterator it=nextE.begin(); it!=nextE.end(); it++)
+      {
+        PartPtr nextN((*it).target()/* need to put something here because DataflowNodes don't have a default constructor*/);
   
-                                if(fwDir) //nextN = boost::make_shared<DataflowNode>((*it).target());
-                                  nextN = (*it).target();
-                                else //nextN = boost::make_shared<DataflowNode>((*it).source());
-                                  nextN = (*it).source();
-                                        
-                                /*cout << "      iterator::advance "<<(fwDir?"descendant":"predecessor")<<": "<<
-                                                   "<"<<nextN.getNode()->class_name()<<" | "<<nextN.getNode()<<" | "<<nextN.getNode()->unparseToString()<<">, "<<
-                                                   "visited="<<(visited.find(nextN) != visited.end())<<
-                                                   " remaining="<<isRemaining(nextN)<<"\n";*/
-                                
-                                // if we haven't yet visited this node and don't yet have it on the remainingNodes list
-                                if(visited.find(nextN) == visited.end() &&
-                                        !isRemaining(nextN))
-                                {
-                                        //printf("   pushing back node <%s: 0x%x: %s> visited=%d\n", nextN.getNode()->class_name().c_str(), nextN.getNode(), nextN.getNode()->unparseToString().c_str(), visited.find(nextN)!=visited.end());
-                                        remainingNodes.push_back(nextN);
-                                }
-                        }
-                }
-                
-                // if we still have any nodes left remaining
-                if(remainingNodes.size()>0)
-                {
-                        // take the next node from the front of the list and mark it as visited
-                        //visited[remainingNodes.front()] = true;
-                        visited.insert(remainingNodes.front());
-                }
+        if(fwDir) //nextN = boost::make_shared<DataflowNode>((*it).target());
+          nextN = (*it).target();
+        else //nextN = boost::make_shared<DataflowNode>((*it).source());
+          nextN = (*it).source();
+        //Dbg::dbg << "nextN=["<<nextN.getNode()->unparseToString()<<" | "<<nextN.getNode()->class_name()<<"]"<<endl;
+        
+        /*cout << "      iterator::advance "<<(fwDir?"descendant":"predecessor")<<": "<<
+                           "<"<<nextN.getNode()->class_name()<<" | "<<nextN.getNode()<<" | "<<nextN.getNode()->unparseToString()<<">, "<<
+                           "visited="<<(visited.find(nextN) != visited.end())<<
+                           " remaining="<<isRemaining(nextN)<<"\n";*/
+        
+        // if we haven't yet visited this node and don't yet have it on the remainingNodes list
+        if(visited.find(nextN) == visited.end() &&
+           !isRemaining(nextN))
+        {
+          //printf("   pushing back node <%s: 0x%x: %s> visited=%d\n", nextN.getNode()->class_name().c_str(), nextN.getNode(), nextN.getNode()->unparseToString().c_str(), visited.find(nextN)!=visited.end());
+          remainingNodes.push_back(nextN);
         }
+      }
+    
+      // if we still have any nodes left remaining
+      if(remainingNodes.size()>0)
+      {
+        // take the next node from the front of the list and mark it as visited
+        visited.insert(remainingNodes.front());
+
+        //Dbg::dbg << "remainingNodes.front()=["<<remainingNodes.front().getNode()->unparseToString()<<" | "<<remainingNodes.front().getNode()->class_name()<<"]"<<endl;
+      }
+      // Since pushAllChildren always = true or = false, we only need to worry about managing visited in the true case
+    }
+  }
 }
 
 void iterator::operator ++ (int)
@@ -347,13 +351,13 @@ void dataflowIterator::add(const PartPtr next)
         //printf("dataflowIterator::add() remainingNodes.size()=%d\n", remainingNodes.size());
 }
 
-/*void dataflowIterator::operator ++ (int)
+void dataflowIterator::operator ++ (int)
 {
         ROSE_ASSERT(initialized);
 //      printf("dataflowIterator::++() <<< remainingNodes.size()=%d\n", remainingNodes.size());
         advance(true, false);
 //      printf("dataflowIterator::++() >>> remainingNodes.size()=%d\n", remainingNodes.size());
-}*/
+}
 
 dataflowIterator::checkpoint::checkpoint(const iterator::checkpoint& iChkpt, const PartPtr terminator): 
         iChkpt(iChkpt), terminator(terminator) {}
@@ -414,7 +418,22 @@ back_dataflowIterator::back_dataflowIterator(const PartPtr end, const PartPtr te
 
 void back_dataflowIterator::operator ++ (int)
 {
-        advance(false, true);
+        advance(false, false);
+}
+
+string back_dataflowIterator::str(string indent)
+{
+        ostringstream outs;
+        
+        if(initialized) {
+                outs << "[back_dataflowIterator:\n";
+                outs << "    iterator = "<<iterator::str(indent+"    ")<<"\n";
+                outs << "    terminator = "<< terminator.getNode()->class_name()<<" | "<<terminator.getNode()->unparseToString()<<" | "<<terminator.getIndex()<<"]";
+        } else {
+                outs << "[back_dataflowIterator: Uninitialized]";
+        }
+                
+        return outs.str();
 }
 
 }

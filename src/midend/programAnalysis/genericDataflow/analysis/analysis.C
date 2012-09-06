@@ -595,13 +595,12 @@ void MergeAllReturnStates::visit(const Function& func, PartPtr p, NodeState& sta
   // If this is an explicit return statement
   if(isSgReturnStmt(sgn)) {
     if(analysisDebugLevel>=1)
-      Dbg::dbg << "MergeAllReturnStates::visit() isSgReturnStmt(sgn)->get_expression()="<<isSgReturnStmt(sgn)->get_expression()<<"["<<Dbg::escape(isSgReturnStmt(sgn)->get_expression()->unparseToString())<<" | "<<isSgReturnStmt(sgn)->get_expression()->class_name()<<"]\n";
+      Dbg::dbg << "MergeAllReturnStates::visit() return expr="<<isSgReturnStmt(sgn)->get_expression()<<"["<<Dbg::escape(isSgReturnStmt(sgn)->get_expression()->unparseToString())<<" | "<<isSgReturnStmt(sgn)->get_expression()->class_name()<<"]\n";
 
     ROSE_ASSERT(NodeState::getNodeStates(p).size()==1);
     NodeState* state = *(NodeState::getNodeStates(p).begin());
 
     // Incorporate the entire dataflow state at the return statement
-    if(analysisDebugLevel>=1) Dbg::dbg << "    Merging dataflow state at return statement\n";
     //modified = mergeLats(mergedLatsRetStmt, state->getLatticeAbove((Analysis*)analysis)) || modified;
 
     // Incorporate just the portion of the dataflow state that corresponds to the value being returned,
@@ -725,7 +724,13 @@ void SetAllReturnStates::visit(const Function& func, PartPtr p, NodeState& state
     MemLocObjectPtrPair returnExpr = analysis->getComposer()->Expr2MemLoc(isSgReturnStmt(sgn)->get_expression(), p, analysis);
     decl2RetVal.insert(make_pair(analysis->getComposer()->Expr2MemLoc(func.get_declaration()->search_for_symbol_from_symbol_table(), p, analysis).mem,
                                  (returnExpr.expr? returnExpr.expr : returnExpr.mem)));
-
+    
+    Dbg::dbg << "decl2RetVal="<<endl;
+    for(std::set<pair<MemLocObjectPtr, MemLocObjectPtr> >::const_iterator m=decl2RetVal.begin(); m!=decl2RetVal.end(); m++) {
+      Dbg::indent ind(analysisDebugLevel, 1);
+      Dbg::dbg << m->first.get()->str("")<<" => "<<m->second.get()->str("")<<endl;
+    }
+    
     vector<Lattice*> exprLats;
     for(vector<Lattice*>::const_iterator l=lats.begin(); l!=lats.end(); l++)
       exprLats.push_back((*l)->remapML(decl2RetVal, p));
@@ -995,8 +1000,9 @@ bool ContextInsensitiveInterProceduralDataflow::transfer(
   //!!!     delete remappedL;
       }
 
-      // If this resulted in the dataflow information before the callee changing, add it to the remaining list.
-      if(modified) {
+      // If this resulted in the dataflow information before the callee changing or the calle has not yet been
+      // analyzed, add it to the remaining list.
+      if(modified || (visited.find(callee) == visited.end())) {
         if(analysisDebugLevel > 0) Dbg::dbg << "ContextInsensitiveInterProceduralDataflow::transfer Incoming Dataflow info modified\n";
         // Record that the callee function needs to be re-analyzed because of new information from the caller
         TraverseCallGraphDataflow::addToRemaining(getFunc(callee));

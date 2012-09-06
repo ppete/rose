@@ -76,11 +76,11 @@ namespace dataflow {
                                    ceo         (that.ceo)*/
     {}
     AbstractObjectMap(EqualFunctor& ef, LatticePtr defaultLat_/*, ComposerExpr2ObjPtr ceo_*/, PartPtr part_) : 
-      equalFunctor(EqualFunctorPtr(&ef)), defaultLat(defaultLat_), isFinite(true), isFull(false)/*, ceo(ceo_)*/, Lattice(part_) {}
+      Lattice(part_), equalFunctor(EqualFunctorPtr(&ef)), defaultLat(defaultLat_), isFinite(true), isFull(false) {}
     AbstractObjectMap(EqualFunctor* ef, LatticePtr defaultLat_/*, ComposerExpr2ObjPtr ceo_*/, PartPtr part_) : 
-      equalFunctor(EqualFunctorPtr(ef)), defaultLat(defaultLat_), isFinite(true), isFull(false)/*, ceo(ceo_)*/, Lattice(part_) {}
+      Lattice(part_), equalFunctor(EqualFunctorPtr(ef)), defaultLat(defaultLat_), isFinite(true), isFull(false) {}
     AbstractObjectMap(EqualFunctorPtr efPtr, LatticePtr defaultLat_/*, ComposerExpr2ObjPtr ceo_*/, PartPtr part_) : 
-      equalFunctor(efPtr), defaultLat(defaultLat_), isFinite(true), isFull(false)/*, ceo(ceo_)*/, Lattice(part_) {}
+      Lattice(part_), equalFunctor(efPtr), defaultLat(defaultLat_), isFinite(true), isFull(false) {}
     ~AbstractObjectMap() {}
 
   public:

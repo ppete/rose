@@ -197,8 +197,8 @@ Lattice* AbstractObjectSet::remapML(const std::set<pair<MemLocObjectPtr, MemLocO
     // Print notices of this skipping once
     for(std::set<pair<MemLocObjectPtr, MemLocObjectPtr> >::const_iterator m=ml2ml.begin(); m!=ml2ml.end(); m++)
       // If either the key or the value of this mapping is dead within its respective part, skip it
-      if(!m->first->isLive(part) || m->second->isLive(newPart))
-        Dbg::dbg << "AbstractObjectSet::remapML() WARNING: Skipping dead ml2ml mapping "<<m->first->strp(part)<<" => "<<m->second->strp(newPart)<<endl;
+      if(!m->first->isLive(part) || (m->second && !m->second->isLive(newPart)))
+        Dbg::dbg << "AbstractObjectSet::remapML() WARNING: Skipping dead ml2ml mapping "<<m->first->strp(part)<<"(live="<<m->first->isLive(part)<<") => "<<(m->second ? m->second->strp(newPart) : "NULL")<<"(live="<<(m->second ? m->second->isLive(newPart) : -1)<<")"<<endl;
   }
   
   AbstractObjectSet* newS = new AbstractObjectSet(newPart, mode);
@@ -212,31 +212,38 @@ Lattice* AbstractObjectSet::remapML(const std::set<pair<MemLocObjectPtr, MemLocO
 
     for(std::set<pair<MemLocObjectPtr, MemLocObjectPtr> >::const_iterator m=ml2ml.begin(); m!=ml2ml.end(); m++) {
       // If either the key or the value of this mapping is dead within its respective part, skip it
-      if(!m->first->isLive(part) || m->second->isLive(newPart)) continue;
+      if(!m->first->isLive(part) || (m->second && !m->second->isLive(newPart))) continue;
       
       // If the current item in this set may- or must-equals a key in ml2ml, record this and add the corresponding
       // value in ml2ml to be added to newS
       if((*i)->mustEqual(m->first, part)) {
+        Dbg::dbg << "i="<<(*i)->str("")<<" mustEqual m->first="<<m->first->str("")<<" m->second="<<(m->second ? m->second->str("") : "NULL")<<endl;
         existsMustEqual = true;
         // Insert the corresponding value in ml2ml if it is not NULL
         if(m->second) vals2add.insert(m->second);
       } else if(mode == may && (*i)->mayEqual(m->first, part)) {
+        Dbg::dbg << "i="<<(*i)->str("")<<" mayEqual m->first="<<m->first->str("")<<" m->second="<<(m->second ? m->second->str("") : "NULL")<<endl;
         existsMayEqual = true;
         // Insert the corresponding value in ml2ml if it is not NULL
         vals2add.insert(m->second);
       }
     }
+    Dbg::dbg << "existsMustEqual="<<existsMustEqual<<" existsMayEqual="<<existsMayEqual<<endl;
     
     // If this item is not must-equal to some key(s) in ml2ml, copy it over to newS
-    if(!existsMustEqual) 
+    if(!existsMustEqual) {
       // Skip items that are dead in newPart
       if(!(*i)->isLive(newPart)) continue;
       newS->items.push_back(*i);
+    }
     // Otherwise, we skip this item since it will be replaced by the value(s) of the key(s) it was must-equal to
   }
   
   // Now add the values of all the keys in ml2ml that got matched to this set's items
+  Dbg::dbg << "vals2add=" << endl;
   for(set<MemLocObjectPtr>::iterator v=vals2add.begin(); v!=vals2add.end(); v++) {
+    Dbg::indent ind(1,1);
+    Dbg::dbg << (*v)->str("") << endl;
     newS->items.push_back(*v);
   }
   

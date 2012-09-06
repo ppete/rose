@@ -219,4 +219,10 @@ SgFunctionDefinition* cfgUtils::funcDeclToDef(SgFunctionDeclaration* decl)
   return NULL;
 }
 
-
+// Returns a string representation of this node's key information
+std::string cfgUtils::SgNode2Str(SgNode* sgn)
+{
+  ostringstream oss;
+  oss << "[" << sgn->unparseToString() << " | " << sgn->class_name() << "]";
+  return oss.str();
+}

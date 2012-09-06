@@ -13,8 +13,8 @@ namespace dataflow {
 /***************************
  ***** StxMemLocObject *****
  ***************************/
-StxMemLocObject::StxMemLocObject(SgType* t, PartPtr part) : 
-  type(t), part(part)
+StxMemLocObject::StxMemLocObject(SgType* t/*, PartPtr part*/) : 
+  type(t)//, part(part)
 {}
 
 StxMemLocObject::eqType StxMemLocObject::equal(MemLocObjectPtr that_arg, PartPtr part) 
@@ -549,10 +549,10 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
     return nn->getName(); 
   }
 
-  size_t LabeledAggregateField_Impl::getIndex()
+  size_t LabeledAggregateField_Impl::getIndex(PartPtr part)
   {
     LabeledAggregatePtr parent = getParent();
-    std::vector<LabeledAggregateFieldPtr > elements = parent->getElements();
+    std::vector<LabeledAggregateFieldPtr > elements = parent->getElements(part);
     size_t i=0;
     for (i=0; i<elements.size(); i++)
     {
@@ -567,7 +567,7 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
   std::string LabeledAggregateField_Impl::str(std::string indent) const // pretty print for the object
   {
     string rt;
-    rt = "LabeledAggregateField_Impl: parent @ " + StringUtility::numberToString(parent.get())  + " field " 
+    rt = "LabeledAggregateField_Impl: parent "/*@ " + StringUtility::numberToString(parent.get()) */ + string(" field ") 
       + field->str(indent+"    ");
     return rt;
   }
@@ -736,12 +736,12 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
     string rt;
     
     if (anchor_exp!= NULL)
-      rt += anchor_exp->class_name()+ ": " + anchor_exp->unparseToString() + " @ " + StringUtility::numberToString (anchor_exp);
+      rt += anchor_exp->class_name()+ ": " + anchor_exp->unparseToString()/* + " @ " + StringUtility::numberToString (anchor_exp)*/;
     else
       rt += "expression: NULL";
 
     if (type != NULL )
-      rt += "  type:" + type->unparseToString() + " @ " + StringUtility::numberToString(type);
+      rt += "  type:" + type->unparseToString()/* + " @ " + StringUtility::numberToString(type)*/;
     else
       rt += "  type: NULL";
     return rt;
@@ -768,40 +768,40 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
   // -------------------------------
   
   // ----- ScalarOutOfScopeObj -----
-  ScalarOutOfScopeObj::ScalarOutOfScopeObj(SgType* t, PartPtr part) : OutOfScope_StxMemLocObject(t, part) {}
+  ScalarOutOfScopeObj::ScalarOutOfScopeObj(SgType* t) : OutOfScope_StxMemLocObject(t) {}
   MemLocObjectPtr ScalarOutOfScopeObj::copyML() const { return boost::make_shared<ScalarOutOfScopeObj>(*this); }
 
   // ----- FunctionOutOfScopeObj -----
-  FunctionOutOfScopeObj::FunctionOutOfScopeObj(SgType* t, PartPtr part) : OutOfScope_StxMemLocObject(t, part) {}
+  FunctionOutOfScopeObj::FunctionOutOfScopeObj(SgType* t) : OutOfScope_StxMemLocObject(t) {}
   MemLocObjectPtr FunctionOutOfScopeObj::copyML() const { return boost::make_shared<FunctionOutOfScopeObj>(*this); }
   
   // ----- LabeledAggregateOutOfScopeObj -----
-  LabeledAggregateOutOfScopeObj::LabeledAggregateOutOfScopeObj(SgType* t, PartPtr part) : OutOfScope_StxMemLocObject(t, part) {}
+  LabeledAggregateOutOfScopeObj::LabeledAggregateOutOfScopeObj(SgType* t) : OutOfScope_StxMemLocObject(t) {}
   MemLocObjectPtr LabeledAggregateOutOfScopeObj::copyML() const { return boost::make_shared<LabeledAggregateOutOfScopeObj>(*this); }
     
-  size_t LabeledAggregateOutOfScopeObj::fieldCount() const { ROSE_ASSERT(false); return 0; /*Need to implement field count based on type*/ };
+  size_t LabeledAggregateOutOfScopeObj::fieldCount(PartPtr part) const { ROSE_ASSERT(false); return 0; /*Need to implement field count based on type*/ };
   // Returns a list of fields
-  std::vector<LabeledAggregateFieldPtr> LabeledAggregateOutOfScopeObj::getElements() const {
+  std::vector<LabeledAggregateFieldPtr> LabeledAggregateOutOfScopeObj::getElements(PartPtr part) const {
     ROSE_ASSERT(false); /*Need to implement getElements based on type*/
   }
   
   // ----- ArrayOutOfScopeObj -----
-  ArrayOutOfScopeObj::ArrayOutOfScopeObj(SgType* t, PartPtr part) : OutOfScope_StxMemLocObject(t, part) {}
+  ArrayOutOfScopeObj::ArrayOutOfScopeObj(SgType* t) : OutOfScope_StxMemLocObject(t) {}
   MemLocObjectPtr ArrayOutOfScopeObj::copyML() const { return boost::make_shared<ArrayOutOfScopeObj>(*this); }
     
-  boost::shared_ptr<MemLocObject> ArrayOutOfScopeObj::getElements() { ROSE_ASSERT(false); /*Need to implement based on type*/ };
-  boost::shared_ptr<MemLocObject> ArrayOutOfScopeObj::getElements(IndexVectorPtr ai) { ROSE_ASSERT(false); /*Need to implement based on type*/ };
-  size_t ArrayOutOfScopeObj::getNumDims() { ROSE_ASSERT(false); /*Need to implement based on type*/ };
-  boost::shared_ptr<MemLocObject> ArrayOutOfScopeObj::getDereference() { ROSE_ASSERT(false); /*Need to implement based on type*/ };
+  boost::shared_ptr<MemLocObject> ArrayOutOfScopeObj::getElements(PartPtr part) { ROSE_ASSERT(false); /*Need to implement based on type*/ };
+  boost::shared_ptr<MemLocObject> ArrayOutOfScopeObj::getElements(IndexVectorPtr ai, PartPtr part) { ROSE_ASSERT(false); /*Need to implement based on type*/ };
+  size_t ArrayOutOfScopeObj::getNumDims(PartPtr part) { ROSE_ASSERT(false); /*Need to implement based on type*/ };
+  boost::shared_ptr<MemLocObject> ArrayOutOfScopeObj::getDereference(PartPtr part) { ROSE_ASSERT(false); /*Need to implement based on type*/ };
  
   // ----- PointerOutOfScopeObj -----
-  PointerOutOfScopeObj::PointerOutOfScopeObj(SgType* t, PartPtr part) : OutOfScope_StxMemLocObject(t, part) {}
+  PointerOutOfScopeObj::PointerOutOfScopeObj(SgType* t) : OutOfScope_StxMemLocObject(t) {}
   MemLocObjectPtr PointerOutOfScopeObj::copyML() const { return boost::make_shared<PointerOutOfScopeObj>(*this); }
 
   // used for a pointer to non-array
-  MemLocObjectPtr PointerOutOfScopeObj::getDereference() { ROSE_ASSERT(false); /*Need to implement based on type*/ };
+  MemLocObjectPtr PointerOutOfScopeObj::getDereference(PartPtr part) { ROSE_ASSERT(false); /*Need to implement based on type*/ };
   // used for a pointer to an array
-  MemLocObjectPtr PointerOutOfScopeObj::getElements() { ROSE_ASSERT(false); /*Need to implement based on type*/ };
+  MemLocObjectPtr PointerOutOfScopeObj::getElements(PartPtr part) { ROSE_ASSERT(false); /*Need to implement based on type*/ };
   
   // -----------------------------
   // ----- Expression object -----
@@ -827,7 +827,7 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
   //std::string ScalarExprObj::str(const string& indent)
   std::string ScalarExprObj::str(std::string indent) const // pretty print for the object
   {
-    string rt = "<u>ScalarExprObj:str()</u> @" + StringUtility::numberToString(this)+ " "+ ExprObj::str(indent+"    ");
+    string rt = "<u>ScalarExprObj:str()</u> "/*@" + StringUtility::numberToString(this)+ " "*/+ ExprObj::str(indent+"    ");
     return rt;
   }
   
@@ -866,7 +866,7 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
   //std::string FunctionExprObj::str(const string& indent)
   std::string FunctionExprObj::str(std::string indent) const // pretty print for the object  
   {
-    string rt = "<u>FunctionExprObj</u> @" + StringUtility::numberToString(this)+ " "+ ExprObj::str(indent+"    ");
+    string rt = "<u>FunctionExprObj</u> "/*@" + StringUtility::numberToString(this)+ " "*/+ ExprObj::str(indent+"    ");
     return rt;
   }
   std::string FunctionExprObj::strp(PartPtr part, std::string indent) const // pretty print for the object
@@ -904,7 +904,7 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
   //std::string ArrayExprObj::str(const string& indent)
   std::string ArrayExprObj::str(std::string indent) const // pretty print for the object  
   {
-    string rt = "<u>ArrayExprObj</u> @" + StringUtility::numberToString(this)+ " "+ ExprObj::str(indent+"    ");
+    string rt = "<u>ArrayExprObj</u> "/*@" + StringUtility::numberToString(this)+ " "*/+ ExprObj::str(indent+"    ");
     return rt;
   }
   
@@ -917,10 +917,10 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
 
   // GB: 2012-08-27: should be implementing the following functions here:
   //                 Array::getElements(), getElements(IndexVectorPtr ai), getNumDims(), getDereference()
-  boost::shared_ptr<MemLocObject> ArrayExprObj::getElements() { ROSE_ASSERT(false); /*Need to implement based on type*/ };
-  boost::shared_ptr<MemLocObject> ArrayExprObj::getElements(IndexVectorPtr ai) { ROSE_ASSERT(false); /*Need to implement based on type*/ };
-  size_t ArrayExprObj::getNumDims() { ROSE_ASSERT(false); /*Need to implement based on type*/ };
-  boost::shared_ptr<MemLocObject> ArrayExprObj::getDereference() { ROSE_ASSERT(false); /*Need to implement based on type*/ };
+  boost::shared_ptr<MemLocObject> ArrayExprObj::getElements(PartPtr part) { ROSE_ASSERT(false); /*Need to implement based on type*/ };
+  boost::shared_ptr<MemLocObject> ArrayExprObj::getElements(IndexVectorPtr ai, PartPtr part) { ROSE_ASSERT(false); /*Need to implement based on type*/ };
+  size_t ArrayExprObj::getNumDims(PartPtr part) { ROSE_ASSERT(false); /*Need to implement based on type*/ };
+  boost::shared_ptr<MemLocObject> ArrayExprObj::getDereference(PartPtr part) { ROSE_ASSERT(false); /*Need to implement based on type*/ };
   
   //------------------
   /*std::set<SgType*> PointerExprObj::getType()
@@ -930,7 +930,7 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
     return rt;
   }*/
 
-  MemLocObjectPtr PointerExprObj::getDereference() 
+  MemLocObjectPtr PointerExprObj::getDereference(PartPtr part) 
   {
     // simplest type-based implementation
     SgType* t = StxMemLocObject::getType();
@@ -939,7 +939,7 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
     return createAliasedMemLocObject (p_t->get_base_type(), part);
   }
 
-  MemLocObjectPtr PointerExprObj::getElements() // in case it is a pointer to array
+  MemLocObjectPtr PointerExprObj::getElements(PartPtr part) // in case it is a pointer to array
   {
     MemLocObjectPtr rt;
     //TODO
@@ -979,7 +979,7 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
   //std::string PointerExprObj::str(const string& indent)
   std::string PointerExprObj::str(std::string indent) const // pretty print for the object  
   {
-    string rt = "<u>PointerExprObj</u> @" + StringUtility::numberToString(this)+ " "+ ExprObj::str(indent+"    ");
+    string rt = "<u>PointerExprObj</u> "/*@" + StringUtility::numberToString(this)+ " "*/+ ExprObj::str(indent+"    ");
     return rt;
   }
   
@@ -991,17 +991,22 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
   { return boost::make_shared<PointerExprObj>(*this); }
 
   //---------------------
-  LabeledAggregateExprObj::LabeledAggregateExprObj(SgExpression* e, SgType* t, PartPtr part): ExprObj (e,t, part) 
+  LabeledAggregateExprObj::LabeledAggregateExprObj(SgExpression* e, SgType* t, PartPtr part): ExprObj (e,t) 
   {
-    init(e, t);
+    init(e, t, part);
   }
   
-  LabeledAggregateExprObj::LabeledAggregateExprObj(const LabeledAggregateExprObj& that):ExprObj(that.anchor_exp, that.type, that.part)
+  LabeledAggregateExprObj::LabeledAggregateExprObj(const LabeledAggregateExprObj& that):ExprObj(that.anchor_exp, that.type)
   {
-    init(that.anchor_exp, that.type);
+    //init(that.anchor_exp, that.type);
+    assert (that.anchor_exp != NULL);
+    assert (that.type != NULL);
+    assert (that.anchor_exp->get_type() == that.type);
+    
+    elements = that.elements;
   }
   
-  void LabeledAggregateExprObj::init(SgExpression* e, SgType* t)
+  void LabeledAggregateExprObj::init(SgExpression* e, SgType* t, PartPtr part)
   {
     assert (e != NULL);
     assert (t != NULL);
@@ -1009,7 +1014,7 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
     assert (e->get_type() == t);
     SgClassType * c_t = isSgClassType(t);
     assert (c_t != NULL);
-    fillUpElements(this, LabeledAggregate_Impl::getElements(), c_t, part);
+    fillUpElements(this, LabeledAggregate_Impl::getElements(part), c_t, part);
   }
   
   /*std::set<SgType*> LabeledAggregateExprObj::getType()
@@ -1039,14 +1044,14 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
   //std::string LabeledAggregateExprObj::str(const string& indent)
   std::string LabeledAggregateExprObj::str(std::string indent) const // pretty print for the object  
   {
-    std::string rt = "<u>LabeledAggregateExprObj</u> @ " + StringUtility::numberToString (this);
+    std::string rt = "<u>LabeledAggregateExprObj</u> "/*@ " + StringUtility::numberToString (this)*/;
     rt += " "+ ExprObj::str(indent+"    ");
-    rt += "   with " + StringUtility::numberToString(fieldCount()) + " fields:\n";
+    //rt += "   with " + StringUtility::numberToString(fieldCount()) + " fields:\n";
     rt += indent;
-    for (size_t i =0; i< fieldCount(); i++)
+    /*for (size_t i =0; i< fieldCount(); i++)
     {
       rt += "\t" + (getElements())[i]->str(indent+"    ") + "\n";
-    }
+    }*/
     return rt; 
   }
   
@@ -1055,11 +1060,11 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
     std::string rt = "<u>LabeledAggregateExprObj</u>";
     if(isLive(part)) {
       rt += " "+ ExprObj::str(indent+"    ");
-      rt += "   with " + StringUtility::numberToString(fieldCount()) + " fields:\n";
+      rt += "   with " + StringUtility::numberToString(fieldCount(part)) + " fields:\n";
       rt += indent;
-      for (size_t i =0; i< fieldCount(); i++)
+      for (size_t i =0; i< fieldCount(part); i++)
       {
-        rt += "\t" + (getElements())[i]->str(indent+"    ") + "\n";
+        rt += "\t" + (getElements(part))[i]->str(indent+"    ") + "\n";
       }
     } else {
       rt += "OUT-OF-SCOPE";
@@ -1420,22 +1425,22 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
     string rt;
 
     if (anchor_symbol != NULL)
-      rt += "symbol: " + anchor_symbol->get_name().getString() + " @ " + StringUtility::numberToString (anchor_symbol);
+      rt += "symbol: " + anchor_symbol->get_name().getString()/* + " @ " + StringUtility::numberToString (anchor_symbol)*/;
     /*else
       rt += "symbol: NULL";*/
 
     if (type != NULL)
-      rt += "  type:" + type->unparseToString() + " @ " + StringUtility::numberToString(type);
+      rt += "  type:" + type->unparseToString()/* + " @ " + StringUtility::numberToString(type)*/;
     /*else
       rt += "  type: NULL";*/
 
-    if (parent)
+    /*if (parent)
       rt += "  parent: @ " + StringUtility::numberToString(parent.get()); // use address is sufficient
-    /*else
+    else
       rt += "  parent: NULL";*/
 
     if (array_index_vector != NULL)
-      rt += "  array_index_vector: @ " + StringUtility::numberToString(array_index_vector.get()) + array_index_vector->str(indent+"    "); // use address is sufficient
+      rt += "  array_index_vector: "/*@ " + StringUtility::numberToString(array_index_vector.get()) */+ array_index_vector->str(indent+"    "); // use address is sufficient
     /*else
       rt += "  array_index_vector: NULL";*/
 
@@ -1447,7 +1452,7 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
     string rt;
     
     if(!isLive(part)) return "OUT-OF-SCOPE";
-    else                 return str(indent);
+    else              return str(indent);
   }
 
 
@@ -1480,7 +1485,7 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
   //std::string ScalarNamedObj::str(const string& indent)
   std::string ScalarNamedObj::str(std::string indent) const // pretty print for the object  
   {
-    string rt = "<u>ScalarNamedObj</u> @" + StringUtility::numberToString(this)+ " "+ NamedObj::str(indent);
+    string rt = "<u>ScalarNamedObj</u> "/*@" + StringUtility::numberToString(this)+ " "*/+ NamedObj::str(indent);
     return rt;
   }
 
@@ -1539,7 +1544,7 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
     return rt;
   }*/
 
-  MemLocObjectPtr PointerNamedObj::getDereference() 
+  MemLocObjectPtr PointerNamedObj::getDereference(PartPtr part) 
   {
     // simplest type-based implementation
     SgType* t = StxMemLocObject::getType();
@@ -1548,7 +1553,7 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
     return createAliasedMemLocObject (p_t->get_base_type(), part);
   }
 
-  MemLocObjectPtr PointerNamedObj::getElements() // in case it is a pointer to array
+  MemLocObjectPtr PointerNamedObj::getElements(PartPtr part) // in case it is a pointer to array
   {
     MemLocObjectPtr rt;
     //TODO
@@ -1588,7 +1593,7 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
   //std::string PointerNamedObj::str(const string& indent)
   std::string PointerNamedObj::str(std::string indent) const // pretty print for the object  
   {
-    string rt = "<u>PointerNamedObj</u> @" + StringUtility::numberToString(this)+ " "+ NamedObj::str(indent);
+    string rt = "<u>PointerNamedObj</u> "/*@" + StringUtility::numberToString(this)+ " "*/+ NamedObj::str(indent);
     return rt;
   }
   
@@ -1639,17 +1644,22 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
   }
 
   //----------------------
-  LabeledAggregateNamedObj::LabeledAggregateNamedObj(SgSymbol* s, SgType* t, PartPtr part, MemLocObjectPtr p, IndexVectorPtr iv): NamedObj(s,t,part, p, iv)
+  LabeledAggregateNamedObj::LabeledAggregateNamedObj(SgSymbol* s, SgType* t, MemLocObjectPtr p, IndexVectorPtr iv, PartPtr part): NamedObj(s,t, p, iv)
   {
-    init(s, t, p, iv);
+    init(s, t, p, iv, part);
   }
   
-  LabeledAggregateNamedObj::LabeledAggregateNamedObj(const LabeledAggregateNamedObj& that): NamedObj(that.anchor_symbol, that.type, that.part, that.parent, that.array_index_vector)
+  LabeledAggregateNamedObj::LabeledAggregateNamedObj(const LabeledAggregateNamedObj& that): NamedObj(that.anchor_symbol, that.type, that.parent, that.array_index_vector)
   {
-    init(that.anchor_symbol, that.type, that.parent, that.array_index_vector);
+    assert (that.anchor_symbol != NULL);
+    assert (that.type != NULL);
+    assert (that.anchor_symbol->get_type() == that.type);
+    
+    //init(that.anchor_symbol, that.type, that.parent, that.array_index_vector);
+    elements = that.elements;
   }
   
-  void LabeledAggregateNamedObj::init(SgSymbol* s, SgType* t, MemLocObjectPtr p, IndexVectorPtr iv)
+  void LabeledAggregateNamedObj::init(SgSymbol* s, SgType* t, MemLocObjectPtr p, IndexVectorPtr iv, PartPtr part)
   {
     assert (s != NULL);
     assert (t != NULL);
@@ -1657,7 +1667,7 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
     assert (s->get_type() == t);
     SgClassType * c_t = isSgClassType(t);
 
-    fillUpElements(this, LabeledAggregate_Impl::getElements(), c_t, part);
+    fillUpElements(this, LabeledAggregate_Impl::getElements(part), c_t, part);
   }
 
   /*std::set<SgType*> LabeledAggregateNamedObj::getType()
@@ -1670,13 +1680,13 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
   //std::string LabeledAggregateNamedObj::str(const string& indent)
   std::string LabeledAggregateNamedObj::str(std::string indent) const // pretty print for the object  
   {
-    std::string rt = "<u>LabeledAggregateNamedObj</u> @ " + StringUtility::numberToString (this);
+    std::string rt = "<u>LabeledAggregateNamedObj</u> "/*@ " + StringUtility::numberToString (this)*/;
     rt += " "+ NamedObj::str(indent);
-    rt += "   with " + StringUtility::numberToString(fieldCount()) + " fields:\n";
-    for (size_t i =0; i< fieldCount(); i++)
+    //rt += "   with " + StringUtility::numberToString(fieldCount()) + " fields:\n";
+    /*for (size_t i =0; i< fieldCount(); i++)
     {
       rt += indent + "\t" + (getElements())[i]->str(indent+"    ") + "\n";
-    }
+    }*/
     return rt; 
   }
   
@@ -1685,10 +1695,10 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
     std::string rt = "<u>LabeledAggregateNamedObj</u>";
     if(isLive(part)) {
       rt += " "+ NamedObj::str(indent);
-      rt += "   with " + StringUtility::numberToString(fieldCount()) + " fields:\n";
-      for (size_t i =0; i< fieldCount(); i++)
+      rt += "   with " + StringUtility::numberToString(fieldCount(part)) + " fields:\n";
+      for (size_t i =0; i< fieldCount(part); i++)
       {
-        rt += indent + "\t" + (getElements())[i]->str(indent+"    ") + "\n";
+        rt += indent + "\t" + (getElements(part))[i]->str(indent+"    ") + "\n";
       }
     } else {
       rt += "OUT-OF-SCOPE";
@@ -1718,12 +1728,12 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
   { return boost::make_shared<LabeledAggregateNamedObj>(*this); }
   
   //---------------------
-  ArrayNamedObj::ArrayNamedObj(SgSymbol* s, SgType* t, PartPtr part, MemLocObjectPtr p, IndexVectorPtr iv): NamedObj (s,t, part, p, iv)
+  ArrayNamedObj::ArrayNamedObj(SgSymbol* s, SgType* t, MemLocObjectPtr p, IndexVectorPtr iv, PartPtr part): NamedObj (s,t, p, iv)
   {
     init(s,t,p,iv);
   }
     
-  ArrayNamedObj::ArrayNamedObj(const ArrayNamedObj& that): NamedObj(that.anchor_symbol, that.getType(), that.getPart(), that.parent, that.array_index_vector)
+  ArrayNamedObj::ArrayNamedObj(const ArrayNamedObj& that): NamedObj(that.anchor_symbol, that.getType(), that.parent, that.array_index_vector)
   {
     init(that.anchor_symbol, that.getType(), that.parent, that.array_index_vector);
   }
@@ -1746,7 +1756,7 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
     return rt;
   }*/
 
-  size_t ArrayNamedObj::getNumDims () const
+  size_t ArrayNamedObj::getNumDims (PartPtr part) const
   {
     SgType * a_type = StxMemLocObject::getType();
     assert (a_type != NULL);
@@ -1757,9 +1767,9 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
   //std::string ArrayNamedObj::str(const string& indent)
   std::string ArrayNamedObj::str(std::string indent) const // pretty print for the object  
   {
-    std::string rt = "<u>ArrayNamedObj</u> @ " + StringUtility::numberToString (this);
+    std::string rt = "<u>ArrayNamedObj</u> "/*@ " + StringUtility::numberToString (this)*/;
     rt += " "+ NamedObj::str(indent);
-    rt += "   with " + StringUtility::numberToString(getNumDims()) + " dimensions";
+    //rt += "   with " + StringUtility::numberToString(getNumDims(part)) + " dimensions";
 /*     for (size_t i =0; i< fieldCount(); i++)
      {
        rt += "\t" + (getElements())[i]->str(indent+"    ") + "\n";
@@ -1773,7 +1783,7 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
     std::string rt = "<u>ArrayNamedObj</u>";
     if(isLive(part)) {
       rt += " "+ NamedObj::str(indent);
-      rt += "   with " + StringUtility::numberToString(getNumDims()) + " dimensions";
+      rt += "   with " + StringUtility::numberToString(getNumDims(part)) + " dimensions";
    } else {
       rt += "OUT-OF-SCOPE";
     }
@@ -1782,7 +1792,7 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
 
 
   // Returns the memory object that corresponds to the elements described by the given abstract index, 
-  MemLocObjectPtr ArrayNamedObj::getElements(IndexVectorPtr ai) 
+  MemLocObjectPtr ArrayNamedObj::getElements(IndexVectorPtr ai, PartPtr part) 
   {
     MemLocObjectPtr mem_obj;
     
@@ -1797,7 +1807,7 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
                                    boost::dynamic_pointer_cast<MemLocObject>(shared_from_this()), ai);
   }
 
-  MemLocObjectPtr ArrayNamedObj::getDereference() 
+  MemLocObjectPtr ArrayNamedObj::getDereference(PartPtr part) 
   {
     // return array[0][*]..[*]
     IndexVector_ImplPtr myindexv = boost::make_shared<IndexVector_Impl>();
@@ -1807,14 +1817,14 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
     
     // we use unknown index to represent the ALL element concept of a dimension
     // TODO, we may want to generate an Array object which is the N-1 dimension array type to be accurate.
-    for (size_t i =0; i< getNumDims() -1; i++)
+    for (size_t i =0; i< getNumDims(part) -1; i++)
     {
       /*GB: Deprecating IndexSets and replacing them with ValueObjects.
       myindexv ->index_vector.push_back(UnknownIndexSet::get_inst());*/
       myindexv->index_vector.push_back(boost::make_shared<StxValueObject>((SgNode*)NULL));
     }
 
-    return getElements(myindexv);
+    return getElements(myindexv, part);
   }
   //use the [Named|Expr|Aliased]Obj side of 
   /* GB: Deprecating the == operator. Now that some objects can contain AbstractObjects any equality test must take the current part as input.
@@ -1843,7 +1853,7 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
   {
     string rt;
     if (type != NULL )
-      rt += type->unparseToString() + " @ " + StringUtility::numberToString(type); 
+      rt += type->unparseToString()/* + " @ " + StringUtility::numberToString(type)*/;
     return rt;
   }
 
@@ -2123,12 +2133,12 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
 
   // GB: 2012-08-27: should be implementing the following functions here:
   //                 Array::getElements(), getElements(IndexVectorPtr ai), getNumDims(), getDereference()
-  boost::shared_ptr<MemLocObject> ArrayAliasedObj::getElements() { ROSE_ASSERT(false); /*Need to implement based on type*/ };
-  boost::shared_ptr<MemLocObject> ArrayAliasedObj::getElements(IndexVectorPtr ai) { ROSE_ASSERT(false); /*Need to implement based on type*/ };
-  size_t ArrayAliasedObj::getNumDims() { ROSE_ASSERT(false); /*Need to implement based on type*/ };
-  boost::shared_ptr<MemLocObject> ArrayAliasedObj::getDereference() { ROSE_ASSERT(false); /*Need to implement based on type*/ };
+  boost::shared_ptr<MemLocObject> ArrayAliasedObj::getElements(PartPtr part) { ROSE_ASSERT(false); /*Need to implement based on type*/ };
+  boost::shared_ptr<MemLocObject> ArrayAliasedObj::getElements(IndexVectorPtr ai, PartPtr part) { ROSE_ASSERT(false); /*Need to implement based on type*/ };
+  size_t ArrayAliasedObj::getNumDims(PartPtr part) { ROSE_ASSERT(false); /*Need to implement based on type*/ };
+  boost::shared_ptr<MemLocObject> ArrayAliasedObj::getDereference(PartPtr part) { ROSE_ASSERT(false); /*Need to implement based on type*/ };
 
-  MemLocObjectPtr PointerAliasedObj::getDereference()
+  MemLocObjectPtr PointerAliasedObj::getDereference(PartPtr part)
   {
     // simplest type-based implementation
     SgType* t = StxMemLocObject::getType();
@@ -2196,35 +2206,35 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
   //std::string ScalarAliasedObj::str(const string& indent)
   std::string ScalarAliasedObj::str(std::string indent) const // pretty print for the object  
   {
-    string rt = "<u>ScalarAliasedObj</u> @ " + StringUtility::numberToString(this)+ " "+ AliasedObj::str(indent);
+    string rt = "<u>ScalarAliasedObj</u>"/*  @ " + StringUtility::numberToString(this)+ " "*/+ AliasedObj::str(indent);
     return rt;
   }
 
   //std::string FunctionAliasedObj::str(const string& indent)
   std::string FunctionAliasedObj::str(std::string indent) const // pretty print for the object  
   {
-    string rt = "<u>FunctionAliasedObj</u> @ " + StringUtility::numberToString(this)+ " "+ AliasedObj::str(indent);
+    string rt = "<u>FunctionAliasedObj</u>"/*  @ " + StringUtility::numberToString(this)+ " "*/+ AliasedObj::str(indent);
     return rt;
   }
 
   //std::string LabeledAggregateAliasedObj::str(const string& indent)
   std::string LabeledAggregateAliasedObj::str(std::string indent) const // pretty print for the object  
   {
-    string rt = "<u>LabeledAggregateAliasedObj</u> @ " + StringUtility::numberToString(this)+ " "+ AliasedObj::str(indent);
+    string rt = "<u>LabeledAggregateAliasedObj</u>"/*  @ " + StringUtility::numberToString(this)+ " "*/+ AliasedObj::str(indent);
     return rt;
   }
   
   //std::string ArrayAliasedObj::str(const string& indent)
   std::string ArrayAliasedObj::str(std::string indent) const // pretty print for the object  
   {
-    string rt = "<u>ArrayAliasedObj</u> @ " + StringUtility::numberToString(this)+ " "+ AliasedObj::str(indent);
+    string rt = "<u>ArrayAliasedObj</u>"/*  @ " + StringUtility::numberToString(this)+ " "*/+ AliasedObj::str(indent);
     return rt;
   }
   
   //std::string PointerAliasedObj::str(const string& indent)
   std::string PointerAliasedObj::str(std::string indent) const // pretty print for the object  
   {
-    string rt = "<u>PointerAliasedObj</u> @ " + StringUtility::numberToString(this)+ " "+ AliasedObj::str(indent);
+    string rt = "<u>PointerAliasedObj</u>"/*  @ " + StringUtility::numberToString(this)+ " "*/+ AliasedObj::str(indent);
     return rt;
   }
 
@@ -2331,15 +2341,15 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
     if (SageInterface::isScalarType(t) || (isSgReferenceType(t) && SageInterface::isScalarType(isSgReferenceType(t)->get_base_type())))
     // We define the following SgType as scalar types: 
     // char, short, int, long , void, Wchar, Float, double, long long, string, bool, complex, imaginary 
-    { rt = boost::make_shared<ScalarNamedObj>(anchor_symbol, t, part, parent, iv); }
+    { rt = boost::make_shared<ScalarNamedObj>(anchor_symbol, t, parent, iv, part); }
     else if (isSgFunctionType(t) || (isSgReferenceType(t) && isSgFunctionType(isSgReferenceType(t)->get_base_type())))
-    { rt = boost::make_shared<FunctionNamedObj>(anchor_symbol, t, part, parent, iv); }
+    { rt = boost::make_shared<FunctionNamedObj>(anchor_symbol, part); }
     else if (isSgPointerType(t) || (isSgReferenceType(t) && isSgPointerType(isSgReferenceType(t)->get_base_type())))
-    { rt = boost::make_shared<PointerNamedObj>(anchor_symbol, t, part, parent, iv); }
+    { rt = boost::make_shared<PointerNamedObj>(anchor_symbol, t, parent, iv, part); }
     else if (isSgClassType(t) || (isSgReferenceType(t) && isSgClassType(isSgReferenceType(t)->get_base_type())))
-    { rt = boost::make_shared<LabeledAggregateNamedObj>(anchor_symbol, t, part, parent, iv); }
+    { rt = boost::make_shared<LabeledAggregateNamedObj>(anchor_symbol, t, parent, iv, part); }
     else if (isSgArrayType(t) || (isSgReferenceType(t) && isSgArrayType(isSgReferenceType(t)->get_base_type()))) // This is for the entire array variable
-    { rt = boost::make_shared<ArrayNamedObj>(anchor_symbol, t, part, parent, iv); }
+    { rt = boost::make_shared<ArrayNamedObj>(anchor_symbol, t, parent, iv, part); }
     else
     {
       cerr<<"Warning: createNamedMemLocObject(): unhandled symbol:"<<anchor_symbol->class_name() << 

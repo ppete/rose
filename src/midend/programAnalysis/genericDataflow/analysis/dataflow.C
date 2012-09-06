@@ -138,6 +138,19 @@ IntraFWDataflow::getInitialWorklist(const Function &func, bool analyzeFromDirect
   return dfIt;
 }
 
+class GetReturnStmts : public UnstructuredPassIntraAnalysis
+{
+  public:
+  set<PartPtr> returns;
+
+  void visit(const Function& func, PartPtr p, NodeState& state) {
+    if(isSgReturnStmt(p.getNode())) {
+      returns.insert(p);
+    }
+  }
+};
+//
+
 //VirtualCFG::dataflowIterator*
 list<PartPtr>
 IntraBWDataflow::getInitialWorklist(const Function &func, bool analyzeFromDirectionStart, const set<Function> &calleesUpdated, NodeState *fState)
@@ -148,6 +161,12 @@ IntraBWDataflow::getInitialWorklist(const Function &func, bool analyzeFromDirect
   //return new VirtualCFG::back_dataflowIterator(funcCFGEnd, funcCFGStart);
   list<PartPtr> dfIt;
   dfIt.push_back(funcCFGEnd);
+  //RoseSTLContainer<SgNode*> rets=NodeQuery::querySubTree(project,VSgReturnStmt);
+  //for(RoseSTLContainer<SgNode*>::iterator r=rets.begin(); r!=rets.end(); r++)
+  GetReturnStmts grs;
+  grs.runAnalysis(func, fState);
+  for(set<PartPtr>::iterator r=grs.returns.begin(); r!=grs.returns.end(); r++)
+    dfIt.push_back(*r);
   return dfIt;
 }
 
@@ -230,6 +249,11 @@ PartPtr IntraFWDataflow::getUltimate(const Function &func)
 PartPtr IntraBWDataflow::getUltimate(const Function &func)
 { return cfgUtils::getFuncStartCFG(func.get_definition(), filter); }
 
+VirtualCFG::dataflowIterator* IntraFWDataflow::getIterator(const Function &func)
+{ return new VirtualCFG::dataflowIterator(cfgUtils::getFuncEndCFG(func.get_definition(), filter)); }
+VirtualCFG::dataflowIterator* IntraBWDataflow::getIterator(const Function &func)
+{ return new VirtualCFG::back_dataflowIterator(cfgUtils::getFuncStartCFG(func.get_definition(), filter)); }
+
 // Runs the intra-procedural analysis on the given function. Returns true if 
 // the function's NodeState gets modified as a result and false otherwise.
 // state - the function's NodeState
@@ -262,25 +286,30 @@ void IntraUniDirectionalDataflow::runAnalysis(const Function& func, NodeState* f
 
   //printf("IntraFWDataflow::runAnalysis() function %s()\n", func.get_name().getString());
   
-  //list<PartPtr> startingParts = getInitialWorklist(func, analyzeFromDirectionStart, calleesUpdated, fState);
+  // Set of all the Parts that have already been visited by the analysis
+  set<PartPtr> visited;
   
   // Re-analyze it from scratch
   list<PartPtr> startingParts = getInitialWorklist(func, true, calleesUpdated, fState);
+  PartPtr ultimatePart = getUltimate(func);
   for(list<PartPtr>::iterator start=startingParts.begin(); start!=startingParts.end(); start++) {
     ostringstream startStr; startStr << "Starting from ["<<(*start).getNode()->unparseToString()<<" | "<<(*start).getNode()->class_name()<<"]"<<endl;
     Dbg::region reg(analysisDebugLevel, 1, Dbg::region::topLevel, startStr.str());
     
     // Iterate over the nodes in this function that are downstream from the nodes added above
-    VirtualCFG::dataflowIterator it(cfgUtils::getFuncEndCFG(func.get_definition(),filter));
-    it.add(*start);
-    for(; it!=VirtualCFG::dataflowIterator::end(); )
+    //VirtualCFG::dataflowIterator it(getUltimate(func));
+    VirtualCFG::dataflowIterator* curNodeIt = getIterator(func);
+    Dbg::dbg << "Initial curNodeIt="<<curNodeIt->str()<<endl;
+    curNodeIt->add(*start);
+    for(; *curNodeIt!=VirtualCFG::dataflowIterator::end(); )
     {
-      PartPtr p = *it;
+      PartPtr p = **curNodeIt;
       SgNode* sgn = p.getNode();
       ostringstream nodeNameStr;
       nodeNameStr << "Current Node ["<<sgn->class_name()<<" | "<<Dbg::escape(sgn->unparseToString())<<" | "<<p.getIndex()<<"] "<<sgn;
       Dbg::region reg(analysisDebugLevel, 1, Dbg::region::topLevel, nodeNameStr.str());
       bool modified = false;
+      visited.insert(p);
       
       // the number of NodeStates associated with the given dataflow node
       int numStates=NodeState::numNodeStates(p);
@@ -368,7 +397,11 @@ void IntraUniDirectionalDataflow::runAnalysis(const Function& func, NodeState* f
       // =================== Populate the generated outgoing lattice to descendants (meetUpdate) ===================
 /*              // if there has been a change in the dataflow state immediately below this node AND*/
         // If this is not the last node in the function
-      if(/*modified && */*it != getUltimate(func))
+      
+      /*Dbg::dbg << "curNodeIt=["<<(**curNodeIt).getNode()->unparseToString()<<" | "<<(**curNodeIt).getNode()->class_name()<<"]"<<endl;
+      Dbg::dbg << "ultimatePart=["<<ultimatePart.getNode()->unparseToString()<<" | "<<ultimatePart.getNode()->class_name()<<"]"<<endl;
+      Dbg::dbg << "(*curNodeIt != ultimatePart)="<<(*curNodeIt != ultimatePart)<<endl;*/
+      if(/*modified && */**curNodeIt != ultimatePart)
       {
         if(analysisDebugLevel>=1){
           Dbg::dbg << " ==================================  "<<endl;
@@ -399,19 +432,21 @@ void IntraUniDirectionalDataflow::runAnalysis(const Function& func, NodeState* f
           modified = propagateStateToNextNode(getLatticePost(state), p, numStates-1, getLatticeAnte(nextState), nextNode);
           if(analysisDebugLevel>=1){
             Dbg::dbg << "propagated/merged, modified="<<modified<<endl;
-            Dbg::dbg << "^^^^^^^^^^^^^^^^^^"<<endl;
-//            Dbg::dbg << "it before="<<it.str()<<endl;
+            Dbg::dbg << "<hline>";
+//            Dbg::dbg << "^^^^^^^^^^^^^^^^^^"<<endl;
+//            Dbg::dbg << "curNodeIt before="<<curNodeIt->str()<<endl;
           }
-          // If the next node's state gets modified as a result of the propagation, 
-          // add the node to the processing queue.
-          if(modified) it.add(nextNode);
+          // If the next node's state gets modified as a result of the propagation, or the next node has not yet been
+          // visited, add it to the processing queue.
+          if(modified || visited.find(nextNode)==visited.end())
+            curNodeIt->add(nextNode);
           
-//          if(analysisDebugLevel>=1) Dbg::dbg << "it after="<<it.str()<<endl;
+//          if(analysisDebugLevel>=1) Dbg::dbg << "curNodeIt after="<<curNodeIt->str()<<endl;
         }
       }
-//      if(analysisDebugLevel>=1) Dbg::dbg << "it final="<<it.str()<<endl;
-      it++;
-//      if(analysisDebugLevel>=1) Dbg::dbg << "it post-increment="<<it.str()<<endl;   
+      //if(analysisDebugLevel>=1) Dbg::dbg << "curNodeIt final="<<curNodeIt->str()<<endl;
+      (*curNodeIt)++;
+      //if(analysisDebugLevel>=1) Dbg::dbg << "curNodeIt post-increment="<<curNodeIt->str()<<endl;   
     }
   }
 #if 0

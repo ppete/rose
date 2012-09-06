@@ -291,6 +291,7 @@ class IntraUniDirectionalDataflow : public IntraUnitDataflow
 
   virtual vector<PartPtr> getDescendants(PartPtr p) = 0;
   virtual PartPtr getUltimate(const Function &func) = 0;
+  virtual VirtualCFG::dataflowIterator* getIterator(const Function &func) = 0;
   
   virtual direction getDirection() = 0;
 };
@@ -363,6 +364,7 @@ class IntraFWDataflow  : public ComposedAnalysis
   void transferFunctionCall(const Function &func, PartPtr p, NodeState *state);
   vector<PartPtr> getDescendants(PartPtr p);
   PartPtr getUltimate(const Function &func);
+  VirtualCFG::dataflowIterator* getIterator(const Function &func);
   
   direction getDirection() { return fw; }
 };
@@ -384,6 +386,7 @@ class IntraBWDataflow  : public ComposedAnalysis
   void transferFunctionCall(const Function &func, PartPtr p, NodeState *state);
   vector<PartPtr> getDescendants(PartPtr p);
   PartPtr getUltimate(const Function &func);
+  VirtualCFG::dataflowIterator* getIterator(const Function &func);
   
   direction getDirection() { return bw; }
 };
@@ -407,6 +410,7 @@ class IntraUndirDataflow  : public ComposedAnalysis
   void transferFunctionCall(const Function &func, PartPtr p, NodeState *state) {};
   vector<PartPtr> getDescendants(PartPtr p) { vector<PartPtr> empty; return empty; }
   PartPtr getUltimate(const Function &func) { return cfgUtils::getFuncStartCFG(func.get_definition(), filter); }
+  VirtualCFG::dataflowIterator* getIterator(const Function &func) { return NULL; }
   
   direction getDirection() { return none; }
 };
