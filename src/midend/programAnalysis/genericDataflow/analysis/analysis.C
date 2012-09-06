@@ -1009,7 +1009,7 @@ bool ContextInsensitiveInterProceduralDataflow::transfer(
         remainingDueToCallers.insert(getFunc(callee));
       }
     } // Caller -> Callee
-      
+
     // Callee -> Caller
     // ----------------
     {
