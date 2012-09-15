@@ -9,40 +9,40 @@ int nodeConstAnalysisDebugLevel=0;
 
 // The different levels of this lattice
 // this object is uninitialized
-const int nodeConstLattice::uninitialized; 
+const int nodeConstLattice::uninitialized;
 // no information is known about the value of the variable
-const int nodeConstLattice::bottom; 
+const int nodeConstLattice::bottom;
 // the value of the variable is known
-const int nodeConstLattice::valKnown; 
+const int nodeConstLattice::valKnown;
 // this variable holds more values than can be represented using a single value and divisibility
-const int nodeConstLattice::top; 
+const int nodeConstLattice::top;
 
 const int nodeConstLattice::noAssign;
 const int nodeConstLattice::constVal;
 const int nodeConstLattice::multVal;
 
 // returns a copy of this lattice
-Lattice* nodeConstLattice::copy() const
+nodeConstLattice* nodeConstLattice::copy() const
 {
         return new nodeConstLattice(*this);
 }
 
 // overwrites the state of this Lattice with that of that Lattice
-void nodeConstLattice::copy(Lattice* that_arg)
+void nodeConstLattice::copy(const Lattice* that_arg)
 {
-        nodeConstLattice* that = dynamic_cast<nodeConstLattice*>(that_arg);
-        
+        const nodeConstLattice* that = dynamic_cast<const nodeConstLattice*>(that_arg);
+
         this->valID = that->valID;
         this->level = that->level;
 }
 
 // computes the meet of this and that and saves the result in this
 // returns true if this causes this to change and false otherwise
-bool nodeConstLattice::meetUpdate(Lattice* that_arg)
+bool nodeConstLattice::meetUpdate(const Lattice* that_arg)
 {
         unsigned long  oldValID = valID;
         short oldLevel = level;
-        nodeConstLattice* that = dynamic_cast<nodeConstLattice*>(that_arg);
+        const nodeConstLattice* that = dynamic_cast<const nodeConstLattice*>(that_arg);
 
 /*printf("nodeConstLattice::meetUpdate\n");
 cout << "this: " << str("") << "\n";
@@ -72,7 +72,7 @@ cout << "that: " << that->str("") << "\n";*/
                 // else, if that is bottom
                 else if(that->level==bottom)
                 {
-                        // if this is higher than bottom, make this object top since we're at a 
+                        // if this is higher than bottom, make this object top since we're at a
                         // meet of a set value and an unset value
                         if(level > bottom)
                                 setToTop();
@@ -80,16 +80,16 @@ cout << "that: " << that->str("") << "\n";*/
                 // else, if both are above bottom, perform the meet
                 else
                 {
-                        // if the two objects have known values 
+                        // if the two objects have known values
                         if(level==valKnown && that->level==valKnown)
                         {
-                                // if they disagree on their values, move the state 
+                                // if they disagree on their values, move the state
                                 // of this object to top
                                 if(valID != that->valID)
                                 {
                                         setToTop();
                                 }
-                                // else, if the two objects agree on their values, we can 
+                                // else, if the two objects agree on their values, we can
                                 // leave this object alone
                         }
                         // else, if either object is top, set this object to top
@@ -145,7 +145,7 @@ cout << "that: " << that.str("") << "\n";*/
                 // else, if both are above bottom, perform the meet
                 else
                 {
-                        // if the two objects have known values 
+                        // if the two objects have known values
                         if(level==valKnown && that.level==valKnown)
                         {
                                 // update valID to the maximum of the two valIDs
@@ -177,17 +177,17 @@ bool nodeConstLattice::increment(int val)
         return false;
 }
 
-bool nodeConstLattice::operator==(Lattice* that_arg)
+bool nodeConstLattice::operator==(const Lattice* that_arg) const
 {
-        nodeConstLattice* that = dynamic_cast<nodeConstLattice*>(that_arg);
-        
+        const nodeConstLattice* that = dynamic_cast<const nodeConstLattice*>(that_arg);
+
         return (valID == that->valID) &&
                (level == that->level);
 }
 
 short nodeConstLattice::getValConst() const
 { return level; }
-        
+
 
 // Sets the state of this lattice to bottom
 // returns true if this causes the lattice's state to change, false otherwise
@@ -216,9 +216,9 @@ bool nodeConstLattice::setToTop()
         bool modified = this->level != top;
         this->valID = 0;
         level = top;
-        return modified;        
+        return modified;
 }
-        
+
 string nodeConstLattice::str(string indent)
 {
         ostringstream outs;
@@ -241,42 +241,38 @@ string nodeConstLattice::str(string indent)
 
 // generates the initial lattice state for the given dataflow node, in the given function, with the given NodeState
 //vector<Lattice*> nodeConstAnalysis::genInitState(const Function& func, const DataflowNode& n, const NodeState& state)
-void nodeConstAnalysis::genInitState(const Function& func, const DataflowNode& n, const NodeState& state,
-                        vector<Lattice*>& initLattices, vector<NodeFact*>& initFacts)
+FiniteVariablesProductLattice*
+nodeConstAnalysis::genLattice(const Function& func, const DataflowNode& n, const NodeState& state)
 {
-        //vector<Lattice*> initLattices;
-        map<varID, Lattice*> constVarLattices;
-        FiniteVariablesProductLattice* l = new FiniteVariablesProductLattice(true, false, new nodeConstLattice(), constVarLattices, NULL, func, n, state);
-        //printf("nodeConstAnalysis::genInitState, returning %p\n", l);
-        initLattices.push_back(l);
-        
-/*printf("nodeConstAnalysis::genInitState() initLattices:\n");
-for(vector<Lattice*>::iterator it = initLattices.begin(); 
-    it!=initLattices.end(); it++)
-{       
-        cout << *it << ": " << (*it)->str("    ") << "\n";
-}*/
-        
-        //return initLattices;
+        typedef std::map<varID, Lattice*> ConstVarLatticeMap;
+
+        return new FiniteVariablesProductLattice(true, false, new nodeConstLattice(), ConstVarLatticeMap(), NULL, func, n, state);
 }
 
-bool nodeConstAnalysis::transfer(const Function& func, const DataflowNode& n, NodeState& state, const vector<Lattice*>& dfInfo)
+std::vector<NodeFact*>
+nodeConstAnalysis::genFacts(const Function& func, const DataflowNode& n, const NodeState& state)
 {
-        bool modified=false;
-        
-        FiniteVariablesProductLattice* prodLat = dynamic_cast<FiniteVariablesProductLattice*>(*(dfInfo.begin()));
-        
+  return std::vector<NodeFact*>();
+}
+
+bool nodeConstAnalysis::transfer(const Function& func, const DataflowNode& n, NodeState& state, LatticePtr dfInfo)
+{
+        bool modified=false; // \todo \pp variable no longer needed
+
+        FiniteVariablesProductLattice* prodLat = dynamic_cast<FiniteVariablesProductLattice*>(dfInfo.get());
+        ROSE_ASSERT(prodLat);
+
         printf("nodeConstAnalysis::transfer\n");
-        
+
         // make sure that all the non-constant Lattices are initialized
         const vector<Lattice*>& lattices = prodLat->getLattices();
         for(vector<Lattice*>::const_iterator it = lattices.begin(); it!=lattices.end(); it++)
                 (dynamic_cast<nodeConstLattice*>(*it))->initialize();
-        
+
         SgNode* asgnLHS;
         /*printf("n.getNode() = <%s|%s>\n", n.getNode()->unparseToString().c_str(), n.getNode()->class_name().c_str());
         printf("isSgBinaryOp(n.getNode())=%p\n", isSgBinaryOp(n.getNode()));*/
-        
+
         // If this is an assignment operation, grab the left-hand side
         if((asgnLHS = cfgUtils::getAssignmentLHS(n.getNode())) != NULL)
         {
@@ -286,9 +282,9 @@ bool nodeConstAnalysis::transfer(const Function& func, const DataflowNode& n, No
                         varID lhsVar(asgnLHS);
                         if(nodeConstAnalysisDebugLevel>=1)
                                 printf("Assignment of variable %s\n", lhsVar.str().c_str());
-                        
+
                         // ---------------------------------------------------------------------------------
-                        // Update the left-hand side variable with the max of the lattices of the right-hand 
+                        // Update the left-hand side variable with the max of the lattices of the right-hand
                         // side variables or set it to 1 if the right hand side has no variable reads (i.e. its a constant)
 // WARNING: The RHS MAY CONTAIN FUNCTION CALLS, WHICH WE'RE NOT HANDLING RIGHT NOW
                         set<SgNode*> rhs;
@@ -302,7 +298,7 @@ bool nodeConstAnalysis::transfer(const Function& func, const DataflowNode& n, No
                                 // copy rhsReads_it into rhsReads
                                 for(varIDSet::iterator it2=rhsReads_it.begin(); it2!=rhsReads_it.end(); it2++)
                                         rhsReads.insert(*it2);
-                                
+
                                 varIDSet rhsWrites_it = getWriteVarRefsInSubtree(*it);
                                 //printf("    <%s|%s> rhsReads_it.size()=%d rhsWrites_it.size()=%d\n", (*it)->unparseToString().c_str(), (*it)->class_name().c_str(), rhsReads_it.size(), rhsWrites_it.size());
                         }
@@ -321,7 +317,7 @@ bool nodeConstAnalysis::transfer(const Function& func, const DataflowNode& n, No
                         }
                         else
                                 maxLat.set(/*uids.getUID()*/ (unsigned long)n.getNode());
-                        
+
                         nodeConstLattice* lhsVarLat = dynamic_cast<nodeConstLattice*>(prodLat->getVarLattice(func, lhsVar));
                         //lhsVarLat->set(uids.getUID());
                         *lhsVarLat = maxLat;
@@ -335,9 +331,9 @@ bool nodeConstAnalysis::transfer(const Function& func, const DataflowNode& n, No
         {
                 SgInitializedName* initName = isSgInitializedName(n.getNode());
                 varID var(initName);
-                
+
                 nodeConstLattice* ncLat = dynamic_cast<nodeConstLattice*>(prodLat->getVarLattice(func, var));
-                
+
                 // if this is a scalar that we care about
                 if(ncLat)
                 {
@@ -357,18 +353,18 @@ bool nodeConstAnalysis::transfer(const Function& func, const DataflowNode& n, No
                         SgInitializedNamePtrList params = callee.get_params();
                         const SgExpressionPtrList& args = isSgFunctionCallExp(n.getNode())->get_args()->get_expressions();
                         ROSE_ASSERT(params.size() == args.size());
-                        
+
                         SgInitializedNamePtrList::const_iterator itParams;
                         SgExpressionPtrList::const_iterator itArgs;
-                        for(itParams=params.begin(), itArgs=args.begin(); 
-                            itParams!=params.end() && itArgs!=args.end(); 
+                        for(itParams=params.begin(), itArgs=args.begin();
+                            itParams!=params.end() && itArgs!=args.end();
                             itParams++, itArgs++)
                         {
                                 SgInitializedName* param = *itParams;
                                 SgExpression*      arg   = *itArgs;
 // !!!! THIS IS A VERY COARSE WAY TO DETECT PASSING BY REFERENCE
                                 // If the current variable is being passed by reference through a pointer
-                                if(isSgPointerType(param->get_type()) && isSgAddressOfOp(arg) && 
+                                if(isSgPointerType(param->get_type()) && isSgAddressOfOp(arg) &&
                                    varID::isValidVarExp(isSgAddressOfOp(arg)->get_operand()))
                                 {
                                         varID var(isSgAddressOfOp(arg)->get_operand());
@@ -387,14 +383,14 @@ bool nodeConstAnalysis::transfer(const Function& func, const DataflowNode& n, No
                         }
                 }
         }
-        
-        return modified;
+
+        // return modified;
 }
 
 // runs the nodeConstAnalysis on the project and returns the resulting nodeConstAnalysis object
 nodeConstAnalysis* runNodeConstAnalysis()
 {
-        nodeConstAnalysis* nca = new nodeConstAnalysis();
+        nodeConstAnalysis* nca = new nodeConstAnalysis;
         ContextInsensitiveInterProceduralDataflow ciipd_nca(nca, getCallGraph());
         ciipd_nca.runAnalysis();
         /*UnstructuredPassInterDataflow upipd_nca(nca);
@@ -402,13 +398,16 @@ nodeConstAnalysis* runNodeConstAnalysis()
         return nca;
 }
 
-// prints the Lattices set by the given nodeConstAnalysis 
+// prints the Lattices set by the given nodeConstAnalysis
 void printNodeConstAnalysisStates(nodeConstAnalysis* nca, string indent)
 {
         vector<int> factNames;
+/*
         vector<int> latticeNames;
         latticeNames.push_back(0);
         printAnalysisStates pas(nca, factNames, latticeNames, printAnalysisStates::below, indent);
+*/
+        printAnalysisStates pas(nca, factNames, printAnalysisStates::below, indent);
         UnstructuredPassInterAnalysis upia_pas(pas);
         upia_pas.runAnalysis();
 }

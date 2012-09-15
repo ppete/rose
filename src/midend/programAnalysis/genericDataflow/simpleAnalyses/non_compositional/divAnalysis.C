@@ -11,26 +11,26 @@ int divAnalysisDebugLevel=0;
 long gcd(long u, long v)
 {
         int shift;
-        
+
         /* GCD(0,x) := x */
         if (u == 0 || v == 0)
                 return u | v;
-        
+
         /* Let shift := lg K, where K is the greatest power of 2
         dividing both u and v. */
         for (shift = 0; ((u | v) & 1) == 0; ++shift) {
                 u >>= 1;
                 v >>= 1;
         }
-        
+
         while ((u & 1) == 0)
                 u >>= 1;
-        
+
         /* From here on, u is always odd. */
         do {
                 while ((v & 1) == 0)  /* Loop X */
                 v >>= 1;
-                
+
                 /* Now u and v are both odd, so diff(u, v) is even.
                 Let u = min(u, v), v = diff(u, v)/2. */
                 if (u <= v) {
@@ -42,7 +42,7 @@ long gcd(long u, long v)
                 }
                 v >>= 1;
         } while (v != 0);
-        
+
         return u << shift;
 }
 
@@ -52,26 +52,26 @@ long gcd(long u, long v)
 
 // The different levels of this lattice
 // no information is known about the value of the variable
-const int DivLattice::bottom; 
+const int DivLattice::bottom;
 // the value of the variable is known
-const int DivLattice::valKnown; 
-// value is unknown but the divisibility (div and rem) of this variable is known 
-const int DivLattice::divKnown; 
+const int DivLattice::valKnown;
+// value is unknown but the divisibility (div and rem) of this variable is known
+const int DivLattice::divKnown;
 // this variable holds more values than can be represented using a single value and divisibility
-const int DivLattice::top; 
+const int DivLattice::top;
 
 
 // returns a copy of this lattice
-Lattice* DivLattice::copy() const
+DivLattice* DivLattice::copy() const
 {
         return new DivLattice(*this);
 }
 
 // overwrites the state of this Lattice with that of that Lattice
-void DivLattice::copy(Lattice* that_arg)
+void DivLattice::copy(const Lattice* that_arg)
 {
-        DivLattice* that = dynamic_cast<DivLattice*>(that_arg);
-        
+        const DivLattice* that = dynamic_cast<const DivLattice*>(that_arg);
+
         this->value = that->value;
         this->div   = that->div;
         this->rem   = that->rem;
@@ -86,7 +86,7 @@ bool DivLattice::matchDiv(long value, long div, long rem)
 
 // Takes two lattices at level divKnown. If the two objects have matching div, rem pairs, returns
 // true and sets div and rem to those mathching values. Otherwise, returns false.
-bool DivLattice::matchDiv(DivLattice* one, DivLattice* two, long& div, long& rem)
+bool DivLattice::matchDiv(const DivLattice* one, const DivLattice* two, long& div, long& rem)
 {
         // if these object have the same div
         if(one->div == two->div)
@@ -102,7 +102,7 @@ bool DivLattice::matchDiv(DivLattice* one, DivLattice* two, long& div, long& rem
                 else
                 {
                         int divremgcd;
-                        // if one rem is 0 and the other 0 shares factors with the common div, those 
+                        // if one rem is 0 and the other 0 shares factors with the common div, those
                         // factors can be the new common div
                         if(one->rem == 0 && (divremgcd = gcd(one->div, two->rem))>1)
                         {
@@ -152,7 +152,7 @@ bool DivLattice::matchDiv(DivLattice* one, DivLattice* two, long& div, long& rem
 }
 
 // Takes two lattices at level divKnown. If the two objects have div, rem pairs that make it
-// possible to add or subtract them them and produce div/rem information where div>1, 
+// possible to add or subtract them them and produce div/rem information where div>1,
 // returns true and sets div and rem to correspond to the sum of these values.
 // Otherwise, returns false.
 // plus - true if the caller want to see one+two and false if one-two
@@ -185,13 +185,22 @@ bool DivLattice::matchDivAddSubt(DivLattice* one, DivLattice* two, long& div, lo
 
 // computes the meet of this and that and saves the result in this
 // returns true if this causes this to change and false otherwise
-bool DivLattice::meetUpdate(Lattice* that_arg)
+bool DivLattice::meetUpdate(const Lattice* that_arg)
 {
         long  oldValue = value;
         long  oldDiv = div;
         long  oldRem = rem;
         short oldLevel = level;
-        DivLattice* that = dynamic_cast<DivLattice*>(that_arg);
+        const DivLattice* that = dynamic_cast<const DivLattice*>(that_arg);
+
+        switch (that->value)
+        {
+          case 1:
+          case 2:
+          case 3:
+          case 4:  std::cout << ""; break;
+          default: ;
+        }
 
 /*Dbg::dbg << "DivLattice::meetUpdate\n";
 Dbg::dbg << "this: " << str("") << "\n";
@@ -220,7 +229,7 @@ Dbg::dbg << "that: " << that->str("") << "\n";*/
                 if(value != that->value)
                   {
                     div = gcd(value, that->value);
-                                        
+
                     // If the gcd is > 1, then we know a useful divisor and the level is divKnown
                     // otherwise, the divisor info is useless and the level becomes top
                     if(div != 1) {
@@ -289,7 +298,7 @@ Dbg::dbg << "that: " << that->str("") << "\n";*/
         rem = 0;
         value = 0;
         level = top;
-        
+
         // the various cases that do not result in this object becoming top goto this label
         Done:
 
@@ -307,15 +316,15 @@ Dbg::dbg << "that: " << that->str("") << "\n";*/
         newDL->meetUpdate(that);
 }*/
 
-bool DivLattice::operator==(Lattice* that_arg)
+bool DivLattice::operator==(const Lattice* that_arg) const
 {
-        DivLattice* that = dynamic_cast<DivLattice*>(that_arg);
-        
+        const DivLattice* that = dynamic_cast<const DivLattice*>(that_arg);
+
         /*Dbg::dbg << "operator == ("<<str()<<", "<<that->str()<<"): "<<((value == that->value) &&
                (div == that->div) &&
                (rem == that->rem) &&
                (level == that->level))<<"\n";*/
-        
+
         return (value == that->value) &&
                (div == that->div) &&
                (rem == that->rem) &&
@@ -341,7 +350,7 @@ long DivLattice::getRem() const
 
 short DivLattice::getLevel() const
 { return level; }
-        
+
 
 // Sets the state of this lattice to bottom
 // returns true if this causes the lattice's state to change, false otherwise
@@ -388,7 +397,7 @@ bool DivLattice::setTop()
         div = 1;
         rem = 0;
         level = top;
-        return modified;        
+        return modified;
 }
 
 // Increments the state of this object by value
@@ -401,7 +410,7 @@ bool DivLattice::incr(long increment)
                 rem = (rem+increment)%div;
         else
                 return false;
-        
+
         return increment!=0;
 }
 
@@ -419,10 +428,10 @@ bool DivLattice::mult(long multiplier)
         }
         else
                 return false;
-        
+
         return multiplier!=1;
 }
-        
+
 string DivLattice::str(string indent)
 {
         ostringstream outs;
@@ -461,31 +470,24 @@ Lattice* DivAnalysis::genInitNonVarState(const Function& func, const DataflowNod
 
 // generates the initial lattice state for the given dataflow node, in the given function, with the given NodeState
 //vector<Lattice*> DivAnalysis::genInitState(const Function& func, const DataflowNode& n, const NodeState& state)
-void DivAnalysis::genInitState(const Function& func, const DataflowNode& n, const NodeState& state,
-                               vector<Lattice*>& initLattices, vector<NodeFact*>& initFacts)
+FiniteVarsExprsProductLattice*
+DivAnalysis::genLattice(const Function& func, const DataflowNode& n, const NodeState& state)
 {
-        //vector<Lattice*> initLattices;
-        map<varID, Lattice*> emptyM;
-        FiniteVarsExprsProductLattice* l = new FiniteVarsExprsProductLattice((Lattice*)new DivLattice(), emptyM/*genConstVarLattices()*/, 
-                                                                             (Lattice*)NULL, ldva, /*func, */n, state);         
-        //Dbg::dbg << "DivAnalysis::genInitState, returning l="<<l<<" n=<"<<Dbg::escape(n.getNode()->unparseToString())<<" | "<<n.getNode()->class_name()<<" | "<<n.getIndex()<<">\n";
-        //Dbg::dbg << "    l="<<l->str("    ")<<"\n";
-        initLattices.push_back(l);
-        
-        
-        
-/*printf("DivAnalysis::genInitState() initLattices:\n");
-for(vector<Lattice*>::iterator it = initLattices.begin(); 
-    it!=initLattices.end(); it++)
-{       
-        Dbg::dbg << *it << ": " << (*it)->str("    ") << "\n";
-}*/
-        
-        //return initLattices;
+        typedef std::map<varID, Lattice*> EmptyMap;
+
+        return new FiniteVarsExprsProductLattice((Lattice*)new DivLattice(), EmptyMap()/*genConstVarLattices()*/,
+                                                 (Lattice*)NULL, ldva, /*func, */n, state);
 }
 
+std::vector<NodeFact*>
+DivAnalysis::genFacts(const Function& func, const DataflowNode& n, const NodeState& state)
+{
+  return std::vector<NodeFact*>();
+}
+
+
 // Returns a map of special constant variables (such as zeroVar) and the lattices that correspond to them
-// These lattices are assumed to be constants: it is assumed that they are never modified and it is legal to 
+// These lattices are assumed to be constants: it is assumed that they are never modified and it is legal to
 //    maintain only one copy of each lattice may for the duration of the analysis.
 /*map<varID, Lattice*>& DivAnalysis::genConstVarLattices() const
 {
@@ -494,7 +496,7 @@ for(vector<Lattice*>::iterator it = initLattices.begin();
                 DivLattice* newL = new DivLattice();
                 newL->set(0);
                 constVars[zeroVar] = newL;
-                
+
                 newL = new DivLattice();
                 newL->set(1);
                 constVars[oneVar] = newL;
@@ -504,7 +506,7 @@ for(vector<Lattice*>::iterator it = initLattices.begin();
                 Dbg::dbg << "constVars:\n";
                 for(map<varID, Lattice*>::iterator it = constVars.begin(); it!=constVars.end(); it++)
                 { Dbg::dbg << it->first.str() << ": " << it->second->str("") << "\n"; }
-                
+
                 printf("oneVar == zeroVar = %d\n", oneVar == zeroVar);
                 printf("oneVar < zeroVar = %d\n", oneVar < zeroVar);
                 printf("zeroVar < oneVar = %d\n", zeroVar < oneVar);* /
@@ -513,8 +515,8 @@ for(vector<Lattice*>::iterator it = initLattices.begin();
         return constVars;
 }*/
 
-DivAnalysisTransfer::DivAnalysisTransfer(const Function& func, const DataflowNode& n, NodeState& state, const vector<Lattice*>& dfInfo)
-  : VariableStateTransfer<DivLattice>(func, n, state, dfInfo, divAnalysisDebugLevel)
+DivAnalysisTransfer::DivAnalysisTransfer(const Function& func, const DataflowNode& n, NodeState& state, Lattice& dflat)
+  : VariableStateTransfer<DivLattice>(func, n, state, dflat, divAnalysisDebugLevel)
 { }
 
 // Integral Numeric Constants
@@ -567,7 +569,7 @@ void DivAnalysisTransfer::transferAdditive(DivLattice *arg1Lat, DivLattice *arg2
 
   if(arg1Level == DivLattice::divKnown && arg2Level == DivLattice::divKnown) {
     long newDiv, newRem;
-    
+
     if(DivLattice::matchDivAddSubt(arg1Lat, arg2Lat, newDiv, newRem, isAddition)) {
       updateModified(resLat->set(newDiv, newRem));
     } else
@@ -577,7 +579,7 @@ void DivAnalysisTransfer::transferAdditive(DivLattice *arg1Lat, DivLattice *arg2
   // Arg1 ValKnown, Arg2 DivKnown
   /// XXX: Copy result from DivKnown, then increment by value of ValKnown. Need to fix DivLattice::incr to handle negatives correctly
   if(arg1Level == DivLattice::valKnown && arg2Level == DivLattice::divKnown) {
-    long rem = (isAddition 
+    long rem = (isAddition
                 ? arg1Lat->getValue() + arg2Lat->getRem()
                 : arg1Lat->getValue() % arg2Lat->getDiv() - arg2Lat->getRem() + arg2Lat->getDiv())
       % arg2Lat->getDiv();
@@ -608,7 +610,7 @@ void DivAnalysisTransfer::transferIncrement(SgUnaryOp *sgn) {
     ROSE_ASSERT(!resLat);
     return;
   }
-  
+
   long increment = isSgPlusPlusOp(sgn) ? 1 : -1;
 
   if (sgn->get_mode() == SgUnaryOp::prefix) {
@@ -649,7 +651,7 @@ void DivAnalysisTransfer::transferMultiplicative(DivLattice *arg1Lat, DivLattice
   if(divAnalysisDebugLevel>=1) Dbg::dbg << "   case i = j * k\n";
   /*printf("arg1Lat = %s\n", arg1Lat->str().c_str());
     printf("arg2Lat = %s\n", arg2Lat->str().c_str());*/
-                                
+
   // Both Bottom
   if(arg1Lat->getLevel() == DivLattice::bottom || arg2Lat->getLevel() == DivLattice::bottom)
     updateModified(resLat->setBot());
@@ -659,14 +661,14 @@ void DivAnalysisTransfer::transferMultiplicative(DivLattice *arg1Lat, DivLattice
   // Arg1 ValKnown, Arg2 DivKnown, Arg1
   else if(arg1Lat->getLevel() == DivLattice::valKnown && arg2Lat->getLevel() == DivLattice::divKnown)
     {
-      // (m*k.div + k.rem)*j.val*c = (m*(k.div*j.val*c) + k.rem*j.val*c) = 
+      // (m*k.div + k.rem)*j.val*c = (m*(k.div*j.val*c) + k.rem*j.val*c) =
       updateModified(resLat->set(arg2Lat->getDiv(), arg2Lat->getRem()));
       updateModified(resLat->mult(arg1Lat->getValue()));
     }
   // Arg1 DivKnown, Arg2 ValKnown
   else if(arg1Lat->getLevel() == DivLattice::divKnown && arg2Lat->getLevel() == DivLattice::valKnown)
     {
-      // (m*j.div + j.rem)*k.val*c = (m*(j.div*k.val*c) + j.rem*k.val*c) = 
+      // (m*j.div + j.rem)*k.val*c = (m*(j.div*k.val*c) + j.rem*k.val*c) =
       updateModified(resLat->set(arg1Lat->getDiv(), arg1Lat->getRem()));
       updateModified(resLat->mult(arg2Lat->getValue()));
     }
@@ -684,7 +686,7 @@ void DivAnalysisTransfer::visit(SgMultAssignOp *sgn) { transferArith(sgn, &DivAn
 
 void DivAnalysisTransfer::transferDivision(DivLattice *arg1Lat, DivLattice *arg2Lat, DivLattice *resLat) {
   if(divAnalysisDebugLevel>=1) Dbg::dbg << "   case i = j / k\n";
-                        
+
   // Both Bottom
   if(arg1Lat->getLevel() == DivLattice::bottom || arg2Lat->getLevel() == DivLattice::bottom)
     updateModified(resLat->setBot());
@@ -723,7 +725,7 @@ void DivAnalysisTransfer::transferArith(SgBinaryOp *sgn, TransferOp transferOp) 
 
 void DivAnalysisTransfer::transferMod(DivLattice *arg1Lat, DivLattice *arg2Lat, DivLattice *resLat) {
   if(divAnalysisDebugLevel>=1) Dbg::dbg << "   case i = j %% k\n";
-                                
+
   // Both Bottom
   if(arg1Lat->getLevel() == DivLattice::bottom || arg2Lat->getLevel() == DivLattice::bottom)
     updateModified(resLat->setBot());
@@ -749,13 +751,16 @@ void DivAnalysisTransfer::transferMod(DivLattice *arg1Lat, DivLattice *arg2Lat, 
 void DivAnalysisTransfer::visit(SgModOp *sgn) { transferArith(sgn, &DivAnalysisTransfer::transferMod); }
 void DivAnalysisTransfer::visit(SgModAssignOp *sgn) { transferArith(sgn, &DivAnalysisTransfer::transferMod); }
 
-// prints the Lattices set by the given DivAnalysis 
+// prints the Lattices set by the given DivAnalysis
 void printDivAnalysisStates(DivAnalysis* da, string indent)
 {
         vector<int> factNames;
+/*
         vector<int> latticeNames;
         latticeNames.push_back(0);
         printAnalysisStates pas(da, factNames, latticeNames, printAnalysisStates::below, indent);
+*/
+        printAnalysisStates pas(da, factNames, printAnalysisStates::below, indent);
         UnstructuredPassInterAnalysis upia_pas(pas);
         upia_pas.runAnalysis();
 }

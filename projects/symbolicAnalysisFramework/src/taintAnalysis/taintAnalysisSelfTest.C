@@ -33,10 +33,17 @@ public:
     void visit(const Function& func, const DataflowNode& n, NodeState& state);
 };
 
+static
+FiniteVarsExprsProductLattice*
+asFiniteVarsExprsProductLattice(LatticePtr p)
+{
+  return &dynamic_cast<FiniteVarsExprsProductLattice&>(*p.get());
+}
+
 void EvaluationPass::visit(const Function& func, const DataflowNode& n, NodeState& state)
 {
-    FiniteVarsExprsProductLattice *cpa_lat = dynamic_cast<FiniteVarsExprsProductLattice*> (state.getLatticeAbove(cpa)[0]);
-    FiniteVarsExprsProductLattice *ta_lat = dynamic_cast<FiniteVarsExprsProductLattice*> (state.getLatticeAbove(ta)[0]);
+    FiniteVarsExprsProductLattice* cpa_lat = asFiniteVarsExprsProductLattice(state.getLatticeAboveMod(cpa));
+    FiniteVarsExprsProductLattice* ta_lat  = asFiniteVarsExprsProductLattice(state.getLatticeAboveMod(ta));
 
     // NOTE: Don't see why the vars should be different
     // below assertion should hold true
@@ -48,34 +55,35 @@ void EvaluationPass::visit(const Function& func, const DataflowNode& n, NodeStat
     for(i = constLatVars.begin(), j = taLatVars.begin();
         i != constLatVars.end() && j != taLatVars.end();
         i++, j++) {
-        
+
         // check if we are testing for the same varID
-        ROSE_ASSERT((i->str().compare(j->str())) == 0);
+        ROSE_ASSERT(i->str() == j->str());
         ConstantPropagationLattice *cpaVarLattice = dynamic_cast<ConstantPropagationLattice*> (cpa_lat->getVarLattice(*i));
         TaintLattice *taVarLattice = dynamic_cast<TaintLattice*> (ta_lat->getVarLattice(*j));
+
+        ROSE_ASSERT(cpaVarLattice && taVarLattice);
 
         //NOTE: our only taint source is a function returning constant
         if(taVarLattice->getLevel() == TaintLattice::taintyes) {
             if(cpaVarLattice->getLevel() == ConstantPropagationLattice::constantValue) {
-                failure = failure || false;
+                // failure = failure || false;
                 pass++;
             }
             else {
                 failure = true;
                 fail++;
             }
-            
         }
-    }    
+    }
 }
 
-int main( int argc, char * argv[] ) 
+int main( int argc, char * argv[] )
 {
     printf("========== S T A R T ==========\n");
-        
+
     // Build the AST used by ROSE
     SgProject* project = frontend(argc,argv);
-        
+
     initAnalysis(project);
     Dbg::init("Taint Analysis", ".", "index.html");
 
@@ -89,7 +97,7 @@ int main( int argc, char * argv[] )
     if(ispresent != string::npos) {
         constTaintAnalysisTest = true;
     }
-        
+
     analysisDebugLevel = 2;
 
     LiveDeadVarsAnalysis ldva(project);
@@ -98,7 +106,7 @@ int main( int argc, char * argv[] )
 
     CallGraphBuilder cgb(project);
     cgb.buildCallGraph();
-    SgIncidenceDirectedGraph* graph = cgb.getGraph();    
+    SgIncidenceDirectedGraph* graph = cgb.getGraph();
 
     SecureFunctionTypeTraversal sftype_traversal;
 
@@ -113,7 +121,7 @@ int main( int argc, char * argv[] )
 
     TaintAnalysis ta(&ldva);
     ContextInsensitiveInterProceduralDataflow ciipd_ta(&ta, graph);
-    ciipd_ta.runAnalysis();    
+    ciipd_ta.runAnalysis();
 
     // NOTE: Not the best of testing the analysis
     // Method: 1. Create a function returning constant
@@ -125,7 +133,7 @@ int main( int argc, char * argv[] )
         ConstantPropagationAnalysis cpa(&ldva);
         ContextInsensitiveInterProceduralDataflow ciipd_cpa(&cpa, graph);
         ciipd_cpa.runAnalysis();
-           
+
         EvaluationPass ep(&cpa, &ta, " ");
         UnstructuredPassInterAnalysis upia_ep(ep);
         upia_ep.runAnalysis();
@@ -138,6 +146,6 @@ int main( int argc, char * argv[] )
             cout << "TEST PASSED\n";
         }
     }
-                      
+
     return 0;
 }

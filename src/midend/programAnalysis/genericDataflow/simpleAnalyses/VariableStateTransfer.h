@@ -12,7 +12,7 @@ namespace dataflow {
 template <class LatticeType>
 class VariableStateTransfer : public IntraDFTransferVisitor
 {
-  typedef boost::shared_ptr<LatticeType> LatticePtr;
+  typedef boost::shared_ptr<LatticeType> lattice_type;
 protected:
   bool modified;
   void updateModified(bool latModified) { modified = latModified || modified; }
@@ -20,7 +20,7 @@ protected:
   const int debugLevel;
   // A pointer to a default example lattice that can be duplicated
   // via defaultLat->copy() to make more instances of this Lattice type.
-  LatticePtr defaultLat;
+  lattice_type defaultLat;
   Composer* composer;
   ComposedAnalysis* analysis;
   PartPtr part;
@@ -28,7 +28,7 @@ protected:
   //FiniteVarsExprsProductLattice* prodLat;
   AbstractObjectMap* prodLat;
 
-  LatticePtr getLattice(SgExpression *sgn) {
+  lattice_type getLattice(SgExpression *sgn) {
     ROSE_ASSERT(sgn);
     MemLocObjectPtrPair p = composer->Expr2MemLoc(sgn, part, analysis);
     Dbg::dbg << "VariableStateTransfer::getLattice() p="<<p.str("&nbsp;&nbsp;&nbsp;&nbsp;")<<endl;
@@ -42,7 +42,7 @@ protected:
       // but if it is not available, used the memory object
       return (p.expr ? getLattice(AbstractObjectPtr(p.expr)) : getLattice(AbstractObjectPtr(p.mem)));
   }
-  LatticePtr getLattice(const AbstractObjectPtr o) {
+    lattice_type getLattice(const AbstractObjectPtr o) {
     LatticePtr l = boost::dynamic_pointer_cast<LatticeType>(prodLat->get(o));
     Dbg::dbg << "getLattice(o="<<o->strp(part, "")<<", l="<<l->strp(part, "")<<endl;
     ROSE_ASSERT(l);
@@ -51,32 +51,32 @@ protected:
   
   // Adds the sgn->lat mapping to prodLat. Returns true if this causes prodLat to change
   // and false otherwise.
-  void setLattice(SgNode *sgn, LatticePtr lat) {
+  void setLattice(SgNode *sgn,   lattice_type lat) {
     ROSE_ASSERT(sgn);
     MemLocObjectPtrPair p = composer->Expr2MemLoc(sgn, part, analysis);
     Dbg::dbg << "setLattice() p="<<p.strp(part, "&nbsp;&nbsp;&nbsp;&nbsp;")<<endl;
     
     // Set both p.expr and p.mem to lat 
     if(p.expr) {
-      //LatticePtr latCopy(dynamic_cast<LatticeType*>(lat->copy()));
+      //  lattice_type latCopy(dynamic_cast<LatticeType*>(lat->copy()));
       setLattice(p.expr, lat);
     }
     if(p.mem) {
       // If we've already used lat to set p.expr, we need to make a copy of it for p.mem
       if(p.expr) {
-        LatticePtr latCopy(dynamic_cast<LatticeType*>(lat->copy()));
+        lattice_type latCopy(dynamic_cast<LatticeType*>(lat->copy()));
         lat = latCopy;
       }
       setLattice(p.mem, lat);
     }
   }
-  void setLattice(const AbstractObjectPtr o, LatticePtr lat) {
+  void setLattice(const AbstractObjectPtr o,   lattice_type lat) {
     //Dbg::dbg << "setLattice(o="<<o->strp(part, "")<<", lat="<<lat->strp(part, "")<<endl;
     updateModified(prodLat->insert(o, lat));
     //Dbg::dbg << "&nbsp;&nbsp;&nbsp;prodLat="<<prodLat->str("&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;")<<endl;
   }
 
-  bool getLattices(SgBinaryOp *sgn, LatticePtr &arg1Lat, LatticePtr &arg2Lat, LatticePtr &resLat) {
+  bool getLattices(SgBinaryOp *sgn, lattice_type &arg1Lat, LatticePtr &arg2Lat, LatticePtr &resLat) {
     arg1Lat = getLattice(sgn->get_lhs_operand());
     arg2Lat = getLattice(sgn->get_rhs_operand());
     resLat  = getLattice(sgn);
@@ -86,14 +86,14 @@ protected:
     return (arg1Lat && arg2Lat && resLat);
   }
   
-  bool getLattices(SgUnaryOp *sgn, LatticePtr &arg1Lat, LatticePtr &arg2Lat, LatticePtr &resLat) {
+  bool getLattices(SgUnaryOp *sgn, lattice_type &arg1Lat,   lattice_type &arg2Lat, LatticePtr &resLat) {
     arg1Lat = getLattice(sgn->get_operand());
     resLat = getLattice(sgn);
 
     // Unary Update
     if(isSgMinusMinusOp(sgn) || isSgPlusPlusOp(sgn)) {
       // GB: This will not work for general lattices
-      arg2Lat = (LatticePtr)(new LatticeType(1, part));
+      arg2Lat = new LatticeType(1, part);
     }
     //Dbg::dbg << "res="<<res.str()<<" arg1="<<arg1.str()<<" arg1Lat="<<arg1Lat<<", arg2Lat="<<arg2Lat<<"\n";
     //Dbg::dbg << "transfer B, resLat="<<resLat<<"\n";
@@ -102,11 +102,12 @@ protected:
   }
 
 public:
+
   VariableStateTransfer(const Function& func, 
-                        NodeState& state, const std::vector<Lattice*>& dfInfo, 
+                        NodeState& state, const std::Lattice& dfInfo, 
                         // A pointer to a default example lattice that can be duplicated
                         // via defaultLat->copy() to make more instances of this Lattice type.
-                        LatticePtr defaultLat_,
+                          lattice_type defaultLat_,
                         Composer* composer_, ComposedAnalysis* analysis_, PartPtr part_, 
                         const int &debugLevel_) : 
     IntraDFTransferVisitor(func, part_, state, dfInfo), 
@@ -125,9 +126,9 @@ public:
 
   void visit(SgAssignOp *sgn)
   {
-    LatticePtr lhsLat, rhsLat, resLat;
+    lattice_type lhsLat, rhsLat, resLat;
     getLattices(sgn, lhsLat, rhsLat, resLat);
-                
+
     if(debugLevel>=1) {
       Dbg::dbg << "resLat=\n    "<<resLat->str("    ")<<"\n";
       Dbg::dbg << "lhsLat=\n    "<<lhsLat->str("    ")<<"\n";
@@ -143,8 +144,8 @@ public:
 
   void visit(SgAssignInitializer *sgn)
   {
-    LatticePtr asgnLat = getLattice(sgn->get_operand());
-    LatticePtr resLat  = getLattice(sgn);
+    lattice_type asgnLat = getLattice(sgn->get_operand());
+    lattice_type resLat  = getLattice(sgn);
     
     if(debugLevel>=1) {
       Dbg::dbg << "asgnLat="<<asgnLat->str("    ")<<"\n";
@@ -159,10 +160,10 @@ public:
   // abstraction to treat each element individually.
   void visit(SgAggregateInitializer *sgn)
   {
-    LatticePtr res = getLattice(sgn);
+    lattice_type res = getLattice(sgn);
     SgExpressionPtrList &inits = sgn->get_initializers()->get_expressions();
     if (inits.size() > 0) {
-      LatticePtr initsCopy(dynamic_cast<LatticeType*>(getLattice(inits[0])->copy()));
+      lattice_type initsCopy(dynamic_cast<LatticeType*>(getLattice(inits[0])->copy()));
       //res->copy(getLattice(inits[0]).get());
       modified = true;
       for (size_t i = 1; i < inits.size(); ++i)
@@ -185,13 +186,13 @@ public:
   void visit(SgInitializedName *initName)
   {
     Dbg::dbg << "visit(SgInitializedName *initName)"<<endl;
-    LatticePtr initLat;
+    lattice_type initLat;
     if(initName->get_initializer()) {
       initLat = getLattice(initName->get_initializer());
       Dbg::dbg << "    initializer exists: "<<initLat->str("    ")<<"\n";
     // If there was no initializer, var's lattice is set to the default lattice 
     } else {
-        boost::shared_ptr<Lattice> initLat2(defaultLat->copy());
+        LatticePtr initLat2(defaultLat->copy());
       initLat = boost::dynamic_pointer_cast<LatticeType>(initLat2);
       initLat->setToEmpty();
       Dbg::dbg << "    no initializer: "<<initLat->str("    ")<<"\n";
@@ -208,9 +209,9 @@ public:
   }*/
 
   void visit(SgBinaryOp *sgn) {
-    LatticePtr lhs, rhs, res;
+    lattice_type lhs, rhs, res;
     getLattices(sgn, lhs, rhs, res);
-    LatticePtr lhsCopy(dynamic_cast<LatticeType*>(lhs->copy()));
+    lattice_type lhsCopy(lhs->copy());
     //res->copy(lhs.get());
     updateModified(lhsCopy->meetUpdate(rhs.get()));
     //res->meetUpdate(rhs.get());
@@ -224,7 +225,7 @@ public:
     // Copy data from the memory location identified by the array index expression to the
     // expression object of the SgPntrArrRefExp.
     MemLocObjectPtrPair p = composer->Expr2MemLoc(sgn, part, analysis);
-    LatticePtr dataLat;
+    lattice_type dataLat;
     // If this is a top-level array access expression
     if(isSgPntrArrRefExp (sgn) && 
        (!isSgPntrArrRefExp (sgn->get_parent()) || !isSgPntrArrRefExp (isSgPntrArrRefExp (sgn->get_parent())->get_lhs_operand())))
@@ -244,10 +245,10 @@ public:
   }
 
   void visit(SgCompoundAssignOp *sgn) {
-    LatticePtr lhs, rhs, res;
+    lattice_type lhs, rhs, res;
     getLattices(sgn, lhs, rhs, res);
     
-    LatticePtr lhsCopy(dynamic_cast<LatticeType*>(lhs->copy()));
+    lattice_type lhsCopy(dynamic_cast<LatticeType*>(lhs->copy()));
     updateModified(lhsCopy->meetUpdate(rhs.get()));
     //updateModified(lhs->meetUpdate(rhs.get()));
     setLattice(sgn->get_lhs_operand(), lhsCopy);
@@ -261,21 +262,20 @@ public:
 
   void visit(SgCommaOpExp *sgn)
   {
-    LatticePtr lhsLat, rhsLat, resLat;
+    lattice_type lhsLat, rhsLat, resLat;
     getLattices(sgn, lhsLat, rhsLat, resLat);
-    
     setLattice(sgn, rhsLat);
     modified = true;
   }
 
   void visit(SgConditionalExp *sgn)
   {
-    LatticePtr condLat  = getLattice(sgn->get_conditional_exp()),
-               trueLat  = getLattice(sgn->get_true_exp()),
-               falseLat = getLattice(sgn->get_false_exp()),
-               resLat   = getLattice(sgn);
+    lattice_type condLat  = getLattice(sgn->get_conditional_exp()),
+                 trueLat  = getLattice(sgn->get_true_exp()),
+                 falseLat = getLattice(sgn->get_false_exp()),
+                 resLat   = getLattice(sgn);
     
-    LatticePtr condLatCopy(dynamic_cast<LatticeType*>(condLat->copy()));
+    lattice_type condLatCopy(dynamic_cast<LatticeType*>(condLat->copy()));
     //resLat->copy(condLat.get());
     updateModified(condLatCopy->meetUpdate(trueLat.get()));
     //resLat->meetUpdate(trueLat.get());

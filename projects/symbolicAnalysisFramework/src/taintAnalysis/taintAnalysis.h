@@ -23,7 +23,7 @@ extern int taintAnalysisDebugLevel;
  Naive Taint Analysis Implementation
  Author: Sriram Aananthakrishnan
  email : sriram@cs.utah.edu
- 
+
  Taint Identification:
   user code or library code are not taint sources
   Taint source can be specified explicitly using SecureFunctionTraversal::addToUntrustedFunc()
@@ -39,7 +39,7 @@ extern int taintAnalysisDebugLevel;
  *********************************************/
 
 class TaintLattice : public FiniteLattice
-{      
+{
     public:
     /*-----------------------------------
     -------- Taint Lattice -------------
@@ -53,7 +53,7 @@ class TaintLattice : public FiniteLattice
     bottom
     ------------------------------------
   */
-    
+
 // levels of taint lattice
     typedef enum {
         // no information about the variable
@@ -74,7 +74,7 @@ class TaintLattice : public FiniteLattice
     latticeLevel level;
 
     public:
-    
+
     // default constructor
     TaintLattice()
     {
@@ -90,20 +90,20 @@ class TaintLattice : public FiniteLattice
     void initialize();
 
     // overridden method to return copy of this lattice
-    Lattice* copy() const;
+    TaintLattice* copy() const;
 
     // overridden method to copy from lattice 'that
-    void copy(Lattice* that);
+    void copy(const Lattice* that);
 
-    // overridden to compute meet of this and that    
-    bool meetUpdate(Lattice* that);
+    // overridden to compute meet of this and that
+    bool meetUpdate(const Lattice* that);
 
     // overridden comparison operator
-    bool operator==(Lattice* that);
+    bool operator==(const Lattice* that) const;
 
     // get level
-    latticeLevel getLevel();
-    
+    latticeLevel getLevel() const;
+
     // setlevel
     void setTainted();
 
@@ -114,10 +114,11 @@ class TaintLattice : public FiniteLattice
     void setBottom();
 
     void setLevel(latticeLevel);
-    
-    // debug print
-    std::string str(std::string indent="");
 
+    void clear() {} // \pp \todo remove
+
+    // debug print
+    std::string str(std::string indent="") const;
 };
 
 class TaintAnalysisTransfer : public VariableStateTransfer<TaintLattice>
@@ -148,9 +149,9 @@ class TaintAnalysisTransfer : public VariableStateTransfer<TaintLattice>
     void visit(SgXorAssignOp*);
 
     bool transferTaint(SgBinaryOp*);
-    
+
     bool finish();
-    TaintAnalysisTransfer(const Function& func, const DataflowNode& n, NodeState& state, const std::vector<Lattice*>& dfInfo);
+    TaintAnalysisTransfer(const Function& func, const DataflowNode& n, NodeState& state, Lattice& dfInfo);
 };
 
 class FunctionsInFile;
@@ -163,7 +164,7 @@ class TaintAnalysis : public IntraFWDataflow
     static map<varID, Lattice*> taintVars;
     LiveDeadVarsAnalysis *ldva;
     FunctionsInFile *functionsinfile;
-    
+
 
     public:
     TaintAnalysis(LiveDeadVarsAnalysis* ldva_arg) : IntraFWDataflow()
@@ -182,16 +183,22 @@ class TaintAnalysis : public IntraFWDataflow
         //this->ldva = ldva_arg;
     //}
 
-    // generates the initial lattice state for given the function func with dataflownode 
-    void genInitState(const Function& func, const DataflowNode& n, const NodeState& state,
-                      vector<Lattice*>& initLattices, vector<NodeFact*>& initFacts);
+    // generates the initial lattice state for given the function func with dataflownode
+    //~ void genInitState(const Function& func, const DataflowNode& n, const NodeState& state,
+                      //~ vector<Lattice*>& initLattices, vector<NodeFact*>& initFacts);
+
+    FiniteVarsExprsProductLattice*
+    genLattice(const Function& func, const DataflowNode& n, const NodeState& state);
+
+    std::vector<NodeFact*> genFacts(const Function& func, const DataflowNode& n, const NodeState& state);
+
 
     // transfer function that maps current state to next state
-    bool transfer(const Function& func, const DataflowNode& n, NodeState& state, const vector<Lattice*>& dfInfo);
+    bool transfer(const Function& func, const DataflowNode& n, NodeState& state, LatticePtr dfInfo);
 
     // returns an instance of object that has transfer functions to map from current state to next state
-    boost::shared_ptr<IntraDFTransferVisitor> getTransferVisitor(const Function& func, const DataflowNode& node, NodeState& state, const std::vector<Lattice*>& dfInfo);
-  
+    // boost::shared_ptr<IntraDFTransferVisitor> getTransferVisitor(const Function& func, const DataflowNode& node, NodeState& state, const std::vector<Lattice*>& dfInfo);
+
 };
 
 // identify the type of each function
@@ -200,7 +207,7 @@ class SecureFunctionType: public AstAttribute
 {
     bool trusted;
     public:
-    SecureFunctionType(bool trusted_arg) 
+    SecureFunctionType(bool trusted_arg)
     {
         trusted = trusted_arg;
     }
@@ -208,7 +215,7 @@ class SecureFunctionType: public AstAttribute
     bool isSecure()
     {
         return trusted;
-    }    
+    }
 };
 
 class SecureFunctionTypeTraversal : public AstSimpleProcessing
@@ -231,7 +238,7 @@ class SecureFunctionTypeTraversal : public AstSimpleProcessing
 
     void visit(SgNode* n);
 
-    void addToTrustedLib(string location, string name) 
+    void addToTrustedLib(string location, string name)
     {
         trustedlibs[location] = name;
     }
@@ -249,5 +256,5 @@ class SecureFunctionTypeTraversalTest : public AstSimpleProcessing
 
 
 void printTaintAnalysisStates(TaintAnalysis* ta, string indent="");
-                    
+
 #endif

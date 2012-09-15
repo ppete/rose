@@ -1,6 +1,12 @@
 #ifndef LIVE_DEAD_VAR_ANALYSIS_H
 #define LIVE_DEAD_VAR_ANALYSIS_H
 
+#include <map>
+#include <set>
+#include <vector>
+#include <string>
+#include <iostream>
+
 #include "genericDataflowCommon.h"
 #include "VirtualCFGIterator.h"
 #include "cfgUtils.h"
@@ -11,11 +17,6 @@
 #include "latticeFull.h"
 #include "printAnalysisStates.h"
 
-#include <map>
-#include <set>
-#include <vector>
-#include <string>
-#include <iostream>
 
 extern int liveDeadAnalysisDebugLevel;
 
@@ -24,63 +25,65 @@ class LiveVarsLattice : public FiniteLattice
 {
         public:
         std::set<varID> liveVars;
-        
+
         public:
         LiveVarsLattice();
         LiveVarsLattice(const varID& var);
         LiveVarsLattice(const std::set<varID>& liveVars);
-                
+
         // Initializes this Lattice to its default state, if it is not already initialized
         void initialize();
-        
+
         // Returns a copy of this lattice
-        Lattice* copy() const;
-        
+        LiveVarsLattice* copy() const;
+
         // Overwrites the state of this Lattice with that of that Lattice
-        void copy(Lattice* that);
-        
-        // Called by analyses to create a copy of this lattice. However, if this lattice maintains any 
-        //    information on a per-variable basis, these per-variable mappings must be converted from 
-        //    the current set of variables to another set. This may be needed during function calls, 
+        void copy(const Lattice* that);
+
+        // Called by analyses to create a copy of this lattice. However, if this lattice maintains any
+        //    information on a per-variable basis, these per-variable mappings must be converted from
+        //    the current set of variables to another set. This may be needed during function calls,
         //    when dataflow information from the caller/callee needs to be transferred to the callee/calleer.
         // We do not force child classes to define their own versions of this function since not all
         //    Lattices have per-variable information.
-        // varNameMap - maps all variable names that have changed, in each mapping pair, pair->first is the 
+        // varNameMap - maps all variable names that have changed, in each mapping pair, pair->first is the
         //              old variable and pair->second is the new variable
         // func - the function that the copy Lattice will now be associated with
         void remapVars(const std::map<varID, varID>& varNameMap, const Function& newFunc);
-        
+
         // Called by analyses to copy over from the that Lattice dataflow information into this Lattice.
         // that contains data for a set of variables and incorporateVars must overwrite the state of just
         // those variables, while leaving its state for other variables alone.
         // We do not force child classes to define their own versions of this function since not all
         //    Lattices have per-variable information.
-        void incorporateVars(Lattice* that_arg);
-        
+        void incorporateVars(const Lattice* that_arg);
+
         // Returns a Lattice that describes the information known within this lattice
         // about the given expression. By default this could be the entire lattice or any portion of it.
-        // For example, a lattice that maintains lattices for different known variables and expression will 
+        // For example, a lattice that maintains lattices for different known variables and expression will
         // return a lattice for the given expression. Similarly, a lattice that keeps track of constraints
         // on values of variables and expressions will return the portion of the lattice that relates to
-        // the given expression. 
+        // the given expression.
         // It it legal for this function to return NULL if no information is available.
         // The function's caller is responsible for deallocating the returned object
-        Lattice* project(SgExpression* expr);
-        
+        Lattice* project(SgExpression* expr) const /* override */;
+
         // The inverse of project(). The call is provided with an expression and a Lattice that describes
         // the dataflow state that relates to expression. This Lattice must be of the same type as the lattice
         // returned by project(). unProject() must incorporate this dataflow state into the overall state it holds.
         // Call must make an internal copy of the passed-in lattice and the caller is responsible for deallocating it.
         // Returns true if this causes this to change and false otherwise.
         bool unProject(SgExpression* expr, Lattice* exprState);
-        
+
         // computes the meet of this and that and saves the result in this
         // returns true if this causes this to change and false otherwise
-        bool meetUpdate(Lattice* that_arg);
-        
-        bool operator==(Lattice* that);
-        
-        // Functions used to inform this lattice that a given variable is now in use (e.g. a variable has entered 
+        bool meetUpdate(const Lattice* that_arg);
+
+        bool operator==(const Lattice* that) const;
+
+        void clear() { /* todo */ }
+
+        // Functions used to inform this lattice that a given variable is now in use (e.g. a variable has entered
         //    scope or an expression is being analyzed) or is no longer in use (e.g. a variable has exited scope or
         //    an expression or variable is dead).
         // It is assumed that a newly-added variable has not been added before and that a variable that is being
@@ -88,17 +91,17 @@ class LiveVarsLattice : public FiniteLattice
         // Returns true if this causes the lattice to change and false otherwise.
         bool addVar(const varID& var);
         bool remVar(const varID& var);
-        
+
         // Returns true if the given variable is recorded as live and false otherwise
         bool isLiveVar(varID var);
-                        
+
         // The string that represents this object
         // If indent!="", every line of this string must be prefixed by indent
         // The last character of the returned string should not be '\n', even if it is a multi-line string.
-        std::string str(std::string indent="");
+        std::string str(std::string indent="") const;
 };
 
-// Virtual class that allows users of the LiveDeadVarsAnalysis to mark certain variables as 
+// Virtual class that allows users of the LiveDeadVarsAnalysis to mark certain variables as
 // being used inside a function call if the function's body is not available.
 class funcSideEffectUses
 {
@@ -129,8 +132,8 @@ class LiveDeadVarsTransfer : public IntraDFTransferVisitor
   void used(SgExpression *);
 
 public:
-  LiveDeadVarsTransfer(const Function &f, const DataflowNode &n, NodeState &s, const std::vector<Lattice*> &d, funcSideEffectUses *fseu_)
-    : IntraDFTransferVisitor(f, n, s, d), indent("    "), liveLat(dynamic_cast<LiveVarsLattice*>(*(dfInfo.begin()))), modified(false), fseu(fseu_)
+  LiveDeadVarsTransfer(const Function& f, const DataflowNode& n, NodeState& s, Lattice& d, funcSideEffectUses* fseu_)
+    : IntraDFTransferVisitor(f, n, s, d), indent("    "), liveLat(dynamic_cast<LiveVarsLattice*>(&d)), modified(false), fseu(fseu_)
   {
         if(liveDeadAnalysisDebugLevel>=1) Dbg::dbg << indent << "liveLat="<<liveLat->str(indent + "    ")<<std::endl;
         // Make sure that all the lattice is initialized
@@ -153,26 +156,26 @@ public:
 /* Computes an over-approximation of the set of variables that are live at each DataflowNode. It may consider a given
    variable as live when in fact it is not. */
 // !!! CURRENTLY THE ANALYSIS IS IMPRECISE BECAUSE:
-// !!!    - IF THERE IS A VARIABLE USE WHERE THE IDENTITY OF THE VARIABLE IS COMPUTED THROUGH AN EXPRESSION, WE DO NOT 
+// !!!    - IF THERE IS A VARIABLE USE WHERE THE IDENTITY OF THE VARIABLE IS COMPUTED THROUGH AN EXPRESSION, WE DO NOT
 // !!!         RESPOND BY CONSERVATIVELY MAKING ALL VARIABLES LIVE.
 // !!!    - IT DOES NOT CONSIDER INTERNALS OF ARRAYS OR OTHER HEAP MEMORY
 class LiveDeadVarsAnalysis : public IntraBWDataflow
 {
         protected:
         funcSideEffectUses* fseu;
-        
+
         public:
         LiveDeadVarsAnalysis(SgProject *project, funcSideEffectUses* fseu=NULL);
-        
-        // Generates the initial lattice state for the given dataflow node, in the given function, with the given NodeState
-        void genInitState(const Function& func, const DataflowNode& n, const NodeState& state,
-                          std::vector<Lattice*>& initLattices, std::vector<NodeFact*>& initFacts);
-        
-  boost::shared_ptr<IntraDFTransferVisitor> getTransferVisitor(const Function& func, const DataflowNode& n,
-                                                               NodeState& state, const std::vector<Lattice*>& dfInfo)
-  { return boost::shared_ptr<IntraDFTransferVisitor>(new LiveDeadVarsTransfer(func, n, state, dfInfo, fseu)); }
 
-  bool transfer(const Function& func, const DataflowNode& n, NodeState& state, const std::vector<Lattice*>& dfInfo) { assert(0); return false; }
+        // Generates the initial lattice state for the given dataflow node, in the given function, with the given NodeState
+        LiveVarsLattice*       genLattice(const Function& func, const DataflowNode& n, const NodeState& state);
+        std::vector<NodeFact*> genFacts(const Function& func, const DataflowNode& n, const NodeState& state);
+
+        bool transfer(const Function& func, const DataflowNode& n, NodeState& state, LatticePtr dfInfo)
+        {
+          visitor_transfer(LiveDeadVarsTransfer(func, n, state, *dfInfo.get(), fseu), n);
+          return true; // \pp \todo pass return value from LiveDeadVarsTransfer
+        }
 };
 
 // Initialize vars to hold all the variables and expressions that are live at DataflowNode n
@@ -184,217 +187,222 @@ void getAllLiveVarsAt(LiveDeadVarsAnalysis* ldva, const NodeState& state, std::s
 std::set<varID> getAllLiveVarsAt(LiveDeadVarsAnalysis* ldva, const NodeState& state, std::string indent="");
 
 // get Live-In lattice for a control flow graph node generated from a SgNode with an index
-LiveVarsLattice* getLiveInVarsAt(LiveDeadVarsAnalysis* ldva, SgNode* n, unsigned int index = 0);
+const LiveVarsLattice* getLiveInVarsAt(LiveDeadVarsAnalysis* ldva, SgNode* n, unsigned int index = 0);
 
 // get Live-Out lattice for a control flow graph node generated from a SgNode with an index
-LiveVarsLattice* getLiveOutVarsAt(LiveDeadVarsAnalysis* ldva, SgNode* n, unsigned int index = 0);
+const LiveVarsLattice* getLiveOutVarsAt(LiveDeadVarsAnalysis* ldva, SgNode* n, unsigned int index = 0);
 
 class VarsExprsProductLattice: public virtual ProductLattice
 {
         protected:
         // Sample lattice that will be initially associated with every variable (before the analysis)
         Lattice* perVarLattice;
-                
+
         // Lattice that corresponds to allVar;
         Lattice* allVarLattice;
-        
+
         // Map of lattices that correspond to constant variables
         std::map<varID, Lattice*> constVarLattices;
-        
-        // Maps variables in a given function to the index of their respective Lattice objects in 
+
+        // Maps variables in a given function to the index of their respective Lattice objects in
         // the ProductLattice::lattice[] array
         std::map<varID, int> varLatticeIndex;
-        
+
         // The analysis that identified the variables that are live at this Dataflow node
         LiveDeadVarsAnalysis* ldva;
-        
+        bool (*filter) (CFGNode cfgn);
         // Dataflow node that this lattice is associated with and its corresponding node state.
         DataflowNode n;
         const NodeState& state;
-        
+
         protected:
-        // Minimal constructor that initializes just the portions of the object required to make an 
+        // Minimal constructor that initializes just the portions of the object required to make an
         // initial blank VarsExprsProductLattice
-        VarsExprsProductLattice(const DataflowNode& n, const NodeState& state);
-        
+        VarsExprsProductLattice(const DataflowNode& n, const NodeState& state, bool (*filter) (CFGNode cfgn));
         // Returns a blank instance of a VarsExprsProductLattice that only has the fields n and state set
-        virtual VarsExprsProductLattice* blankVEPL(const DataflowNode& n, const NodeState& state)=0;
-        
+        virtual VarsExprsProductLattice* blankVEPL(const DataflowNode& n, const NodeState& state) const =0;
+
         public:
         // creates a new VarsExprsProductLattice
         // perVarLattice - sample lattice that will be associated with every variable in scope at node n
         //     it should be assumed that the object pointed to by perVarLattice will be either
         //     used internally by this VarsExprsProductLatticeobject or deallocated
-        // constVarLattices - map of additional variables and their associated lattices, that will be 
-        //     incorporated into this VarsExprsProductLatticein addition to any other lattices for 
+        // constVarLattices - map of additional variables and their associated lattices, that will be
+        //     incorporated into this VarsExprsProductLatticein addition to any other lattices for
         //     currently live variables (these correspond to various useful constant variables like zeroVar)
         // allVarLattice - the lattice associated with allVar (the variable that represents all of memory)
         //     if allVarLattice==NULL, no support is provided for allVar
-        // func - the current function
+        // ldva - liveness analysis result. This can be set to NULL. Or only live variables at a CFG node will be used to initialize the product lattice
         // n - the dataflow node that this lattice will be associated with
         // state - the NodeState at this dataflow node
-        VarsExprsProductLattice(Lattice* perVarLattice, 
-                                const std::map<varID, Lattice*>& constVarLattices, 
+        VarsExprsProductLattice(Lattice* perVarLattice,
+                                const std::map<varID, Lattice*>& constVarLattices,
                                 Lattice* allVarLattice,
-                                LiveDeadVarsAnalysis* ldva, 
+                                LiveDeadVarsAnalysis* ldva,
                                 const DataflowNode& n, const NodeState& state);
-                                
+
         // Create a copy of that. It is assumed that the types of all the lattices in  VarsExprsProductLattice that are
         // the same as in this.
         VarsExprsProductLattice(const VarsExprsProductLattice& that);
-        
+
         ~VarsExprsProductLattice();
-        
+
         public:
-        
+
         // Returns the Lattice mapped to the given variable or NULL if nothing is mapped to it
         Lattice* getVarLattice(const varID& var);
-        
+
         // Returns the set of all variables mapped by this VarsExprsProductLattice
         std::set<varID> getAllVars();
-        
+
         protected:
-        
+
         // Returns the index of var among the variables associated with func
         // or -1 otherwise
         int getVarIndex(const varID& var);
-        
+
         public:
-        
+
         // Overwrites the state of this Lattice with that of that Lattice
-        void copy(Lattice* that);
-        // Set this to be a copy of that. It is assumed that the types of all the lattices in  VarsExprsProductLattice 
+        void copy(const Lattice* that);
+        // Set this to be a copy of that. It is assumed that the types of all the lattices in  VarsExprsProductLattice
         // that are the same as in this.
         void copy(const VarsExprsProductLattice* that);
-        
-        bool meetUpdate(Lattice *that);
 
-        // Called by analyses to create a copy of this lattice. However, if this lattice maintains any 
-        //    information on a per-variable basis, these per-variable mappings must be converted from 
-        //    the current set of variables to another set. This may be needed during function calls, 
+        bool meetUpdate(const Lattice *that);
+
+        // Called by analyses to create a copy of this lattice. However, if this lattice maintains any
+        //    information on a per-variable basis, these per-variable mappings must be converted from
+        //    the current set of variables to another set. This may be needed during function calls,
         //    when dataflow information from the caller/callee needs to be transferred to the callee/calleer.
         // We do not force child classes to define their own versions of this function since not all
         //    Lattices have per-variable information.
-        // varNameMap - maps all variable names that have changed, in each mapping pair, pair->first is the 
+        // varNameMap - maps all variable names that have changed, in each mapping pair, pair->first is the
         //              old variable and pair->second is the new variable
         // func - the function that the copy Lattice will now be associated with
-        /*Lattice**/void remapVars(const std::map<varID, varID>& varNameMap, const Function& newFunc, bool (*f)(CFGNode));
-        
+        ///*Lattice**/void remapVars(const std::map<varID, varID>& varNameMap, const Function& newFunc, bool (*f)(CFGNode));
+        /*Lattice**/void remapVars(const std::map<varID, varID>& varNameMap, const Function& newFunc);
         // Called by analyses to copy over from the that Lattice dataflow information into this Lattice.
         // that contains data for a set of variables and incorporateVars must overwrite the state of just
         // those variables, while leaving its state for other variables alone.
         // We do not force child classes to define their own versions of this function since not all
         //    Lattices have per-variable information.
-        void incorporateVars(Lattice* that);
-        
+        void incorporateVars(const Lattice* that);
+
         // Returns a Lattice that describes the information known within this lattice
         // about the given expression. By default this could be the entire lattice or any portion of it.
-        // For example, a lattice that maintains lattices for different known variables and expression will 
+        // For example, a lattice that maintains lattices for different known variables and expression will
         // return a lattice for the given expression. Similarly, a lattice that keeps track of constraints
         // on values of variables and expressions will return the portion of the lattice that relates to
-        // the given expression. 
+        // the given expression.
         // It it legal for this function to return NULL if no information is available.
         // The function's caller is responsible for deallocating the returned object
-        Lattice* project(SgExpression* expr);
-        
+        Lattice* project(SgExpression* expr) const /* override */;
+
         // The inverse of project(). The call is provided with an expression and a Lattice that describes
         // the dataflow state that relates to expression. This Lattice must be of the same type as the lattice
         // returned by project(). unProject() must incorporate this dataflow state into the overall state it holds.
         // Call must make an internal copy of the passed-in lattice and the caller is responsible for deallocating it.
         // Returns true if this causes this to change and false otherwise.
-        bool unProject(SgExpression* expr, Lattice* exprState);
-        
-        // Functions used to inform this lattice that a given variable is now in use (e.g. a variable has entered 
+        bool unProject(SgExpression* expr, const Lattice* exprState);
+
+        // Functions used to inform this lattice that a given variable is now in use (e.g. a variable has entered
         //    scope or an expression is being analyzed) or is no longer in use (e.g. a variable has exited scope or
         //    an expression or variable is dead).
         // Returns true if this causes this Lattice to change and false otherwise.
         bool addVar(const varID& var);
         bool remVar(const varID& var);
-        
-        // Sets the lattice of the given var to be lat. 
-        // If the variable is already mapped to some other Lattice, 
+
+        // Sets the lattice of the given var to be lat.
+        // If the variable is already mapped to some other Lattice,
         //   If *(the current lattice) == *lat, the mapping is not changed
         //   If *(the current lattice) != *lat, the current lattice is deallocated and var is mapped to lat->copy()
         // Returns true if this causes this Lattice to change and false otherwise.
         bool addVar(const varID& var, Lattice* lat);
-        
+
         // The string that represents this object
         // If indent!="", every line of this string must be prefixed by indent
         // The last character of the returned string should not be '\n', even if it is a multi-line string.
-        std::string str(std::string indent="");
+        std::string str(std::string indent="") const;
 };
 
 class FiniteVarsExprsProductLattice : public virtual VarsExprsProductLattice, public virtual FiniteProductLattice
 {
         protected:
-        // Minimal constructor that initializes just the portions of the object required to make an 
+        // Minimal constructor that initializes just the portions of the object required to make an
         // initial blank VarsExprsProductLattice
         FiniteVarsExprsProductLattice(const DataflowNode& n, const NodeState& state);
-        
+
         // Returns a blank instance of a VarsExprsProductLattice that only has the fields n and state set
-        VarsExprsProductLattice* blankVEPL(const DataflowNode& n, const NodeState& state);
-                
+        VarsExprsProductLattice* blankVEPL(const DataflowNode& n, const NodeState& state) const;
+
         public:
         // creates a new VarsExprsProductLattice
         // perVarLattice - sample lattice that will be associated with every variable in scope at node n
         //     it should be assumed that the object pointed to by perVarLattice will be either
         //     used internally by this VarsExprsProductLattice object or deallocated
-        // constVarLattices - map of additional variables and their associated lattices, that will be 
-        //     incorporated into this VarsExprsProductLattice in addition to any other lattices for 
+        // constVarLattices - map of additional variables and their associated lattices, that will be
+        //     incorporated into this VarsExprsProductLattice in addition to any other lattices for
         //     currently live variables (these correspond to various useful constant variables like zeroVar)
         // allVarLattice - the lattice associated with allVar (the variable that represents all of memory)
         //     if allVarLattice==NULL, no support is provided for allVar
         // func - the current function
         // n - the dataflow node that this lattice will be associated with
         // state - the NodeState at this dataflow node
-        FiniteVarsExprsProductLattice(Lattice* perVarLattice, 
-                                     const std::map<varID, Lattice*>& constVarLattices, 
+        FiniteVarsExprsProductLattice(Lattice* perVarLattice,
+                                     const std::map<varID, Lattice*>& constVarLattices,
                                      Lattice* allVarLattice,
-                                     LiveDeadVarsAnalysis* ldva, 
+                                     LiveDeadVarsAnalysis* ldva,
                                      const DataflowNode& n, const NodeState& state);
-        
+
         FiniteVarsExprsProductLattice(const FiniteVarsExprsProductLattice& that);
-        
+
         // returns a copy of this lattice
-        Lattice* copy() const;
+        FiniteVarsExprsProductLattice* copy() const;
 };
+
+typedef boost::shared_ptr<FiniteVarsExprsProductLattice>       FiniteVarsExprsProductLatticePtr;
+typedef boost::shared_ptr<const FiniteVarsExprsProductLattice> ConstFiniteVarsExprsProductLatticePtr;
 
 class InfiniteVarsExprsProductLattice: public virtual VarsExprsProductLattice, public virtual InfiniteProductLattice
 {
         protected:
-        // Minimal constructor that initializes just the portions of the object required to make an 
+        // Minimal constructor that initializes just the portions of the object required to make an
         // initial blank VarsExprsProductLattice
         InfiniteVarsExprsProductLattice(const DataflowNode& n, const NodeState& state);
-        
+
         // Returns a blank instance of a VarsExprsProductLattice that only has the fields n and state set
-        VarsExprsProductLattice* blankVEPL(const DataflowNode& n, const NodeState& state);
-        
+        VarsExprsProductLattice* blankVEPL(const DataflowNode& n, const NodeState& state) const;
+
         public:
         // creates a new VarsExprsProductLattice
         // perVarLattice - sample lattice that will be associated with every variable in scope at node n
         //     it should be assumed that the object pointed to by perVarLattice will be either
         //     used internally by this VarsExprsProductLatticeobject or deallocated
-        // constVarLattices - map of additional variables and their associated lattices, that will be 
-        //     incorporated into this VarsExprsProductLatticein addition to any other lattices for 
+        // constVarLattices - map of additional variables and their associated lattices, that will be
+        //     incorporated into this VarsExprsProductLatticein addition to any other lattices for
         //     currently live variables (these correspond to various useful constant variables like zeroVar)
         // allVarLattice - the lattice associated with allVar (the variable that represents all of memory)
         //     if allVarLattice==NULL, no support is provided for allVar
         // func - the current function
         // n - the dataflow node that this lattice will be associated with
         // state - the NodeState at this dataflow node
-        InfiniteVarsExprsProductLattice(Lattice* perVarLattice, 
-                                        const std::map<varID, Lattice*>& constVarLattices, 
+        InfiniteVarsExprsProductLattice(Lattice* perVarLattice,
+                                        const std::map<varID, Lattice*>& constVarLattices,
                                         Lattice* allVarLattice,
-                                        LiveDeadVarsAnalysis* ldva, 
+                                        LiveDeadVarsAnalysis* ldva,
                                         const DataflowNode& n, const NodeState& state);
-        
+
         InfiniteVarsExprsProductLattice(const FiniteVarsExprsProductLattice& that);
-        
+
         // returns a copy of this lattice
-        Lattice* copy() const;
+        InfiniteVarsExprsProductLattice* copy() const;
 };
 
-// prints the Lattices set by the given LiveDeadVarsAnalysis 
+typedef boost::shared_ptr<InfiniteVarsExprsProductLattice>       InfiniteVarsExprsProductLatticePtr;
+typedef boost::shared_ptr<const InfiniteVarsExprsProductLattice> ConstInfiniteVarsExprsProductLatticePtr;
+
+// prints the Lattices set by the given LiveDeadVarsAnalysis
 void printLiveDeadVarsAnalysisStates(LiveDeadVarsAnalysis* da, std::string indent="");
 
 #endif

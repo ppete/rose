@@ -33,7 +33,7 @@ class analysisStatesToDOT : virtual public UnstructuredPassIntraAnalysis
     void visit(const Function& func, PartPtr p, NodeState& state); // visitor function
     std::ostream* ostr; 
     // must transfer the custom filter from l, or the default filter will kick in!
-    analysisStatesToDOT (Analysis* l):  lda(l), Analysis(l->filter){ }; 
+      analysisStatesToDOT (Analysis* l): Analysis(l->filter), lda(l){ }; 
 };
 
 void analysisStatesToDOT::printEdge (const DataflowEdge& e)
@@ -238,7 +238,7 @@ streamsize dbgBuf::xsputn(const char * s, streamsize n)
                                 else if(s[j]=='>') numOpenAngles--;
                         }
 //                      cout << "char=\""<<s[j]<<"\" numOpenAngles="<<numOpenAngles<<"\n";
-                        // Send out all the bytes from the start of the string or the 
+                        // Send out all the bytes from the start of the string or the
                         // last line-break until this line-break
                         if(j-i>0) {
                                 if(needIndent) {
@@ -250,7 +250,7 @@ streamsize dbgBuf::xsputn(const char * s, streamsize n)
                                 if(ret != (j-i)) return 0;
                                 //cout << "   printing char "<<i<<" - "<<j<<"\n";
                         }
-                        
+
                         if(j<n) {
                                 // If we're at at line-break Send out the line-break
                                 if(s[j]=='\n') {
@@ -289,11 +289,11 @@ streamsize dbgBuf::xsputn(const char * s, streamsize n)
                                 }*/
                                 //cout << "   printing <BR>\n";
                         }
-                                
+
                         // Point i to immediately after the line-break
                         i = j+1;
                 }
-                
+
                 return n;
         }
 }
@@ -314,7 +314,7 @@ int dbgBuf::sync()
                 synched = false;
         }
         synched = true;
-        
+
         return 0;
 }
 
@@ -345,7 +345,7 @@ void dbgBuf::enterFunc(string funcName/*, string indent*/)
 
 void dbgBuf::exitFunc(string funcName)
 {
-        if(funcName != funcs.back()) { 
+        if(funcName != funcs.back()) {
                 cout << "dbgStream::exitFunc() ERROR: exiting from function "<<funcName<<" which is not the most recent function entered!\n";
                 cout << "funcs=\n";
                 for(list<string>::iterator f=funcs.begin(); f!=funcs.end(); f++)
@@ -385,12 +385,12 @@ dbgStream::dbgStream(string title, string dbgFileName, string workDir, string im
 void dbgStream::init(string title, string dbgFileName, string workDir, string imgPath)
 {
         this->workDir = workDir;
-        
+
         ofstream indexFile;
-        try {                                                                                           
+        try {
         indexFile.open(dbgFileName.c_str());
-        }                                                                                               
-        catch (ofstream::failure e)                                                                     
+        }
+        catch (ofstream::failure e)
         { cout << "dbgStream::init() ERROR opening file \""<<dbgFileName<<"\" for writing!"; exit(-1); }
 
         indexFile << "<frameset cols=\"20%,80%\">\n";
@@ -398,15 +398,15 @@ void dbgStream::init(string title, string dbgFileName, string workDir, string im
         indexFile << "\t<frame src=\"detail.html\" name=\"detail\"/>\n";
         indexFile << "</frameset>\n";
         indexFile.close();
-        
-        
+
+
         try {
                 dbgFile.open((workDir+"/detail.html").c_str());
         }
         catch (ofstream::failure e)
         { cout << "dbgStream::init() ERROR opening file \""<<workDir+"/summary.html\" for writing!"; exit(-1); }
 
-        
+
         //std::ostream::rdbuf(&buf);
         buf.init(dbgFile.rdbuf());
         this->imgPath = imgPath;
@@ -425,12 +425,12 @@ void dbgStream::init(string title, string dbgFileName, string workDir, string im
         summaryF << "\t<h1>Summary</h1>\n";
         summaryF << "\t\t<table width=\"100%\">\n";
         summaryF << "\t\t\t<tr width=\"100%\"><td width=50></td><td width=\"100%\">\n";
-        
+
         buf.ownerAccessing();
         printDetailFileHeader(title);
         buf.userAccessing();
-        
-        // Initialize colors with a list of light pastel colors 
+
+        // Initialize colors with a list of light pastel colors
         colors.push_back("FF97E8");
         colors.push_back("75D6FF");
         colors.push_back("72FE95");
@@ -448,7 +448,7 @@ void dbgStream::init(string title, string dbgFileName, string workDir, string im
         colors.push_back("FFFFC8");
         colors.push_back("5757FF");
         colors.push_back("6FFF44");
-        
+
         numImages++;
         initialized = true;
 }
@@ -461,13 +461,13 @@ dbgStream::~dbgStream()
         buf.ownerAccessing();
         printDetailFileTrailer();
         buf.userAccessing();
-        
+
         summaryF << "\t\t\t</td></tr>\n";
         summaryF << "\t\t</table>\n";
         summaryF << "\t</body>\n";
         summaryF << "</html>\n\n";
         summaryF.close();
-        
+
         // Run CPP on the output file to incorporate the summary into the main file
         //{
         //      ostringstream cmd;
@@ -553,9 +553,9 @@ void dbgStream::printDetailFileTrailer()
 void dbgStream::enterFunc(string funcName/*, string indent*/)
 {
         buf.ownerAccessing();
-        
+
         buf.enterFunc(funcName/*, indent*/);
-        
+
         ostringstream divName;
         for(list<int>::iterator d=buf.parentDivs.begin(); d!=buf.parentDivs.end(); ) {
                 divName << *d;
@@ -575,7 +575,7 @@ void dbgStream::enterFunc(string funcName/*, string indent*/)
         *(this) << "</a></h2></td></tr>\n";
         *(this) << "\t\t\t"<<tabs(buf.funcs.size()+1)<<"<tr width=\"100%\"><td width=50></td><td width=\"100%\"><div id=\"div"<<divName.str()<<"\" class=\"unhidden\">\n";
         this->flush();
-        
+
         //summaryF << "<li><a target=\"detail\" href=\"detail.html#"<<divName.str()<<"\">"<<funcName<<"</a><br>\n";
         //summaryF << "<ul>\n";
         summaryF << "\t\t\t"<<tabs(buf.funcs.size())<<"</td></tr>\n";
@@ -584,7 +584,7 @@ void dbgStream::enterFunc(string funcName/*, string indent*/)
         summaryF << "\t\t\t"<<tabs(buf.funcs.size()+1)<<"<tr width=\"100%\"><td width=50></td><td id=\"link"<<divName.str()<<"\" width=\"100%\"><a name=\"anchor"<<divName.str()<<"\" target=\"detail\" href=\"detail.html#"<<divName.str()<<"\">"<<funcName<<"</a> ("<<divName.str()<<")</td></tr>\n";
         summaryF << "\t\t\t"<<tabs(buf.funcs.size()+1)<<"<tr width=\"100%\"><td width=50></td><td width=\"100%\">\n";
         summaryF.flush();
-        
+
         buf.userAccessing();
 }
 
@@ -598,7 +598,7 @@ void dbgStream::exitFunc(string funcName)
         *(this) << "\t\t\t"<<tabs(buf.funcs.size())<<"<tr width=\"100%\"><td width=50></td><td width=\"100%\">\n";
         this->flush();
         buf.userAccessing();
-        
+
         //summaryF << "</ul>\n";
         summaryF << "\t\t\t"<<tabs(buf.funcs.size()+1)<<"</div></td></tr>\n";
         summaryF << "\t\t\t"<<tabs(buf.funcs.size()+1)<<"</table>\n";
@@ -620,15 +620,15 @@ string dbgStream::addImage(string ext)
 
 // Given a reference to an object that can be represented as a dot graph, create an image from it and add it to the output.
 // Return the path of the image.
-string dbgStream::addDOT(dottable& obj)
+string dbgStream::addDOT(const dottable& obj)
 {
         ostringstream imgFName; imgFName << "dbg_imgs/image_" << numImages << ".svg";
         ostringstream graphName; graphName << "graph_"<<numImages;
         ostringstream ret;
         addDOT(imgFName.str(), graphName.str(), obj.toDOT(graphName.str()), *this);
-        
+
         return ret.str();
-        
+
         return imgFName.str();
 }
 
@@ -646,13 +646,13 @@ void dbgStream::remIndent()
 
 // Given a reference to an object that can be represented as a dot graph, create an image of it and return the string
 // that must be added to the output to include this image.
-std::string dbgStream::addDOTStr(dottable& obj)
+std::string dbgStream::addDOTStr(const dottable& obj)
 {
         ostringstream imgFName; imgFName << "dbg_imgs/image_" << numImages << ".svg";
         ostringstream graphName; graphName << "graph_"<<numImages;
         ostringstream ret;
         addDOT(imgFName.str(), graphName.str(), obj.toDOT(graphName.str()), ret);
-        
+
         return ret.str();
 }
 
@@ -664,7 +664,7 @@ std::string dbgStream::addDOT(string dot)
         ostringstream graphName; graphName << "graph_"<<numImages;
 
         addDOT(imgFName.str(), graphName.str(), dot, *this);
-        
+
         return imgFName.str();
 }
 
@@ -678,11 +678,11 @@ void dbgStream::addDOT(string imgFName, string graphName, string dot, ostream& r
         dotFile.open(dotFName.str().c_str());
         dotFile << dot;
         dotFile.close();
-        
+
         // Create the SVG file's picture of the dot file
         /*pid_t child = fork();
         // Child
-        if(child==0) 
+        if(child==0)
         {*/
                 ostringstream cmd; cmd << "dot -Tsvg -o"<<imgPath<<"/image_" << numImages << ".svg "<<dotFName.str() << "&"; // -Tcmapx -o"<<mapFName.str()<<"
                 cout << "Command \""<<cmd.str()<<"\"\n";
@@ -693,7 +693,7 @@ void dbgStream::addDOT(string imgFName, string graphName, string dot, ostream& r
                 cout << "dbgStream::addDOTStr() ERROR forking!";
                 exit(-1);
         }*/
-        
+
         //// Identify the names of the nodes in the dot file
         //ostringstream namesFName; namesFName << imgPath << "/image_" << numImages << ".names";
         //{
@@ -717,11 +717,11 @@ void dbgStream::addDOT(string imgFName, string graphName, string dot, ostream& r
         //else {
         //      cout << "dbgStream::addDOT() ERROR opening file \""<<namesFName.str()<<"\" for reading!"<<endl;
         //}
-                
+
         ret << "\t\t\t"<<tabs(buf.funcs.size()+1)<<"image_"<<numImages<<":<img src=\""<<imgFName<<"\" "; // <a href=\"image_" << numImages << ".dot\">
         //usemap=\""<<graphName.str()<<"\"
         ret << "><br>\n"; // </a>
-        
+
         //ret << "<a href=\"javascript:showNodes("<<numImages<<", '";
         //for(set<string>::iterator n=nodes.begin(); n!=nodes.end(); ) {
         //      ret << "" << *n << "";
@@ -730,10 +730,10 @@ void dbgStream::addDOT(string imgFName, string graphName, string dot, ostream& r
         //              ret << " ";
         //}
         //ret << "')\">Subset</a><iframe height=0 width=0 id=\"imgFrame_"<<numImages<<"\"></iframe><br>\n";
-        
+
         //ret << "\t\t\t"<<tabs(buf.funcs.size()+1)<<"<embed height=\"100%\" width=\"100%\" pluginspage=\"http://www.adobe.com/svg/viewer/install\" src=\""<<imgFName<<"\">"<<endl;
         //ret << "\t\t\t"<<tabs(buf.funcs.size()+1)<<"<object height=\"100%\" width=\"100%\" data=\""<<imgFName<<"\" type=\"image/svg+xml\"></object>"<<endl;
-        
+
         // Open the map file and copy its contents into the output stream
         /*ifstream mapFile(mapFName.str().c_str());
         string line;
@@ -830,33 +830,33 @@ region::~region()
                         if(ret == -1) { cout << "Dbg::init() ERROR creating directory \""<<workDir<<"\"!"; exit(-1); }
                 }
                 ostringstream imgPath; imgPath << workDir << "/dbg_imgs";
-                
+
                 {
                         ostringstream cmd; cmd << "mkdir -p "<<imgPath.str();
                         //cout << "Command \""<<cmd.str()<<"\"\n";
                         int ret = system(cmd.str().c_str());
                         if(ret == -1) { cout << "Dbg::init() ERROR creating directory \""<<imgPath.str()<<"\"!"; exit(-1); }
                 }
-                        
+
                 ostringstream dbgFileName; dbgFileName << workDir << "/" << fName;
                 dbg.init(title, dbgFileName.str(), workDir, imgPath.str());
                 initialized = true;
   }
 
-        
+
         // Indicates that the application has entered or exited a function
         void enterFunc(std::string funcName/*, std::string indent="    "*/)
         {
                 if(!initialized) init("Debug Output", ".", "debug");
                 dbg.enterFunc(funcName);
         }
-        
+
         void exitFunc(std::string funcName)
         {
                 if(!initialized) init("Debug Output", ".", "debug");
                 dbg.exitFunc(funcName);
         }
-                
+
         // Adds an image to the output with the given extension and returns the path of this image
         // so that the caller can write to it.
         std::string addImage(std::string ext)
@@ -864,37 +864,37 @@ region::~region()
                 if(!initialized) init("Debug Output", ".", "debug");
                 return dbg.addImage(ext);
         }
-        
+
         // Given a representation of a graph in dot format, create an image from it and add it to the output.
         // Return the path of the image.
-        std::string addDOT(dottable& obj)
+        std::string addDOT(const dottable& obj)
         {
                 if(!initialized) init("Debug Output", ".", "debug");
                 return dbg.addDOT(obj);
         }
-        
+
         // Given a representation of a graph in dot format, create an image of it and return the string
         // that must be added to the output to include this image.
-        std::string addDOTStr(dottable& obj)
+        std::string addDOTStr(const dottable& obj)
         {
                 if(!initialized) init("Debug Output", ".", "debug");
                 return dbg.addDOTStr(obj);
         }
-        
+
         // Given a representation of a graph in dot format, create an image from it and add it to the output.
         // Return the path of the image.
         std::string addDOT(std::string dot) {
                 if(!initialized) init("Debug Output", ".", "debug");
                 return dbg.addDOT(dot);
         }
-        
-        // Given a string, returns a version of the string with all the control characters that may appear in the 
+
+        // Given a string, returns a version of the string with all the control characters that may appear in the
         // string escaped to that the string can be written out to Dbg::dbg with no formatting issues.
         // This function can be called on text that has already been escaped with no harm.
         std::string escape(std::string s)
         {
                 string out;
-                for(unsigned int i=0; i<s.length(); i++) {
+                for(size_t i=0; i<s.length(); i++) {
                         // Manage HTML tags
                              if(s[i] == '<') out += "&lt;";
                         else if(s[i] == '>') out += "&gt;";

@@ -16,41 +16,46 @@ namespace dataflow {
 class BoolAndLattice : public FiniteLattice
 {
   // state can be:
+#if OBSOLETE_CODE
+  // see Lattice initialization
   // -1 : unset (default value)
+#endif /* OBSOLETE_CODE */
   // 0 : false
   // 1 : true
-  int state;
+        bool state;
   
   public:
+        
+  explicit
   BoolAndLattice(PartPtr p) : Lattice(p), FiniteLattice(p)
-  { state = -1; }
+  : state(0)
+  {}
   
-  private:
-  BoolAndLattice(int state, PartPtr p) : Lattice(p), FiniteLattice(p)
-  { this->state = state; }
-  
-  public:
-  BoolAndLattice(bool state, PartPtr p) : Lattice(p), FiniteLattice(p)
-  { this->state = state; }
+        BoolAndLattice(bool initstate, PartPtr p) 
+        : Lattice(p), FiniteLattice(p), state(initstate)
+        {}
   
   // initializes this Lattice to its default state
   void initialize()
-  { state = -1; }
+        { Lattice::initialize(); state = false; }
+
+        void clear()
+        { Lattice::uninitialize(); }
   
   // returns a copy of this lattice
-  Lattice* copy() const;
+        BoolAndLattice* copy() const;
   
   // overwrites the state of this Lattice with that of that Lattice
-  void copy(Lattice* that);
+        void copy(const Lattice* that);
   
   // computes the meet of this and that and saves the result in this
   // returns true if this causes this to change and false otherwise
-  bool meetUpdate(Lattice* that);
+        bool meetUpdate(const Lattice* that);
   
   // computes the meet of this and that and returns the result
   //Lattice* meet(Lattice* that);
     
-  bool operator==(Lattice* that);
+        bool operator==(const Lattice* that) const;
   
   // returns the current state of this object
   bool get() const;
@@ -79,7 +84,7 @@ class BoolAndLattice : public FiniteLattice
   // Return true if this causes the object to change and false otherwise.
   bool setToEmpty();
   
-  std::string str(std::string indent="");
+        std::string str(std::string indent="") const;
 };
 
 class IntMaxLattice : public InfiniteLattice
@@ -89,40 +94,39 @@ class IntMaxLattice : public InfiniteLattice
   public:
   static const int infinity;// = 32768;
   
-  IntMaxLattice(PartPtr p) : Lattice(p), InfiniteLattice(p)
-  {
-    state = -1;
-  }
+        IntMaxLattice(PartPtr p) 
+        : Lattice(p), InfiniteLattice(p), state(-1)
+        {}
   
-  IntMaxLattice(int state, PartPtr p) : Lattice(p), InfiniteLattice(p)
-  {
-    this->state = state;
-  }
+        IntMaxLattice(int initstate, PartPtr p) 
+        : Lattice(p), InfiniteLattice(p), state(initstate)
+        {}
   
   // initializes this Lattice to its default state
-  void initialize()
+        void clear()
   {
+                Lattice::uninitialize();
     state = -1;
   }
   
   // returns a copy of this lattice
-  Lattice* copy() const;
+        IntMaxLattice* copy() const;
   
   // overwrites the state of this Lattice with that of that Lattice
-  void copy(Lattice* that);
+        void copy(const Lattice* that);
   
   // computes the meet of this and that and saves the result in this
   // returns true if this causes this to change and false otherwise
-  bool meetUpdate(Lattice* that);
+        bool meetUpdate(const Lattice* that);
   
   // computes the meet of this and that and returns the result
   //Lattice* meet(Lattice* that);
   
-  bool operator==(Lattice* that);
+        bool operator==(const Lattice* that) const;
   
   // widens this from that and saves the result in this
   // returns true if this causes this to change and false otherwise
-  bool widenUpdate(InfiniteLattice* that);
+        bool widenUpdate(const InfiniteLattice* that);
   
   // returns the current state of this object
   int get() const;
@@ -147,21 +151,27 @@ class IntMaxLattice : public InfiniteLattice
   // Return true if this causes the object to change and false otherwise.
   bool setToEmpty();
   
-  std::string str(std::string indent="");
+        std::string str(std::string indent="") const;
 };
 
 /*########################
   ### Utility lattices ###
   ########################*/
 
+// A container lattice to store other lattices
 class ProductLattice : public virtual Lattice
 {
   public:
+#if OBSOLETE_CODE
   // The different levels of this lattice
   static const int uninitialized=0; 
   static const int initialized=1; 
   // This object's current level in the lattice: (uninitialized or initialized)
   short level;
+
+  int getLevel() { return level; }
+#endif /* OBSOLETE_CODE */
+
   
   bool isFinite;
   
@@ -176,20 +186,26 @@ class ProductLattice : public virtual Lattice
   ~ProductLattice();
   
   void init(const std::vector<Lattice*>& lattices);
+
+  /// initializes this Lattice to its default state
+  void initialize()   /* override */;
   
-  // initializes this Lattice to its default state
-  void initialize();
+  /// sets the lattice to uninitialize
+  void unInitialize() /* override */;
   
-  const std::vector<Lattice*>& getLattices();
+  /// clears the lattice
+  void clear() /* override */;
+
+  const std::vector<Lattice*>& getLattices() const;
   
-  // initializes the given vector with a copy of the lattices vector
+  /// initializes the given vector with a copy of the lattices vector
   void copy_lattices(std::vector<Lattice*>& newLattices) const;
   
   // Returns a copy of this lattice
-  Lattice* copy() const;
+  ProductLattice* copy() const;
         
   // Overwrites the state of this Lattice with that of that Lattice
-  void copy(Lattice* that);
+        void copy(const Lattice* that);
   
   // Called by analyses to transfer this lattice's contents from across function scopes from a caller function 
   //    to a callee's scope and vice versa. If this this lattice maintains any information on the basis of 
@@ -210,14 +226,29 @@ class ProductLattice : public virtual Lattice
   
   // computes the meet of this and that and saves the result in this
   // returns true if this causes this to change and false otherwise
-  bool meetUpdate(Lattice* that);
+        virtual bool meetUpdate(const Lattice* that);
   
   // Computes the meet of this and that and returns the result
-  virtual bool finiteLattice();
+  virtual bool finiteLattice() const;
+
+  virtual bool operator==(const Lattice* that) const;
   
-  bool operator==(Lattice* that);
-  
+        // convenience function to access each lattice individually
+        template <class LatticeType>
+        LatticeType& at(size_t pos)
+        {
+          return dynamic_cast<LatticeType&>(*lattices.at(pos));
+        }
+
+        template <class LatticeType>
+        const LatticeType& at(size_t pos) const
+        {
+          return dynamic_cast<const LatticeType&>(*lattices.at(pos));
+        }
+
+#if OBSOLETE_CODE
   int getLevel() { return level; }
+#endif /* OBSOLETE_CODE */
   
   // Set this Lattice object to represent the set of all possible execution prefixes.
   // Return true if this causes the object to change and false otherwise.
@@ -229,7 +260,7 @@ class ProductLattice : public virtual Lattice
   // The string that represents this object
   // If indent!="", every line of this string must be prefixed by indent
   // The last character of the returned string should not be '\n', even if it is a multi-line string.
-  std::string str(std::string indent="");
+        virtual std::string str(std::string indent="") const;
 };
 
 class FiniteProductLattice : public virtual ProductLattice
@@ -255,11 +286,11 @@ class FiniteProductLattice : public virtual ProductLattice
         ROSE_ASSERT((*it)->finiteLattice());
   }
   
-  bool finiteLattice()
+  bool finiteLattice() const
   { return true;  }
   
   // Returns a copy of this lattice
-  Lattice* copy() const
+        FiniteProductLattice* copy() const
   {
     return new FiniteProductLattice(*this);
   }
@@ -268,7 +299,6 @@ class FiniteProductLattice : public virtual ProductLattice
 class InfiniteProductLattice : public virtual ProductLattice
 {
   public:
-  
   InfiniteProductLattice(PartPtr p) : Lattice(p), ProductLattice(p)
   {}
   
@@ -278,18 +308,18 @@ class InfiniteProductLattice : public virtual ProductLattice
   InfiniteProductLattice(const InfiniteProductLattice& that) : Lattice(that.part), ProductLattice(that.lattices, that.part)
   {}
   
-  bool finiteLattice()
+  bool finiteLattice() const
   { return false; }
   
   // returns a copy of this lattice
-  Lattice* copy() const
+        InfiniteProductLattice* copy() const
   {
     return new InfiniteProductLattice(*this);
   }
   
   // Widens this from that and saves the result in this.
   // Returns true if this causes this to change and false otherwise.
-  bool widenUpdate(InfiniteLattice* that);
+        bool widenUpdate(const InfiniteLattice* that);
 };
 
 }; // namespace dataflow

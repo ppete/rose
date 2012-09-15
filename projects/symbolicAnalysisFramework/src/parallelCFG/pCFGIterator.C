@@ -4,21 +4,40 @@
 
 int pCFGIteratorDebugLevel = 2;
 
+#if OBSOLETE_CODE
 void pCFGIterator::genInitState(const Function& func, const pCFGNode& n, const NodeState& state,
                       vector<Lattice*>& initLattices, vector<NodeFact*>& initFacts)
-{                  
+{
+}
+#endif /*OBSOLETE_CODE*/
+
+Lattice*
+pCFGIterator::genLattice(const Function& func, const pCFGNode& n, const NodeState& state)
+{
+  ROSE_ASSERT(false);
+  return 0;
 }
 
-void pCFGIterator::copyPSetState(const Function& func, const pCFGNode& n, 
+
+std::vector<NodeFact*>
+pCFGIterator::genFacts(const Function& func, const pCFGNode& n, const NodeState& state)
+{
+  ROSE_ASSERT(false);
+  return std::vector<NodeFact*>() ;
+}
+
+
+
+void pCFGIterator::copyPSetState(const Function& func, const pCFGNode& n,
                    unsigned int srcPSet, unsigned int tgtPSet, NodeState& state,
-                   vector<Lattice*>& lattices, vector<NodeFact*>& facts, 
+                   LatticePtr lattice, vector<NodeFact*>& facts,
                    ConstrGraph* partitionCond, bool omitRankSet)
 {
     assert(0);
 }
 
 bool pCFGIterator::initPSetDFfromPartCond(const Function& func, const pCFGNode& n, unsigned int pSet,
-                                const vector<Lattice*>& dfInfo, const vector<NodeFact*>& facts,
+                                LatticePtr dfInfo, const vector<NodeFact*>& facts,
                                 ConstrGraph* partitionCond)
 {
     assert(0);
@@ -26,15 +45,15 @@ bool pCFGIterator::initPSetDFfromPartCond(const Function& func, const pCFGNode& 
 }
 
 void pCFGIterator::mergePCFGStates(const list<unsigned int>& pSetsToMerge, const pCFGNode& n, const Function& func,
-                         NodeState& staet, const vector<Lattice*>& dfInfo, map<unsigned int, unsigned int>& pSetMigrations)
+                         NodeState& state, LatticePtr dfInfo, map<unsigned int, unsigned int>& pSetMigrations)
 {
     assert(0);
 }
-    
-void pCFGIterator::matchSendsRecvs(const pCFGNode& n, const vector<Lattice*>& dfInfo, NodeState* state, 
+
+void pCFGIterator::matchSendsRecvs(const pCFGNode& n, ConstLatticePtr dfInfo, NodeState* state,
                      // Set by analysis to identify the process set that was split
                      unsigned int& splitPSet,
-                     vector<ConstrGraph*>& splitConditions, 
+                     vector<ConstrGraph*>& splitConditions,
                       vector<DataflowNode>& splitPSetNodes,
                      // for each split process set, true if its active and false if it is blocked
                      vector<bool>&         splitPSetActive,
@@ -50,16 +69,16 @@ void pCFGIterator::matchSendsRecvs(const pCFGNode& n, const vector<Lattice*>& df
 // decides if the given pSet is blocked or split or dead
 // if needs to split, pushes the descendants into splitPSetNodes
 // if split -> pushes the ConstrGraph corresponding to that into splitConditions
-bool pCFGIterator::transfer(const pCFGNode& n, 
-                            unsigned int pSet, 
-                            const Function& func,                  
-                            NodeState& state, 
-                            const vector<Lattice*>& dfInfo,
-                            bool& deadPSet, 
-                            bool& splitPSet, 
+bool pCFGIterator::transfer(const pCFGNode& n,
+                            unsigned int pSet,
+                            const Function& func,
+                            NodeState& state,
+                            LatticePtr dfInfo,
+                            bool& deadPSet,
+                            bool& splitPSet,
                             vector<DataflowNode>& splitPSetNodes,
-                            bool& splitPNode, 
-                            vector<ConstrGraph*>& splitConditions, 
+                            bool& splitPNode,
+                            vector<ConstrGraph*>& splitConditions,
                             bool& blockPSet)
 {
     assert(0);
@@ -70,23 +89,25 @@ bool pCFGIterator::transfer(const pCFGNode& n,
 // decides if the given pSet is blocked or split or dead
 // if needs to split, pushes the descendants into splitPSetNodes
 // if split -> pushes the ConstrGraph corresponding to that into splitConditions
-bool pCFGIterator::transfer(const pCFGNode& n, 
-                            unsigned int pSet, 
-                            const Function& func,                  
-                            NodeState& state, 
-                            const vector<Lattice*>& dfInfo,
-                            bool& isDeadPSet, 
-                            bool& isSplitPSet, 
+bool pCFGIterator::transfer(const pCFGNode& n,
+                            unsigned int pSet,
+                            const Function& func,
+                            NodeState& state,
+                            LatticePtr dfInfo,
+                            bool& isDeadPSet,
+                            bool& isSplitPSet,
                             vector<DataflowNode>& splitPSetNodes,
-                            bool& isSplitPNode,                             
+                            bool& isSplitPNode,
                             bool& isBlockPSet,
                             bool& isMergePSet)
 {
     bool modified = false;
     // Get the ROSE_VisitorPattern instance
-    boost::shared_ptr<IntraPCFGTransferVisitor> 
-        transferVisitor = boost::shared_ptr<IntraPCFGTransferVisitor> 
-        (new pCFGIteratorTransfer (n, pSet, func, state, dfInfo, isDeadPSet, isSplitPSet, splitPSetNodes, isSplitPNode, isBlockPSet, isMergePSet, this->mda));
+    //~ boost::shared_ptr<IntraPCFGTransferVisitor>
+        //~ transferVisitor = boost::shared_ptr<IntraPCFGTransferVisitor>
+        //~ (new pCFGIteratorTransfer (n, pSet, func, state, dfInfo, isDeadPSet, isSplitPSet, splitPSetNodes, isSplitPNode, isBlockPSet, isMergePSet, this->mda));
+
+    pCFGIteratorTransfer transferVisitor(n, pSet, func, state, dfInfo, isDeadPSet, isSplitPSet, splitPSetNodes, isSplitPNode, isBlockPSet, isMergePSet, this->mda);
 
     // get the node on which visitor pattern needs to applied
     const DataflowNode& dfNode = n.getCurNode(pSet);
@@ -95,14 +116,14 @@ bool pCFGIterator::transfer(const pCFGNode& n,
     SgNode* sgn = dfNode.getNode();
 
     // set the handler
-    sgn->accept(*transferVisitor);
+    sgn->accept(transferVisitor);
 
-    modified = transferVisitor->finish() || modified;
+    modified = transferVisitor.finish() || modified;
 
-    return modified;    
+    return modified;
 }
 
-void pCFGIterator::resetPSet(unsigned int pSet, vector<Lattice*>& dfInfo)
+void pCFGIterator::resetPSet(unsigned int pSet, LatticePtr dfInfo)
 {
     assert(0);
 }
@@ -117,13 +138,15 @@ void pCFGIterator::resetPSet(unsigned int pSet, vector<Lattice*>& dfInfo)
 //     3. Split a process set based on rank dependent condition
 bool pCFGIterator::runAnalysis_pCFG(const Function& func, NodeState* state, pCFG_Checkpoint* chkpt)
 {
+    static int ctr = 0;
+
     std::cout << "CLIENT RUN ANALYSIS PCFG\n";
     string indent="";
     DataflowNode funcCFGStart = cfgUtils::getFuncStartCFG(func.get_definition());
     DataflowNode funcCFGEnd = cfgUtils::getFuncEndCFG(func.get_definition());
 
     ostringstream funcNameAsString;
-    funcNameAsString << "Function " << func.get_name().getString() << "()";   
+    funcNameAsString << "Function " << func.get_name().getString() << "()";
     if(pCFGIteratorDebugLevel >= 1) {
         Dbg::enterFunc(funcNameAsString.str());
         Dbg::dbg << indent << "Entering : " << funcNameAsString.str() << endl;
@@ -187,8 +210,8 @@ bool pCFGIterator::runAnalysis_pCFG(const Function& func, NodeState* state, pCFG
         while(activePSets.size() > 0)
         {
             int curPSet;
-            // The current process set is the next active one or the process set that 
-            // performed the split from which we're restarting 
+            // The current process set is the next active one or the process set that
+            // performed the split from which we're restarting
             // (the latter special condition is only needed to keep the output more readable)
             if(chkpt==NULL) {
                 // pick in canonical order
@@ -199,7 +222,7 @@ bool pCFGIterator::runAnalysis_pCFG(const Function& func, NodeState* state, pCFG
             }
 
             printSubGraphInit(curPSet);
-                                
+
             // If we're restarting, we don't need the checkpoint any more
             if(chkpt) {
                 delete chkpt;
@@ -219,7 +242,7 @@ bool pCFGIterator::runAnalysis_pCFG(const Function& func, NodeState* state, pCFG
                 // NodeState* state = pCFGState::getNodeState(func, curNode, this);
                 // ROSE_ASSERT(state != NULL);
                 NodeState* state = NULL;
-                
+
                 // We may need state information to decide if merge,split or blocked required
                 //vector<Lattice*>& dfInfoAbove = state->getLatticeAboveMod (this);
                 //vector<Lattice*>& dfInfoBelow = state->getLatticeBelowMod (this);
@@ -228,22 +251,29 @@ bool pCFGIterator::runAnalysis_pCFG(const Function& func, NodeState* state, pCFG
                 // initalization happens as the analysis progresses
                 // TODO: Use annotations to decide if the nod should be created
                 pCFGNode descNode(curNode);
+                std::cerr << ++ctr << indent << descNode.str() <<"\n";
+
+                if (ctr == 35)
+                {
+                  std::cerr << "!";
+                }
+
 
                 //TODO: Check if need to merge
                 // merge => two psets at same dataflow node &  same status
                 // update modified =
 
                 // if we resume from blocked state
-                // 
+                //
                 if(releasedPSets.erase(curPSet) > 0) {
                     descNode.advanceOut(curPSet);
                     descNode.set_id(++npcfgnodes);
 //                    descNode.set_dot_attr("blue");
-                    descNode.set_dot_attr(curPSet);                    
+                    descNode.set_dot_attr(curPSet);
                     if(movedPSet) {
                         // do not update ancestor as it was set earlier for this pset
                         // reset the flag
-                        movedPSet = false;                            
+                        movedPSet = false;
                     }
                     else {
                         descNode.updateAncsNode(curPSet, curNode);
@@ -259,12 +289,12 @@ bool pCFGIterator::runAnalysis_pCFG(const Function& func, NodeState* state, pCFG
                     // Overwrite the Lattices below this node with the lattices above this node.
                     // The transfer function will then operate on these Lattices to produce the
                     // correct state below this node.
-                                        
+
                     // The new information below this pCFGNode. Initially a copy of the above information
-                    vector<Lattice*> dfInfoNewBelow;                                        
-                                       
+                    LatticePtr dfInfoNewBelow(static_cast<Lattice*>(0));
+
                     // Initialize dfInfoNewBelow to be the copy of the information above this node.
-                    //    It will then get pushed through the transfer function before being unioned 
+                    //    It will then get pushed through the transfer function before being unioned
                     //    with and widened into the information below this node.
                     // for(vector<Lattice*>::const_iterator itA=dfInfoAbove.begin(); itA != dfInfoAbove.end(); itA++)
                     // {
@@ -303,7 +333,7 @@ bool pCFGIterator::runAnalysis_pCFG(const Function& func, NodeState* state, pCFG
                         return false;
                     }
                     // if the analysis needs to split
-                    // condition independent of 
+                    // condition independent of
                     else if(isSplitPNode) {
 
                     }
@@ -311,7 +341,7 @@ bool pCFGIterator::runAnalysis_pCFG(const Function& func, NodeState* state, pCFG
                     else if(isSplitPSet) {
                         modified = true;
                         performPSetSplit(curPSet, curNode, descNode, splitPSetNodes, activePSets);
-                        
+
                         // set dot properties
                         descNode.set_id(++npcfgnodes);
 //                        descNode.set_dot_attr("red");
@@ -330,7 +360,7 @@ bool pCFGIterator::runAnalysis_pCFG(const Function& func, NodeState* state, pCFG
                         printSubGraphEnd();
                         break;
                     }
-                    else if(isMergePSet) {                        
+                    else if(isMergePSet) {
                         movePSet(curPSet, mergePSets, activePSets);
                         if(!movedPSet) {
                             curNode.updateAncsNode(curPSet, curNode);
@@ -338,17 +368,17 @@ bool pCFGIterator::runAnalysis_pCFG(const Function& func, NodeState* state, pCFG
                         else {
                             movedPSet = false;
                         }
-                        movedPSet = true;                       
+                        movedPSet = true;
                         printSubGraphEnd();
                         break;
                     }
                     else {
                         Dbg::dbg << indent << descNode.str() <<"\n";
-                        descNode.advanceOut(curPSet);                        
+                        descNode.advanceOut(curPSet);
                         if(movedPSet) {
                             // do not update ancestor as it was set earlier for this pset
                             // reset the flag
-                            movedPSet = false;                            
+                            movedPSet = false;
                         }
                         else {
                             descNode.updateAncsNode(curPSet, curNode);
@@ -360,7 +390,7 @@ bool pCFGIterator::runAnalysis_pCFG(const Function& func, NodeState* state, pCFG
                         modified = true;
                     }
                     // <<<<<<<<<<< TRANSFER FUNCTION >>>>>>>>>>>>
-                }// end else                               
+                }// end else
 
                 if(modified) {
                     //TODO: propagate state if required
@@ -376,10 +406,10 @@ bool pCFGIterator::runAnalysis_pCFG(const Function& func, NodeState* state, pCFG
                 //NOTE: modified = false -> fixpoint reached
                 else {
                     return true;
-                }                
-                
+                }
+
             } // end of while(1) -> curPset is blocked or reached end of function
-                        
+
             //movedPSet = true;
         } // end of while(activePsets.size > 0) -> all psets are blocked or require merge
 
@@ -408,16 +438,16 @@ bool pCFGIterator::runAnalysis_pCFG(const Function& func, NodeState* state, pCFG
             // draw edges from all nodes to this descNode
             for(set<unsigned int>::iterator i = mergePSets.begin(); i != mergePSets.end(); i++) {
                 printEdge(curNode.getCurAncsNode(*i), descNode);
-            }            
+            }
             descNode.updateAncsNode(activepset, descNode);
 
             // set the transition
             curNode = descNode;
 
-            
+
             // mark visited
             visitedPCFGNodes.insert(descNode);
-            
+
             releasedPSets.insert(activepset);
             activePSets.insert(activepset);
             mergePSets.clear();
@@ -428,7 +458,7 @@ bool pCFGIterator::runAnalysis_pCFG(const Function& func, NodeState* state, pCFG
         //<<<<<< MatchSendRecv >>>>>>>>>
         //TODO: Determine next descNode based on match
         //TODO: Activate all non-split psets
-        
+
         else if(blockedPSets.size() > 0) {
             // if blocked at funcCFGEnd, then don't execute
             // match send recv
@@ -442,20 +472,20 @@ bool pCFGIterator::runAnalysis_pCFG(const Function& func, NodeState* state, pCFG
             if(matched) {
                 cout << "MATCH...\n";
             }
-        }            
+        }
         //<<<<<< MatchSendRecv >>>>>>>>>
 
     } while(activePSets.size() > 0); // end of do-while
-    
+
     //TODO: Check if all pSets are at funcCFGEnd
     //TODO: Create chkpts if not present
     //TODO: split(set<chkpts>)     // inserts new chkpts to set of already existing chkpts
     // runAnalysis() takes care of starting from the chkpt
     // All process sets are blocked and they cannot be unblocked via send-receive matching.
-        
-    // Check if this state was reached because all process sets are at the end of the application 
+
+    // Check if this state was reached because all process sets are at the end of the application
     int curPSet=0;
-    for(vector<DataflowNode>::const_iterator it=curNode.getPSetDFNodes().begin(); 
+    for(vector<DataflowNode>::const_iterator it=curNode.getPSetDFNodes().begin();
         it!=curNode.getPSetDFNodes().end(); it++, curPSet++)
     {
         // If some process set is not at the end of this function
@@ -465,20 +495,20 @@ bool pCFGIterator::runAnalysis_pCFG(const Function& func, NodeState* state, pCFG
             //ROSE_ASSERT(0);
             // Checkpoint this analysis. We may return to it later and discover that not all these process states
             // are actually possible.
-            if(analysisDebugLevel>=1) 
+            if(analysisDebugLevel>=1)
                 Dbg::dbg << indent << "@@@ Shelving this blocked partition for now.\n";
             set<pCFG_Checkpoint*> chkpt;
             chkpt.insert(new pCFG_Checkpoint(curNode, func, state, activePSets, blockedPSets));
             split(chkpt);
         }
     }
-        
+
     // At this point the analysis has reached the end of the function and does not need to propagate
     // any dataflow further down this function's pCFG. We will now return without creating a checkpoint.
-        
+
     if(analysisDebugLevel>=1) Dbg::exitFunc(funcNameAsString.str());
     printSubGraphEnd();
-        
+
     return true;
 }
 
@@ -500,7 +530,7 @@ void pCFGIterator::performPSetSplit(int curPSet, const pCFGNode& curNode,
     }
 }
 
-void pCFGIterator::filterSendRecv(const pCFGNode& pcfgn, set<unsigned int>& blockedPSets, 
+void pCFGIterator::filterSendRecv(const pCFGNode& pcfgn, set<unsigned int>& blockedPSets,
                                   set<unsigned int>& sendPSets,
                                   set<unsigned int>& recvPSets)
 {
@@ -515,7 +545,7 @@ void pCFGIterator::filterSendRecv(const pCFGNode& pcfgn, set<unsigned int>& bloc
         }
         else if(callee.get_name().getString() == "MPI_Recv") {
             recvPSets.insert(*it);
-        }        
+        }
     }
 }
 
@@ -529,7 +559,7 @@ bool pCFGIterator::matchSendRecv(const pCFGNode& pcfgn,
 {
     set<unsigned int>::iterator send_it, recv_it;
     bool matched = false;
-   
+
     for(send_it = sendPSets.begin(); send_it != sendPSets.end(); send_it++) {
         // try to match each recv for a given send
         const DataflowNode& dfSend = pcfgn.getCurNode(*send_it);
@@ -550,7 +580,7 @@ bool pCFGIterator::matchSendRecv(const pCFGNode& pcfgn,
                 // we have a match
                 matched = true;
                 break;
-            }            
+            }
         }
 
         if(matched)
@@ -566,7 +596,7 @@ bool pCFGIterator::matchSendRecv(const pCFGNode& pcfgn,
         movePSet(sendPSet, activePSets, blockedPSets);
         movePSet(recvPSet, activePSets, blockedPSets);
         releasedPSets.insert(sendPSet);
-        releasedPSets.insert(recvPSet);        
+        releasedPSets.insert(recvPSet);
     }
     else {
         cout << "ERROR: No matches available in blocked state\n";
@@ -621,7 +651,7 @@ string pCFGIterator::genRandColor(unsigned int curPSet)
     stringstream color;
     boost::mt19937 seed(static_cast<unsigned int> (time(0) + curPSet));
     boost::uniform_smallint<> color_component(0, 255);
-    boost::variate_generator< boost::mt19937, boost::uniform_smallint<> > 
+    boost::variate_generator< boost::mt19937, boost::uniform_smallint<> >
         hex(seed, color_component);
     int r = hex();
     int g = hex();

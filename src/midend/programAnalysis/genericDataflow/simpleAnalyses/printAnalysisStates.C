@@ -2,11 +2,12 @@
 
 namespace dataflow {
 
-printAnalysisStates::printAnalysisStates(Analysis* creator, vector<int>& factNames, vector<int>& latticeNames, ab latSide, string indent="")
+printAnalysisStates::printAnalysisStates(Analysis* creator, vector<int>& factNames, ab latSide, string indent="")
 {
+        // vector<int>& latticeNames
         this->creator = creator;
         this->factNames = factNames;
-        this->latticeNames = latticeNames;
+        // this->latticeNames = latticeNames;
         this->latSide = latSide;
         this->indent = indent;
 }
@@ -27,17 +28,15 @@ void printAnalysisStates::visit(const Function& func, PartPtr p, NodeState& stat
                 else
                         Dbg::dbg << indent << "    fact"<<*it<<" = None\n";
         }
-        
-        for(vector<int>::iterator it = latticeNames.begin(); it!=latticeNames.end(); it++)
-        {
-                Lattice* lat;
-                if(latSide==above) lat = state.getLatticeAbove(creator, *it);
-                else               lat = state.getLatticeBelow(creator, *it);
-                if(lat)
-                        Dbg::dbg << indent << "    lattice"<<*it<<" = \n"<<lat->str(indent+"    ")<<"\n";
-                else
-                        Dbg::dbg << indent << "    lattice"<<*it<<" = None\n";
-        }
+
+        ConstLatticePtr lat = (latSide==above) ? state.getLatticeAbove(creator)
+                                               : state.getLatticeBelow(creator);
+        //  was: if lat != NULL
+        if (lat.get())
+                Dbg::dbg << indent << "    lattice"<<" = \n"<<lat->str(indent+"    ")<<"\n";
+        else
+                Dbg::dbg << indent << "    lattice"<<" = None\n";
+
         //printf("    creator=%p, masterLat.size()=%lu\n", creator, (unsigned long)(masterLat->size()));
         Dbg::exitFunc(funcName.str());
 }

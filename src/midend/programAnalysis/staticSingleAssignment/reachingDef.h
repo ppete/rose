@@ -20,17 +20,20 @@ public:
 
         /** Definition for the parent or child of this variable. (E.g. if x.b is the variable
          * in question, this def could be for x or x.b.a). */
-        EXPANDED_DEF
+        EXPANDED_DEF,
+
+        DEF_PHI // \pp added to compile ssaAnalysis
     };
 
     typedef boost::shared_ptr<ReachingDef> ReachingDefPtr;
 
     typedef FilteredCFGEdge<ssa_private::DataflowCfgFilter> FilteredCfgEdge;
 
-private:
+protected: // \pp changed to make it accessible from heapSSA
     /** The type of this definition. */
     Type defType;
 
+private:
     /** If this is a phi node, here we store all the joined definitions and all the edges
      * associated with each one. */
     std::map<ReachingDefPtr, std::set<FilteredCfgEdge> > parentDefs;
@@ -54,11 +57,11 @@ public:
     /** Returns true if this is a phi function. */
     bool isPhiFunction() const;
 
-    /** If this is a join node (phi function), get the definitions merged. 
+    /** If this is a join node (phi function), get the definitions merged.
      * Each definition is paired with the CFG node along which it flows. */
     const std::map<ReachingDefPtr, std::set<FilteredCfgEdge> >& getJoinedDefs() const;
 
-    /** If this is not a phi function, returns the actual reaching definition. 
+    /** If this is not a phi function, returns the actual reaching definition.
      * If this is a phi function, returns the node where the phi function appears. */
     SgNode* getDefinitionNode() const;
 

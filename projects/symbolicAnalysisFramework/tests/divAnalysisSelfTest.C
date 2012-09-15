@@ -24,11 +24,14 @@ int numFails = 0, numPass = 0;
 class evaluateAnalysisStates : public UnstructuredPassIntraAnalysis
 {
 public:
+  typedef map<SgName, DivLattice>     NamedExpection;
+  typedef map<string, NamedExpection> Expections;
+
   DivAnalysis* div;
   string indent;
-  map<string, map<SgName, DivLattice> > expectations;
+  Expections expectations;
   int total_expectations;
-  
+
   evaluateAnalysisStates(DivAnalysis* div_, string indent_) : div(div_), indent(indent_), total_expectations(0)
   {
     expectations["testFunc1"]["a"] = DivLattice(1);
@@ -45,7 +48,7 @@ public:
 
     cout << "Total expectations: " << total_expectations << endl;
   }
-        
+
   void visit(const Function& func, const DataflowNode& n, NodeState& state)
   {
     SgFunctionCallExp *fnCall = isSgFunctionCallExp(n.getNode());
@@ -55,9 +58,10 @@ public:
     string funcName = fnCall->getAssociatedFunctionSymbol()->get_name().getString();
     if(funcName.find("testFunc") == string::npos) return;
 
-    FiniteVarsExprsProductLattice *lat = dynamic_cast<FiniteVarsExprsProductLattice *>(state.getLatticeAbove(div)[0]);
+    Lattice*                       finiteTmp = state.getLatticeAboveMod(div).get();
+    FiniteVarsExprsProductLattice* lat = &dynamic_cast<FiniteVarsExprsProductLattice&>(*finiteTmp);
     cout << indent << "Lattice before call to " << funcName << ": " << lat->str() << endl;
-              
+
     set<varID> allVars = lat->getAllVars();
     for (set<varID>::iterator i = allVars.begin(); i != allVars.end(); ++i) {
       string name = i->str();
@@ -70,6 +74,7 @@ public:
 
       Lattice *got = lat->getVarLattice(*i);
       ROSE_ASSERT(got);
+
       if (expectations[funcName][name] != got) {
         cout << "mismatched: " << got->str() << " was not the expected " << expectations[funcName][name].str();
         numFails++;
@@ -83,22 +88,22 @@ public:
   }
 };
 
-int main( int argc, char * argv[] ) 
+int main( int argc, char * argv[] )
 {
         printf("========== S T A R T ==========\n");
-        
+
         // Build the AST used by ROSE
         SgProject* project = frontend(argc,argv);
-        
+
         initAnalysis(project);
-        Dbg::init("Divisibility Analysis Test", ".", "index.html");     
-        
+        Dbg::init("Divisibility Analysis Test", ".", "index.html");
+
         /*analysisDebugLevel = 0;
-        
+
         SaveDotAnalysis sda;
         UnstructuredPassInterAnalysis upia_sda(sda);
         upia_sda.runAnalysis();*/
-        
+
         liveDeadAnalysisDebugLevel = 0;
         analysisDebugLevel = 0;
         if(liveDeadAnalysisDebugLevel) {
@@ -109,10 +114,10 @@ int main( int argc, char * argv[] )
         LiveDeadVarsAnalysis ldva(project);
         UnstructuredPassInterDataflow ciipd_ldva(&ldva);
         ciipd_ldva.runAnalysis();
-        
+
         CallGraphBuilder cgb(project);
         cgb.buildCallGraph();
-        SgIncidenceDirectedGraph* graph = cgb.getGraph(); 
+        SgIncidenceDirectedGraph* graph = cgb.getGraph();
 
         analysisDebugLevel = 1;
         DivAnalysis divA(&ldva);
@@ -127,9 +132,9 @@ int main( int argc, char * argv[] )
           printf("PASS: %d / %d\n", numPass, eas.total_expectations);
         else
           printf("FAIL!: %d / %d\n", numPass, eas.total_expectations);
-        
+
         printf("==========  E  N  D  ==========\n");
-        
+
         // Unparse and compile the project (so this can be used for testing)
         return /*backend(project) +*/ (eas.total_expectations != numPass) || (numFails != 0);
 }

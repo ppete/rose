@@ -65,40 +65,46 @@ class pCFGIterator : public pCFG_FWDataflow
     ~pCFGIterator() { }
 
     // functions any analysis should implement
+    //~ void genInitState(const Function& func, const pCFGNode& n, const NodeState& state,
+                      //~ vector<Lattice*>& initLattices, vector<NodeFact*>& initFacts);
 
-    void genInitState(const Function& func, const pCFGNode& n, const NodeState& state,                      
-                      vector<Lattice*>& initLattices, vector<NodeFact*>& initFacts);
+    Lattice*
+    genLattice(const Function& func, const pCFGNode& n, const NodeState& state);
 
-    void copyPSetState(const Function& func, const pCFGNode& n, 
+    vector<NodeFact*>
+    genFacts(const Function& func, const pCFGNode& n, const NodeState& state);
+
+
+    void copyPSetState(const Function& func, const pCFGNode& n,
                        unsigned int srcPSet, unsigned int tgtPSet, NodeState& state,
-                       vector<Lattice*>& lattices, vector<NodeFact*>& facts, 
+                       LatticePtr lattice, vector<NodeFact*>& facts,
                        ConstrGraph* partitionCond, bool omitRankSet);
 
-    void resetPSet(unsigned int pSet, vector<Lattice*>& dfInfo);
+    void resetPSet(unsigned int pSet, LatticePtr dfInfo);
 
     bool transfer(const pCFGNode& n, unsigned int pSet, const Function& func,
-                  NodeState& state, const vector<Lattice*>& dfInfo,
+                  NodeState& state, LatticePtr dfInfo,
                   bool& deadPSet, bool& splitPSet, vector<DataflowNode>& splitPSetNodes,
                   bool& splitPNode, vector<ConstrGraph*>& splitConditions, bool& blockPSet);
 
     bool transfer(const pCFGNode& n, unsigned int pSet, const Function& func,
-                  NodeState& state, const vector<Lattice*>& dfInfo,
+                  NodeState& state, LatticePtr dfInfo,
                   bool& deadPSet, bool& splitPSet, vector<DataflowNode>& splitPSetNodes,
                   bool& splitPNode, bool& blockPSet, bool& mergePSet);
 
     bool initPSetDFfromPartCond(const Function& func, const pCFGNode& n, unsigned int pSet,
-                                const vector<Lattice*>& dfInfo, const vector<NodeFact*>& facts,
+                                LatticePtr dfInfo, const vector<NodeFact*>& facts,
                                 ConstrGraph* partitionCond);
 
     // NOTE : Not sure if this is used
     void mergePCFGStates(const list<unsigned int>& pSetsToMerge, const pCFGNode& n, const Function& func,
-                         NodeState& staet, const vector<Lattice*>& dfInfo, map<unsigned int, unsigned int>& pSetMigrations);
+                         NodeState& state, LatticePtr dfInfo, map<unsigned int, unsigned int>& pSetMigrations);
 
-    
-    void matchSendsRecvs(const pCFGNode& n, const vector<Lattice*>& dfInfo, NodeState* state, 
+
+    void matchSendsRecvs(const pCFGNode& n, ConstLatticePtr dfInfo, NodeState* state,
                          // Set by analysis to identify the process set that was split
                          unsigned int& splitPSet,
-                         vector<ConstrGraph*>& splitConditions, 
+                         vector<ConstrGraph*>& splitConditions,
                          vector<DataflowNode>& splitPSetNodes,
                          // for each split process set, true if its active and false if it is blocked
                          vector<bool>&         splitPSetActive,
@@ -108,7 +114,7 @@ class pCFGIterator : public pCFG_FWDataflow
                          const Function& func, NodeState* fState);
 
     bool runAnalysis_pCFG(const Function& func, NodeState* fState, pCFG_Checkpoint* chkpt);
-    
+
     // update descNode
     void performPSetSplit(int curPSet, const pCFGNode& curNode, pCFGNode& descNode, vector<DataflowNode>& splitPSetNodes, set<unsigned int>&);
 
@@ -124,5 +130,5 @@ class pCFGIterator : public pCFG_FWDataflow
 
     string genRandColor(unsigned int);
 };
-   
+
 #endif

@@ -16,6 +16,11 @@
 
 extern int MPIDepAnalysisDebugLevel;
 
+class MPIDepLattice;
+
+void dbg_lattice(MPIDepLattice* to, const MPIDepLattice* from);
+
+
 /*!
  * Information about a variable's dependence on MPI_Comm_rank or MPI_Comm_size
  */
@@ -47,36 +52,42 @@ class MPIDepLattice : public FiniteLattice
         level = bottom;
         MPIDep = false;
     }
-    
+
     // copy constructor
-    MPIDepLattice(const MPIDepLattice& that)
-    {
-        this->level = that.level;
-        this->MPIDep = that.MPIDep;
-    }
-    
+    // \pp needs to call base copy constructor
+    //     removed as the deafult implementation covers
+    //     the semantics.
+    //~ MPIDepLattice(const MPIDepLattice& that)
+    //~ {
+        //~ this->level = that.level;
+        //~ this->MPIDep = that.MPIDep;
+    //~ }
+
     // copy from that
-    void copy(Lattice* that);
+    void copy(const Lattice* that);
 
-    Lattice* copy() const
+    MPIDepLattice* copy() const
     {
-        return new MPIDepLattice(*this);
+        MPIDepLattice* cpy = new MPIDepLattice(*this);
+
+        dbg_lattice(cpy, this);
+        return cpy;
     }
 
-    bool operator==(Lattice* that);
-   
-    void setToTop() 
+    bool operator==(const Lattice* that) const;
+
+    void setToTop()
     {
         level = top;
     }
 
-    void setToYes() 
+    void setToYes()
     {
         level = yes;
         MPIDep = false;
     }
 
-    bool meetUpdate(Lattice* that);
+    bool meetUpdate(const Lattice* that);
 
     latticeLevel getLevel()
     {
@@ -89,13 +100,13 @@ class MPIDepLattice : public FiniteLattice
         MPIDep = false;
     }
 
-    void initialize() { }
+    void clear() {} // \pp \todo remove
 
-    string str(string indent="");    
+    string str(string indent="") const;
 };
 
 /* inherit VariableStateTransfer
- * VariableStateTransfer implements basic transfer functions to 
+ * VariableStateTransfer implements basic transfer functions to
  * infer information about variables automatically
  */
 // requires live dead var analysis
@@ -113,7 +124,7 @@ class MPIDepAnalysisTransfer : public VariableStateTransfer<MPIDepLattice>
     bool finish();
 
     // constructor
-    MPIDepAnalysisTransfer(const Function& func, const DataflowNode& n, NodeState& state, const std::vector<Lattice*>& dfInfo);
+    MPIDepAnalysisTransfer(const Function& func, const DataflowNode& n, NodeState& state, Lattice& dfInfo);
 };
 
 /*!
@@ -122,20 +133,30 @@ class MPIDepAnalysisTransfer : public VariableStateTransfer<MPIDepLattice>
 class MPIDepAnalysis : public IntraFWDataflow
 {
     LiveDeadVarsAnalysis* ldva;
-    
+
     public:
     MPIDepAnalysis(LiveDeadVarsAnalysis *_ldva) : ldva(_ldva)
     { }
 
+    FiniteVarsExprsProductLattice*
+    genLattice(const Function& func, const DataflowNode& n, const NodeState& state);
+
+    std::vector<NodeFact*>
+    genFacts(const Function& func, const DataflowNode& n, const NodeState& state);
+
+
+    // transfer function that maps current state to next state
+    bool transfer(const Function& func, const DataflowNode& n, NodeState& state, LatticePtr dfInfo);
+
+#if OBSOLETE_CODE
     void genInitState(const Function& func, const DataflowNode& n, const NodeState& state,
                       vector<Lattice*>& initLattices, vector<NodeFact*>& initFacts);
 
-    // transfer function that maps current state to next state
-    bool transfer(const Function& func, const DataflowNode& n, NodeState& state, const vector<Lattice*>& dfInfo);
-
     // returns an instance of object that has transfer functions to map from current state to next state
-    boost::shared_ptr<IntraDFTransferVisitor> 
+    boost::shared_ptr<IntraDFTransferVisitor>
         getTransferVisitor(const Function& func, const DataflowNode& node, NodeState& state, const std::vector<Lattice*>& dfInfo);
+#endif /* OBSOLETE_CODE */
+
 };
 
-#endif 
+#endif

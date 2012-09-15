@@ -26,7 +26,8 @@ class saveAllDataflow : public IntraFWDataflow
         public:
         saveAllDataflow()
         {}
-                
+
+/*
         // generates the initial lattice state for the given dataflow node, in the given function, with the given NodeState
         //vector<Lattice*> genInitState(const Function& func, const DataflowNode& n, const NodeState& state)
         void genInitState(const Function& func, const DataflowNode& n, const NodeState& state,
@@ -37,23 +38,42 @@ class saveAllDataflow : public IntraFWDataflow
                 initLattices.push_back((Lattice*)(new IntMaxLattice()));
                 //return initLattices;
         }
-        
-        bool transfer(const Function& func, const DataflowNode& n, NodeState& state, const vector<Lattice*>& dfInfo)
+*/
+
+        FiniteProductLattice*
+        genLattice(const Function& func, const DataflowNode& n, const NodeState& state)
         {
+          Lattice*              arr[] = { new BoolAndLattice, new IntMaxLattice };
+          std::vector<Lattice*> lattices(&arr[0], &arr[0] + sizeof(arr)/sizeof(arr[0]));
+
+          return new FiniteProductLattice(lattices);
+        }
+
+        std::vector<NodeFact*>
+        genFacts(const Function& func, const DataflowNode& n, const NodeState& state)
+        {
+          return std::vector<NodeFact*>();
+        }
+
+        bool transfer(const Function& func, const DataflowNode& n, NodeState& state, LatticePtr dfInfo)
+        {
+                ProductLattice& prodlat = dynamic_cast<ProductLattice&>(*dfInfo.get());
+
                 printf("saveAllDataflow: node=<%s | %s>\n", n.getNode()->class_name().c_str(), n.getNode()->unparseToString().c_str());
                 printf("   isSgAddOp(n.getNode()=%p\n", isSgAddOp(n.getNode()));
-                bool modified = false;
+
                 if(isSgAddOp(n.getNode()))
                 {
-                        modified = dynamic_cast<BoolAndLattice*>(dfInfo.at(0))->set(true);
-                        modified = dynamic_cast<IntMaxLattice*>(dfInfo.at(1))->incr(1) || modified;
+                        prodlat.at<BoolAndLattice>(0).set(true);
+                        prodlat.at<IntMaxLattice>(1).incr(1);
                 }
                 else
                 {
                         //modified = dynamic_cast<BoolAndLattice*>(dfInfo.at(0))->set(false);
-                        modified = dynamic_cast<IntMaxLattice*>(dfInfo.at(1))->maximum(0) || modified;
+                        prodlat.at<IntMaxLattice>(1).maximum(0);
                 }
-                return modified;
+
+                return true;
         }
 };
 
@@ -61,12 +81,12 @@ class checkAllDataflow : public UnstructuredPassIntraAnalysis
 {
         public:
         saveAllDataflow* creator;
-        
+
         checkAllDataflow(saveAllDataflow* creator)
         {
                 this->creator = creator;
         }
-        
+
         void visit(const Function& func, const DataflowNode& n, NodeState& state)
         {
                 printf("checkAllDataflow: node=<%s | %s>\n", n.getNode()->class_name().c_str(), n.getNode()->unparseToString().c_str());
@@ -79,51 +99,53 @@ class checkAllDataflow : public UnstructuredPassIntraAnalysis
                         printf("ERROR in checkAllDataflow: Expected class name \"%s\" but the saved class name is \"%s\"\n", n.getNode()->class_name().c_str(), s0->myStr.c_str());
                         numFails++;
                 }
-                
+
                 if(n.getNode()->unparseToString() != s1->myStr.c_str())
                 {
                         printf("ERROR in checkAllDataflow: Expected class name \"%s\" but the saved class name is \"%s\"\n", n.getNode()->unparseToString().c_str(), s0->myStr.c_str());
                         numFails++;
                 }*/
-                
-                printf("                     lattice0 = %s\n", state.getLatticeBelow(creator, 0)->str().c_str());
-                printf("                     lattice1 = %s\n", state.getLatticeBelow(creator, 1)->str().c_str());
+
+                const ProductLattice& prodlat = dynamic_cast<const ProductLattice&>(*state.getLatticeBelow(creator).get());
+
+                std::cout << "                     lattice0 = " << prodlat.at<Lattice>(0).str() << std::endl;
+                std::cout << "                     lattice1 = " << prodlat.at<Lattice>(1).str() << std::endl;
         }
 };
 
 
-int main( int argc, char * argv[] ) 
+int main( int argc, char * argv[] )
 {
         printf("========== S T A R T ==========\n");
-        
+
         // Build the AST used by ROSE
         SgProject* project = frontend(argc,argv);
-        
+
         cfgUtils::initCFGUtils(project);
 
         initAnalysis(project);
-        Dbg::init("Communication Topology Analysis Test", ".", "index.html");   
-        
+        Dbg::init("Communication Topology Analysis Test", ".", "index.html");
+
         analysisDebugLevel = 0;
-        
+
         // Save the CFGs of all the functions into their own files
         //saveCFGsToDots();
 
         saveAllDataflow sad;
         UnstructuredPassInterAnalysis upia_sad(sad);
         upia_sad.runAnalysis();
-        
+
         checkAllDataflow chadf(&sad);
         UnstructuredPassInterAnalysis upia_chadf(chadf);
         upia_chadf.runAnalysis();
-        
+
         if(numFails==0)
                 printf("PASS\n");
         else
                 printf("FAIL!\n");
-        
+
         printf("==========  E  N  D  ==========\n");
-        
+
         // Unparse and compile the project (so this can be used for testing)
         return backend(project);
 }

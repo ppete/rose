@@ -5,48 +5,59 @@
 
 int constantPropagationAnalysisDebugLevel = 2;
 
+static size_t dbgcst = 0;
+
+void inccst()
+{
+  ++dbgcst;
+
+  if (dbgcst == 10)
+  {
+    std::cout << "!";
+  }
+}
+
+
 // **********************************************************************
 //                      ConstantPropagationLattice
 // **********************************************************************
 
 ConstantPropagationLattice::ConstantPropagationLattice()
-   {
-     this->value = 0;
-     this->level = bottom;
-   }
+{
+  this->value = 0;
+  this->level = bottom;
+}
 
 ConstantPropagationLattice::ConstantPropagationLattice( int v )
-   {
-     this->value = v;
-     this->level = constantValue;
-   }
+{
+ this->value = v;
+ this->level = constantValue;
+}
 
 ConstantPropagationLattice::ConstantPropagationLattice( short level, int v )
-   {
-     this->value = v;
-     this->level = level;
-   }
+{
+ this->value = v;
+ this->level = level;
+}
 
 // This is the same as the implicit definition, so it might not be required to be defined explicitly.
 // I am searching for the minimal example of the use of the data flow classes.
 ConstantPropagationLattice::ConstantPropagationLattice (const ConstantPropagationLattice & X)
-   {
-     this->value = X.value;
-     this->level = X.level;
-   }
+: FiniteLattice(X), value(X.value), level(X.level)
+{}
 
 int
 ConstantPropagationLattice::getValue() const
-   {
-     return value;
-   }
+{
+  return value;
+}
 
 short
 ConstantPropagationLattice::getLevel() const
-   {
-     return level;
-   }
-	
+{
+  return level;
+}
+
 bool
 ConstantPropagationLattice::setValue(int x)
    {
@@ -54,6 +65,7 @@ ConstantPropagationLattice::setValue(int x)
      bool modified = this->level != constantValue || this->value != value;
      this->value = x;
      level = constantValue;
+     inccst();
      return modified;
    }
 
@@ -63,6 +75,7 @@ ConstantPropagationLattice::setLevel(short x)
   // These are more than access functions, they return if the state of the lattice has changed.
      bool modified = this->level != x;
      level = x;
+     if (level == constantValue) inccst();
      return modified;
    }
 
@@ -98,7 +111,7 @@ ConstantPropagationLattice::initialize()
 
 
 // returns a copy of this lattice
-Lattice*
+ConstantPropagationLattice*
 ConstantPropagationLattice::copy() const
    {
      return new ConstantPropagationLattice(*this);
@@ -107,9 +120,9 @@ ConstantPropagationLattice::copy() const
 
 // overwrites the state of "this" Lattice with "that" Lattice
 void
-ConstantPropagationLattice::copy(Lattice* X)
+ConstantPropagationLattice::copy(const Lattice* X)
    {
-     ConstantPropagationLattice* that = dynamic_cast<ConstantPropagationLattice*>(X);
+     const ConstantPropagationLattice* that = dynamic_cast<const ConstantPropagationLattice*>(X);
 
      this->value = that->value;
      this->level = that->level;
@@ -117,16 +130,16 @@ ConstantPropagationLattice::copy(Lattice* X)
 
 
 bool
-ConstantPropagationLattice::operator==(Lattice* X) /*const*/
+ConstantPropagationLattice::operator==(const Lattice* X) const
    {
   // Implementation of equality operator.
-     ConstantPropagationLattice* that = dynamic_cast<ConstantPropagationLattice*>(X);
+     const ConstantPropagationLattice* that = dynamic_cast<const ConstantPropagationLattice*>(X);
      return (value == that->value) && (level == that->level);
    }
 
 
 string
-ConstantPropagationLattice::str(string indent)
+ConstantPropagationLattice::str(string indent) const
    {
      ostringstream outs;
      if(level == bottom)
@@ -144,9 +157,9 @@ ConstantPropagationLattice::str(string indent)
 // computes the meet of this and that and saves the result in this
 // returns true if this causes this to change and false otherwise
 bool
-ConstantPropagationLattice::meetUpdate(Lattice* X)
+ConstantPropagationLattice::meetUpdate(const Lattice* X)
    {
-     ConstantPropagationLattice* that = dynamic_cast<ConstantPropagationLattice*>(X);
+     const ConstantPropagationLattice* that = dynamic_cast<const ConstantPropagationLattice*>(X);
 
   // Need to handle bottom, copy from the other side.
 
@@ -243,7 +256,7 @@ ConstantPropagationAnalysisTransfer::transferArith(SgBinaryOp *sgn, TransferOp t
      transferArith(sgn, boost::mem_fn(transferOp));
    }
 
-void 
+void
 ConstantPropagationAnalysisTransfer::transferIncrement(SgUnaryOp *sgn)
    {
      ConstantPropagationLattice *arg1Lat, *arg2Lat = NULL, *resLat;
@@ -259,10 +272,10 @@ ConstantPropagationAnalysisTransfer::transferAdditive(ConstantPropagationLattice
         {
           updateModified(resLat->setLevel(ConstantPropagationLattice::bottom));
         }
-       else 
+       else
         {
        // Both knownValue
-          if(arg1Lat->getLevel() == ConstantPropagationLattice::constantValue && arg2Lat->getLevel() == ConstantPropagationLattice::constantValue) 
+          if(arg1Lat->getLevel() == ConstantPropagationLattice::constantValue && arg2Lat->getLevel() == ConstantPropagationLattice::constantValue)
              {
                updateModified(resLat->setValue(isAddition ? arg1Lat->getValue() + arg2Lat->getValue() : arg1Lat->getValue() - arg2Lat->getValue()));
              }
@@ -282,10 +295,10 @@ ConstantPropagationAnalysisTransfer::transferMultiplicative(ConstantPropagationL
         {
           updateModified(resLat->setLevel(ConstantPropagationLattice::bottom));
         }
-       else 
+       else
         {
        // Both knownValue
-          if(arg1Lat->getLevel() == ConstantPropagationLattice::constantValue && arg2Lat->getLevel() == ConstantPropagationLattice::constantValue) 
+          if(arg1Lat->getLevel() == ConstantPropagationLattice::constantValue && arg2Lat->getLevel() == ConstantPropagationLattice::constantValue)
              {
                updateModified(resLat->setValue(arg1Lat->getValue() * arg2Lat->getValue()));
              }
@@ -304,10 +317,10 @@ ConstantPropagationAnalysisTransfer::transferDivision(ConstantPropagationLattice
         {
           updateModified(resLat->setLevel(ConstantPropagationLattice::bottom));
         }
-       else 
+       else
         {
        // Both knownValue
-          if(arg1Lat->getLevel() == ConstantPropagationLattice::constantValue && arg2Lat->getLevel() == ConstantPropagationLattice::constantValue) 
+          if(arg1Lat->getLevel() == ConstantPropagationLattice::constantValue && arg2Lat->getLevel() == ConstantPropagationLattice::constantValue)
              {
                updateModified(resLat->setValue(arg1Lat->getValue() / arg2Lat->getValue()));
              }
@@ -326,10 +339,10 @@ ConstantPropagationAnalysisTransfer::transferMod(ConstantPropagationLattice *arg
         {
           updateModified(resLat->setLevel(ConstantPropagationLattice::bottom));
         }
-       else 
+       else
         {
        // Both knownValue
-          if(arg1Lat->getLevel() == ConstantPropagationLattice::constantValue && arg2Lat->getLevel() == ConstantPropagationLattice::constantValue) 
+          if(arg1Lat->getLevel() == ConstantPropagationLattice::constantValue && arg2Lat->getLevel() == ConstantPropagationLattice::constantValue)
              {
                updateModified(resLat->setValue(arg1Lat->getValue() % arg2Lat->getValue()));
              }
@@ -488,10 +501,9 @@ ConstantPropagationAnalysisTransfer::finish()
      return modified;
    }
 
-ConstantPropagationAnalysisTransfer::ConstantPropagationAnalysisTransfer(const Function& func, const DataflowNode& n, NodeState& state, const std::vector<Lattice*>& dfInfo)
+ConstantPropagationAnalysisTransfer::ConstantPropagationAnalysisTransfer(const Function& func, const DataflowNode& n, NodeState& state, Lattice& dfInfo)
    : VariableStateTransfer<ConstantPropagationLattice>(func, n, state, dfInfo, constantPropagationAnalysisDebugLevel)
-   {
-   }
+   {}
 
 
 
@@ -506,31 +518,38 @@ ConstantPropagationAnalysis::ConstantPropagationAnalysis(LiveDeadVarsAnalysis* l
    }
 
 // generates the initial lattice state for the given dataflow node, in the given function, with the given NodeState
-void
-ConstantPropagationAnalysis::genInitState(const Function& func, const DataflowNode& n, const NodeState& state, std::vector<Lattice*>& initLattices, std::vector<NodeFact*>& initFacts)
+FiniteVarsExprsProductLattice*
+ConstantPropagationAnalysis::genLattice(const Function& func, const DataflowNode& n, const NodeState& state)
    {
   // ???
   // vector<Lattice*> initLattices;
-	map<varID, Lattice*> emptyM;
-	FiniteVarsExprsProductLattice* l = new FiniteVarsExprsProductLattice((Lattice*)new ConstantPropagationLattice(), emptyM/*genConstVarLattices()*/, 
-	                                                                     (Lattice*)NULL, ldva, /*func, */n, state);         
-	//Dbg::dbg << "DivAnalysis::genInitState, returning l="<<l<<" n=<"<<Dbg::escape(n.getNode()->unparseToString())<<" | "<<n.getNode()->class_name()<<" | "<<n.getIndex()<<">\n";
-	//Dbg::dbg << "    l="<<l->str("    ")<<"\n";
-     initLattices.push_back(l);
+	  typedef std::map<varID, Lattice*> EmptyMap;
+
+    ConstantPropagationLattice*    constlat = new ConstantPropagationLattice;
+	  FiniteVarsExprsProductLattice* prodlat = new FiniteVarsExprsProductLattice(constlat, EmptyMap()/*genConstVarLattices()*/, (Lattice*)NULL, ldva, /*func, */n, state);
+
+    prodlat->initialize();
+    return prodlat;
    }
 
-	
+std::vector<NodeFact*>
+ConstantPropagationAnalysis::genFacts(const Function& func, const DataflowNode& n, const NodeState& state)
+{
+  return std::vector<NodeFact*>();
+}
+
 bool
-ConstantPropagationAnalysis::transfer(const Function& func, const DataflowNode& n, NodeState& state, const std::vector<Lattice*>& dfInfo)
+ConstantPropagationAnalysis::transfer(const Function& func, const DataflowNode& n, NodeState& state, LatticePtr dfInfo)
    {
-     assert(0); 
-     return false;
+     visitor_transfer(ConstantPropagationAnalysisTransfer(func, n, state, *dfInfo.get()), n);
+     return true;
    }
 
+/*
 boost::shared_ptr<IntraDFTransferVisitor>
 ConstantPropagationAnalysis::getTransferVisitor(const Function& func, const DataflowNode& n, NodeState& state, const std::vector<Lattice*>& dfInfo)
    {
   // Why is the boost shared pointer used here?
      return boost::shared_ptr<IntraDFTransferVisitor>(new ConstantPropagationAnalysisTransfer(func, n, state, dfInfo));
    }
-
+*/

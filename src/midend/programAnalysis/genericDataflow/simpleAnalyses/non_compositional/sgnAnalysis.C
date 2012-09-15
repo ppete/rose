@@ -7,16 +7,16 @@ int sgnAnalysisDebugLevel=0;
  **********************/
 
 // returns a copy of this lattice
-Lattice* SgnLattice::copy() const
+SgnLattice* SgnLattice::copy() const
 {
         return new SgnLattice(*this);
 }
 
 // overwrites the state of this Lattice with that of that Lattice
-void SgnLattice::copy(Lattice* that_arg)
+void SgnLattice::copy(const Lattice* that_arg)
 {
-        SgnLattice* that = dynamic_cast<SgnLattice*>(that_arg);
-        
+        const SgnLattice* that = dynamic_cast<const SgnLattice*>(that_arg);
+
         this->sgnState = that->sgnState;
         this->level = that->level;
 }
@@ -27,21 +27,21 @@ bool SgnLattice::copyMod(Lattice* that_arg)
 {
         SgnLattice* that = dynamic_cast<SgnLattice*>(that_arg);
         bool modified = (this->sgnState != that->sgnState) || (this->level != that->level);
-        
+
         this->sgnState = that->sgnState;
         this->level = that->level;
-        
+
         return modified;
 }
 
 
 // computes the meet of this and that and saves the result in this
 // returns true if this causes this to change and false otherwise
-bool SgnLattice::meetUpdate(Lattice* that_arg)
+bool SgnLattice::meetUpdate(const Lattice* that_arg)
 {
         long  oldSgnState = sgnState;
         short oldLevel = level;
-        SgnLattice* that = dynamic_cast<SgnLattice*>(that_arg);
+        const SgnLattice* that = dynamic_cast<const SgnLattice*>(that_arg);
 
 /*printf("SgnLattice::meetUpdate\n");
 cout << "this: " << str("") << "\n";
@@ -80,7 +80,7 @@ cout << "that: " << that->str("") << "\n";*/
                         else if(level!=top)
                         {
                                 // we now know that both objects are either eqZero or sgnKnown
-                                
+
                                 // if the two objects are equal to 0
                                 if(level==eqZero && that->level==eqZero)
                                 {
@@ -97,7 +97,7 @@ cout << "that: " << that->str("") << "\n";*/
                                 {
                                         // both objects should be at level sgnKnown
                                         ROSE_ASSERT(level == sgnKnown && that->level == sgnKnown);
-                                        
+
                                         // if their signs do not agree, this object is raised to top
                                         if(sgnState != that->sgnState)
                                                 setTop();
@@ -112,10 +112,10 @@ cout << "that: " << that->str("") << "\n";*/
                (oldLevel != level);
 }
 
-bool SgnLattice::operator==(Lattice* that_arg)
+bool SgnLattice::operator==(const Lattice* that_arg) const
 {
-        SgnLattice* that = dynamic_cast<SgnLattice*>(that_arg);
-        
+        const SgnLattice* that = dynamic_cast<const SgnLattice*>(that_arg);
+
         return (sgnState == that->sgnState) &&
                (level == that->level);
 }
@@ -126,7 +126,7 @@ SgnLattice::sgnStates SgnLattice::getSgnState() const
 
 SgnLattice::sgnLevels SgnLattice::getLevel() const
 { return level; }
-        
+
 
 // Sets the state of this lattice to bottom
 // returns true if this causes the lattice's state to change, false otherwise
@@ -190,7 +190,7 @@ bool SgnLattice::setTop()
         bool modified = this->level != top;
         this->sgnState = unknown;
         level = top;
-        return modified;        
+        return modified;
 }
 
 // Increments the state of this object by value
@@ -213,7 +213,7 @@ bool SgnLattice::plus(long increment)
                    (increment<0 && sgnState==posZero))
                         return setTop();
         }
-        
+
         return false;
 }
 
@@ -292,7 +292,7 @@ bool SgnLattice::negate()
                 if(sgnState == posZero) return setSgnKnown(negZero);
                 else                    return setSgnKnown(posZero);
         }
-        
+
         return false;
 }
 
@@ -310,7 +310,7 @@ bool SgnLattice::multdiv(long multiplier)
                 }
         } else if(level == bottom)
                 return setTop();
-        
+
         return false;
 }
 
@@ -353,7 +353,7 @@ bool SgnLattice::complexOp(const SgnLattice& that)
         else
                 return setTop();
 }
-        
+
 string SgnLattice::str(string indent)
 {
         ostringstream outs;
@@ -385,7 +385,7 @@ void SgnAnalysis::genInitState(const Function& func, const DataflowNode& n, cons
 {
         //printf("SgnAnalysis::genInitState() n=%p<%s | %s>\n", n.getNode(), n.getNode()->class_name().c_str(), n.getNode()->unparseToString().c_str());
         /*printf("SgnAnalysis::genInitState() state = %p\n", &state);*/
-        
+
         //vector<Lattice*> initLattices;
         //map<varID, Lattice*> constVars;
         //FiniteVariablesProductLattice* l = new FiniteVariablesProductLattice(true, false, new SgnLattice(), constVars, NULL, func, n, state);
@@ -400,10 +400,10 @@ void SgnAnalysis::genInitState(const Function& func, const DataflowNode& n, cons
         //return initLattices;
 }
 
-bool SgnAnalysis::transfer(const Function& func, const DataflowNode& n, NodeState& state, const vector<Lattice*>& dfInfo)
+void SgnAnalysis::transfer(const Function& func, const DataflowNode& n, NodeState& state, const vector<Lattice*>& dfInfo)
 {
-        bool modified=false;
-        
+        bool modified=false; // \todo \pp variable obsolete
+
         //printf("SgnAnalysis::transfer() n=%p<%s | %s>\n", n.getNode(), n.getNode()->class_name().c_str(), n.getNode()->unparseToString().c_str());
         /*cout << "   #dfInfo="<<dfInfo.size()<<": \n";
         for(vector<Lattice*>::const_iterator it=dfInfo.begin(); it!=dfInfo.end(); it++) {
@@ -411,12 +411,12 @@ bool SgnAnalysis::transfer(const Function& func, const DataflowNode& n, NodeStat
         }*/
         //FiniteVariablesProductLattice* prodLat = dynamic_cast<FiniteVariablesProductLattice*>(*(dfInfo.begin()));
         FiniteVarsExprsProductLattice* prodLat = dynamic_cast<FiniteVarsExprsProductLattice*>(*(dfInfo.begin()));
-        
+
         // Make sure that all the non-constant Lattices are initialized
         const vector<Lattice*>& lattices = prodLat->getLattices();
         for(vector<Lattice*>::const_iterator it = lattices.begin(); it!=lattices.end(); it++)
                 (dynamic_cast<SgnLattice*>(*it))->initialize();
-        
+
 //      printf("SgnAnalysis::transfer\n");
 // Plain assignment: lhs = rhs
         if(isSgAssignOp(n.getNode())) {
@@ -426,17 +426,17 @@ bool SgnAnalysis::transfer(const Function& func, const DataflowNode& n, NodeStat
                 if(sgnAnalysisDebugLevel>=1) {
                         cout << "res="<<res.str()<<" lhs="<<lhs.str()<<" rhs="<<rhs.str()<<"\n";
                 }
-                
+
                 SgnLattice* resLat = dynamic_cast<SgnLattice*>(prodLat->getVarLattice(res));
                 SgnLattice* lhsLat = dynamic_cast<SgnLattice*>(prodLat->getVarLattice(lhs));
                 SgnLattice* rhsLat = dynamic_cast<SgnLattice*>(prodLat->getVarLattice(rhs));
-                
+
                 if(sgnAnalysisDebugLevel>=1) {
                         if(resLat) cout << "resLat=\n    "<<resLat->str("    ")<<"\n";
                         if(lhsLat) cout << "lhsLat=\n    "<<lhsLat->str("    ")<<"\n";
                         if(rhsLat) cout << "rhsLat=\n    "<<rhsLat->str("    ")<<"\n";
                 }
-                
+
                 // Copy the lattice of the right-hand-side to both the left-hand-side variable and to the assignment expression itself
                 if(resLat) // If the left-hand-side contains a live expression or variable
                 { resLat->copy(rhsLat); modified=true; }
@@ -461,9 +461,9 @@ bool SgnAnalysis::transfer(const Function& func, const DataflowNode& n, NodeStat
                 SgInitializedName* initName = isSgInitializedName(n.getNode());
                 varID var(initName);
                 SgnLattice* varLat = dynamic_cast<SgnLattice*>(prodLat->getVarLattice(var));
-                
+
                 //cout << "DivAnalysis::transfer() isSgInitializedName var="<<var.str()<<" varLat="<<varLat<<"\n";
-                
+
                 // if this is a scalar that we care about, initialize it to Bottom
                 if(varLat)
                 {
@@ -482,13 +482,13 @@ bool SgnAnalysis::transfer(const Function& func, const DataflowNode& n, NodeStat
                         }
                 }
         // Integral Numeric Constants
-        } else if(isSgLongLongIntVal(n.getNode())         || isSgLongIntVal(n.getNode()) || 
+        } else if(isSgLongLongIntVal(n.getNode())         || isSgLongIntVal(n.getNode()) ||
                   isSgIntVal(n.getNode())                 || isSgShortVal(n.getNode()) ||
-                  isSgUnsignedLongLongIntVal(n.getNode()) || isSgUnsignedLongVal(n.getNode()) || 
+                  isSgUnsignedLongLongIntVal(n.getNode()) || isSgUnsignedLongVal(n.getNode()) ||
                   isSgUnsignedIntVal(n.getNode())         || isSgUnsignedShortVal(n.getNode())) {
                 varID res = SgExpr2Var(isSgExpression(n.getNode()));
                 SgnLattice* resLat = dynamic_cast<SgnLattice*>(prodLat->getVarLattice(res));
-                
+
                 // If the result expression is live
 /// !!! ADD MODIFICATION DETECTION
                 if(resLat) {
@@ -513,14 +513,14 @@ bool SgnAnalysis::transfer(const Function& func, const DataflowNode& n, NodeStat
                   isSgModAssignOp(n.getNode())   || isSgModOp(n.getNode()) ||
                   isSgMultAssignOp(n.getNode())  || isSgMultiplyOp(n.getNode()) ||
                   isSgDivAssignOp(n.getNode())   || isSgDivideOp(n.getNode()) ||
-                  isSgMinusMinusOp(n.getNode())  || isSgMinusOp(n.getNode()) || 
+                  isSgMinusMinusOp(n.getNode())  || isSgMinusOp(n.getNode()) ||
                   isSgPlusPlusOp(n.getNode())    || isSgUnaryAddOp(n.getNode())
                   // Mod and exponentiation
                   ) {
                 varID lhs, arg1, arg2;
                 varID res = SgExpr2Var(isSgExpression(n.getNode()));
                 SgnLattice *resLat, *arg1Lat, *arg2Lat;
-                
+
                 // Set up the information on the arguments and target of the arithmetic operation
                 if(isSgBinaryOp(n.getNode())) {
                         // Tested that we're dealing with arithmetic above, so no worries about getting the logic operators by accident
@@ -546,12 +546,12 @@ bool SgnAnalysis::transfer(const Function& func, const DataflowNode& n, NodeStat
                 }
                 resLat = dynamic_cast<SgnLattice*>(prodLat->getVarLattice(res));
                 //cout << "transfer B, resLat="<<resLat<<"\n";
-                
+
                 // If the result expression is dead but the left-hand-side of the expression is live,
                 // update the left-hand-side with the result
                 if(resLat==NULL && isSgCompoundAssignOp(n.getNode()))
                         resLat = dynamic_cast<SgnLattice*>(prodLat->getVarLattice(lhs));
-                
+
                 //cout << "transfer C, resLat="<<resLat<<"\n";
                 // If the result or left-hand-side expression as well as the arguments are live
                 if(resLat && arg1Lat && arg2Lat) {
@@ -585,17 +585,17 @@ bool SgnAnalysis::transfer(const Function& func, const DataflowNode& n, NodeStat
                         // DIVISION
                         } else if(isSgDivAssignOp(n.getNode()) || isSgDivideOp(n.getNode())) {
                                 if(sgnAnalysisDebugLevel>=1) printf("   case i = j / k\n");
-                        
+
                                 resLat->copy(arg1Lat); modified=true;
                                 modified = resLat->multdiv(*arg2Lat) || modified;
                         // MODULUS
                         } else if(isSgModAssignOp(n.getNode()) || isSgModOp(n.getNode())) {
                                 if(sgnAnalysisDebugLevel>=1) printf("   case i = j %% k\n");
-                                
+
                                 resLat->copy(arg1Lat); modified=true;
                                 modified = resLat->complexOp(*arg2Lat) || modified;
                         }
-                
+
                         // If there is a left-hand side, copy the final lattice to the lhs variable
                         if(isSgCompoundAssignOp(n.getNode())) {
                                 // If we didn't use the lhs lattice as resLat, copy resLat into lhsLat
@@ -608,16 +608,16 @@ bool SgnAnalysis::transfer(const Function& func, const DataflowNode& n, NodeStat
                                 }
                         }
                 }
-                
+
                 // Deallocate newly-created objects
                 if(isSgMinusMinusOp(n.getNode()) || isSgPlusPlusOp(n.getNode()))
                         delete arg2Lat;
         } else
-                return false;
-        
-        return modified;
+                modified = false;
+
+        // return modified;
         //cout << "transfer C\n";
-        
+
         // // Make sure that all the non-constant Lattices are initialized
         // const vector<Lattice*>& lattices = prodLat->getLattices();
         // for(vector<Lattice*>::const_iterator it = lattices.begin(); it!=lattices.end(); it++)
@@ -626,7 +626,7 @@ bool SgnAnalysis::transfer(const Function& func, const DataflowNode& n, NodeStat
         //      if((dynamic_cast<SgnLattice*>(*it))->getLevel() == SgnLattice::uninitialized)
         //              (dynamic_cast<SgnLattice*>(*it))->initialize();
         // }
-        // 
+        //
         // //SgNode* asgn;
         // if(cfgUtils::isAssignment(n.getNode()))
         // {
@@ -637,13 +637,13 @@ bool SgnAnalysis::transfer(const Function& func, const DataflowNode& n, NodeStat
         //      if(cfgUtils::parseAssignment(n.getNode(), op, i, j, negJ, k, negK, c))
         //      {
         //              /*printf("cfgUtils::parseAssignment(asgn, op, i, j, c) = 1\n");
-        //              printf("        op=%s i=%s, j=%s%s, k=%s%s, c=%d\n", 
+        //              printf("        op=%s i=%s, j=%s%s, k=%s%s, c=%d\n",
         //                     (op==cfgUtils::add? "+": (op==cfgUtils::subtract? "-": (op==cfgUtils::mult? "*": (op==cfgUtils::divide? "/": (op==cfgUtils::none? "~": "???"))))),
         //                     i.str().c_str(), negJ?"-":"", j.str().c_str(), negK?"-":"", k.str().c_str(), c);*/
-        //              
+        //
         //              SgnLattice* iLattice = dynamic_cast<SgnLattice*>(prodLat->getVarLattice(func, i));
         //              SgnLattice newILattice;
-        //              
+        //
         //              if(op==cfgUtils::none)
         //              {
         //                      // i = c
@@ -657,7 +657,7 @@ bool SgnAnalysis::transfer(const Function& func, const DataflowNode& n, NodeStat
         //                              newILattice.mult(negJ?-1:1);
         //                      }
         //              }
-        //              else if(op==cfgUtils::add)      
+        //              else if(op==cfgUtils::add)
         //              {
         //                      if(sgnAnalysisDebugLevel>=1){
         //                                                      printf("          add, k==zeroVar = %d\n", k==zeroVar);
@@ -675,7 +675,7 @@ bool SgnAnalysis::transfer(const Function& func, const DataflowNode& n, NodeStat
         //                      {
         //                              SgnLattice* jLattice = dynamic_cast<SgnLattice*>(prodLat->getVarLattice(func, j));
         //                              SgnLattice* kLattice = dynamic_cast<SgnLattice*>(prodLat->getVarLattice(func, k));
-        //                              
+        //
         //                              newILattice.copy(jLattice);
         //                              newILattice.mult(negJ?-1:1);
         //                              newILattice.plus(*kLattice);
@@ -683,7 +683,7 @@ bool SgnAnalysis::transfer(const Function& func, const DataflowNode& n, NodeStat
         //                              newILattice.plus(c);
         //                      }
         //              }
-        //              else if(op==cfgUtils::mult || op==cfgUtils::divide)     
+        //              else if(op==cfgUtils::mult || op==cfgUtils::divide)
         //              {
         //                      if(sgnAnalysisDebugLevel>=1){
         //                                                      printf("operation: mult\n");
@@ -704,7 +704,7 @@ bool SgnAnalysis::transfer(const Function& func, const DataflowNode& n, NodeStat
         //                              }
         //                              SgnLattice* jLattice = dynamic_cast<SgnLattice*>(prodLat->getVarLattice(func, j));
         //                              SgnLattice* kLattice = dynamic_cast<SgnLattice*>(prodLat->getVarLattice(func, k));
-        //                              
+        //
         //                              newILattice.copy(jLattice);
         //                              newILattice.mult(negJ?-1:1);
         //                              newILattice.mult(*kLattice);
@@ -719,9 +719,9 @@ bool SgnAnalysis::transfer(const Function& func, const DataflowNode& n, NodeStat
         // {
         //      SgInitializedName* initName = isSgInitializedName(n.getNode());
         //      varID var(initName);
-        //      
+        //
         //      SgnLattice* varLattice = dynamic_cast<SgnLattice*>(prodLat->getVarLattice(func, var));
-        //      
+        //
         //      // if this is a scalar that we care about
         //      if(varLattice)
         //      {
@@ -731,17 +731,21 @@ bool SgnAnalysis::transfer(const Function& func, const DataflowNode& n, NodeStat
         //              modified = varLattice->setBot() || modified;
         //      }
         // }
-        // 
+        //
         // return modified;
 }
 
-// prints the Lattices set by the given SgnAnalysis 
+// prints the Lattices set by the given SgnAnalysis
 void printSgnAnalysisStates(SgnAnalysis* sa, string indent)
 {
         vector<int> factNames;
+/*
         vector<int> latticeNames;
         latticeNames.push_back(0);
         printAnalysisStates pas(sa, factNames, latticeNames, printAnalysisStates::below, indent);
+*/
+        printAnalysisStates pas(sa, factNames, printAnalysisStates::below, indent);
+
         UnstructuredPassInterAnalysis upia_pas(pas);
         upia_pas.runAnalysis();
 }

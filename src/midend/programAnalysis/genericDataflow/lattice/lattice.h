@@ -1,43 +1,53 @@
 #ifndef LATTICE_H
 #define LATTICE_H
 
+#include <string>
+#include <map>
+#include <boost/shared_ptr.hpp>
 #include "CallGraphTraverse.h"
 //#include "variables.h"
 #include "partitions.h"
 #include "abstract_object.h"
-#include <string>
-#include <map>
+
 
 namespace dataflow {
+
 class Lattice : public printable
 {
         public:
-        PartPtr part;
-        //Lattice() {}
-        Lattice(PartPtr p) : part(p) {}
+        explicit
+        Lattice(PartPtr p) 
+        : good_state(false), part(p)
+        {
+          //~ std::cerr << this << "created" << std::endl;
+        }
         
-        public:
+
         // Sets the Part that this Lattice's information corresponds to
         void setPart(PartPtr p) { this->part = p; }
         PartPtr getPart()       { return this->part; }
         
-        // initializes this Lattice to its default state, if it is not already initialized
-        virtual void initialize()=0;
-        // returns a copy of this lattice
+        /// returns a copy of this lattice
+        /// \note   derived classes can use co-variant return types to return more
+        ///         specific information on the lattice type.
+        ///         e.g., MyLattice* MyLattice::copy() const {}
         virtual Lattice* copy() const=0;
-        // overwrites the state of this Lattice with that of that Lattice
-        virtual void copy(Lattice* that)=0;
         
-        // Called by analyses to transfer this lattice's contents from across function scopes from a caller function 
-        //    to a callee's scope and vice versa. If this this lattice maintains any information on the basis of 
-        //    individual MemLocObjects these mappings must be converted, with MemLocObjects that are keys of the ml2ml 
-        //    replaced with their corresponding values. If a given key of ml2ml does not appear in the lattice, it must
-        //    be added to the lattice and assigned a default initial value. In many cases (e.g. over-approximate sets 
-        //    of MemLocObjects) this may not require any actual insertions. If the value of a given ml2ml mapping is 
-        //    NULL (empty boost::shared_ptr), any information for MemLocObjects that must-equal to the key should be 
-        //    deleted.
-        // The function takes newPart, the part within which the values of ml2ml should be interpreted. It corresponds
-        //    to the code region(s) to which we are remapping.
+        /// overwrites the state of this Lattice with that of that Lattice
+        /// \note implementation is responsible to also copy the good_state
+        ///       A standard implementation could use the copy constructor
+        ///       and swap as in exception safe assign operators.
+        virtual void copy(const Lattice* that)=0;
+        /// Called by analyses to transfer this lattice's contents from across function scopes from a caller function 
+        ///    to a callee's scope and vice versa. If this this lattice maintains any information on the basis of 
+        ///    individual MemLocObjects these mappings must be converted, with MemLocObjects that are keys of the ml2ml 
+        ///    replaced with their corresponding values. If a given key of ml2ml does not appear in the lattice, it must
+        ///    be added to the lattice and assigned a default initial value. In many cases (e.g. over-approximate sets 
+        ///    of MemLocObjects) this may not require any actual insertions. If the value of a given ml2ml mapping is 
+        ///    NULL (empty boost::shared_ptr), any information for MemLocObjects that must-equal to the key should be 
+        ///    deleted.
+        /// The function takes newPart, the part within which the values of ml2ml should be interpreted. It corresponds
+        ///    to the code region(s) to which we are remapping.
         virtual Lattice* remapML(const std::set<pair<MemLocObjectPtr, MemLocObjectPtr> >& ml2ml, PartPtr newPart) {
           return false;
         }
@@ -77,6 +87,19 @@ class Lattice : public printable
         virtual bool remapCallee2Caller(const std::map<MemLocObjectPtr, MemLocObjectPtr>& r2eML, Lattice* calleeL) {
           return false;
         }
+
+        /// sets lattice to initialized
+        virtual void initialize()          { good_state = true;  }
+
+        /// sets lattice to uninitialized
+        virtual void uninitialize()        { good_state = false; }
+
+        /// returns initialization state of lattice
+        virtual bool isInitialized() const { return good_state; }
+
+        /// clears the lattice (e.g., calls uninitialize)
+        virtual void clear() = 0;
+
         
         // Returns a Lattice that describes the information known within this lattice
         // about the given expression. By default this could be the entire lattice or any portion of it.
@@ -108,26 +131,23 @@ class Lattice : public printable
         // Computes the meet of this and that and saves the result in this
         // returns true if this causes this to change and false otherwise
         // The part of this object is to be used for AbstractObject comparisons.
-        virtual bool meetUpdate(Lattice* that)=0;
+        virtual
+        bool meetUpdate(const Lattice* that) = 0;
         
         // Returns true if this Lattice implies that lattice (its constraints are equal to or tighter than those of 
         // that Lattice) and false otherwise.
-        virtual bool implies(Lattice* that) {
+        virtual bool implies(Lattice* that) const {
           // this is tighter than that if meeting that into this causes this to change (that contains possibilities 
           // not already in this) but not vice versa (all the possibilities in this already exist in that)
-          Lattice* thisCopy = copy();
+          LatticePtr thisCopy = copy();
           if(!thisCopy->meetUpdate(that)) { 
-            delete thisCopy;
             return false;
           }
-          delete thisCopy;
           
-          Lattice* thatCopy = that->copy();
+          LatticePtr thatCopy = that->copy();
           if(thatCopy->meetUpdate(this)) {
-            delete thatCopy;
             return false;
           }
-          delete thatCopy;
           return true;
         }
         
@@ -135,36 +155,42 @@ class Lattice : public printable
         // of application executions).
         virtual bool equiv(Lattice* that) {
           // this and that are equivalent if meeting either one with the other causes no changes
-          Lattice* thisCopy = copy();
+          LatticePtr thisCopy = copy();
           if(thisCopy->meetUpdate(that)) { 
-            delete thisCopy;
             return false;
           }
-          delete thisCopy;
           
-          Lattice* thatCopy = that->copy();
+          LatticePtr thatCopy = that->copy();
           if(thatCopy->meetUpdate(this)) {
-            delete thatCopy;
             return false;
           }
-          delete thatCopy;
           return true;
+        }        
+        
+        
+        // returns true for finite domains
+        virtual bool finiteLattice() const = 0;
+
+        static
+        bool eq_init_state(const Lattice* lhs, const Lattice* rhs)
+        {
+          return lhs->good_state == rhs->good_state;
         }
         
-        // Computes the meet of this and that and returns the result
-        virtual bool finiteLattice()=0;
-        
-        virtual bool operator==(Lattice* that) /*const*/=0;
-        bool operator!=(Lattice* that) {
+        virtual
+        bool operator==(const Lattice* that) const = 0;
+
+        bool operator!=(const Lattice* that) const {
                 return !(*this == that);
         }
-        bool operator==(Lattice& that) {
-                return *this == &that;
+
+        bool operator==(const Lattice& that) const {
+                return this->operator==(&that);
         }
-        bool operator!=(Lattice& that) {
-                return !(*this == that);
+
+        bool operator!=(const Lattice& that) const {
+                return this->operator!=(&that);
         }
-        
         // Set this Lattice object to represent the set of all possible execution prefixes.
         // Return true if this causes the object to change and false otherwise.
         virtual bool setToFull()=0;
@@ -179,12 +205,64 @@ class Lattice : public printable
         //    removed was previously added
         /*virtual void addVar(varID var)=0;
         virtual void remVar(varID var)=0;*/
-                        
         // The string that represents ths object
         // If indent!="", every line of this string must be prefixed by indent
         // The last character of the returned string should not be '\n', even if it is a multi-line string.
         //virtual string str(string indent="") /*const*/=0;
+
+        virtual std::string str(std::string indent="") const { /* \todo */ return indent; }
+
+        std::string str(std::string indent="")
+        {
+          const Lattice* l = this;
+
+          return l->str(indent);
+        }
+
+        friend
+        void swap(Lattice& lhs, Lattice& rhs);
+
+    private:
+        bool good_state;
+        PartPtr part;
+
+        // disable Default C'tor
+        Lattice();
 };
+
+inline
+void swap(Lattice& lhs, Lattice& rhs)
+{
+  using std::swap;
+
+  swap(lhs.good_state, rhs.good_state);
+}
+
+
+typedef boost::shared_ptr<Lattice>       LatticePtr;
+typedef boost::shared_ptr<const Lattice> ConstLatticePtr;
+
+/// prints the lattice string representation, iff the lattice is not null
+inline
+std::string as_str(ConstLatticePtr lat, const std::string& indent)
+{
+  if (!lat.get()) return indent;
+
+  return lat->str(indent);
+}
+
+inline
+LatticePtr clone(ConstLatticePtr orig)
+{
+  if (!orig.get()) return LatticePtr(static_cast<Lattice*>(0));
+
+  LatticePtr res(orig->copy());
+
+  // std::cerr << res.get() << "  <-cloned- " << orig.get() << std::endl;
+  // ROSE_ASSERT(res.get()->isInitialized() == orig.get()->isInitialized());
+  return res;
+}
+
 
 class FiniteLattice : public virtual Lattice
 {
@@ -194,6 +272,8 @@ class FiniteLattice : public virtual Lattice
         
         bool finiteLattice()
         { return true;  }
+
+        virtual FiniteLattice* copy() const=0;
 };
 
 class InfiniteLattice : public virtual Lattice
@@ -204,11 +284,155 @@ class InfiniteLattice : public virtual Lattice
         
         bool finiteLattice()
         { return false; }
-        
+
+        virtual InfiniteLattice* copy() const=0;
+
         // widens this from that and saves the result in this
         // returns true if this causes this to change and false otherwise
-        virtual bool widenUpdate(InfiniteLattice* that)=0;
+        virtual bool widenUpdate(const InfiniteLattice* that)=0;
 };
 
+typedef boost::shared_ptr<InfiniteLattice>       InfiniteLatticePtr;
+typedef boost::shared_ptr<const InfiniteLattice> ConstInfiniteLatticePtr;
+
+template <class LatticeType>
+LatticeType& ref(LatticePtr);
+
+template <class LatticeType>
+const LatticeType& ref(ConstLatticePtr);
+
 }; // namespace dataflow
+
+
+#if OBSOLETE_CODE
+
+/// The AnyLattice owns a lattice object and manages its life-time
+struct AnyLattice
+{
+    enum LatticeState { lsUninitialized, lsInitialized };
+
+    AnyLattice()
+    : initialized(lsUninitialized), lattice(0)
+    {}
+
+    /// constructs a wrapper around the lattice
+    /// and assumes ownership of the passed argument
+    explicit
+    AnyLattice(Lattice* lat, LatticeState state = lsUninitialized)
+    : initialized(state), lattice(lat)
+    {
+      ROSE_ASSERT(!initialized || lattice);
+    }
+
+    AnyLattice(const AnyLattice& orig)
+    : initialized(orig.initialized), lattice(clone(orig))
+    {
+      ROSE_ASSERT(!orig.lattice || lattice);
+    }
+
+    ~AnyLattice()
+    {
+      delete lattice;
+    }
+
+    AnyLattice& operator=(const AnyLattice& other)
+    {
+      AnyLattice tmp(other);
+
+      swap(*this, tmp);
+      return *this;
+    }
+
+    /// \brief returns a reference to the owned lattice
+    /// \tparam LatticeType clients specify the expected type of the lattice
+    template<class LatticeType>
+    const LatticeType& ref() const
+    {
+      return dynamic_cast<LatticeType&>(*lattice);
+    }
+
+    //! overload
+    template<class LatticeType>
+    LatticeType& ref()
+    {
+      return dynamic_cast<LatticeType&>(*lattice);
+    }
+
+    /// \brief returns a pointer to the owned lattice
+    const Lattice* ptr() const { ROSE_ASSERT(lattice); return lattice; }
+    Lattice*       ptr()       { ROSE_ASSERT(lattice); return lattice; }
+
+    /// \brief assumes that the underlying produce lattice and returns
+    ///        the lattice at position @pos.
+    template<class LatticeType>
+    const LatticeType& at(size_t pos) const
+    {
+      return dynamic_cast<LatticeType&>(product_lattice_at(pos));
+    }
+
+    //! overload
+    template<class LatticeType>
+    LatticeType& at(size_t pos)
+    {
+      return dynamic_cast<LatticeType&>(product_lattice_at(pos));
+    }
+
+    // general lattice functions
+    bool isInitialized() const { return lattice && initialized == lsInitialized; }
+    void initialize()          { ROSE_ASSERT(lattice); initialized = lsInitialized; }
+    void uninitialize()        { initialized = lsUninitialized; }
+
+    // lattice specific functions (forward calls to implementation in Lattice hierarchy)
+    void unProject(SgFunctionCallExp*, const Lattice&);
+
+    void unProject(SgFunctionCallExp* fce, const AnyLattice& lat)
+    {
+      return unProject(fce, *lat.ptr());
+    }
+
+    AnyLattice project(SgExpression*) const;
+    void remapVars(const std::map<varID, varID>& varNameMap, const Function& newFunc);
+    void incorporateVars(const AnyLattice& other);
+    bool finiteLattice() const { return ptr()->finiteLattice(); }
+    void clear();
+
+    bool meetUpdate(const AnyLattice& rhs);
+    bool widenUpdate(const AnyLattice& rhs);
+
+    std::string str(std::string prefix = "") const;
+
+    //
+    // binary operators implemented as friends
+
+    friend
+    void swap(AnyLattice& lhs, AnyLattice& rhs);
+
+    friend
+    bool operator==(const AnyLattice& lhs, const AnyLattice& rhs);
+
+    friend
+    bool operator!=(const AnyLattice& lhs, const AnyLattice& rhs) { return !(lhs == rhs); }
+
+  private:
+    /// assumes underlying Lattice is a ProductLattice and returns
+    /// the element at position @pos
+    Lattice&       product_lattice_at(size_t pos) ;
+    const Lattice& product_lattice_at(size_t pos) const;
+
+    static
+    Lattice* clone(const AnyLattice& l)
+    {
+      return l.lattice ? l.lattice->copy()
+                       : static_cast<Lattice*>(0);
+    }
+
+    LatticeState initialized;
+    Lattice*     lattice;
+};
+
+/// prints @lat on @os
+std::ostream& operator<<(std::ostream& os, const AnyLattice& lat);
+
+#endif /* OBSOLETE_CODE */
+
 #endif

@@ -1,6 +1,6 @@
 // WE ASSUME THAT EACH CFG NODE CONTAINS ONLY ONE NODE STATE.
 // IN PARTICULAR, WE ASSUME THAT IF THERE IS AN ANALYSIS SPLIT
-// THE PARTITIONS WILL CORRESPOND TO SUCCEEDING CFG NODES, NOT 
+// THE PARTITIONS WILL CORRESPOND TO SUCCEEDING CFG NODES, NOT
 // TO A SINGLE NEXT NODE STATE ASSOCIATED WITH THE SAME CFG NODE.
 
 #include "partitionedAnalysis.h"
@@ -36,7 +36,7 @@ void PartitionedAnalysis::initMaster()
 
         // Inform this partition about its parent PartitionedAnalysis object`
         //master->setParent(this);
-        
+
         // Create a new partition split that corresponds to just the master partition
         partSplit* newSplit = new partSplit(master);
         list<partSplit*> splitsList;
@@ -57,7 +57,7 @@ IntraPartitionDataflow* PartitionedAnalysis::getMasterDFAnalysis()
 bool PartitionedAnalysis::activatePart(IntraPartitionDataflow* part)
 {
         bool modified = joinParts.find(part) != joinParts.end();
-        
+
         if(modified)
         {
                 joinParts.erase(part);
@@ -69,14 +69,14 @@ bool PartitionedAnalysis::activatePart(IntraPartitionDataflow* part)
 // Splits the given dataflow analysis partition into several partitions, one for each given checkpoint.
 // The partition origA will be assigned the last checkpoint in partitionChkpts.
 // If newSplit==true, this split operation creates a new split within origA's current split and place
-//    the newly-generated partitions into this split. 
+//    the newly-generated partitions into this split.
 // If newSplit==false, the newly-generated partitions will be added to origA's current split.
 // If newPartActive==true, the newly-generated partitions will be made initially active. If not,
 //    they will start out in joined status.
 // Returns the set of newly-created partitions.
-set<IntraPartitionDataflow*> PartitionedAnalysis::split(IntraPartitionDataflow* origA, 
+set<IntraPartitionDataflow*> PartitionedAnalysis::split(IntraPartitionDataflow* origA,
                                                         vector<IntraPartitionDataflowCheckpoint*> partitionChkpts,
-                                                        const Function& func, NodeState* fState, 
+                                                        const Function& func, NodeState* fState,
                                                         bool newSplit, bool newPartActive)
 {
 /*printf("PartitionedAnalysis::split() origA=%p\n", origA);
@@ -94,7 +94,7 @@ for(vector<IntraPartitionDataflowCheckpoint*>::iterator it = partitionChkpts.beg
         // which can result in the creation of new partitions.
         ROSE_ASSERT(activeParts.find(origA) != activeParts.end() ||
                     joinParts.find(origA) != joinParts.end());
-        
+
         if(origA->partitionCond != NULL)
                 cout << "origA->partitionCond = "<<origA->partitionCond->str()<<"\n";
         partSplit* split=NULL;
@@ -102,11 +102,11 @@ for(vector<IntraPartitionDataflowCheckpoint*>::iterator it = partitionChkpts.beg
                 split = new partSplit(origA);
         else
                 split = *(parts2splits[origA].rbegin());
-        
+
         cout << "split = "<<split->str()<<", partitionChkpts.size()="<<partitionChkpts.size()<<"\n"; fflush(stdout);
-        
+
         set<IntraPartitionDataflow*> newParts;
-        
+
         // Generate the new analysis partitions. The last checkpoint goes to the master
         // partition and we create fresh partitions for the other checkpoints
         for(vector<IntraPartitionDataflowCheckpoint*>::iterator it = partitionChkpts.begin();
@@ -114,26 +114,26 @@ for(vector<IntraPartitionDataflowCheckpoint*>::iterator it = partitionChkpts.beg
         {
                 IntraPartitionDataflowCheckpoint* chkpt = *it;
                 IntraPartitionDataflow* curPartA;
-                
+
                 cout << "    chkpt->partitionCond="<<chkpt->partitionCond<<"\n"; fflush(stdout);
-                
+
                 it++;
-                
+
                 if(it != partitionChkpts.end())
                 {
                         curPartA = origA->copy();
                         split->addChild(curPartA);
                         newParts.insert(curPartA);
-                        
+
                         parts2chkpts[curPartA] = chkpt;
                         // Create a splits list for this newly-created partition
-                        // The splits list only contains the split (which may be newly-created or a copy of parts2splits[origA]) 
+                        // The splits list only contains the split (which may be newly-created or a copy of parts2splits[origA])
                         // since it will cease to exist after the next successful join of split
                         list<partSplit*> splitsList;
                         splitsList.push_back(split);
                         parts2splits[curPartA] = splitsList;
-                        
-                        // Set the current partition's logical condition (can't AND it because the variables involved in 
+
+                        // Set the current partition's logical condition (can't AND it because the variables involved in
                         // the condition may have changed between the two split points)
                         curPartA->partitionCond = chkpt->partitionCond;
                         /*if(origA->partitionCond != NULL)
@@ -141,11 +141,11 @@ for(vector<IntraPartitionDataflowCheckpoint*>::iterator it = partitionChkpts.beg
                         if(analysisDebugLevel>=1)
                         //{ printf("        Creating analysis partition %p (master = %p), condition = %s\n", curPartA, origA, curPartA->partitionCond->str("").c_str()); }
                         { printf("        Creating analysis partition %p (master = %p)\n", curPartA, origA); }
-                                                        
+
                         // create a copy of the original partition's dataflow state for the new partition
                         partitionDFAnalysisState pdfas(origA, curPartA);
                         pdfas.runAnalysis(func, fState);
-                        
+
                         // add the newly-created partition to the list of active partitions
                         if(newPartActive)
                                 activeParts.insert(curPartA);
@@ -155,7 +155,7 @@ for(vector<IntraPartitionDataflowCheckpoint*>::iterator it = partitionChkpts.beg
                 else
                 {
                         //// AND this the first partition's new logical condition to the original partition's condition
-                        // set the first partition's logical condition (can't AND it because the variables involved in the condition 
+                        // set the first partition's logical condition (can't AND it because the variables involved in the condition
                         // may have changed between the two split points)
                 /*printf("origA->partitionCond=%p\n", origA->partitionCond);
                 printf("    partitionChkpts[0]=%s\n", partitionChkpts[0]->str("    ").c_str());*/
@@ -164,12 +164,12 @@ for(vector<IntraPartitionDataflowCheckpoint*>::iterator it = partitionChkpts.beg
                         {
                                 //parts2chkpts[origA]->partitionCond->andUpd(*(partitionChkpts[0]->partitionCond));
                                 origA->partitionCond->andUpd(*(partitionChkpts[0]->partitionCond));
-                                
+
                                 if(parts2chkpts[origA])
                                         delete parts2chkpts[origA];
-                                
+
                                 parts2chkpts[origA] = partitionChkpts[0];
-                                
+
                                 // we already have a checkpoint object for the origA partition, so we can delete this new checkpoint
                                 // and its internals (i.e. the partitionCond object)
                                 //delete partitionChkpts[0];
@@ -177,37 +177,37 @@ for(vector<IntraPartitionDataflowCheckpoint*>::iterator it = partitionChkpts.beg
                         else
                         {*/
                                 origA->partitionCond = chkpt->partitionCond;
-                                
-                                // Delete the previous checkpoint, assuming that one exists AND we're not reusing the 
+
+                                // Delete the previous checkpoint, assuming that one exists AND we're not reusing the
                                 // old checkpoint as the new checkpoint
                                 if(parts2chkpts[origA] && parts2chkpts[origA]!=chkpt)
                                         delete parts2chkpts[origA];
-                                
+
                                 parts2chkpts[origA] = chkpt;
-                                
+
                                 curPartA = origA;
                         //}
                         /*if(analysisDebugLevel>=1)
                         { printf("        Master partition %p, condition = %s\n", origA, origA->partitionCond->str("").c_str()); }*/
                 }
-                
+
                 cout << "Updating current partition's dataflow state, parts2chkpts[curPartA]->joinNodes.size()="<<parts2chkpts[curPartA]->joinNodes.size()<<"\n";
                 cout << "    curPartA->partitionCond="<<curPartA->partitionCond<<"\n"; fflush(stdout);
                 // -----------------------------------------------------------------------------------------------
-                // Update the current partition's current dataflow state (state at the nodes in its joinNodes set) 
+                // Update the current partition's current dataflow state (state at the nodes in its joinNodes set)
                 // with its new partition condition
-                
+
                 // joinNodes
 /*              cout << "parts2chkpts[curPartA]->joinNodes.size()=" << parts2chkpts[curPartA]->joinNodes.size() << "\n";
                 for(set<DataflowNode>::iterator itJN=parts2chkpts[curPartA]->joinNodes.begin();
                     itJN!=parts2chkpts[curPartA]->joinNodes.end(); itJN++)
                         cout << "    itJN = "<<(*itJN).getNode()->unparseToString()<<"\n";*/
-                    
+
                 for(set<DataflowNode>::iterator itJN=parts2chkpts[curPartA]->joinNodes.begin();
                     itJN!=parts2chkpts[curPartA]->joinNodes.end(); )
                 {
                         DataflowNode n = *itJN;
-                        
+
                         cout << "    joinNode "<<n.getNode()->unparseToString()<<"\n"; fflush(stdout);
                         const vector<NodeState*> nodeStates = NodeState::getNodeStates(n);
                         //for(vector<NodeState*>::const_iterator itS = nodeStates.begin(); itS!=nodeStates.end(); )
@@ -219,7 +219,7 @@ for(vector<IntraPartitionDataflowCheckpoint*>::iterator it = partitionChkpts.beg
                         }
                         itJN++;
                 }
-                
+
                 // Current Node
                 if(parts2chkpts[curPartA]->curNode)
                 {
@@ -231,30 +231,30 @@ for(vector<IntraPartitionDataflowCheckpoint*>::iterator it = partitionChkpts.beg
                         {
                                 NodeState* state = *itS;
                                 Analysis* a = curPartA;
-                                
+
 /*ConstrGraph* cg = dynamic_cast<ConstrGraph*>(state->getLatticeBelow(a).front());
 cout << "Pre-initDFfromPartCond CG="<<cg->str()<<"\n";*/
-                                
+
                                 curPartA->initDFfromPartCond(func, n, *state, state->getLatticeBelow(a), state->getFacts(a), curPartA->partitionCond);
                         }
                 }
         }
-        
+
 //printf("    partitionChkpts[0]=%s\n", partitionChkpts[0]->str("    ").c_str());
 //printf("    parts2chkpts[origA]=%s\n", parts2chkpts[origA]->str("    ").c_str());
 
         // add the new split to the original partition's list of splits
         if(newSplit)
                 parts2splits[origA].push_back(split);
-        
-        /*for(set<IntraPartitionDataflow*>::iterator it=split->splitSet.begin(); 
+
+        /*for(set<IntraPartitionDataflow*>::iterator it=split->splitSet.begin();
                  it!=split->splitSet.end(); it++)
                 printf("        partition %p, partitionCond=%p\n", *it, parts2chkpts[*it]->partitionCond);*/
-        
+
         if(analysisDebugLevel>=1)
         { printf("PartitionedAnalysis::split() after: activeParts.size()=%lu\n", (unsigned long)(activeParts.size())); }
         printf("@ SPLIT @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@\n");
-        
+
         cout << "newParts.size()=="<<newParts.size()<<"\n";
         return newParts;
 }
@@ -275,13 +275,13 @@ printf("@ JOIN @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
         activeParts.erase(it);
         joinParts.insert(joinA);
         parts2chkpts[joinA] = chkpt;
-        
+
         // The inner-most split associated with the given analysis partition
         partSplit* s = parts2splits[joinA].back();
-        
+
         // Check to see if all the split members have already called join
         bool allJoining=true;
-        for(set<IntraPartitionDataflow*>::iterator it=s->splitSet.begin(); 
+        for(set<IntraPartitionDataflow*>::iterator it=s->splitSet.begin();
             it!=s->splitSet.end(); it++)
         {
                 // If the current split member has not called join
@@ -289,7 +289,7 @@ printf("@ JOIN @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
                 {
                         if(analysisDebugLevel>=1)
                         { printf("        Split-sibling %p still not in joining status\n", *it); }
-                        
+
                         allJoining = false;
                         break;
                 }
@@ -301,13 +301,13 @@ printf("@ JOIN @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
                 // First check if all the joined partitions have in fact fully completed their executions
                 // (a partition with a completed execution will have an empty joinNodes list)
                 bool allFinished=true;
-                for(set<IntraPartitionDataflow*>::iterator it=s->splitSet.begin(); 
+                for(set<IntraPartitionDataflow*>::iterator it=s->splitSet.begin();
                it!=s->splitSet.end(); it++)
            {
                 ROSE_ASSERT(parts2chkpts[*it]);
                 allFinished = allFinished && parts2chkpts[*it]->joinNodes.size()==0;//(parts2chkpts[*it]==NULL);
            }
-           
+
            bool joinSplit=false;
            set<IntraPartitionDataflow*> partsToJoin;
            if(allFinished)
@@ -321,7 +321,7 @@ printf("@ JOIN @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
                         partsToJoin = preJoin(s, func, fState, parts2chkpts);
                         joinSplit = (partsToJoin.size() == s->splitSet.size());
                 }
-                
+
                 printf("allFinished=%d, joinSplit=%d\n", allFinished, joinSplit);
 
                 // if we're supposed to join all the split partitions back into the master partition
@@ -329,25 +329,25 @@ printf("@ JOIN @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
                 {
                         if(analysisDebugLevel>=1)
                         { printf("        All members of split in joining status\n"); }
-                        
+
                         // Remove the master from the set of split partitions to simplify subsequent code
                         s->splitSet.erase(s->master);
                         //ROSE_ASSERT(parts2chkpts.find(s->master) != parts2chkpts.end());
 // !!! May not be true in nested partition cases because after the first inner join the master's partitionCond==NULL
 // !!! which will violate this assertion during the outer split's join.
 //                      ROSE_ASSERT(s->master->partitionCond!=NULL);
-        
+
                         if(s->master->partitionCond)
                                 printf("s->master->partitionCond=%p\n", s->master->partitionCond);
-                        // OR their respective partition conditions of all the joining partitions, 
+                        // OR their respective partition conditions of all the joining partitions,
                         // leaving the result in the master partition's condition
-                        /*for(set<IntraPartitionDataflow*>::iterator it=s->splitSet.begin(); 
+                        /*for(set<IntraPartitionDataflow*>::iterator it=s->splitSet.begin();
                        it!=s->splitSet.end(); it++)
                         {
                                 IntraPartitionDataflow* curPart = *it;
                                 //ROSE_ASSERT(parts2chkpts.find(curPart) != parts2chkpts.end());
                                 ROSE_ASSERT((*it)->partitionCond!=NULL);
-                                
+
                                 printf("curPart->partitionCond=%p\n",     curPart->partitionCond);
                                 //parts2chkpts[s->master]->partitionCond->orUpd(*(parts2chkpts[curPart]->partitionCond));
                                 s->master->partitionCond->orUpd(*(curPart->partitionCond));
@@ -358,12 +358,12 @@ printf("@ JOIN @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
                         delete s->master->partitionCond;
                         s->master->partitionCond = NULL;
                         //printf("Joined partitionCond=%s\n", s->master->partitionCond->str().c_str());
-                        
+
                         // ---------------------------------------------------------------------
                         // Union together all the dataflow states of all the analysis partitions,
                         // leaving these unions in the dataflow states associated with the master
                         // partition.
-                        
+
                         // Convert the split set into a set of Analysis*
                         set<Analysis*> sss;
                         for(set<IntraPartitionDataflow*>::iterator it = s->splitSet.begin(); it!=s->splitSet.end(); it++)
@@ -372,60 +372,60 @@ printf("@ JOIN @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
                         udfas.runAnalysis(chkpt->func, chkpt->fState);
 /*UnstructuredPassInterAnalysis upia_udfas(udfas);
 upia_udfas.runAnalysis();*/
-                        
+
                         cout << "Erasing non-master partitions in split\n";
                         // Delete the dataflow states of all the non-master partitions
                         deleteDFAnalysisState ddfas(s->splitSet);
                         udfas.runAnalysis(chkpt->func, chkpt->fState);
-                        
+
                         // Delete the non-master analyses themselves, also removing them from
                         // the relevant PartitionedAnalysis data structures
-                        for(set<IntraPartitionDataflow*>::iterator it=s->splitSet.begin(); 
+                        for(set<IntraPartitionDataflow*>::iterator it=s->splitSet.begin();
                        it!=s->splitSet.end(); it++)
                         {
                                 IntraPartitionDataflow* curPart = *it;
                                 if(analysisDebugLevel>=1)
                                 { printf("        Erasing partition %p\n", *it); }
-                                
-                                // This partition is no longer in joining status because it is being made 
+
+                                // This partition is no longer in joining status because it is being made
                                 // active (master) or is being killed (!master)
                                 joinParts.erase(curPart);
-                                
+
                                 //parts2splits.erase(curPart);
                                 // Pop off the inner-most split associated with the joined analysis partitions
                                 parts2splits[curPart].pop_back();
-                                
+
                                 // Delete any checkpoint associated with the current partition
                                 if(parts2chkpts[curPart]!=NULL)
                                         delete parts2chkpts[curPart];
                                 parts2chkpts.erase(curPart);
-                                
+
                                 //delete curPart;
                         }
-                        
+
                         // If the outer-most split has finished executing, we're done
                         if(allFinished && activeParts.size()==0)
                         {
                                 // Pop off the inner-most split associated with the joined analysis partitions
                                 parts2splits[s->master].pop_back();
-                                
+
                                 // Delete any checkpoint associated with the current partition
                                 if(parts2chkpts[s->master]!=NULL)
                                         delete parts2chkpts[s->master];
                                 parts2chkpts.erase(s->master);
-                                
+
                                 joinParts.erase(s->master);
                         }
                         // Else, if this split has not finished or this split's master is part of a higher-level
                         // unfinished split
                         else
                         {
-                                // Activate the master analysis since it still needs to continue with the remainder 
+                                // Activate the master analysis since it still needs to continue with the remainder
                                 // of the CFG
                                 joinParts.erase(s->master);
                                 activeParts.insert(s->master);
                         }
-                        
+
                         // Delete the split data structure
                         delete s;
                 }
@@ -449,30 +449,30 @@ upia_udfas.runAnalysis();*/
                    }
                 }
         }
-        
+
 printf("@ JOIN @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@\n");
 }
 
-// runs the intra-procedural analysis on the given function, returns true if 
+// runs the intra-procedural analysis on the given function, returns true if
 // the function's NodeState gets modified as a result and false otherwise
 // state - the function's NodeState
 bool PartitionedAnalysis::runAnalysis(const Function& func, NodeState* fState)
 {
         bool ret;
 
-        // Create the initial partition state for analyzing the current function        
+        // Create the initial partition state for analyzing the current function
         initMaster();
-        
+
         while(activeParts.size()>0)
         {
                 // get the next active analysis partition
                 set<IntraPartitionDataflow*>::iterator nextIt = activeParts.begin();
                 IntraPartitionDataflow* nextA = *nextIt;
-                
+
                 bool joinPart=false;
                 bool splitPart=false;
                 IntraPartitionDataflowCheckpoint* outChkpt=NULL;
-                
+
                 // If the given partition has no checkpoint
                 if(parts2chkpts[nextA]==NULL)
                 {
@@ -485,9 +485,9 @@ bool PartitionedAnalysis::runAnalysis(const Function& func, NodeState* fState)
                         // Resume from the checkpoint
                         ret = nextA->runAnalysisResume(func, fState, parts2chkpts[nextA], splitPart, joinPart, outChkpt) || ret;
                 }
-                
+
                 //printf("joinPart=%d, activeParts=%d\n", joinPart, splitPart);
-                
+
                 // if the dataflow partition wants to join itself to the partitions that it was split from
                 if(joinPart)
                 {
@@ -503,18 +503,18 @@ bool PartitionedAnalysis::runAnalysis(const Function& func, NodeState* fState)
                 }
 /*else
 {
-        if(parts2chkpts[nextA]) 
+        if(parts2chkpts[nextA])
         {
                 delete parts2chkpts[nextA];
                 parts2chkpts[nextA] = NULL;
         }
         activeParts.erase(nextA);
 }*/
-                
+
                 printf("@ @ @ @ @ @ @ @ @ @ @ @ @ @ @ @ @ @ @ @ @ @ @ @ @ @ @ @ @ @ @ @ @ @\n");
                 printf("PartitionedAnalysis::runAnalysis activeParts.size()=%lu, joinParts.size()=%lu\n", (unsigned long)(activeParts.size()), (unsigned long)(joinParts.size()));
         }
-        
+
         ROSE_ASSERT(activeParts.size()==0);
         ROSE_ASSERT(joinParts.size()==0);
         // Return true if any partition caused the function's final dataflow state to change
@@ -526,14 +526,14 @@ bool PartitionedAnalysis::runAnalysis(const Function& func, NodeState* fState)
 /**************************************
  *** unionDFAnalysisStatePartitions ***
  **************************************/
- 
+
 void unionDFAnalysisStatePartitions::visit(const Function& func, const DataflowNode& n, NodeState& state)
 {
         //printf("unionDFAnalysisStatePartitions::visit() function %s() node=<%s | %s>\n", func.get_name().str(), n.getNode()->class_name().c_str(), n.getNode()->unparseToString().c_str());
-        
+
         //const vector<Lattice*>& masterLatBel = state.getLatticeBelow(master);
         //printf("    master=%p, masterLatBel.size()=%d\n", master, masterLatBel.size());
-        
+
         state.unionLattices(unionSet, master);
 }
 
@@ -541,7 +541,7 @@ void unionDFAnalysisStatePartitions::visit(const Function& func, const DataflowN
  *** IntraPartitionFWDataflow ***
  ********************************/
 
-// Runs the intra-procedural analysis on the given function. Returns true if 
+// Runs the intra-procedural analysis on the given function. Returns true if
 // the function's NodeState gets modified as a result and false otherwise.
 // state - the function's NodeState
 bool IntraPartitionFWDataflow::runAnalysis(const Function& func, NodeState* fState, bool analyzeDueToCallers, set<Function> calleesUpdated)
@@ -553,14 +553,14 @@ bool IntraPartitionFWDataflow::runAnalysis(const Function& func, NodeState* fSta
         return runAnalysisResume(func, fState, NULL, splitPart, joinPart, outChkpt);
 }
 
-bool IntraPartitionFWDataflow::runAnalysis(const Function& func, NodeState* fState, 
+bool IntraPartitionFWDataflow::runAnalysis(const Function& func, NodeState* fState,
                                bool& splitPart, bool &joinPart, IntraPartitionDataflowCheckpoint*& outChkpt)
 {
         //IntraPartitionDataflowCheckpoint* chkpt = NULL;
         return runAnalysisResume(func, fState, NULL, splitPart, joinPart, outChkpt);
 }
 
-bool IntraPartitionFWDataflow::runAnalysisResume(const Function& func, NodeState* fState, 
+bool IntraPartitionFWDataflow::runAnalysisResume(const Function& func, NodeState* fState,
                                IntraPartitionDataflowCheckpoint* chkpt, bool& splitPart,
                                bool &joinPart, IntraPartitionDataflowCheckpoint*& outChkpt)
 {
@@ -573,24 +573,24 @@ bool IntraPartitionFWDataflow::runAnalysisResume(const Function& func, NodeState
                 //UnstructuredPassInterAnalysis upia_ids(ids);
                 //upia_ids.runAnalysis();
         }
-        
+
         DataflowNode funcCFGStart = cfgUtils::getFuncStartCFG(func.get_definition(),filter);
         DataflowNode funcCFGEnd = cfgUtils::getFuncEndCFG(func.get_definition(),filter);
-        
+
         if(analysisDebugLevel>=1 && chkpt==NULL){
                 printf("############################\n");
                 printf("#### Function %s() ####\n", func.get_name().str());
                 printf("############################\n");
         }
-        
+
         if(chkpt==NULL)
         {
-                // initialize the function's entry NodeState 
+                // initialize the function's entry NodeState
                 NodeState* entryState = *(NodeState::getNodeStates(funcCFGStart).begin());
                 //printf("before copyLattices on <%s | %s>\n", funcCFGStart.getNode()->class_name().c_str(), funcCFGStart.getNode()->unparseToString().c_str());
                 NodeState::copyLattices_aEQa(this, *entryState, /*interAnalysis*/this, *fState);
         }
-        
+
         printf("IntraPartitionFWDataflow::runAnalysis() function %s()\n", func.get_name().str());
         if(chkpt)
                 printf("    chkpt=%p=%s\n", chkpt, chkpt->str("    ").c_str());
@@ -598,17 +598,17 @@ bool IntraPartitionFWDataflow::runAnalysisResume(const Function& func, NodeState
         // Dataflow Iterator that iterates over all the nodes in this function
         //VirtualCFG::dataflow dfIt(funcCFGStart, funcCFGEnd);
         VirtualCFG::dataflow dfIt(funcCFGStart);
-        
+
         // Set of nodes that this analysis has blocked progress on until the next join point
         set<DataflowNode> joinNodes;
-        
+
         // Set of nodes that were on the joinNodes list before a join and must now be resumed.
         // For each such node we must skip the call to the transfer function.
         set<DataflowNode> resumeNodes;
-        
+
         if(chkpt!=NULL)
                 dfIt.restartFromChkpt(chkpt->dfChkpt);
-        
+
         // If we're restarting from a split
         /*if(chkpt && chkpt->partitionCond)
         {
@@ -626,7 +626,7 @@ bool IntraPartitionFWDataflow::runAnalysisResume(const Function& func, NodeState
                 // Now that we've finished the restart, reset the checkpoint to NULL
                 //chkpt = NULL;
         }
-        
+
 cout << "dfIt="<<dfIt.str()<<"\n";
 printf("    dfIt!=VirtualCFG::dataflow::end() = %d\n", dfIt!=VirtualCFG::dataflow::end());
         for(; dfIt!=VirtualCFG::dataflow::end(); dfIt++)
@@ -646,10 +646,10 @@ printf("    dfIt!=VirtualCFG::dataflow::end() = %d\n", dfIt!=VirtualCFG::dataflo
                         printf("====================================================================\n");
                         printf("Current Node %p<%s | %s | %d>\n", sgn, sgn->unparseToString().c_str(), sgn->class_name().c_str(), n.getIndex());
                 }
-                
+
                 // the number of NodeStates associated with the given dataflow node
                 //ROSE_ASSERT(state);
-                
+
                 // Iterate over all of this node's NodeStates
                 //for(int i=0; i<numStates;)
                 //for(vector<NodeState*>::const_iterator itS = nodeStates.begin(); itS!=nodeStates.end(); )
@@ -657,19 +657,17 @@ printf("    dfIt!=VirtualCFG::dataflow::end() = %d\n", dfIt!=VirtualCFG::dataflo
                 {
                         state = *itS;
                         //printf("                               state=%p\n", state);
-                                                
+
                         // reset the modified state, since only the last NodeState's change matters
-                        //modified = false; 
-                        
+                        //modified = false;
+
                         // -------------------------------------------------------------------------
                         // Overwrite the Lattices below this node with the lattices above this node.
                         // The transfer function will then operate on these Lattices to produce the
                         // correct state below this node.
-                        const vector<Lattice*> dfInfoAbove  = state->getLatticeAbove(this);
-                        const vector<Lattice*> dfInfoBelow  = state->getLatticeBelow(this);
-                        vector<Lattice*>::const_iterator itA, itB;
-                        int j=0;
-                        
+                        ConstLatticePtr dfInfoAbove  = state->getLatticeAbove(this);
+                        LatticePtr      dfInfoBelow  = state->getLatticeBelowMod(this);
+
                         // ---------------------------------------------------------------------------------------
                         // If we're restarting following a split or we're restarting from a join and this dataflow
                         // node was previously blocked waiting on this join
@@ -681,24 +679,19 @@ printf("    dfIt!=VirtualCFG::dataflow::end() = %d\n", dfIt!=VirtualCFG::dataflo
                                 resumeNodes.erase(n);
                                 goto postSplit;
                         }
-                        
+
                         {
-                                //printf("                 dfInfoAbove.size()=%d, dfInfoBelow.size()=%d, this=%p\n", dfInfoAbove.size(), dfInfoBelow.size(), this);
-                                for(itA = dfInfoAbove.begin(), itB = dfInfoBelow.begin();
-                                    itA != dfInfoAbove.end() && itB != dfInfoBelow.end(); 
-                                    itA++, itB++, j++)
-                                {
-                                        if(analysisDebugLevel>=1){
-                                                cout << "    Meet Above: Lattice "<<j<<": \n    "<<(*itA)->str("        ")<<"\n";
-                                                cout << "    Meet Below: Lattice "<<j<<": \n    "<<(*itB)->str("        ")<<"\n";
-                                        }
-                                        (*itB)->copy(*itA);
+                                if(analysisDebugLevel>=1){
+                                        cout << "    Meet Above: Lattice: \n    "<<dfInfoAbove->str("        ")<<"\n";
+                                        cout << "    Meet Below: Lattice: \n    "<<dfInfoBelow->str("        ")<<"\n";
                                 }
-                                
+
+                                dfInfoBelow->copy(dfInfoAbove.get());
+
                                 // <<<<<<<<<<<<<<<<<<< TRANSFER FUNCTION <<<<<<<<<<<<<<<<<<<
-                                
+
                                 /*
-                                // If we're resuming this dataflow node from a previous join (we blocked on this node until the join and 
+                                // If we're resuming this dataflow node from a previous join (we blocked on this node until the join and
                                 // we're now restarting from the join), do not call the transfer function on this dataflow node and instead
                                 // proceed with propagating its dataflow stat to its descendants
                                 if(!(chkpt && chkpt->partitionCond==NULL))*/
@@ -709,9 +702,13 @@ printf("    dfIt!=VirtualCFG::dataflow::end() = %d\n", dfIt!=VirtualCFG::dataflo
                                         Function calledFunc(isSgFunctionCallExp(sgn));
                                         if(calledFunc.get_definition())
                                         {
-                                                vector<Lattice*>* retState;
+                                                Lattice*        nullLattice = 0;
+                                                ConstLatticePtr retState(nullLattice);
+
                                                 dynamic_cast<InterProceduralDataflow*>(interAnalysis)->
-                                                      transfer(calledFunc, n, *state, dfInfoBelow, &retState, true);
+                                                      transfer(calledFunc, n, *state, dfInfoBelow, retState, true);
+
+                                                ROSE_ASSERT(retState);
                                                 // NEED TO INCORPORATE INFORMATION ABOUT RETURN INTO DATAFLOW SOMEHOW
                                                 ROSE_ASSERT(0);
                                         }
@@ -748,17 +745,17 @@ printf("    dfIt!=VirtualCFG::dataflow::end() = %d\n", dfIt!=VirtualCFG::dataflo
                                                         dataflow::checkpoint dfChkpt = it.getChkpt();
                                                         // Add the checkpoint that corresponds to the next split to the vector of checkpoints
                                                         chkpts.push_back(new IntraPartitionDataflowCheckpoint(dfChkpt, joinNodes, *splitIt, i, func, fState));
-                                                        
+
                                                         if(analysisDebugLevel>=1)
                                                         { printf("        Split condition %d: \n%s\n", i, ((*splitIt)->str("            ")).c_str()); }
                                                         //{ printf("        Split condition %d: %p\n", i, *splitIt); }
                                                 }
                                                 if(partitionCond != NULL)
                                                         cout << "after loop: partitionCond = "<<partitionCond->str()<<"\n";
-                                                
+
                                                 IntraPartitionDataflow* tmp = this;
                                                 printf("parent = %p, this=%p, tmp=%p\n", parent, this, tmp);
-                                                
+
                                                 parent->split(tmp, chkpts, func, fState, splitAnalysis!=IntraPartitionFWDataflow::splitNew, true);
                                                 // After the split, break out of the analysis. The parent PartitionedAnalysis will schedule
                                                 // this analysis appropriately.
@@ -770,7 +767,7 @@ printf("    dfIt!=VirtualCFG::dataflow::end() = %d\n", dfIt!=VirtualCFG::dataflo
                                         {
                                                 joinNodes.insert(n);
                                                 // Move on to the next dataflow node without propagating state to this node's descendants
-                                                // !!! What happens when the same dataflow node gets put onto joinNodes twice? It 
+                                                // !!! What happens when the same dataflow node gets put onto joinNodes twice? It
                                                 // !!! shouldn't make a difference that it will be resumed only once.... I think.
                                                 continue;
                                         }
@@ -779,7 +776,7 @@ printf("    dfIt!=VirtualCFG::dataflow::end() = %d\n", dfIt!=VirtualCFG::dataflo
                                         {
                                                 if(analysisDebugLevel>=1)
                                                 { printf("    Joining analysis partition %p\n", this); }
-                                                
+
                                                 joinPart=true;
                                                 dataflow::checkpoint dfChkpt = it.getChkpt();
                                                 outChkpt = new IntraPartitionDataflowCheckpoint(dfChkpt, joinNodes, NULL, -1, func, fState);
@@ -788,7 +785,7 @@ printf("    dfIt!=VirtualCFG::dataflow::end() = %d\n", dfIt!=VirtualCFG::dataflo
                                 }
                                 // >>>>>>>>>>>>>>>>>>> TRANSFER FUNCTION >>>>>>>>>>>>>>>>>>>
                         }
-                        
+
                         // This is the point in the code where we resume execution following a checkpoint
                         postSplit:
                         /* If we're restarting from a checkpoint after a split
@@ -797,16 +794,10 @@ printf("    dfIt!=VirtualCFG::dataflow::end() = %d\n", dfIt!=VirtualCFG::dataflo
                                 // Inform the newly-created active partition about its new partition condition
                                 initDFfromPartCond(func, n, *state, state->getLatticeBelow(this), state->getFacts(this));
                         }*/
-                        
+
                         if(analysisDebugLevel>=1)
                         {
-                                j=0;
-                                for(itB = dfInfoBelow.begin();
-                                    itB != dfInfoBelow.end(); itB++, j++)
-                                {
-                                        cout << "    Transferred: Lattice "<<j<<": \n    "<<(*itB)->str("        ")<<"\n";
-                                }
-                                printf("    transferred, modified=%d\n", modified);
+                                cout << "    Transferred: Lattice: \n    "<<dfInfoBelow->str("        ")<<"\n";
                         }
 
                         // Look at the next NodeState
@@ -828,7 +819,7 @@ printf("    dfIt!=VirtualCFG::dataflow::end() = %d\n", dfIt!=VirtualCFG::dataflo
                         }
                 }
                 ROSE_ASSERT(state);
-                
+
 /*                      // if there has been a change in the dataflow state immediately below this node AND*/
                 // If this is not the last node in the function
                 if(/*modified && */n != funcCFGEnd)
@@ -839,10 +830,10 @@ printf("    dfIt!=VirtualCFG::dataflow::end() = %d\n", dfIt!=VirtualCFG::dataflo
                                 printf("    Descendants (%lu):\n", (unsigned long)(edges.size()));
                                 printf("    ~~~~~~~~~~~~\n");
                         }
-                        
+
                         /*cout << " first Descendant A:"<<(*(edges.begin())).target().getNode()->unparseToString()<<"\n";
                         {
-                                DataflowNode desc=n; 
+                                DataflowNode desc=n;
                                 int i=0;
                                 while(i<3 && desc!=funcCFGEnd)
                                 {
@@ -851,7 +842,7 @@ printf("    dfIt!=VirtualCFG::dataflow::end() = %d\n", dfIt!=VirtualCFG::dataflo
                                         i++;
                                 }
                         }*/
-                        
+
                         // If we're restarting from a split, focus on the outgoing edge that
                         // corresponds to this checkpoint
                         if(chkpt!=NULL)
@@ -865,7 +856,7 @@ printf("    dfIt!=VirtualCFG::dataflow::end() = %d\n", dfIt!=VirtualCFG::dataflo
                                         edges.clear();
                                         edges.push_back(onlyEdge);
                                 }
-                                
+
                                 // Now that we've finished the restart, delete the checkpoint and reset it to NULL
                                 //delete chkpt;
                                 // Now that we've finished the restart, reset the checkpoint to NULL
@@ -881,9 +872,9 @@ printf("    dfIt!=VirtualCFG::dataflow::end() = %d\n", dfIt!=VirtualCFG::dataflo
                                 SgNode *nextSgNode = nextNode.getNode();
                                 if(analysisDebugLevel>=1)
                                         printf("    Descendant: %p<%s | %s>\n", nextSgNode, nextSgNode->class_name().c_str(), nextSgNode->unparseToString().c_str());
-                                
+
                                 /*{
-                                        DataflowNode desc=n; 
+                                        DataflowNode desc=n;
                                         int i=0;
                                         while(i<3 && desc!=funcCFGEnd)
                                         {
@@ -892,26 +883,26 @@ printf("    dfIt!=VirtualCFG::dataflow::end() = %d\n", dfIt!=VirtualCFG::dataflo
                                                 i++;
                                         }
                                 }*/
-                                
+
                                 NodeState* nextState = NodeState::getNodeState(nextNode, 0);
                                 ROSE_ASSERT(nextSgNode && nextState);
-                                
+
                                 // Propagate the Lattices below this node to its descendant
                                 modified = propagateFWStateToNextNode(
-                                                       state->getLatticeBelow(this), n, numStates-1, 
-                                                       nextState->getLatticeAbove(this), nextNode);
+                                                       state->getLatticeBelow(this), n, numStates-1,
+                                                       nextState->getLatticeAboveMod(this), nextNode);
                                 if(analysisDebugLevel>=1){
                                         printf("    propagated, modified=%d\n", modified);
                                         printf("    ^^^^^^^^^^^^^^^^^^\n");
                                 }
-                                // If the next node's state gets modified as a result of the propagation, 
+                                // If the next node's state gets modified as a result of the propagation,
                                 // add the node to the processing queue.
                                 if(modified)
                                         dfIt.add(nextNode);
                         }
                 }
         }
-        
+
         // Record a checkpoint that corresponds to the end of this analysis.
         dataflow::checkpoint dfChkpt = dfIt.getChkpt();
         outChkpt = new IntraPartitionDataflowCheckpoint(dfChkpt, joinNodes, NULL, NULL, -1, func, fState);
@@ -921,11 +912,11 @@ for(set<DataflowNode>::iterator itDF=outChkpt->joinNodes.begin(); itDF!=outChkpt
         DataflowNode n = *itDF;
         printf("    <%s | %s | %d>\n", n.getNode()->unparseToString().c_str(), n.getNode()->class_name().c_str(), n.getIndex());
 }
-                                
+
         joinPart=true;
-        
+
         // We've finished going through all the nodes in this functions in dataflow order. However,
-        // if the only reason why we're done is because the analysis has chosen to block progress 
+        // if the only reason why we're done is because the analysis has chosen to block progress
         // along some dataflow nodes until a join point, we must perform this join and resume if possible.
         if(joinNodes.size()>0)
         {
@@ -941,24 +932,22 @@ for(set<DataflowNode>::iterator itDF=outChkpt->joinNodes.begin(); itDF!=outChkpt
         printf("fState->getLatticeAbove(this).size()=%d\n", fState->getLatticeAbove(interAnalysis).size());*/
                 // Test if the Lattices at the bottom of the function after the forward analysis are equal to their
                 // original values in the function state.
-                bool modified = !NodeState::eqLattices(
-                                              (*(NodeState::getNodeStates(funcCFGEnd).begin()))->getLatticeAbove(this),
-                                              fState->getLatticeBelow(/*interAnalysis*/this));
-                        
-                // Update the the function's exit NodeState with the final state of this function's dataflow analysis.
-                NodeState* exitState = *(NodeState::getNodeStates(funcCFGEnd).begin());
-                NodeState::copyLattices_bEQa(/*interAnalysis*/this, *fState, this, *exitState);
+                NodeState* exitState = NodeState::getNodeStates(funcCFGEnd).front();
+                LatticePtr latAbove = exitState->getLatticeAboveMod(this);
+                bool       modified = latAbove != fState->getLatticeBelow(/*interAnalysis*/this);
 
+                // Update the the function's exit NodeState with the final state of this function's dataflow analysis.
+                NodeState::copyLattices_bEQa(/*interAnalysis*/this, *fState, this, *exitState);
                 return modified;
         }
-        
+
         // PartitionedAnalysis::runAnalysis will join this partition with its peers within its split. If all the peers are done
         // then this split will be joined together. If not, all peers will be resumed from their joinNodes sets.
 }
 
 IntraPartitionFWDataflow::partitionTranferRet IntraPartitionFWDataflow::partitionTranfer(
-                           const Function& func, NodeState* fState, const DataflowNode& n, NodeState* state, VirtualCFG::dataflow& dfIt, 
-                           const vector<Lattice*>& dfInfoBelow, bool& splitPart, set<DataflowNode>& joinNodes, 
+                           const Function& func, NodeState* fState, const DataflowNode& n, NodeState* state, VirtualCFG::dataflow& dfIt,
+                           LatticePtr dfInfoBelow, bool& splitPart, set<DataflowNode>& joinNodes,
                            IntraPartitionDataflowCheckpoint*& outChkpt)
 {
         IntraPartitionFWDataflow::splitType splitAnalysis=IntraPartitionFWDataflow::noSplit;
@@ -981,17 +970,17 @@ IntraPartitionFWDataflow::partitionTranferRet IntraPartitionFWDataflow::partitio
                         dataflow::checkpoint dfChkpt = dfIt.getChkpt();
                         // Add the checkpoint that corresponds to the next split to the vector of checkpoints
                         chkpts.push_back(new IntraPartitionDataflowCheckpoint(dfChkpt, joinNodes, &n, *splitIt, i, func, fState));
-                        
+
                         /*if(analysisDebugLevel>=1)
                         { printf("        Split condition %d: \n%s\n", i, ((*splitIt)->str("            ")).c_str()); }*/
                         cout << "chkpt = "<<(new IntraPartitionDataflowCheckpoint(dfChkpt, joinNodes, &n, *splitIt, i, func, fState))->str()<<"\n";
                 }
                 if(partitionCond != NULL)
                         cout << "after loop: partitionCond = "<<partitionCond->str()<<"\n";
-                
+
                 IntraPartitionDataflow* tmp = this;
                 printf("parent = %p, this=%p, tmp=%p\n", parent, this, tmp);
-                
+
                 parent->split(tmp, chkpts, func, fState, splitAnalysis!=IntraPartitionFWDataflow::splitNew, true);
                 // After the split, break out of the analysis. The parent PartitionedAnalysis will schedule
                 // this analysis appropriately.
@@ -1003,7 +992,7 @@ IntraPartitionFWDataflow::partitionTranferRet IntraPartitionFWDataflow::partitio
         {
                 joinNodes.insert(n);
                 // Move on to the next dataflow node without propagating state to this node's descendants
-                // !!! What happens when the same dataflow node gets put onto joinNodes twice? It 
+                // !!! What happens when the same dataflow node gets put onto joinNodes twice? It
                 // !!! shouldn't make a difference that it will be resumed only once.... I think.
                 return cont;
         }
@@ -1012,73 +1001,61 @@ IntraPartitionFWDataflow::partitionTranferRet IntraPartitionFWDataflow::partitio
         {
                 if(analysisDebugLevel>=1)
                 { printf("    Joining analysis partition %p\n", this); }
-                
+
                 joinPart=true;
                 dataflow::checkpoint dfChkpt = it.getChkpt();
                 outChkpt = new IntraPartitionDataflowCheckpoint(dfChkpt, joinNodes, NULL, -1, func, fState);
                 return false;
         }*/
-        return normal;  
+        return normal;
 }
 
-// Propagates the dataflow info from the current node's NodeState (curNodeState) to the next node's 
+// Propagates the dataflow info from the current node's NodeState (curNodeState) to the next node's
 //     NodeState (nextNodeState).
 // Returns true if the next node's meet state is modified and false otherwise.
 bool IntraPartitionFWDataflow::propagateFWStateToNextNode(
-                      const vector<Lattice*>& curNodeState, DataflowNode curNode, int curNodeIndex,
-                      const vector<Lattice*>& nextNodeState, DataflowNode nextNode)
+                      ConstLatticePtr curNodeState, DataflowNode curNode, int curNodeIndex,
+                      LatticePtr nextNodeState, DataflowNode nextNode)
 {
         bool modified = false;
-        vector<Lattice*>::const_iterator itC, itN;
         if(analysisDebugLevel>=1){
                 printf("\n        Propagating to Next Node: %p[%s]<%s>\n", nextNode.getNode(), nextNode.getNode()->class_name().c_str(), nextNode.getNode()->unparseToString().c_str());
-                int j=0;
-                for(itN = nextNodeState.begin(); itN != nextNodeState.end(); itN++, j++)
-                {
-                        cout << "        Current node below: Lattice "<<j<<": \n"<<curNodeState[j]->str("            ")<<"\n";
-                        cout << "        Next node above: Lattice "<<j<<": \n"<<(*itN)->str("            ")<<"\n";
-                }
+                cout << "        Current node below: Lattice: \n"<<curNodeState->str("            ")<<"\n";
+                cout << "        Next node above: Lattice: \n"<<nextNodeState->str("            ")<<"\n";
         }
 
         // Update forward info above nextNode from the forward info below curNode.
-        
-        // Compute the meet of the dataflow information along the curNode->nextNode edge with the 
+
+        // Compute the meet of the dataflow information along the curNode->nextNode edge with the
         // next node's current state one Lattice at a time and save the result above the next node.
-        for(itC = curNodeState.begin(), itN = nextNodeState.begin();
-            itC != curNodeState.end() && itN != nextNodeState.end(); 
-            itC++, itN++)
+
+        // Finite Lattices can use the regular meet operator, while infinite Lattices
+        // must also perform widening to ensure convergence.
+        if (nextNodeState->finiteLattice())
         {
-                // Finite Lattices can use the regular meet operator, while infinite Lattices
-                // must also perform widening to ensure convergence.
-                if((*itN)->finiteLattice())
-                {
-                        modified = (*itN)->meetUpdate(*itC) || modified;
-                }
-                else
-                {
-                        //InfiniteLattice* meetResult = (InfiniteLattice*)itN->second->meet(itC->second);
-                        InfiniteLattice* meetResult = dynamic_cast<InfiniteLattice*>((*itN)->copy());
-                        meetResult->meetUpdate(*itC);
-                        
-                        cout << "*itN: " << dynamic_cast<InfiniteLattice*>(*itN)->str("") << "\n";
-                        cout << "*itC: " << dynamic_cast<InfiniteLattice*>(*itC)->str("") << "\n";
-                        cout << "meetResult: " << meetResult->str("") << "\n";
-                
-                        // widen the resulting meet
-                        modified =  dynamic_cast<InfiniteLattice*>(*itN)->widenUpdate(meetResult);
-                        delete meetResult;
-                }
+                modified = nextNodeState->meetUpdate(curNodeState.get()) || modified;
         }
-        
+        else
+        {
+                //InfiniteLattice* meetResult = (InfiniteLattice*)itN->second->meet(itC->second);
+                InfiniteLatticePtr nextInfState = boost::dynamic_pointer_cast<InfiniteLattice>(nextNodeState);
+                InfiniteLatticePtr meetResult(nextInfState->copy());
+
+                meetResult->meetUpdate(curNodeState.get());
+
+                cout << "nextNodeState: " << nextInfState->str("") << "\n";
+                cout << "curNodeState: " << curNodeState->str("") << "\n";
+                cout << "meetResult: " << meetResult->str("") << "\n";
+
+                // widen the resulting meet
+                modified = nextInfState->widenUpdate(meetResult.get());
+        }
+
         if(analysisDebugLevel>=1){
                 if(modified)
                 {
                         cout << "        Next node's in-data modified. Adding...\n";
-                        int j=0;
-                        for(itN = nextNodeState.begin(); itN != nextNodeState.end(); itN++, j++)
-                        {
-                                cout << "        Propagated: Lattice "<<j<<": \n"<<(*itN)->str("            ")<<"\n";
-                        }
+                        cout << "        Propagated: Lattice: \n"<<nextNodeState->str("            ")<<"\n";
                 }
                 else
                         cout << "        No modification on this node\n";

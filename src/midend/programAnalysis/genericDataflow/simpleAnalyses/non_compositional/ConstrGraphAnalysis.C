@@ -10,11 +10,11 @@ using namespace std;
 #include "variables.h"
 #include "cfgUtils.h"
 #include "analysisCommon.h"
-#include "functionState.h"
+#include "liveDeadVarAnalysis.h"
 #include "latticeFull.h"
+#include "functionState.h"
 #include "analysis.h"
 #include "dataflow.h"
-#include "liveDeadVarAnalysis.h"
 #include "divAnalysis.h"
 // GB : 2011-03-05 (Removing Sign Lattice Dependence) #include "sgnAnalysis.h"
 #include "nodeConstAnalysis.h"
@@ -31,73 +31,59 @@ map<varID, Lattice*> ConstrGraphAnalysis::constVars;
 
 // Generates the initial lattice state for the given dataflow node, in the given function, with the given NodeState
 //vector<Lattice*> ConstrGraphAnalysis::genInitState(const Function& func, const DataflowNode& n, const NodeState& state)
-void ConstrGraphAnalysis::genInitState(const Function& func, const DataflowNode& n, const NodeState& state,
-                                       vector<Lattice*>& initLattices, vector<NodeFact*>& initFacts)
+ConstrGraph*
+ConstrGraphAnalysis::genLattice(const Function& func, const DataflowNode& n, const NodeState& state)
 {
-        //vector<Lattice*> initLattices;
-//if(isSgIntVal(n.getNode())) {
-//      printf("ConstrGraphAnalysis::genInitState() n=%p<%s | %s>\n", n.getNode(), n.getNode()->class_name().c_str(), n.getNode()->unparseToString().c_str());
-/*      printf("ConstrGraphAnalysis::genInitState() state=%p\n", &state);
-}*/
-        
-        // Create a constraint graph from the divisiblity and sign information at this CFG node
-        FiniteVarsExprsProductLattice* divProdL = dynamic_cast<FiniteVarsExprsProductLattice*>(state.getLatticeBelow(divAnalysis, 0));
-/*if(isSgIntVal(n.getNode()))
-        cout << "    divProdL="<<divProdL->str("        ")<<"\n";*/
-        //FiniteVarsExprsProductLattice* sgnProdL = dynamic_cast<FiniteVarsExprsProductLattice*>(state.getLatticeBelow(sgnAnalysis, 0));
-        ConstrGraph* cg = new ConstrGraph(func, n, state, ldva, divProdL, /* GB : 2011-03-05 (Removing Sign Lattice Dependence) sgnProdL, */false, "");
-        initLattices.push_back(cg);
-//if(isSgIntVal(n.getNode())) {
-//      cout << "cg="<<cg<<" cg->divLattices=\n";
-//      cout << "    "<<cg->DivLattices2Str("    ")<<"\n";
-//}
-        // Create a product lattice that will maintain for each variable a ConstraintGraph that stores the constraints
-        // represented by the variable
-        // ??? map<varID, Lattice*> emptyM;
-        // ??? varIDSet scalars, arrays;
-        // ??? InfiniteVarsExprsProductLattice* l = 
-        // ???  new InfiniteVarsExprsProductLattice(true, false, true, 
-        // ???                                      (Lattice*)new ConstrGraph(func, n, state, ldva, divProdL, sgnProdL, true, ""), 
-        // ???                                      emptyM, (Lattice*)NULL, ldva, n, state);
-        // ??? //printf("DivAnalysis::genInitState, returning %p\n", l);
-        // ??? initLattices.push_back(l);
-        
-        //return initState;
+        // \pp \todo is this const_cast needed, or would passing a const Lattice into the
+        //           ConstrGraph constructor be sufficient?
+        NodeState&                       modifiable_state = const_cast<NodeState&>(state);
+        LatticePtr                       divProdL = modifiable_state.getLatticeBelowMod(divAnalysis);
+        FiniteVarsExprsProductLatticePtr finiteVarLat = boost::dynamic_pointer_cast<FiniteVarsExprsProductLattice>(divProdL);
+
+        return new ConstrGraph(func, n, state, ldva, finiteVarLat.get(), false, "");
+}
+
+std::vector<NodeFact*>
+ConstrGraphAnalysis::genFacts(const Function& func, const DataflowNode& n, const NodeState& state)
+{
+  return std::vector<NodeFact*>();
 }
 
 // Returns a map of special constant variables (such as zeroVar) and the lattices that correspond to them
-// These lattices are assumed to be constants: it is assumed that they are never modified and it is legal to 
+// These lattices are assumed to be constants: it is assumed that they are never modified and it is legal to
 //    maintain only one copy of each lattice may for the duration of the analysis.
 /*map<varID, Lattice*>& ConstrGraphAnalysis::genConstVarLattices() const
 {
         return constVars;
 }*/
 
-bool ConstrGraphAnalysis::transfer(const Function& func, const DataflowNode& n, NodeState& state, const vector<Lattice*>& dfInfo)
+bool ConstrGraphAnalysis::transfer(const Function& func, const DataflowNode& n, NodeState& state, LatticePtr dfInfo)
 {
         string indent="            ";
         printf("%s-----------------------------------\n", indent.c_str());
         printf("%sConstrGraphAnalysis::transfer() function %s() node=<%s | %s>\n", indent.c_str(), func.get_name().str(), n.getNode()->class_name().c_str(), n.getNode()->unparseToString().c_str());
-        
-        bool modified = false;
-        ConstrGraph* cg = dynamic_cast<ConstrGraph*>(dfInfo[0]);
+
+        bool modified = false;  // \todo \pp this variable is no longer needed
+        ConstrGraph* cg = dynamic_cast<ConstrGraph*>(dfInfo.get());
+        ROSE_ASSERT(cg);
+
         set<varID> liveVars = getAllLiveVarsAt(ldva, state, "    ");
         /* ??? InfiniteVarsExprsProductLattice* prodLat = dynamic_cast<InfiniteVarsExprsProductLattice*>(dfInfo[1]);
-        
+
         // Make sure that all the lattices are initialized
         const vector<Lattice*>& lattices = prodLat->getLattices();
         for(vector<Lattice*>::const_iterator it = lattices.begin(); it!=lattices.end(); it++) {
-                (dynamic_cast<ConstrGraph*>(*it))->initialize("");      
+                (dynamic_cast<ConstrGraph*>(*it))->initialize("");
         }*/
-        
+
         cg->beginTransaction();
-        
+
         // Upgrade cg to bottom if it is currently uninitialized
         cg->initialize(indent+"    ");
-        
+
         cout << indent << "cg->divLattices=\n";
         cout << indent << "    "<<cg->DivLattices2Str(indent+"    ")<<"\n";
-        
+
         // Plain assignment: lhs = rhs
         if(isSgAssignOp(n.getNode())) {
                 varID res = SgExpr2Var(isSgExpression(n.getNode()));
@@ -106,15 +92,15 @@ bool ConstrGraphAnalysis::transfer(const Function& func, const DataflowNode& n, 
                 cout << indent << "res="<<res.str()<<" lhs="<<lhs.str()<<" rhs="<<rhs.str()<<"\n";
                 bool resLive = (liveVars.find(res) != liveVars.end());
                 bool lhsLive = (liveVars.find(lhs) != liveVars.end());
-                
+
                 // ??? ConstrGraph* resLat = dynamic_cast<ConstrGraph*>(prodLat->getVarLattice(res));
                 // ??? ConstrGraph* lhsLat = dynamic_cast<ConstrGraph*>(prodLat->getVarLattice(lhs));
                 // ??? ConstrGraph* rhsLat = dynamic_cast<ConstrGraph*>(prodLat->getVarLattice(rhs));
-                // ??? 
+                // ???
                 // ??? if(resLat) cout << "resLat=\n    "<<resLat->str(indent+"    ")<<"\n";
                 // ??? if(lhsLat) cout << "lhsLat=\n    "<<lhsLat->str(indent+"    ")<<"\n";
                 // ??? if(rhsLat) cout << "rhsLat=\n    "<<rhsLat->str(indent+"    ")<<"\n";
-                
+
                 // Copy the lattice of the right-hand-side to both the left-hand-side variable and to the assignment expression itself
                 // ??? if(resLat) {
                 if(resLive) {
@@ -154,9 +140,9 @@ bool ConstrGraphAnalysis::transfer(const Function& func, const DataflowNode& n, 
                 SgInitializedName* initName = isSgInitializedName(n.getNode());
                 varID var(initName);
                 // ??? ConstrGraph* varLat = dynamic_cast<ConstrGraph*>(prodLat->getVarLattice(var));
-                
+
                 //cout << "DivAnalysis::transfer() isSgInitializedName var="<<var.str()<<" varLat="<<varLat<<"\n";
-                
+
                 // If this is a scalar that we care about, initialize it to Bottom
                 // ??? if(varLat)
                 if(liveVars.find(var) != liveVars.end())
@@ -182,14 +168,14 @@ bool ConstrGraphAnalysis::transfer(const Function& func, const DataflowNode& n, 
                         }
                 }
         // Integral Numeric Constants
-        } else if(isSgLongLongIntVal(n.getNode())         || isSgLongIntVal(n.getNode()) || 
+        } else if(isSgLongLongIntVal(n.getNode())         || isSgLongIntVal(n.getNode()) ||
                   isSgIntVal(n.getNode())                 || isSgShortVal(n.getNode()) ||
-                  isSgUnsignedLongLongIntVal(n.getNode()) || isSgUnsignedLongVal(n.getNode()) || 
+                  isSgUnsignedLongLongIntVal(n.getNode()) || isSgUnsignedLongVal(n.getNode()) ||
                   isSgUnsignedIntVal(n.getNode())         || isSgUnsignedShortVal(n.getNode())) {
 
                 varID res = SgExpr2Var(isSgExpression(n.getNode()));
                 //??? ConstrGraph* resLat = dynamic_cast<ConstrGraph*>(prodLat->getVarLattice(res));
-                
+
                 // If the result expression is live
                 // ??? if(resLat) {
                 if(liveVars.find(res) != liveVars.end()) {
@@ -202,7 +188,7 @@ bool ConstrGraphAnalysis::transfer(const Function& func, const DataflowNode& n, 
                         else if(isSgUnsignedLongVal(n.getNode()))        modified = cg->assign(res, zeroVar, 1, 1, isSgUnsignedLongVal(n.getNode())->get_value())        || modified;
                         else if(isSgUnsignedIntVal(n.getNode()))         modified = cg->assign(res, zeroVar, 1, 1, isSgUnsignedIntVal(n.getNode())->get_value())         || modified;
                         else if(isSgUnsignedShortVal(n.getNode()))       modified = cg->assign(res, zeroVar, 1, 1, isSgUnsignedShortVal(n.getNode())->get_value())       || modified;
-                                
+
                         // Update resLat to represent the logical expression "val != 0"
                         // ??? ConstrGraph* resLatCopy = dynamic_cast<ConstrGraph*>(resLat->copy()); // Copy of the old value of resLat
                         // ??? resLat->setToBottom();
@@ -215,7 +201,7 @@ bool ConstrGraphAnalysis::transfer(const Function& func, const DataflowNode& n, 
                         // ??? else if(isSgUnsignedIntVal(n.getNode()))         resLat->assign(res, zeroVar, 1, 1, isSgUnsignedIntVal(n.getNode())->get_value());
                         // ??? else if(isSgUnsignedShortVal(n.getNode()))       resLat->assign(res, zeroVar, 1, 1, isSgUnsignedShortVal(n.getNode())->get_value());
                         // ??? resLat->negate();
-                        // ??? 
+                        // ???
                         // ??? modified = (*resLat == resLatCopy) || modified;
                         // ??? delete resLatCopy;
                 }
@@ -223,13 +209,13 @@ bool ConstrGraphAnalysis::transfer(const Function& func, const DataflowNode& n, 
         } else if(isSgBoolValExp(n.getNode())) {
                 varID res = SgExpr2Var(isSgExpression(n.getNode()));
                 // ??? ConstrGraph* resLat = dynamic_cast<ConstrGraph*>(prodLat->getVarLattice(res));
-                
+
                 // If the result expression is live
                 // ??? if(resLat) {
                 if(liveVars.find(res) != liveVars.end()) {
                         // Add the constraint res=Top, since res is not representable as a numeric integer
                         modified = cg->assignTop(res) || modified;
-                        
+
                         // ??? // Set resLat to be the constraint represented by this boolean
                         // ??? // Boolean = TRUE
                         // ??? if(isSgBoolValExp(n.getNode())->get_value())
@@ -244,7 +230,7 @@ bool ConstrGraphAnalysis::transfer(const Function& func, const DataflowNode& n, 
         } else if(isSgValueExp(n.getNode())) {
                 varID res = SgExpr2Var(isSgExpression(n.getNode()));
                 // ??? ConstrGraph* resLat = dynamic_cast<ConstrGraph*>(prodLat->getVarLattice(res));
-                // ??? 
+                // ???
                 // ??? // If the result expression is live
                 // ??? if(resLat) {
                 // ???  // Add the constraint res=Top, since res is not representable as a numeric integer
@@ -265,7 +251,7 @@ bool ConstrGraphAnalysis::transfer(const Function& func, const DataflowNode& n, 
                 // ConstrGraph *resLat=NULL, *lhsLat=NULL, *arg1Lat=NULL, *arg2Lat=NULL;
                 bool resLive = (liveVars.find(res) != liveVars.end());
                 bool lhsLive=false, arg1Live=false, arg2Live=false;
-                
+
                 // Set up the information on the arguments and target of the arithmetic operation
                 if(isSgBinaryOp(n.getNode())) {
                         if(isSgCompoundAssignOp(n.getNode())) {
@@ -286,7 +272,7 @@ bool ConstrGraphAnalysis::transfer(const Function& func, const DataflowNode& n, 
                         ROSE_ASSERT(isSgPlusPlusOp(n.getNode()) || isSgMinusMinusOp(n.getNode()));
                         lhs = SgExpr2Var(isSgUnaryOp(n.getNode())->get_operand());
                         lhsLive = (liveVars.find(lhs) != liveVars.end());
-                        
+
                         arg1 = SgExpr2Var(isSgUnaryOp(n.getNode())->get_operand());
                         arg1Live = (liveVars.find(arg1) != liveVars.end());
                         arg2 = oneVar;
@@ -300,16 +286,16 @@ bool ConstrGraphAnalysis::transfer(const Function& func, const DataflowNode& n, 
                 }
                 // ??? resLat = dynamic_cast<ConstrGraph*>(prodLat->getVarLattice(res));
                 cout << indent << "res="<<res<<" resLive="<<resLive<<" lhs="<<lhs<<" lhsLive="<<lhsLive<<" arg1="<<arg1<<" arg1Live="<<arg1Live<<" arg2="<<arg2<<" arg2Live="<<arg2Live<<"\n";
-                
+
                 // If the result expression is dead but the left-hand-side of the expression is live,
                 // update the left-hand-side with the result
-                // ??? if(resLat==NULL && 
+                // ??? if(resLat==NULL &&
                 // ???  (isSgPlusAssignOp(n.getNode()) || isSgMinusAssignOp(n.getNode()) ||
                 // ???   isSgMultAssignOp(n.getNode()) || isSgDivAssignOp(n.getNode()) ||
                 // ???   isSgModAssignOp(n.getNode())) &&
                 // ???  prodLat->getVarLattice(lhs)!=NULL)
                 // ??? { lhsLat = dynamic_cast<ConstrGraph*>(prodLat->getVarLattice(lhs)); }
-                
+
                 //cout << "transfer C, resLat="<<resLat<<"\n";
                 // If the result or left-hand-side expression as well as the arguments are live
                 // ??? if((resLat ||lhsLat) && arg1Lat && arg2Lat) {
@@ -321,13 +307,13 @@ bool ConstrGraphAnalysis::transfer(const Function& func, const DataflowNode& n, 
                       isSgMultAssignOp(n.getNode())  || isSgMultiplyOp(n.getNode()) ||
                       isSgDivAssignOp(n.getNode())   || isSgDivideOp(n.getNode()) ||
                       isSgModAssignOp(n.getNode())   || isSgModOp(n.getNode())) {
-                                      
+
                       // If either arg1 or arg2 is a constant, these variables hold the relationship between it and zeroVar
                       int a_arg1, b_arg1, c_arg1, a_arg2, b_arg2, c_arg2;
                       bool resToTop = false; // True if the expression arg1+arg2 turns out to be too complex to be represented
                       varID var; // The variable that res will be related to after the addition, or zeroVar if res will be a constant
                       int b_res=1, c_res=0; // The value of b and c used in the assignment res = var*b + c
-                      
+
                       // ADDITION / SUBTRACTION
                       if(isSgPlusAssignOp(n.getNode())  || isSgAddOp(n.getNode()) ||
                         isSgMinusAssignOp(n.getNode()) || isSgSubtractOp(n.getNode()) ||
@@ -435,7 +421,7 @@ bool ConstrGraphAnalysis::transfer(const Function& func, const DataflowNode& n, 
                                 if(cg->isEqVars(arg2, zeroVar, a_arg2, b_arg2, c_arg2)) {
                                         // arg1*a_arg1 = 0 + c_arg1 => arg1 = c_arg1/a_arg1
                                         // arg2*a_arg2 = 0 + c_arg2 => arg2 = c_arg2/a_arg2
-                                        // arg1 / arg2 = c_arg1/a_arg1 / c_arg2/a_arg2 
+                                        // arg1 / arg2 = c_arg1/a_arg1 / c_arg2/a_arg2
                                         if((a_arg1*c_arg2 % (c_arg1*a_arg2)) == 0) {
                                                 c_res = (c_arg1*a_arg2)/(a_arg1*c_arg2);
                                                 var = zeroVar;
@@ -495,17 +481,17 @@ bool ConstrGraphAnalysis::transfer(const Function& func, const DataflowNode& n, 
                                 // There is no x*a<=y*b+c constraint that describes res's relationship to arg1 or arg2
                                 }
                                 }
-                                
+
                                 // If we couldn't find a way to represent the results of the arithmetic operation statically,
                                 // Represent it as top
                                 cout << indent <<" Assigning "<<res<<"(resLive="<<resLive<<") and/or "<<lhs<<"(lhsLive="<<lhsLive<<") to Top\n";
                 if(resLive) modified = cg->assignTop(res, indent+"    ") || modified;
                 if(lhsLive) modified = cg->assignTop(lhs, indent+"    ") || modified;
                 resToTop = true;
-                                
+
                                 // The code above skips here if it was able to represent the results of the arithmetic operation
                                 DONE_NO_TOP:
-                                
+
                         // Update cg to include the assignment res=arg1+arg2.
                         // Update resLat to represent the logical expression "arg1+arg1 != 0".
                                 // If the expression is too complex to be represented.
@@ -518,7 +504,7 @@ bool ConstrGraphAnalysis::transfer(const Function& func, const DataflowNode& n, 
                                         cout << indent <<" Assigning "<<res<<"(resLive="<<resLive<<") and/or "<<lhs<<"(lhsLive="<<lhsLive<<") to = "<<var<<"*"<<b_res<<" + "<<c_res<<"\n";
                                         if(resLive) modified = cg->assign(res, var, 1, b_res, c_res, indent+"    ") || modified;
                                         if(lhsLive) modified = cg->assign(lhs, var, 1, b_res, c_res, indent+"    ") || modified;
-                                        
+
                                         // Create the copy of resLat if we need to check if resLat changes
                                         /*ConstrGraph* resLatCopy=NULL;
                         if(!modified) resLatCopy = dynamic_cast<ConstrGraph*>(resLat->copy());
@@ -541,7 +527,7 @@ bool ConstrGraphAnalysis::transfer(const Function& func, const DataflowNode& n, 
                                 modified = cg->assign(res, arg1, 1, 1, 0) || modified;
                                 //??? modified = resLat->copyFromReplace(*asgnLat, res, arg1, indent+"    ") || modified;
                         }
-                        
+
                         // If there is a left-hand side, copy the final lattice to the lhs variable
                         /* ??? if(isSgPlusAssignOp(n.getNode()) || isSgMinusAssignOp(n.getNode()) ||
                                 isSgMultAssignOp(n.getNode()) || isSgDivAssignOp(n.getNode()) ||
@@ -553,63 +539,65 @@ bool ConstrGraphAnalysis::transfer(const Function& func, const DataflowNode& n, 
                                         //ConstrGraph* lhsLat = dynamic_cast<ConstrGraph*>(prodLat->getVarLattice(lhs));
                                         //cout << "prodLat->getVarLattice("<<lhs.str()<<")="<<lhsLat<<"\n";
                                         //if(lhsLat){ // If the left-hand-side contains an identifiable, live variable
-                                        
+
                                                 cg->assign(lhs, res, 1, 1, 0);
-                                                
+
                                                 //??? modified = lhsLat->copyFromReplace(*resLat, lhs, res, indent+"    ") || modified;
                                         }
                                 }
                         }*/
                 }
-                
+
                 // Deallocate newly-created objects
                 /*if(isSgMinusMinusOp(n.getNode()) || isSgPlusPlusOp(n.getNode()))
                         delete arg2Lat;*/
         // !!!NEED CONDITIONALS!!!
         //} else if(isSgLessThanOp(n.getNode()) ||
-        } else
+        }
+        else
                 modified = false;
-        
+
         cout << indent << "Current Operation Transferred:\n";
         cout << indent << cg->str(indent+"    ") << "\n";
-        
+
         /*// incorporate this node's inequalities from conditionals
         incorporateConditionalsInfo(func, n, state, dfInfo);
-        
+
 cout << indent << "mid2-Transfer Function:\n";
 cout << indent << cg->str(indent+"    ") << "\n";*/
-        
+
         // Incorporate this node's divisibility information
         /*incorporateDivInfo(func, n, state, dfInfo, indent+"    ");
 
         cout << indent << "Divisibility Information Incorporated:\n";
         cout << indent << cg->str(indent+"    ") << "\n";*/
-        
+
         cg->endTransaction();
-        
+
         cout << indent << "Divisibility + Closure:\n";
         cout << indent << cg->str(indent+"    ") << "\n";
-        
+
         //cg->beginTransaction();
-        
+
         //NEED TO PERFORM CLOSURE HERE BECAUSE WE HAVEN'T YET CONNECTED DIVISIBILITY VARIABLES TO ANYTHING ELSE.
-        
+
         /*removeConstrDivVars(func, n, state, dfInfo, indent+"    ");
         cg->divVarsClosure(indent+"    ");*/
         //cg->endTransaction();
-        
-        return modified;
+
+        // was: return modified;
+        return true /* follow edge */;
 }
 
-/* // Incorporates the current node's inequality information from conditionals (ifs, fors, etc.) into the current node's 
+/* // Incorporates the current node's inequality information from conditionals (ifs, fors, etc.) into the current node's
 // constraint graph.
 // returns true if this causes the constraint graph to change and false otherwise
-bool ConstrGraphAnalysis::incorporateConditionalsInfo(const Function& func, const DataflowNode& n, 
+bool ConstrGraphAnalysis::incorporateConditionalsInfo(const Function& func, const DataflowNode& n,
                                                    NodeState& state, const vector<Lattice*>& dfInfo)
 {
         bool modified = false;
         ConstrGraph* cg = dynamic_cast<ConstrGraph*>(dfInfo.front());
-        
+
         printf("incorporateConditionalsInfo()\n");
         affineInequalityFact* ineqFact = (affineInequalityFact*)state.getFact(affIneqPlacer, 0);
         if(ineqFact)
@@ -619,7 +607,7 @@ bool ConstrGraphAnalysis::incorporateConditionalsInfo(const Function& func, cons
                 {
                         varAffineInequality varIneq = *it;
                         //cout << varIneq.getIneq().str(varIneq.getX(), varIneq.getY(), "    ") << "\n";
-                        modified = cg->setVal(varIneq.getX(), varIneq.getY(), varIneq.getIneq().getA(), 
+                        modified = cg->setVal(varIneq.getX(), varIneq.getY(), varIneq.getIneq().getA(),
                                               varIneq.getIneq().getB(), varIneq.getIneq().getC()) || modified;
                 }
         }
@@ -632,7 +620,7 @@ bool ConstrGraphAnalysis::incorporateConditionalsInfo(const Function& func, cons
 {
         bool modified = false;
         ConstrGraph* cg = dynamic_cast<ConstrGraph*>(dfInfo.front());
-        
+
         //cout << indent << "incorporateDivInfo()\n";
         varIDSet liveVars = getAllLiveVarsAt(ldva, n, state, "");
         for(varIDSet::iterator it = liveVars.begin(); it!=liveVars.end(); it++)
@@ -645,12 +633,12 @@ bool ConstrGraphAnalysis::incorporateConditionalsInfo(const Function& func, cons
                 // divisibility variable changed from one CFG node to the next (i.e. from var=divvar to var = b*divvar),
                 // we would not be able to capture this change.
                 cg->addDivVar(var, true, indent+"    ");
-                
-                /* // create the divisibility variable for the current variable 
+
+                /* // create the divisibility variable for the current variable
                 varID divVar = ConstrGraph::getDivScalar(var);* /
-                
+
                 /*DivLattice* varDivL = dynamic_cast<DivLattice*>(prodL->getVarLattice(func, var));
-                
+
                 // incorporate this variable's divisibility information (if any)
                 if(varDivL->getLevel() == DivLattice::divKnown && !(varDivL->getDiv()==1 && varDivL->getRem()==0))
                 {
@@ -661,7 +649,7 @@ bool ConstrGraphAnalysis::incorporateConditionalsInfo(const Function& func, cons
                         modified = cg->addDivVar(var, 1, 0) || modified;
                 }* /
         }
-        
+
         return modified;
 }*/
 
@@ -671,17 +659,17 @@ bool ConstrGraphAnalysis::removeConstrDivVars(const Function& func, const Datafl
 {
         bool modified = false;
         ConstrGraph* cg = dynamic_cast<ConstrGraph*>(dfInfo.front());
-        
+
         cout << indent << "removeConstrDivVars()\n";
         cout << indent << "     Initial cg="<<cg->str(indent+"        ")<<"\n";
-        
+
         varIDSet liveVars = getAllLiveVarsAt(ldva, state, "");
         for(varIDSet::iterator it = liveVars.begin(); it!=liveVars.end(); it++)
         {
                 varID var = *it;
                 //cg->disconnectDivOrigVar(var, indent+"     ");
                 /*DivLattice* varDivL = dynamic_cast<DivLattice*>(prodL->getVarLattice(func, var));
-                
+
                 // incorporate this variable's divisibility information (if any)
                 if(varDivL->getLevel() == DivLattice::divKnown && !(varDivL->getDiv()==1 && varDivL->getRem()==0))
                 {
@@ -692,9 +680,9 @@ bool ConstrGraphAnalysis::removeConstrDivVars(const Function& func, const Datafl
                         cg->disconnectDivOrigVar(var, 1, 0);
                 }*/
         }
-        
+
         cout << indent << "    Final cg="<<cg->str(indent+"    ") << "\n";
-        
+
         return modified;
 }
 
@@ -702,10 +690,13 @@ bool ConstrGraphAnalysis::removeConstrDivVars(const Function& func, const Datafl
 void printConstrGraphAnalysisStates(ConstrGraphAnalysis* cga, string indent)
 {
         vector<int> factNames;
+/*
         vector<int> latticeNames;
         latticeNames.push_back(0);
         latticeNames.push_back(1);
         printAnalysisStates pas(cga, factNames, latticeNames, printAnalysisStates::below, indent);
+*/
+        printAnalysisStates pas(cga, factNames, printAnalysisStates::below, indent);
         UnstructuredPassInterAnalysis upia_pas(pas);
         upia_pas.runAnalysis();
 }
