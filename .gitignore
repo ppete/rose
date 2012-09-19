@@ -10,7 +10,6 @@
 *.dump2
 *.o
 # /
-Makefile.in
 /aclocal.m4
 /rose_config.h.in
 /configure

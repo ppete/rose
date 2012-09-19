@@ -17,7 +17,7 @@
 // !!!       ONCE BECAUSE DURING A GIVEN ANALYSIS PASS THE INTRA- ANALYSIS MAY ACCUMULATE STATE AND THERE IS NO
 // !!!       API FUNCTION THAT THE INTER- ANALYSIS CAN USE THE RE-INITIALIZE THE STATE OF THE INTRA- ANALYSIS.
 namespace dataflow {
-  
+
 /*************************
  *** Dataflow Analyses ***
  *************************/
@@ -27,7 +27,7 @@ class IntraProceduralDataflow : virtual public IntraProceduralAnalysis
 {
         public:
         // generates the initial lattice state for the given dataflow node, in the given function, with the given NodeState
-        
+
         // !!! NOTE: THIS FUNCTION SHOULD BE AMENDED TO MAKE IT POSSIBLE TO SPECIFY THAT WE WANT THE INITIAL STATE
         // !!!       FOR ABOVE THIS NODE, BELOW THIS NODE OR A UNION OF BOTH. THIS IS IMPORTANT FOR LATTICES THAT
         // !!!       MAINTAIN DIFFERENT INFORMATION FOR THE DIFFERENT CASES, SUCH AS VarsExprsProductLattice, WHERE
@@ -349,10 +349,10 @@ class IntraUniDirectionalDataflow : public IntraUnitDataflow
       private:
 
         /// encapsulates transfer function invocation along edges
-        void edge_transfer(const Function& func, const DataflowNode& n, NodeState& state, LatticePtr dfInfo, VirtualCFG::dataflow& it);
+        void edge_transfer(const Function& func, PartPtr p, NodeState& state, LatticePtr dfInfo, VirtualCFG::dataflow& it);
 
         /// encapsulates transfer function invocation for nodes
-        void node_transfer(const Function& func, const DataflowNode& n, NodeState& state, LatticePtr dfInfo, VirtualCFG::dataflow& it);
+        void node_transfer(const Function& func, PartPtr p, NodeState& state, LatticePtr dfInfo, VirtualCFG::dataflow& it);
 
       protected:
         /// returns true, iff the transfer functions should get invoked
