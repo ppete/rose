@@ -72,7 +72,6 @@ public:
 private:
     conserv mode;
     
-    //ComposerExpr2ObjPtr ceo;
 public:
     // constructor
     AbstractObjectSet(PartPtr part, conserv mode): 

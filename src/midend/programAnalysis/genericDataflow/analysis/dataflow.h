@@ -142,9 +142,9 @@ class IntraUnitDataflow : virtual public IntraProceduralDataflow
   //             return visitor.finish();
   //           }
   // \endcode
-  virtual boost::shared_ptr<IntraDFTransferVisitor> getTransferVisitor(const Function& func, PartPtr p,
+  virtual boost::shared_ptr<IntraDFTransferVisitor> getTransferVisitor(const Function& func, PartPtr part, 
                                                                   NodeState& state, const std::vector<Lattice*>& dfInfo)
-  { return boost::shared_ptr<IntraDFTransferVisitor>(new DefaultTransfer(func, p, state, dfInfo, this)); }
+  { return boost::shared_ptr<IntraDFTransferVisitor>(new DefaultTransfer(func, part, state, dfInfo, this)); }
 };
 
 } // namespace dataflow;

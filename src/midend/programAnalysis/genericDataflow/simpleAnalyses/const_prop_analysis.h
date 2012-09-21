@@ -35,8 +35,7 @@ class CPValueObject : public FiniteLattice, public ValueObject
   // this object's current level in the lattice: (bottom, valKnown, divKnown, top)
   short level;
   
-  public:
-  // The different levels of this lattice
+  public:  // The different levels of this lattice
   // no information is known about the value of the variable
   static const short bottom = 1; 
   
@@ -131,7 +130,7 @@ class ConstantPropagationAnalysis : virtual public IntraFWDataflow
   
   bool transfer(const Function& func, PartPtr p, NodeState& state, const std::vector<Lattice*>& dfInfo);
   
-  boost::shared_ptr<IntraDFTransferVisitor> getTransferVisitor(const Function& func, PartPtr p, NodeState& state, const std::vector<Lattice*>& dfInfo);
+  boost::shared_ptr<IntraDFTransferVisitor> getTransferVisitor(const Function& func, PartPtr part, NodeState& state, const std::vector<Lattice*>& dfInfo);
   
   boost::shared_ptr<ValueObject> Expr2Val(SgNode* n, PartPtr p);
   
@@ -186,7 +185,7 @@ class ConstantPropagationAnalysisTransfer : public VariableStateTransfer<CPValue
    
    bool finish();
    
-   ConstantPropagationAnalysisTransfer(const Function& func, PartPtr p, NodeState& state, const std::vector<Lattice*>& dfInfo, Composer* composer, ConstantPropagationAnalysis* analysis);
+   ConstantPropagationAnalysisTransfer(const Function& func, PartPtr part, NodeState& state, const std::vector<Lattice*>& dfInfo, Composer* composer, ConstantPropagationAnalysis* analysis);
 };
 
 }; //namespace dataflow

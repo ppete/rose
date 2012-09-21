@@ -1,4 +1,5 @@
 #include "cfgUtils.h"
+#include "VirtualCFGIterator.h"
 #include <stdlib.h>
 #include <time.h>
 #include <list>
@@ -12,7 +13,6 @@ using std::pair;
 #include <iostream>
 using std::cout;
 #include <boost/make_shared.hpp>
-#include "partitions.h"
 
 namespace cfgUtils
 {
@@ -116,29 +116,31 @@ const SgExpression* cfgUtils::unwrapCasts(const SgExpression* e)
 }
 
 // returns the DataflowNode that represents that start of the CFG of the given function's body
-dataflow::PartPtr cfgUtils::getFuncStartCFG(SgFunctionDefinition* func, bool (*f) (CFGNode) /*= defaultFilter*/ )
+CFGNode cfgUtils::getFuncStartCFG(SgFunctionDefinition* func)
 {
   //return DataflowNode(func->cfgForBeginning(), f);
 
   // Find the SgFunctionParameterList node by walking the CFG forwards from the function's start
-  DataflowNode funcCFGStart(func->cfgForBeginning(), f);
+  CFGNode funcCFGStart(func->cfgForBeginning());
   for(VirtualCFG::iterator it(funcCFGStart); it!=VirtualCFG::iterator::end(); it++)
   {
     if(isSgFunctionParameterList((*it).getNode()))
-    {
       return (*it);
-    }
   }
   // We should never get here
   ROSE_ASSERT(0);
+  
+  /*ROSE_STL_Container<SgNode*> funcParamL = NodeQuery::querySubTree(cfgUtils::getProject(), V_SgFunctionParameterList);
+  ROSE_ASSERT(funcParamL.size()==1);
+  return CFGNode(*funcParamL.begin(), 0);*/
 }
 
 // returns the DataflowNode that represents that end of the CFG of the given function's body
-dataflow::PartPtr cfgUtils::getFuncEndCFG(SgFunctionDefinition* func, bool (*f) (CFGNode) /*= defaultFilter*/ )
+CFGNode cfgUtils::getFuncEndCFG(SgFunctionDefinition* func)
 {
   //return (DataflowNode) func->cfgForEnd();
   //return boost::make_shared<DataflowNode>(func->cfgForEnd(), f);
-  return DataflowNode(func->cfgForEnd(), f);
+  return func->cfgForEnd();
 }
 
 // returns a string containing a unique name that is not otherwise used inside this project

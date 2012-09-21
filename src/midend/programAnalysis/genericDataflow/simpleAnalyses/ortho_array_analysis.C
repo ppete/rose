@@ -21,7 +21,7 @@ std::string OrthoIndexVector_Impl::str(std::string indent) const // pretty print
   return rt;
 }
 
-bool OrthoIndexVector_Impl::mayEqual(IndexVectorPtr other, const Part& p)
+bool OrthoIndexVector_Impl::mayEqual(IndexVectorPtr other, PartPtr p)
 {
   //Dbg::dbg << "OrthoIndexVector_Impl::mayEqual()"<<endl;
 
@@ -55,7 +55,7 @@ bool OrthoIndexVector_Impl::mayEqual(IndexVectorPtr other, const Part& p)
   return rt; 
 }
 
-bool OrthoIndexVector_Impl::mustEqual(IndexVectorPtr other, const Part& p)
+bool OrthoIndexVector_Impl::mustEqual(IndexVectorPtr other, PartPtr p)
 {
   //Dbg::dbg << "OrthoIndexVector_Impl::mayEqual()"<<endl;
   

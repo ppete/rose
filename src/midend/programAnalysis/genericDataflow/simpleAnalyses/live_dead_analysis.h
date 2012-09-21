@@ -73,12 +73,12 @@ class LiveDeadMemTransfer : public IntraDFTransferVisitor
     bool isMemLocLive(SgExpression* expr);
 
 public:
-LiveDeadMemTransfer(const Function &f, PartPtr p, NodeState &s, const std::vector<Lattice*> &d, 
+LiveDeadMemTransfer(const Function &f, PartPtr part, NodeState &s, const std::vector<Lattice*> &d, 
                     LiveDeadMemAnalysis* ldma,
                     ComposerExpr2MemLocPtr ceml, funcSideEffectUses *fseu)
-    : IntraDFTransferVisitor(f, p, s, d),
+    : IntraDFTransferVisitor(f, part, s, d),
     liveLat(dynamic_cast<AbstractObjectSet*>(*(dfInfo.begin()))), 
-    ldma(ldma), ceml(ceml), modified(false), assigned(p, AbstractObjectSet::may), used(p, AbstractObjectSet::may), part(p), fseu(fseu)
+    ldma(ldma), ceml(ceml), modified(false), assigned(part, AbstractObjectSet::may), used(part, AbstractObjectSet::may), part(part), fseu(fseu)
     {
         if(liveDeadAnalysisDebugLevel>=1) {
           Dbg::dbg << "LiveDeadMemTransfer: liveLat=";
@@ -96,6 +96,7 @@ LiveDeadMemTransfer(const Function &f, PartPtr p, NodeState &s, const std::vecto
     void visit(SgReturnStmt *);
     void visit(SgExprStatement *);
     void visit(SgCaseOptionStmt *);
+    void visit(SgSwitchStatement *);
     void visit(SgIfStmt *);
     void visit(SgForStatement *);
     void visit(SgWhileStmt *);
@@ -117,11 +118,11 @@ public:
     void genInitState(const Function& func, PartPtr p, const NodeState& state,
                       std::vector<Lattice*>& initLattices, std::vector<NodeFact*>& initFacts);
         
-    boost::shared_ptr<IntraDFTransferVisitor> getTransferVisitor(const Function& func, PartPtr p,
+    boost::shared_ptr<IntraDFTransferVisitor> getTransferVisitor(const Function& func, PartPtr part, 
                                                                  NodeState& state, const std::vector<Lattice*>& dfInfo)
     { return boost::shared_ptr<IntraDFTransferVisitor>(
-    		new LiveDeadMemTransfer(func, p, state, dfInfo, 
-    		                        this, ComposerExpr2MemLocPtr(new ComposerExpr2MemLoc(*getComposer(), p, *((ComposedAnalysis*)this))),
+    		new LiveDeadMemTransfer(func, part, state, dfInfo, 
+    		                        this, ComposerExpr2MemLocPtr(new ComposerExpr2MemLoc(*getComposer(), part, *((ComposedAnalysis*)this))),
     		                        fseu)); }
 
     bool transfer(const Function& func, PartPtr p, NodeState& state, const std::vector<Lattice*>& dfInfo) { assert(0); return false; }

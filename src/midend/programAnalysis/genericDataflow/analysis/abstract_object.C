@@ -93,6 +93,7 @@ bool MemLocObjectPtrPair::isScalar()
   }
   if(expr) return MemLocObject::isScalar(expr) ? true: false;
   if(mem)  return MemLocObject::isScalar(mem) ? true: false;
+  ROSE_ASSERT(0);
 }
 
 bool MemLocObjectPtrPair::isFunctionMemLoc()
@@ -107,6 +108,7 @@ bool MemLocObjectPtrPair::isFunctionMemLoc()
   }
   if(expr) return MemLocObject::isFunctionMemLoc(expr) ? true: false;
   if(mem)  return MemLocObject::isFunctionMemLoc(mem) ? true: false;
+  ROSE_ASSERT(0);
 }
 
 bool MemLocObjectPtrPair::isLabeledAggregate()
@@ -121,6 +123,7 @@ bool MemLocObjectPtrPair::isLabeledAggregate()
   }
   if(expr) return MemLocObject::isLabeledAggregate(expr) ? true: false;
   if(mem)  return MemLocObject::isLabeledAggregate(mem) ? true: false;
+  ROSE_ASSERT(0);
 }
 
 bool MemLocObjectPtrPair::isArray()
@@ -135,6 +138,7 @@ bool MemLocObjectPtrPair::isArray()
   }
   if(expr) return MemLocObject::isArray(expr) ? true: false;
   if(mem)  return MemLocObject::isArray(mem) ? true: false;
+  ROSE_ASSERT(0);
 }
 
 bool MemLocObjectPtrPair::isPointer()
@@ -149,6 +153,7 @@ bool MemLocObjectPtrPair::isPointer()
   }
   if(expr) return MemLocObject::isPointer(expr) ? true: false;
   if(mem)  return MemLocObject::isPointer(mem) ? true: false;
+  ROSE_ASSERT(0);
 }
 
 // pretty print for the object
@@ -339,13 +344,13 @@ std::string IndexVector::str(std::string indent)
  ROSE_ASSERT (false);
  return "";  
 }
-bool IndexVector::mayEqual (IndexVectorPtr other, const Part& p)
+bool IndexVector::mayEqual (IndexVectorPtr other, PartPtr p)
 {
  cerr<<"Error. Direct call to base class (IndexVector)'s mayEqual() is not allowed."<<endl;
  ROSE_ASSERT (false);
  return false;  
 }
-bool IndexVector::mustEqual (IndexVectorPtr other, const Part& p)
+bool IndexVector::mustEqual (IndexVectorPtr other, PartPtr p)
 {
  cerr<<"Error. Direct call to base class (IndexVector)'s mustEqual is not allowed."<<endl;
  ROSE_ASSERT (false);

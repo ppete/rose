@@ -373,8 +373,8 @@ class IndexVector
    //virtual std::string str(const std::string& indent);
    virtual std::string str(std::string indent); // pretty print for the object
    // equal operator
-   virtual bool mayEqual (IndexVectorPtr other, const Part& p);
-   virtual bool mustEqual (IndexVectorPtr other, const Part& p);
+   virtual bool mayEqual (IndexVectorPtr other, PartPtr part);
+   virtual bool mustEqual (IndexVectorPtr other, PartPtr part);
 };
 
 #if 0 // Still not clear if users will get confused by this class

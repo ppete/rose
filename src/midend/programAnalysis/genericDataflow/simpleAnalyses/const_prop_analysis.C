@@ -552,8 +552,8 @@ ConstantPropagationAnalysisTransfer::finish()
      return modified;
    }
 
-ConstantPropagationAnalysisTransfer::ConstantPropagationAnalysisTransfer(const Function& func, PartPtr p, NodeState& state, const std::vector<Lattice*>& dfInfo, Composer* composer, ConstantPropagationAnalysis* analysis)
-   : VariableStateTransfer<CPValueObject>(func, state, dfInfo, boost::make_shared<CPValueObject>(p), composer, analysis, p, constantPropagationAnalysisDebugLevel)
+ConstantPropagationAnalysisTransfer::ConstantPropagationAnalysisTransfer(const Function& func, PartPtr part, NodeState& state, const std::vector<Lattice*>& dfInfo, Composer* composer, ConstantPropagationAnalysis* analysis)
+   : VariableStateTransfer<CPValueObject>(func, state, dfInfo, boost::make_shared<CPValueObject>(part), composer, analysis, part, constantPropagationAnalysisDebugLevel)
    {
    }
 
@@ -591,15 +591,15 @@ ConstantPropagationAnalysis::transfer(const Function& func, PartPtr p, NodeState
    }
 
 boost::shared_ptr<IntraDFTransferVisitor>
-ConstantPropagationAnalysis::getTransferVisitor(const Function& func, PartPtr p, NodeState& state, const std::vector<Lattice*>& dfInfo)
+ConstantPropagationAnalysis::getTransferVisitor(const Function& func, PartPtr part, NodeState& state, const std::vector<Lattice*>& dfInfo)
    {
   // Why is the boost shared pointer used here?
-     return boost::shared_ptr<IntraDFTransferVisitor>(new ConstantPropagationAnalysisTransfer(func, p, state, dfInfo, composer, this));
+     return boost::shared_ptr<IntraDFTransferVisitor>(new ConstantPropagationAnalysisTransfer(func, part, state, dfInfo, composer, this));
    }
 
 ValueObjectPtr ConstantPropagationAnalysis::Expr2Val(SgNode* n, PartPtr part)
 {
-  AbstractObjectMap* cpMap = dynamic_cast<AbstractObjectMap*>(NodeState::getNodeState(part)->getLatticeAbove(this, 0));
+  AbstractObjectMap* cpMap = dynamic_cast<AbstractObjectMap*>(NodeState::getNodeState(this, part)->getLatticeAbove(this, 0));
   ROSE_ASSERT(cpMap);
   
   MemLocObjectPtrPair p = composer->Expr2MemLoc(n, part, this);

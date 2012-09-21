@@ -59,11 +59,68 @@ class SyntacticAnalysis : virtual public IntraUndirDataflow
   CodeLocObjectPtr Expr2CodeLoc(SgNode* e, PartPtr p);
   static CodeLocObjectPtr Expr2CodeLocStatic(SgNode* e, PartPtr p);
   
+  // Return the anchor Parts of a given function
+  PartPtr GetFunctionStartPart(const Function& func);
+  PartPtr GetFunctionEndPart(const Function& func);
+  
   // pretty print for the object
   std::string str(std::string indent="")
   { return "SyntacticAnalysis"; }
 };
 
+/**********************
+ ***** PARTITIONS *****
+ **********************/
+
+class StxPart;
+class StxPartEdge;
+typedef boost::shared_ptr<StxPart> StxPartPtr;
+typedef boost::shared_ptr<const StxPart> ConstStxPartPtr;
+typedef boost::shared_ptr<StxPartEdge> StxPartEdgePtr;
+
+class StxPart : public Part
+{
+  CFGNode n;
+  bool (*filter) (CFGNode cfgn); // a filter function to decide which raw CFG node to show (if return true) or hide (otherwise)
+        
+  public:
+  StxPart(CFGNode n, bool (*f) (CFGNode) = defaultFilter): n(n), filter(f) {}
+  StxPart(const StxPart& part):    n(part.n), filter(part.filter) {} 
+  StxPart(const StxPartPtr& part): n(part->n), filter(part->filter) {} 
+  StxPart(const StxPart& part,    bool (*f) (CFGNode) = defaultFilter): n(part.n), filter (f) {}
+  StxPart(const StxPartPtr& part, bool (*f) (CFGNode) = defaultFilter): n(part->n), filter (f) {}
+        
+  std::vector<PartEdgePtr> outEdges();
+  std::vector<StxPartEdgePtr> outStxEdges();
+  std::vector<PartEdgePtr> inEdges();
+  std::vector<StxPartEdgePtr> inStxEdges();
+  std::vector<CFGNode>  CFGNodes();
+  
+  bool operator==(PartPtr o);
+  bool operator<(PartPtr o);
+  
+  std::string str(std::string indent="");
+};
+
+class StxPartEdge : public PartEdge
+{
+  CFGPath p;
+  bool (*filter) (CFGNode cfgn);
+
+  public:
+  StxPartEdge(CFGPath p, bool (*f) (CFGNode) = defaultFilter): p(p), filter(f) {}
+  StxPartEdge(const StxPartEdge& dfe): p(dfe.p), filter(dfe.filter) {}
+  
+  PartPtr source();
+  PartPtr target();
+  
+  CFGPath getPath() const { return p; }
+  
+  bool operator==(PartEdgePtr o);
+  bool operator<(PartEdgePtr o);
+  
+  std::string str(std::string indent="");
+};
 
 /****************************
  ***** ABSTRACT OBJECTS *****
@@ -182,7 +239,7 @@ typedef boost::shared_ptr<StxCodeLocObject> StxCodeLocObjectPtr;
     OutOfScope_StxMemLocObject(SgType* t) : StxMemLocObject(/*false, */t) {}
     
     // Returns true if this MemLocObject is in-scope at the given part and false otherwise
-      bool isLive(PartPtr part) const { return false; }
+    bool isLive(PartPtr part) const { return false; }
   };
 
   // A simple implementation of the abstract memory object interface
@@ -282,8 +339,8 @@ typedef boost::shared_ptr<StxCodeLocObject> StxCodeLocObjectPtr;
       
       /* GB: Deprecating the == operator. Now that some objects can contain AbstractObjects any equality test must take the current part as input.
       bool operator== (const IndexVector & other) const; */
-      bool mayEqual(IndexVectorPtr other, const Part& p);
-      bool mustEqual(IndexVectorPtr other, const Part& p);
+      bool mayEqual(IndexVectorPtr other, PartPtr part);
+      bool mustEqual(IndexVectorPtr other, PartPtr part);
   };
   typedef boost::shared_ptr<IndexVector_Impl> IndexVector_ImplPtr;
 

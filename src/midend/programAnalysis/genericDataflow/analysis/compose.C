@@ -8,201 +8,190 @@ namespace dataflow
 {
 int composerDebugLevel=1;
 
-// Implements a memory location abstraction focused on array access expressions. For
-// each expression it uses the memory location and value abstractions implemented by 
-// servers to determine whether two such expressions correspond to the same or 
-// different locations. For other expressions directly uses the equality methods of 
-// the memory location abstraction implemented by the server.
-// WORK IN PROGRESS
-/*class ArrayAccessAnalysis : ComposedAnalysis
-{
-   Composer* composer;
-   ArrayAccessAnalysis(Composer* composer) : composer(composer) {}
+// -------------------------------------
+// ----- Expression Interpretation -----
+// -------------------------------------
 
-   // This analysis performs no dataflow   
-   void genInitState(PartPtr p, Lattice** initLattice, 
-                     std::vector<NodeFact*>& initFacts) { }
-   void transfer(SgNode &n, Part& p) { }
-   
-   CPValueObject* Expr2Val(SgExpression* e, PartPtr p) 
-   {
-      if(isSgArrayAccess(e)) {
-         return new AAMemLocObject(
-                     composer->Expr2MemLoc(isSgArrayAccess(e)->array_exp(), p, this)
-                     composer->Expr2MemLoc(isSgArrayAccess(e)->index_exp(), p, this));
-      } else {
-         return new AAMemLocObject(composer->Expr2MemLoc(e, p, this), NULL);
-      }
-      return p.state[this].get(composer->Expr2MemLoc(e, p, this)));
-   }
+// ----------------------
+// --- Calling Expr2* ---
+// ----------------------
+
+// Contains the arguments needed by Expr2* calls
+class FuncCallerArgs_Expr2Any
+{
+  public:
+  SgNode* n;
+  PartPtr part;
+  
+  FuncCallerArgs_Expr2Any(SgNode* n, PartPtr part) : n(n), part(part){}
+  
+  std::string str(std::string indent="") const {
+    ostringstream oss;
+    oss << "["<<n->class_name()<<" | "<<Dbg::escape(n->unparseToString())<<"]";
+    return oss.str();
+  }
 };
 
-// Represents either (i) an expression of the form a[i] or (**q)[a+b*c] (field index!=NULL) or 
-//                  (ii) any other expression that denotes a memory location (field index==NULL).
-class AAMemLocObject : MemLocObject
+// --- Calling Expr2Val ---
+
+// These classes wrap the functionality of calling a specific function within an 
+// Analysis or a Part
+class Expr2ValCaller : public FuncCaller<ValueObjectPtr, const FuncCallerArgs_Expr2Any>
 {
-   MemLocObject* array;
-   ValueObject* index;
-   
-   AAMemLocObject(MemLocObject* array, ValueObject* index) : array(array), index(index)
-   {
-      // The array field must be non-NULL but the index field may be NULL to indicate 
-      // that this memory  location doesn't correspond to an array index expression
-      ROSE_ASSERT(array);   
-   }
-   
-   // One AAMemLocObject MAY equal another if both their array memory location and 
-   // their index values may be equal to each other
-   bool mayEqual(AbstractObject* o)
-   {
-      AAMemLocObject* oAA;
-      ROSE_ASSERT(oAA=dynamic_cast<AAMemLocObject*>(o));
-      
-      // If one object is an array expression and the other is not, the only conservative 
-      // answer that can be provided is that they may be equal. We may be able to achieve 
-      // more precision if we can evaluate expressions to see the aliasing relationships 
-      // between the two objects
-      if(index==NULL != o->index==NULL)
-         return true;
-      
-      // If both are AAMemLocObjects, use their respective mayEqual methods
-      return oAA->array->mayEqual(array) && 
-            (index? oAA->index->mayEqual(index) : true);
-   }
-   
-   // One AAMemLocObject MUST equal another if both their array memory location and their 
-   // index values must be equal to each other
-   bool mustEqual(AbstractObject* o)
-   {
-      AAMemLocObject* oAA;
-      ROSE_ASSERT(oAA=dynamic_cast<AAMemLocObject*>(o));
-      
-      // If one object is an array expression and the other is not, we cannot conservatively 
-      // guarantee that they must be equal. We may be able to aachieve more precision if we 
-      // can evaluate expressions to see the aliasing relationships between the two objects
-      if(index==NULL != o->index==NULL)
-         return false;
-      
-      // If both are AAMemLocObjects, use their respective mustEqual methods
-      return oAA->array->mustEqual(array) && oAA->index->mustEqual(index);
-   }
-   
-   // Don't have good idea how to represent a finite number of options 
-   
-   // This AAMemLocObject corresponds to a finite number of memory locations if both its 
-   // array and index are finite sets
-   bool isFiniteSet()
-   {
-      return array->isFiniteSet() && index->isFiniteSet();
-   }
-   
-   set<AbstractObj> getValueSet()
-   {
-      Not yet clear how to represent concrete memory locations. Are these guaranteed to be 
-      lexical memory locations or should we keep them opaque and give them precise equality 
-      operations?
-   }* /
-   
-   string str(string& indent)
-   {
-      ostringstream oss;
-      oss <<           "[AAMemLocObj: \n";
-      oss << indent << "    array="<<array->str(indent+"          ")<<"\n";
-      oss << indent << "    index="<<(index? index->str(indent+"          ") : "NULL")<<"]";
-      return oss.str();
-   }
+  public:
+  // Calls the given analysis' implementation of Expr2Val within the given node
+  ValueObjectPtr operator()(const FuncCallerArgs_Expr2Any& args/*SgNode* n, PartPtr p*/, ComposedAnalysis* client)
+  {
+    try{
+      //FuncCallerArgs_Expr2Any& a = dynamic_cast<FuncCallerArgs_Expr2Any&>(args);
+      return client->Expr2Val(args.n, args.part);
+    } catch (std::bad_cast bc) { ROSE_ASSERT(false); }
+  }
+  string funcName() const{ return "Expr2Val"; }
 };
 
-// Backwards analysis that maintains a set of memory locations that are read along some 
-// path that follows the current location before they are over-written. Implements a 
-// MemLocObject that considers all dead objects as not may-equal and not must-equal to any 
-// live object but are must-equal and may-equal to each other.
-class LiveDeadAnalysis : ComposedAnalysis
+ValueObjectPtr ChainComposer::Expr2Val(SgNode* n, PartPtr p, ComposedAnalysis* client) { 
+  Expr2ValCaller c;
+  FuncCallerArgs_Expr2Any args(n, p);
+  return callServerAnalysisFunc<ValueObjectPtr, FuncCallerArgs_Expr2Any>(args, client, c);
+}
+
+// --- Calling Expr2MemLoc ---
+
+class Expr2MemLocCaller : public FuncCaller<MemLocObjectPtr, const FuncCallerArgs_Expr2Any>
 {
-   Composer* composer;
-   LiveDeadAnalysis(Composer* composer) : composer(composer) {}
-   
-   void genInitState(PartPtr p, Lattice** initLattice, 
-                     std::vector<NodeFact*>& initFacts) { 
-      *initLattice = composer->NewMemLocSet();
-   }
-   
-   void transfer(SgNode &n, Part& p) { 
-      must implement
-      for instance, to process an (SgAssignOp* op):
-         // The lhs is dead but the rhs is live
-         p.state[this].remove(composer->Expr2MemLoc(op->get_lhs_op(), p, this));
-         p.state[this].insert(composer->Expr2MemLoc(op->get_rhs_op(), p, this));
-   }
-   
-   LDMemLocObject* Expr2MemLoc(SgExpression* e, PartPtr p) {
-      // If e corresponds to a live memory location, return an LDMemLocObject that 
-      // corresponds to it
-      if(p.state[this].contains(composer->Expr2MemLoc(e, p, this)))
-         return new LDMemLocObject(composer->Expr2MemLoc(e, p, this))
-      // Otherwise, return a dead LDMemLocObject
-      else
-         return new LDMemLocObject(NULL);
-   }
+  public:
+  // Calls the given analysis' implementation of Expr2MemLoc within the given node
+  MemLocObjectPtr operator()(const FuncCallerArgs_Expr2Any& args/*SgNode* n, PartPtr p*/, ComposedAnalysis* client)
+  {
+    try{
+      //FuncCallerArgs_Expr2Any& a = dynamic_cast<FuncCallerArgs_Expr2Any&>(args);
+      return client->Expr2MemLoc(args.n, args.part);
+    } catch (std::bad_cast bc) { ROSE_ASSERT(false); }
+  }
+  string funcName() const{ return "Expr2MemLoc"; }
 };
 
-// Represents either (i) a live memory location (field obj!=NULL) or
-//                  (ii) a dead memory location (field obj==NULL).
-class LDMemLocObject : MemLocObject
+MemLocObjectPtrPair ChainComposer::Expr2MemLoc(SgNode* n, PartPtr p, ComposedAnalysis* client) { 
+  // Return the pair of <object that specifies the expression temporary of n, 
+  //                     object that specifies the memory location that n corresponds to>
+  Expr2MemLocCaller c;
+  FuncCallerArgs_Expr2Any args(n, p);
+  MemLocObjectPtr mem = callServerAnalysisFunc<MemLocObjectPtr, FuncCallerArgs_Expr2Any>(args, client, c);
+  // If mem is an expression object returned by the syntactic analysis, there is no object that
+  // specifies n's memory location
+  if(boost::dynamic_pointer_cast<ExprObj>(mem))
+    // Return mem as n's expression object and do not return an object for n's memory location
+    return MemLocObjectPtrPair(mem, MemLocObjectPtr());
+  // If mem actually corresponds to a location in memory 
+  else
+    // Generate a fresh object for n's expression temporary and return it along with mem
+    return MemLocObjectPtrPair(
+              isSgExpression(n) && !isSgVarRefExp(n) ? 
+                createExpressionMemLocObject(isSgExpression(n), isSgExpression(n)->get_type(), p) :
+                MemLocObjectPtr(),
+              mem);
+}
+
+// --- CallingExpr2CodeLoc ---
+
+class Expr2CodeLocCaller : public FuncCaller<CodeLocObjectPtr, const FuncCallerArgs_Expr2Any>
 {
-   MemLocObject* obj;
-   
-   LDMemLocObject(MemLocObject* obj) : obj(obj)
-   { }
-   
-   // One LDMemLocObject MAY equal another if they're both live and the objects themselves 
-   // report thatthey may be equal
-   bool mayEqual(AbstractObject* o)
-   {
-      LDMemLocObject* oLD;
-      ROSE_ASSERT(oLD=dynamic_cast<LDMemLocObject*>(o));
-      
-      return obj==NULL || oLD->obj==NULL ||
-             obj->mayEqual(oLD);
-   }
-   
-   // One LDMemLocObject MUST equal another if they're both live and the objects themselves 
-   // report that they must be equal
-   bool mustEqual(AbstractObject* o)
-   {
-      LDMemLocObject* oLD;
-      ROSE_ASSERT(oLD=dynamic_cast<LDMemLocObject*>(o));
-      
-      return obj==NULL || oLD->obj==NULL ||
-             obj->mustEqual(oLD);
-   }
-   
-   // Don't have good idea how to represent a finite number of options 
-   
-   // This LDMemLocObject corresponds to a finite number of memory locations if it is dead 
-   // or the object itself corresponds to a finite number of memory locations
-   bool isFiniteSet()
-   {
-      return obj==NULL || obj->isFiniteSet();
-   }
-   
-   set<AbstractObj> getValueSet()
-   {
-      if(obj==NULL) {
-         return empty set;
-      }
-      Not yet clear how to represent concrete memory locations. Are these guaranteed to be 
-      lexical memory locations or should we keep them opaque and give them precise equality 
-      operations?
-   } * /
-   
-   string str(string& indent)
-   {
-      ostringstream oss;
-      oss << "[LDMemLocObject: \obj="<<(obj? obj->str(indent+"          ") : "NULL")<<"]";
-      return oss.str();
-   }
+  public:
+  // Calls the given analysis' implementation of Expr2CodeLoc within the given node
+  CodeLocObjectPtr operator()(const FuncCallerArgs_Expr2Any& args/*SgNode* n, PartPtr p*/, ComposedAnalysis* client)
+  {
+    try{
+      //FuncCallerArgs_Expr2Any& a = dynamic_cast<FuncCallerArgs_Expr2Any&>(args);
+      return client->Expr2CodeLoc(args.n, args.part);
+    } catch (std::bad_cast bc) { ROSE_ASSERT(false); }
+  }
+  
+  string funcName() const{ return "Expr2CodeLoc"; }
+};
+
+
+CodeLocObjectPtrPair ChainComposer::Expr2CodeLoc(SgNode* n, PartPtr p, ComposedAnalysis* client) { 
+  // Return the pair of <object that specifies the expression temporary of n, 
+  //                     object that specifies the memory location that n corresponds to>
+  // GB: !!! Right now we don't have a firm idea of how to manage CodeLocObjects and have not yet implemented
+  //     !!! an ExprObj for them. When we have done so, this code will likely mirror the code for Expr2MemLoc.
+  Expr2CodeLocCaller c;
+  FuncCallerArgs_Expr2Any args(n, p);
+  return CodeLocObjectPtrPair(boost::make_shared<StxCodeLocObject>(n, p),
+                              callServerAnalysisFunc<CodeLocObjectPtr, FuncCallerArgs_Expr2Any>(args, client, c));
+}
+
+
+// --------------------------------
+// --- Calling GetFunction*Part ---
+// --------------------------------
+
+// Contains the arguments needed by GetFunction*Part calls
+/*class FuncCallerArgs_GetFunctionAnyPart
+{
+  public:
+  Function& func;
+  
+  FuncCallerArgs_GetFunctionAnyPart(Function& func) : func(func) {}
+  
+  std::string str(std::string indent="") {
+    ostringstream oss;
+    oss << func.get_name()<<"()";
+    return oss.str();
+  }
 };*/
+
+// --- Calling GetFunctionStartPart ---
+class GetFunctionStartPartCaller : public FuncCaller<PartPtr, const Function>
+{
+  public:
+  // Calls the given analysis' implementation of GetFunctionStartPart within the given node
+  PartPtr operator()(const Function& func, ComposedAnalysis* client)
+  {
+    return client->GetFunctionStartPart(func);
+  }
+  string funcName() const{ return "GetFunctionStartPart"; }
+};
+
+PartPtr ChainComposer::GetFunctionStartPart(const Function& func, ComposedAnalysis* client) { 
+  GetFunctionStartPartCaller c;
+  //FuncCallerArgs_GetFunctionAnyPart args(func);
+  return callServerAnalysisFunc<PartPtr, Function>(func, client, c);
+}
+
+
+// --- Calling GetFunctionEndPart ---
+class GetFunctionEndPartCaller : public FuncCaller<PartPtr, const Function>
+{
+  public:
+  // Calls the given analysis' implementation of GetFunctionEndPart within the given node
+  PartPtr operator()(const Function& func, ComposedAnalysis* client)
+  {
+    return client->GetFunctionEndPart(func);
+  }
+  string funcName() const{ return "GetFunctionEndPart"; }
+};
+
+PartPtr ChainComposer::GetFunctionEndPart(const Function& func, ComposedAnalysis* client) { 
+  GetFunctionStartPartCaller c;
+  //FuncCallerArgs_GetFunctionAnyPart args(func);
+  return callServerAnalysisFunc<PartPtr, Function>(func, client, c);
+}
+
+
+
+// Maps and Sets 
+// (when analyses can implement these internally, these functions will also invoke 
+//  callServerAnalysisFunc)
+/*ValueSet* ChainComposer::NewValueSet()  { return new ValueSet(); }
+ValueMap* ChainComposer::NewValueMap()  { return new ValueMap(); }
+
+MemLocSet* ChainComposer::NewMemLocSet() { return new MemLocSet(); }
+MemLocMap* ChainComposer::NewMemLocMap() { return new MemLocMap(); }
+
+CodeLocSet* ChainComposer::NewCodeLocSet() { return new CodeLocSet(); }
+CodeLocMap* ChainComposer::NewCodeLocMap() { return new CodeLocMap(); }*/
 
 // ------------------------------
 // ----- Composition Driver -----
@@ -239,23 +228,21 @@ void ChainComposer::runAnalysis()
   int i=1;
   for(list<ComposedAnalysis*>::iterator a=allAnalyses.begin(); a!=allAnalyses.end(); a++, i++) {
     ostringstream label; label << "Running Analysis " << (*a)->str("");
-    if(composerDebugLevel>=1) Dbg::enterFunc(label.str());
+    Dbg::region reg(composerDebugLevel, 1, Dbg::region::topLevel, label.str());
+    
     ContextInsensitiveInterProceduralDataflow inter_cc(*a, graph);
     inter_cc.runAnalysis();
     /*UnstructuredPassInterDataflow up_cc(*a);
     up_cc.runAnalysis();*/
     
-    if(composerDebugLevel>=1) Dbg::exitFunc(label.str());
-
     if(composerDebugLevel >= 3) {
-      Dbg::enterFunc(label.str()+" Final State");
+      Dbg::region reg(composerDebugLevel, 3, Dbg::region::topLevel, label.str()+" Final State");
       std::vector<int> factNames;
       std::vector<int> latticeNames;
       latticeNames.push_back(0);
-      printAnalysisStates paa(*a, factNames, latticeNames, printAnalysisStates::below, "::::");
+      printAnalysisStates paa(*a, factNames, latticeNames, printAnalysisStates::below);
       UnstructuredPassInterAnalysis up_paa(paa);
       up_paa.runAnalysis();
-      Dbg::exitFunc(label.str()+" Final State");
     }
     
     // Record that we've completed the given analysis
@@ -268,9 +255,9 @@ void ChainComposer::runAnalysis()
 // Generic function that looks up the composition chain from the given client 
 // analysis and returns the result produced by the first instance of the function 
 // called by the caller object found along the way.
-template<class RetObject>
-boost::shared_ptr<RetObject> ChainComposer::callServerAnalysisFunc(SgNode* n, PartPtr p, ComposedAnalysis* client, 
-                                   FuncCaller<RetObject>& caller) {
+template<class RetObject, class FuncCallerArgs>
+RetObject ChainComposer::callServerAnalysisFunc(const FuncCallerArgs& args, ComposedAnalysis* client,
+                                   FuncCaller<RetObject, const FuncCallerArgs>& caller) {
   if(composerDebugLevel>=1) Dbg::dbg << "ChainComposer::callServerAnalysisFunc() "<<caller.funcName()<<" #doneAnalyses="<<doneAnalyses.size()<<endl;
   /*for(list<ComposedAnalysis*>::reverse_iterator a=doneAnalyses.rbegin(); a!=doneAnalyses.rend(); a++) {
       Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;"<<(*a)->str("")<<endl;
@@ -279,8 +266,8 @@ boost::shared_ptr<RetObject> ChainComposer::callServerAnalysisFunc(SgNode* n, Pa
   // Iterate backwards looking for an analysis that implements caller() behind in the chain of completed analyses
   list<ComposedAnalysis*>::reverse_iterator a=doneAnalyses.rbegin();
   while(doneAnalyses.size() >= 0) {
-    ostringstream label; label << caller.funcName() << "  : " << (*a)->str("") << " ("<<n->class_name()<<" | "<<Dbg::escape(n->unparseToString())<<")";
-    if(composerDebugLevel>=1) Dbg::enterFunc(label.str());
+    ostringstream label; label << caller.funcName() << "  : " << (*a)->str("") << " " << args.str();
+    Dbg::region reg(composerDebugLevel, 1, Dbg::region::topLevel, label.str());
     ComposedAnalysis* curAnalysis = *a;
     // Move the current analysis from doneAnalyses onto a backup list to ensure that in recursive calls
     // to callServerAnalysisFunc() doneAnalyses excludes the current analysis. doneAnalyses will be restored
@@ -299,7 +286,7 @@ boost::shared_ptr<RetObject> ChainComposer::callServerAnalysisFunc(SgNode* n, Pa
     
     try {
       //Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;In TRY, caller="<<caller.funcName()<<endl;
-      boost::shared_ptr<RetObject> v(caller(n, p, curAnalysis));
+      RetObject v(caller(args, curAnalysis));
       // If control reaches here, we know that the current analysis does 
       // implement this method, so reconstruct doneAnalyses and return its reply
 
@@ -318,12 +305,16 @@ boost::shared_ptr<RetObject> ChainComposer::callServerAnalysisFunc(SgNode* n, Pa
       /*Dbg::dbg << "Final State of doneAnalysis="<<endl;
       for(list<ComposedAnalysis*>::iterator a=doneAnalyses.begin(); a!=doneAnalyses.end(); a++)
         Dbg::dbg << "    "<<(*a)->str("        ")<<endl;*/
-      if(composerDebugLevel>=1) Dbg::dbg << "Returning "<<v->strp(p, "")<<endl;
-      if(composerDebugLevel>=1) Dbg::exitFunc(label.str());
+      if(composerDebugLevel>=1) {
+        if(boost::dynamic_pointer_cast<AbstractObject>(v)) {
+          ROSE_ASSERT(reinterpret_cast<const FuncCallerArgs_Expr2Any*>(&args));
+          Dbg::dbg << "Returning "<<boost::dynamic_pointer_cast<AbstractObject>(v)->
+                strp(reinterpret_cast<const FuncCallerArgs_Expr2Any*>(&args)->part, "")<<endl;
+        } else Dbg::dbg << "Returning "<<v.get()->str("")<<endl;
+      }
       return v;
     } catch (NotImplementedException exc) {
       if(composerDebugLevel>=1) Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;"<<caller.funcName()<<" Not Implemented. Advancing to "<<(*a)->str("")<<endl;
-      if(composerDebugLevel>=1) Dbg::exitFunc(label.str());
       // If control reaches here then the current analysis must not implement 
       // this method so we keep looking further back in the chain
       continue;
@@ -335,91 +326,5 @@ boost::shared_ptr<RetObject> ChainComposer::callServerAnalysisFunc(SgNode* n, Pa
   cerr << "ERROR: no analysis implements method "<<caller.funcName()<<"(SgExpression)";
   ROSE_ASSERT(0);
 }
-
-
-// -------------------------------------
-// ----- Expression Interpretation -----
-// -------------------------------------
-
-// These classes wrap the functionality of calling a specific function within an 
-// Analysis or a Part
-class Expr2ValCaller : public FuncCaller<ValueObject>
-{
-  public:
-  // Calls the given analysis' implementation of Expr2Val within the given node
-  boost::shared_ptr<ValueObject> operator()(SgNode* n, PartPtr p, ComposedAnalysis* a)
-  { 
-      //Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Expr2ValCaller("<<a->str("")<<")"<<endl;
-      return a->Expr2Val(n, p); }
-  
-  string funcName() { return "Expr2Val"; }
-};
-
-class Expr2MemLocCaller : public FuncCaller<MemLocObject>
-{
-  public:
-  // Calls the given analysis' implementation of Expr2MemLoc within the given node
-  boost::shared_ptr<MemLocObject> operator()(SgNode* n, PartPtr p, ComposedAnalysis* a)
-  { return a->Expr2MemLoc(n, p); }
-  
-  string funcName() { return "Expr2MemLoc"; }
-};
-
-class Expr2CodeLocCaller : public FuncCaller<CodeLocObject>
-{
-  public:
-  // Calls the given analysis' implementation of Expr2CodeLoc within the given node
-  boost::shared_ptr<CodeLocObject> operator()(SgNode* n, PartPtr p, ComposedAnalysis* a)
-  { return a->Expr2CodeLoc(n, p); }
-  
-  string funcName() { return "Expr2CodeLoc"; }
-};
-
-ValueObjectPtr ChainComposer::Expr2Val(SgNode* n, PartPtr p, ComposedAnalysis* client) { 
-  Expr2ValCaller c;
-  return callServerAnalysisFunc<ValueObject>(n, p, client, c);
-}
-
-MemLocObjectPtrPair ChainComposer::Expr2MemLoc(SgNode* n, PartPtr p, ComposedAnalysis* client) { 
-  // Return the pair of <object that specifies the expression temporary of n, 
-  //                     object that specifies the memory location that n corresponds to>
-  Expr2MemLocCaller c;
-  MemLocObjectPtr mem = callServerAnalysisFunc<MemLocObject>(n, p, client, c);
-  // If mem is an expression object returned by the syntactic analysis, there is no object that
-  // specifies n's memory location
-  if(boost::dynamic_pointer_cast<ExprObj>(mem))
-    // Return mem as n's expression object and do not return an object for n's memory location
-    return MemLocObjectPtrPair(mem, MemLocObjectPtr());
-  // If mem actually corresponds to a location in memory 
-  else
-    // Generate a fresh object for n's expression temporary and return it along with mem
-    return MemLocObjectPtrPair(
-              isSgExpression(n) && !isSgVarRefExp(n) ? 
-                createExpressionMemLocObject(isSgExpression(n), isSgExpression(n)->get_type(), p) :
-                MemLocObjectPtr(),
-              mem);
-}
-
-CodeLocObjectPtrPair ChainComposer::Expr2CodeLoc(SgNode* n, PartPtr p, ComposedAnalysis* client) { 
-  // Return the pair of <object that specifies the expression temporary of n, 
-  //                     object that specifies the memory location that n corresponds to>
-  // GB: !!! Right now we don't have a firm idea of how to manage CodeLocObjects and have not yet implemented
-  //     !!! an ExprObj for them. When we have done so, this code will likely mirror the code for Expr2MemLoc.
-  Expr2CodeLocCaller c;
-  return CodeLocObjectPtrPair(boost::make_shared<StxCodeLocObject>(n, p),
-                              callServerAnalysisFunc<CodeLocObject>(n, p, client, c));
-}
-
-// Maps and Sets 
-// (when analyses can implement these internally, these functions will also invoke 
-//  callServerAnalysisFunc)
-/*ValueSet* ChainComposer::NewValueSet()  { return new ValueSet(); }
-ValueMap* ChainComposer::NewValueMap()  { return new ValueMap(); }
-
-MemLocSet* ChainComposer::NewMemLocSet() { return new MemLocSet(); }
-MemLocMap* ChainComposer::NewMemLocMap() { return new MemLocMap(); }
-
-CodeLocSet* ChainComposer::NewCodeLocSet() { return new CodeLocSet(); }
-CodeLocMap* ChainComposer::NewCodeLocMap() { return new CodeLocMap(); }*/
 
 }; //namespace dataflow;

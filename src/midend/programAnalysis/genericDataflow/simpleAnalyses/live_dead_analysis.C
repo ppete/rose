@@ -23,9 +23,10 @@ void LiveDeadMemAnalysis::genInitState(const Function& func, PartPtr part, const
   
   // If this part is the return statement of main(), make sure that its return value is live
   //if(func.get_name().getString() == "main" && 
+  SgReturnStmt* returnStmt;
   if(func.get_declaration() == SageInterface::findMain(SageInterface::getGlobalScope(func.get_declaration())) && 
-     isSgReturnStmt(part.getNode())) {
-    MemLocObjectPtrPair p(composer->Expr2MemLoc(isSgReturnStmt(part.getNode())->get_expression(), part, this));
+     (returnStmt = part->maySgNodeAny<SgReturnStmt>())) {
+    MemLocObjectPtrPair p(composer->Expr2MemLoc(returnStmt->get_expression(), part, this));
     s->insert(p.expr? p.expr : p.mem);
   }
   
@@ -386,24 +387,30 @@ void LiveDeadMemTransfer::visit(SgReturnStmt *sgn) {
 void LiveDeadMemTransfer::visit(SgExprStatement *sgn) {
     /*use(sgn->get_expression());*/
 }
-void LiveDeadMemTransfer::visit(SgCaseOptionStmt *sgn) {
-  PartPtr part(sgn, ldma->filter);
+void LiveDeadMemTransfer::visit(SgSwitchStatement *sgn) {
   // The operand of a control-flow statement is automatically live only
   // if the control-flow statement leads to multiple control options
-  if(part.outEdges().size() > 1) {
-    use(sgn->get_key());
-    use(sgn->get_key_range_end());
-  }
+  // This is always true for switch statements since they can always skip all the cases.
+  // However, in the future may want to check for whether the value of the switch is a constant.
+  // GB 2012-09-19 : Which object corresponds to the expression that chooses the case?
+  ROSE_ASSERT(0);
+  //use(sgn->get_item_selector());
+}
+void LiveDeadMemTransfer::visit(SgCaseOptionStmt *sgn) {
+  use(sgn->get_key());
+  use(sgn->get_key_range_end());
 }
 void LiveDeadMemTransfer::visit(SgIfStmt *sgn) {
-  PartPtr part(sgn, ldma->filter);
   // The operand of a control-flow statement is automatically live only
   // if the control-flow statement leads to multiple control options
-  if(part.outEdges().size() > 1) {
-    ROSE_ASSERT(isSgExprStatement(sgn->get_conditional()));
-    use(isSgExprStatement(sgn->get_conditional())->get_expression());
-  }
+  // This is always true for if statements since there's a difference between the true body executing and not executing
+  // even if there is no false body.
+  // However, in the future may want to check for whether the value of the switch is a constant.
+  
+  ROSE_ASSERT(isSgExprStatement(sgn->get_conditional()));
+  use(isSgExprStatement(sgn->get_conditional())->get_expression());
 }
+
 void LiveDeadMemTransfer::visit(SgForStatement *sgn) {
   //Dbg::dbg << "test="<<Dbg::escape(sgn->get_test()->unparseToString()) << " | " << sgn->get_test()->class_name()<<endl;
   //Dbg::dbg << "increment="<<Dbg::escape(sgn->get_increment()->unparseToString()) << " | " << sgn->get_increment()->class_name()<<endl;
@@ -514,8 +521,6 @@ MemLocObjectPtr LiveDeadMemAnalysis::Expr2MemLoc(SgNode* n, PartPtr part)
 LDMemLocObject::LDMemLocObject(MemLocObjectPtr parent_, LiveDeadMemAnalysis* ldma)
   : parent(parent_), ldma(ldma)
 {
-  //Dbg::dbg << "LDMemLocObject::LDMemLocObject(parent="<<(parent ? parent->str("") : "NULL")<<")"<<endl;
-  //iAmLive = isLiveMay(parent, ldma, p, *NodeState::getNodeState(part), "");
 }
 
 LDMemLocObject::LDMemLocObject(const LDMemLocObject& that) : parent(that.parent), ldma(that.ldma) 
@@ -525,8 +530,8 @@ bool LDMemLocObject::mayEqualML(MemLocObjectPtr o, PartPtr part)
 {
   LDMemLocObjectPtr that = boost::dynamic_pointer_cast<LDMemLocObject>(o);
   //ROSE_ASSERT(that);
-  bool isThisLive = isLive(part); //isLiveMay(      parent, ldma, part, *NodeState::getNodeState(part), "");
-  bool isThatLive = that->isLive(part); //isLiveMay(that->parent, ldma, part, *NodeState::getNodeState(part), "");
+  bool isThisLive = isLive(part);
+  bool isThatLive = that->isLive(part);
 
   /*Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;LDMemLocObject::mayEqual"<<endl;
   Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;this (live="<<isThisLive<<")="<<str("")<<endl;
@@ -550,10 +555,9 @@ bool LDMemLocObject::mayEqualML(MemLocObjectPtr o, PartPtr part)
 
 bool LDMemLocObject::mustEqualML(MemLocObjectPtr o, PartPtr part)
 {
-  //bool isThatLive = isLiveMay(o, ldma, n, *NodeState::getNodeState(n), "");
   LDMemLocObjectPtr that = boost::dynamic_pointer_cast<LDMemLocObject>(o);
-  bool isThisLive = isLive(part); //isLiveMay(      parent, ldma, part, *NodeState::getNodeState(part), "");
-  bool isThatLive = that->isLive(part); //isLiveMay(that->parent, ldma, part, *NodeState::getNodeState(part), "");
+  bool isThisLive = isLive(part);
+  bool isThatLive = that->isLive(part);
 	
   /*Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;LDMemLocObject::mustEqual"<<endl;
   Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;this (live="<<isThisLive<<")="<<str("")<<endl;
@@ -584,7 +588,7 @@ bool LDMemLocObject::isLive(PartPtr part) const
   Dbg::dbg << "live="<<isLiveMay(parent, ldma, part, *NodeState::getNodeState(part), "")<<endl;*/
   // We don't track liveness of function pointers so we default them to live
   if(MemLocObject::isFunctionMemLoc(parent)) return true;
-  else return isLiveMay(parent, ldma, part, *NodeState::getNodeState(part), "");
+  else return isLiveMay(parent, ldma, part, *NodeState::getNodeState(ldma, part), "");
 }
 
 // pretty print for the object
@@ -606,7 +610,6 @@ std::string LDMemLocObject::str(std::string indent) const
 std::string LDMemLocObject::strp(PartPtr part, std::string indent)
 {
   ostringstream oss;
-  //if(isLiveMay(parent, ldma, part, *NodeState::getNodeState(part), "")) 
   if(isLive(part))
     oss << "[LDMemLocObject: LIVE: "<<parent->str("    ")<<"]";
   else
@@ -658,14 +661,14 @@ LDLabeledAggregate::LDLabeledAggregate(MemLocObjectPtr parent, LiveDeadMemAnalys
 
 size_t LDLabeledAggregate::fieldCount(PartPtr part)
 {
-  //if(isLiveMay(parent, ldma, part, *NodeState::getNodeState(part), "")) 
+  //if(isLiveMay(parent, ldma, part, *NodeState::getNodeState(ldma, part), "")) 
     return MemLocObject::isLabeledAggregate(parent)->fieldCount(part);
   //return 0;
 }
 
 std::vector<boost::shared_ptr<LabeledAggregateField> > LDLabeledAggregate::getElements(PartPtr part) const
 {
-  //if(isLiveMay(parent, ldma, part, *NodeState::getNodeState(part), "")) 
+  //if(isLiveMay(parent, ldma, part, *NodeState::getNodeState(ldma, part), "")) 
     return MemLocObject::isLabeledAggregate(parent)->getElements(part);
   /*else {
     std::vector<boost::shared_ptr<LabeledAggregateField> > ret;
@@ -680,7 +683,7 @@ LDArray::LDArray(MemLocObjectPtr parent, LiveDeadMemAnalysis* ldma)
 // Returns a memory object that corresponds to all the elements in the given array
 MemLocObjectPtr LDArray::getElements(PartPtr part)
 {
-  //if(isLiveMay(parent, ldma, part, *NodeState::getNodeState(part), "")) 
+  //if(isLiveMay(parent, ldma, part, *NodeState::getNodeState(ldma, part), "")) 
     return createLDMemLocObjectCategory(MemLocObject::isArray(parent)->getElements(part), ldma);
   //else return MemLocObjectPtr();
 }
@@ -689,7 +692,7 @@ MemLocObjectPtr LDArray::getElements(PartPtr part)
 // which represents one or more indexes within the array
 MemLocObjectPtr LDArray::getElements(IndexVectorPtr ai, PartPtr part)
 {
-  //if(isLiveMay(parent, ldma, part, *NodeState::getNodeState(part), "")) 
+  //if(isLiveMay(parent, ldma, part, *NodeState::getNodeState(ldma, part), "")) 
     return createLDMemLocObjectCategory(MemLocObject::isArray(parent)->getElements(ai, part), ldma);
   //else return MemLocObjectPtr();
 }
@@ -706,7 +709,7 @@ size_t LDArray::getNumDims(PartPtr part)
 // Return the element object: array[0]
 MemLocObjectPtr LDArray::getDereference(PartPtr part)
 {
-  //if(isLiveMay(parent, ldma, part, *NodeState::getNodeState(part), "")) 
+  //if(isLiveMay(parent, ldma, part, *NodeState::getNodeState(ldma, part), "")) 
     return createLDMemLocObjectCategory(MemLocObject::isArray(parent)->getDereference(part), ldma);
   //else return MemLocObjectPtr();
 }
@@ -717,7 +720,7 @@ LDPointer::LDPointer(MemLocObjectPtr parent, LiveDeadMemAnalysis* ldma)
 
 MemLocObjectPtr LDPointer::getDereference(PartPtr part)
 {
-  //if(isLiveMay(parent, ldma, part, *NodeState::getNodeState(part), "")) 
+  //if(isLiveMay(parent, ldma, part, *NodeState::getNodeState(ldma, part), "")) 
   return createLDMemLocObjectCategory(MemLocObject::isPointer(parent)->getDereference(part), ldma);
   //else return MemLocObjectPtr();
 }
@@ -725,7 +728,7 @@ MemLocObjectPtr LDPointer::getDereference(PartPtr part)
 // Returns true if this pointer refers to the same abstract object as that pointer.
 bool LDPointer::equalPoints(const Pointer & that)
 {
-  //if(isLiveMay(parent, ldma, part, *NodeState::getNodeState(part), "")) 
+  //if(isLiveMay(parent, ldma, part, *NodeState::getNodeState(ldma, part), "")) 
   return MemLocObject::isPointer(parent)->equalPoints(that);
   //else return false;
 }

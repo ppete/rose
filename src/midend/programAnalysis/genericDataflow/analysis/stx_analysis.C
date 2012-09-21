@@ -4,35 +4,18 @@
 #include "sageInterface.h"
 #include <boost/enable_shared_from_this.hpp>
 #include <boost/make_shared.hpp>
-#include "live_dead_analysis.h"
+#include "VirtualCFGIterator.h"
+
+
+#include <boost/function.hpp>
+#include <boost/bind.hpp>
+
 
 using namespace std;
 
+//namespace bll = boost::lambda;
+
 namespace dataflow {
-
-/***************************
- ***** StxMemLocObject *****
- ***************************/
-StxMemLocObject::StxMemLocObject(SgType* t/*, PartPtr part*/) : 
-  type(t)//, part(part)
-{}
-
-StxMemLocObject::eqType StxMemLocObject::equal(MemLocObjectPtr that_arg, PartPtr part) 
-{
-  StxMemLocObjectPtr that = boost::dynamic_pointer_cast <StxMemLocObject> (that_arg);
-  
-  if(isLive(part)) {
-    // One is in-scope but the other is out-of-scope: different classes
-    if(!that->isLive(part)) return defNotEqual;
-    // Both are in-scope: need more refined processing
-    else               return unknown;
-  } else {
-    // Both are out-of-scope: same class
-    if(!that->isLive(part)) return defEqual;
-    // One is in-scope but the other is out-of-scope: different classes
-    else               return defNotEqual;
-  }
-}
 
 /*****************************
  ***** SyntacticAnalysis *****
@@ -113,7 +96,188 @@ CodeLocObjectPtr SyntacticAnalysis::Expr2CodeLoc(SgNode* n, PartPtr p)
 CodeLocObjectPtr SyntacticAnalysis::Expr2CodeLocStatic(SgNode* n, PartPtr p)
 { return boost::make_shared<StxCodeLocObject>(n, p); }
 
+// Return the anchor Parts of a given function
+PartPtr SyntacticAnalysis::GetFunctionStartPart(const Function& func)
+{
+  // Find the SgFunctionParameterList node by walking the CFG forwards from the function's start
+  for(VirtualCFG::iterator it(cfgUtils::getFuncStartCFG(func.get_definition())); it!=VirtualCFG::iterator::end(); it++) {
+    if(isSgFunctionParameterList((*it).getNode()) && (*it).getIndex()==0)
+      return boost::make_shared<StxPart>(*it, filter);
+  }
+  // We should never get here
+  ROSE_ASSERT(0);
+}
 
+PartPtr SyntacticAnalysis::GetFunctionEndPart(const Function& func)
+{
+  return boost::make_shared<StxPart>(cfgUtils::getFuncEndCFG(func.get_definition()), filter);
+}
+
+/**********************
+ ***** PARTITIONS *****
+ **********************/
+
+/*******************
+ ***** StxPart *****
+ *******************/
+
+// XXX: This code is duplicated from frontend/SageIII/virtualCFG/virtualCFG.C
+// Make a set of raw CFG edges closure. Raw edges may have src and dest CFG nodes which are to be filtered out. 
+// The method used is to connect them into CFG paths so src and dest nodes of each path are interesting, skipping intermediate filtered nodes)
+vector<StxPartEdgePtr> makeClosureDF(const vector<StxPartEdgePtr>& orig, // raw in or out edges to be processed
+                                     vector<CFGEdge> (CFGNode::*closure)() const, // find successor edges from a node, CFGNode::outEdges() for example
+                                     CFGNode (CFGPath::*otherSide)() const, // node from the other side of the path: CFGPath::target()
+                                     CFGPath (*merge)(const CFGPath&, const CFGPath&),  // merge two paths into one
+                                     bool (*filter) (CFGNode))   // filter function 
+{
+  // a filter function here
+  // A set of CFG paths, each of them is made from a raw CFG edge initially
+  //vector<CFGPath> currentPaths(orig.begin()->get()->getPath(), orig.end()->get()->getPath());
+  vector<CFGPath> currentPaths;
+  for(vector<StxPartEdgePtr>::const_iterator o=orig.begin(); o!=orig.end(); o++)
+    currentPaths.push_back((*o)->getPath());
+  
+  // cerr << "makeClosure starting with " << orig.size() << endl;
+  while (true) {
+top:
+    for (size_t i = 0; i < currentPaths.size(); ++i) { // check each of the current paths
+      // if a path has a node from the other side which is not interesting, do the path merge
+      if (!filter((currentPaths[i].*otherSide)())) {
+        unsigned int oldSize = currentPaths.size(); // the number of unique paths before merge
+        //get all other successor edges from the non-interesting dest node
+        vector<CFGEdge> currentPaths2 = ((currentPaths[i].*otherSide)().*closure)(); 
+        // merge the successor edges one by one
+        for (unsigned int j = 0; j < currentPaths2.size(); ++j) {
+          CFGPath merged = (*merge)(currentPaths[i], currentPaths2[j]);
+          if (std::find(currentPaths.begin(), currentPaths.end(), merged) == currentPaths.end()) { // find a new path? push it to the working set of initial edges
+            currentPaths.push_back(merged); // a new path will be inserted. Old path ending with non-interesting node still exists
+          }
+        }
+        if (currentPaths.size() != oldSize) 
+          goto top; // TODO go through all paths again? not very efficient!!
+      }
+    }
+    break; // If the iteration got all of the way through: all dest nodes of all paths are interesting or no new merges are made.
+  }
+  // cerr << "makeClosure loop done: " << currentPaths.size() << endl;
+
+  // Now convert the set of CFG paths with interesting src and dest nodes into a set of DataflowEdge 
+  vector<StxPartEdgePtr> edges;
+  for (vector<CFGPath>::const_iterator i = currentPaths.begin(); i != currentPaths.end(); ++i) {
+    // Only if the end node of the path is interesting
+    //if (((*i).*otherSide)().isInteresting())
+    if (filter(((*i).*otherSide)()))
+      edges.push_back(/*boost::static_pointer_cast<PartEdge>(*/boost::make_shared<StxPartEdge>(*i, filter)/*)*/);
+  }
+  //cout << "makeClosure done: #edges=" << edges.size() << endl;
+  //for(vector<DataflowEdge>::iterator e=edges.begin(); e!=edges.end(); e++)
+  //    printf("Current Node %p<%s | %s>\n", e.target().getNode(), e.target().getNode()->unparseToString().c_str(), e.target().getNode()->class_name().c_str());
+  for (vector<StxPartEdgePtr>::const_iterator i = edges.begin(); i != edges.end(); ++i) {
+    ROSE_ASSERT((*i)->source()->filterAny(filter)  || 
+                (*i)->target()->filterAny(filter)); // at least one node is interesting
+  }
+  return edges;
+}
+
+vector<PartEdgePtr> StxPart::outEdges() {
+  vector<StxPartEdgePtr> vStx = makeClosureDF(outStxEdges(), &CFGNode::outEdges, &CFGPath::target, &mergePaths, filter);
+  vector<PartEdgePtr> v;
+  for(vector<StxPartEdgePtr>::iterator i=vStx.begin(); i!=vStx.end(); i++)
+    v.push_back(boost::static_pointer_cast<PartEdge>(*i));
+  return v;
+}
+
+vector<StxPartEdgePtr> StxPart::outStxEdges() {
+  return makeClosureDF(outStxEdges(), &CFGNode::outEdges, &CFGPath::target, &mergePaths, filter);
+}
+
+vector<PartEdgePtr> StxPart::inEdges() {
+  vector<StxPartEdgePtr> vStx = makeClosureDF(inStxEdges(), &CFGNode::inEdges, &CFGPath::target, &mergePaths, filter);
+  vector<PartEdgePtr> v;
+  for(vector<StxPartEdgePtr>::iterator i=vStx.begin(); i!=vStx.end(); i++)
+    v.push_back(boost::static_pointer_cast<PartEdge>(*i));
+  return v;
+}
+
+vector<StxPartEdgePtr> StxPart::inStxEdges() {
+  return makeClosureDF(inStxEdges(), &CFGNode::inEdges, &CFGPath::source, &mergePathsReversed, filter);
+}
+
+std::vector<CFGNode> StxPart::CFGNodes()
+{
+  std::vector<CFGNode> v;
+  v.push_back(n);
+  return v;
+}
+
+bool StxPart::operator==(PartPtr o)
+{
+  ROSE_ASSERT(boost::dynamic_pointer_cast<StxPart>(o));
+  return n == boost::dynamic_pointer_cast<StxPart>(o)->n;
+}
+
+bool StxPart::operator<(PartPtr o)
+{
+  ROSE_ASSERT(boost::dynamic_pointer_cast<StxPart>(o));
+  return n < boost::dynamic_pointer_cast<StxPart>(o)->n;
+}
+
+std::string StxPart::str(std::string indent)
+{
+  ostringstream oss;
+  oss << "[" << Dbg::escape(n.getNode()->unparseToString()) << " | " << n.getNode()->class_name() << "]";
+  return oss.str();
+}
+
+/***********************
+ ***** StxPartEdge *****
+ ***********************/
+
+PartPtr StxPartEdge::source() { return boost::make_shared<StxPart>(p.source(), filter); }
+PartPtr StxPartEdge::target() { return boost::make_shared<StxPart>(p.target(), filter); }
+
+bool StxPartEdge::operator==(PartEdgePtr o)
+{
+  ROSE_ASSERT(boost::dynamic_pointer_cast<StxPartEdge>(o));
+  return p == boost::dynamic_pointer_cast<StxPartEdge>(o)->p;
+}
+
+bool StxPartEdge::operator<(PartEdgePtr o)
+{
+  ROSE_ASSERT(boost::dynamic_pointer_cast<StxPartEdge>(o));
+  return p < boost::dynamic_pointer_cast<StxPartEdge>(o)->p;
+}
+
+std::string StxPartEdge::str(std::string indent)
+{
+  ostringstream oss;
+  oss << source()->str() << Dbg::escape(" ==> ") << target()->str();
+  return oss.str();
+}
+
+/***************************
+ ***** StxMemLocObject *****
+ ***************************/
+StxMemLocObject::StxMemLocObject(SgType* t/*, PartPtr part*/) : 
+  type(t)//, part(part)
+{}
+
+StxMemLocObject::eqType StxMemLocObject::equal(MemLocObjectPtr that_arg, PartPtr part) 
+{
+  StxMemLocObjectPtr that = boost::dynamic_pointer_cast <StxMemLocObject> (that_arg);
+  
+  if(isLive(part)) {
+    // One is in-scope but the other is out-of-scope: different classes
+    if(!that->isLive(part)) return defNotEqual;
+    // Both are in-scope: need more refined processing
+    else               return unknown;
+  } else {
+    // Both are out-of-scope: same class
+    if(!that->isLive(part)) return defEqual;
+    // One is in-scope but the other is out-of-scope: different classes
+    else               return defNotEqual;
+  }
+}
 
 /**************************
  ***** StxValueObject *****
@@ -659,6 +823,11 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
     return ancestors;
   }
   
+  bool enc (SgExpression* anchor_exp, const CFGNode& n) {
+    return SageInterface::getEnclosingStatement(anchor_exp) == 
+           SageInterface::getEnclosingStatement(n.getNode());
+  }
+    
   // Returns true if this MemLocObject is in-scope at the given part and false otherwise
   bool ExprObj::isLive(PartPtr part) const 
   {
@@ -671,10 +840,17 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
     //        This rule is fairly loose but at least it is easy to compute. The right rule
     //        would have been that the part is on some path between the expression and its
     //        parent but this would require an expensive graph search
-    return SageInterface::getEnclosingStatement(anchor_exp) == 
-           SageInterface::getEnclosingStatement(part.getNode());
+    /*return SageInterface::getEnclosingStatement(anchor_exp) == 
+           SageInterface::getEnclosingStatement(part.getNode());*/    
+    //boost::function<bool (SgExpression*, const CFGNode&)> enc1 = &enc;
+    return part->mapCFGNodeANY<bool>(boost::bind(enc, anchor_exp, _1));
+    /*struct enc { public: bool op(SgExpression* anchor_exp, const CFGNode& n) {
+      return SageInterface::getEnclosingStatement(anchor_exp) == 
+             SageInterface::getEnclosingStatement(n.getNode());
+    } }; enc e;
+    return part->mapCFGNodeANY<bool>(boost::bind(&enc::op, anchor_exp, _1));*/
     
-    //RULE 3: look for a common ancestor between anchor_exp and part.getNode(). If this ancestor
+    //RULE 3: look for a common ancestor between anchor_exp and part.getNode(). If this ancestor134/dix
     //        is part.getNode(), below part.getNode() or anchor_expr is an operand of part.getNode() (it is
     //        one level above part.getNode()) then it is in-scope.
     // anchor_exp         a     b
@@ -692,7 +868,7 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
       return true;
     // Otherwise, anchor_exp is only in-scope if shares an ancestor with part.getNode() but part.getNode() 
     // is not that ancestor.
-    } else {
+  } else {
       //Dbg::dbg << "anchor_exp->get_parent()=["<<anchor_exp->get_parent()->unparseToString()<<" | "<<anchor_exp->get_parent()->class_name()<<"]"<<endl;
       //Dbg::dbg << "part.getNode()=["<<part.getNode()->unparseToString()<<" | "<<part.getNode()->class_name()<<"]"<<endl;
       //Dbg::dbg << "isOperand(part.getNode(), anchor_exp)="<<isOperand(part.getNode(), anchor_exp)<<endl;
@@ -1131,7 +1307,7 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
           {
             // same array index, must use *pointer == *pointer to get the right comparison!!
             //Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;array_index_vector->mayEqual(o2->array_index_vector, p)="<<array_index_vector->mayEqual(o2->array_index_vector, p)<<endl;
-            if (array_index_vector->mayEqual(o2->array_index_vector, p))
+            if(array_index_vector->mayEqual(o2->array_index_vector, p))
               rt = true; // semantically equivalent index vectors
           }
           else {
@@ -1267,6 +1443,22 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
     }
   }
   
+  // Return whether there exists a CFGNode within this part that is inside the function in which the anchor symbol
+  // is defined.
+  bool matchAnchorPart(SgFunctionDefinition* anchorFD, const CFGNode& n) {
+    SgFunctionDefinition* partFD;
+    // If the current CFGNode is an initialized variable name
+    if(isSgInitializedName(n.getNode()))
+      partFD = SageInterface::getEnclosingFunctionDefinition(isSgInitializedName(n.getNode())->get_scope(), true);
+    else if(isSgFunctionParameterList(n.getNode())) {
+      ROSE_ASSERT(isSgFunctionDeclaration(isSgFunctionParameterList(n.getNode())->get_parent()));
+      partFD = isSgFunctionDeclaration(isSgFunctionParameterList(n.getNode())->get_parent())->get_definition();
+    } else 
+      partFD = SageInterface::getEnclosingFunctionDefinition(n.getNode(), true);
+    ROSE_ASSERT(partFD);
+    return anchorFD == partFD;
+  }
+  
   // Returns true if this MemLocObject is in-scope at the given part and false otherwise
   bool NamedObj::isLive(PartPtr part) const
   {
@@ -1292,22 +1484,20 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
     Dbg::dbg << (partScope!=NULL ? "IN-SCOPE" : "OUT-OF-SCOPE")<<endl;
     return partScope!=NULL;*/
    
-    SgFunctionDefinition* partFD;
-    if(isSgInitializedName(part.getNode())) //partFD = SageInterface::getEnclosingFunctionDefinition(isSgInitializedName(part.getNode())->get_declaration());
-      partFD = SageInterface::getEnclosingFunctionDefinition(isSgInitializedName(part.getNode())->get_scope(), true);
-    else if(isSgFunctionParameterList(part.getNode())) {
-      ROSE_ASSERT(isSgFunctionDeclaration(isSgFunctionParameterList(part.getNode())->get_parent()));
-      partFD = isSgFunctionDeclaration(isSgFunctionParameterList(part.getNode())->get_parent())->get_definition();
-    } else partFD = SageInterface::getEnclosingFunctionDefinition(part.getNode(), true);
-    ROSE_ASSERT(partFD);
-
-    SgFunctionDefinition* anchorFD;
-    ROSE_ASSERT(isSgVariableSymbol(anchor_symbol) || isSgFunctionSymbol(anchor_symbol));
-    if(isSgVariableSymbol(anchor_symbol)) {
-      anchorFD = SageInterface::getEnclosingFunctionDefinition(isSgVariableSymbol(anchor_symbol)->get_declaration()->get_scope(), true);
-      ROSE_ASSERT(anchorFD);
+    if(isSgFunctionSymbol(anchor_symbol)) return true;
+    else if(isSgVariableSymbol(anchor_symbol)) {
+      // Get the FunctionDefinition of the funciton that the anchor symbol is defined in
+      SgFunctionDefinition* anchorFD;
+      ROSE_ASSERT(isSgVariableSymbol(anchor_symbol) || isSgFunctionSymbol(anchor_symbol));
+      if(isSgVariableSymbol(anchor_symbol)) {
+        anchorFD = SageInterface::getEnclosingFunctionDefinition(isSgVariableSymbol(anchor_symbol)->get_declaration()->get_scope(), true);
+        ROSE_ASSERT(anchorFD);
+      } else
+        anchorFD = NULL;
+      
+      return part->mapCFGNodeANY<bool>(boost::bind(&matchAnchorPart, anchorFD, _1));
     } else
-      anchorFD = NULL; // SageInterface::getEnclosingFunctionDefinition(isSgFunctionSymbol(anchor_symbol)->get_declaration()->get_scope(), true);
+      return false;
  
     /*Dbg::region reg(1,1, Dbg::region::topLevel, string("NamedObj::isLive(")+anchor_symbol->get_name().getString()+string(")")+string(isSgFunctionSymbol(anchor_symbol) || (isSgVariableSymbol(anchor_symbol) && (anchorFD == partFD)) ?  "IN-SCOPE" : "OUT-OF-SCOPE"));
     Dbg::dbg << "anchorFD=";
@@ -1315,8 +1505,6 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
     else         Dbg::dbg << "SgFunctionSymbol"<<endl;
     Dbg::dbg << "partFD=["<<partFD->unparseToString()<<" | "<<partFD->class_name()<<"]"<<endl;
     Dbg::dbg << "part=["<<part.getNode()->unparseToString()<<" | "<<part.getNode()->class_name()<<"]"<<endl;*/
-    return isSgFunctionSymbol(anchor_symbol) ||
-           (isSgVariableSymbol(anchor_symbol) && (anchorFD == partFD));
   }
   
   //std::string IndexVector_Impl::str(const string& indent)
@@ -1363,7 +1551,7 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
     return rt; 
   }*/
 
-  bool IndexVector_Impl::mayEqual(IndexVectorPtr other, const Part& p)
+  bool IndexVector_Impl::mayEqual(IndexVectorPtr other, PartPtr part)
   {
     IndexVector_ImplPtr other_impl = boost::dynamic_pointer_cast<IndexVector_Impl>(other);
     // If other is not of a compatible type
@@ -1378,7 +1566,7 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
     { // same size, no different element
       for (size_t i =0; i< other_impl->getSize(); i++)
       {
-        if (!(this->index_vector[i]->mayEqual(other_impl->index_vector[i], p)))
+        if (!(this->index_vector[i]->mayEqual(other_impl->index_vector[i], part)))
         {
           has_diff_element = true;
             break;
@@ -1391,7 +1579,7 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
     return rt;
   }
 
-  bool IndexVector_Impl::mustEqual(IndexVectorPtr other, const Part& p)
+  bool IndexVector_Impl::mustEqual(IndexVectorPtr other, PartPtr part)
   {
     IndexVector_ImplPtr other_impl = boost::dynamic_pointer_cast<IndexVector_Impl>(other);
     // If other is not of a compatible type
@@ -1406,7 +1594,7 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
     { // same size, no different element
       for (size_t i =0; i< other_impl->getSize(); i++)
       {
-        if (!(this->index_vector[i]->mustEqual(other_impl->index_vector[i], p)))
+        if (!(this->index_vector[i]->mustEqual(other_impl->index_vector[i], part)))
         {
           has_diff_element = true;
             break;

@@ -51,9 +51,7 @@ namespace dataflow {
     bool isFinite;
     // True if this map has been set to represent the set of all possible AbstractObject->Lattice mappings.
     bool isFull;
-
-    //ComposerExpr2ObjPtr ceo;
-
+    
     // We may need to be able to call the composer's Expr2MemLoc functions
     // but I'm not sure yet
     /*const Composer& composer;
@@ -72,14 +70,13 @@ namespace dataflow {
                                    part        (that.part),
                                    analysis    (that.analysis),*/
                                    isFinite    (that.isFinite),
-                                   isFull      (that.isFull)/*,
-                                   ceo         (that.ceo)*/
+                                   isFull      (that.isFull)
     {}
-    AbstractObjectMap(EqualFunctor& ef, LatticePtr defaultLat_/*, ComposerExpr2ObjPtr ceo_*/, PartPtr part_) : 
+    AbstractObjectMap(EqualFunctor& ef, LatticePtr defaultLat_, PartPtr part_) : 
       Lattice(part_), equalFunctor(EqualFunctorPtr(&ef)), defaultLat(defaultLat_), isFinite(true), isFull(false) {}
-    AbstractObjectMap(EqualFunctor* ef, LatticePtr defaultLat_/*, ComposerExpr2ObjPtr ceo_*/, PartPtr part_) : 
+    AbstractObjectMap(EqualFunctor* ef, LatticePtr defaultLat_, PartPtr part_) : 
       Lattice(part_), equalFunctor(EqualFunctorPtr(ef)), defaultLat(defaultLat_), isFinite(true), isFull(false) {}
-    AbstractObjectMap(EqualFunctorPtr efPtr, LatticePtr defaultLat_/*, ComposerExpr2ObjPtr ceo_*/, PartPtr part_) : 
+    AbstractObjectMap(EqualFunctorPtr efPtr, LatticePtr defaultLat_, PartPtr part_) : 
       Lattice(part_), equalFunctor(efPtr), defaultLat(defaultLat_), isFinite(true), isFull(false) {}
     ~AbstractObjectMap() {}
 

@@ -1,15 +1,9 @@
 #ifndef CFGUTILS_H
 #define CFGUTILS_H
 
-#include "genericDataflowCommon.h" // for quad typedefs
-#include "VirtualCFGIterator.h"
-#include "DataflowCFG.h"
-#include "partitions.h"
-//#include "DataflowCFG.cfgToDot.h"
-
 #include <set>
 #include <string>
-
+#include "rose.h"
 namespace cfgUtils
 {
   extern SgProject* project;
@@ -19,19 +13,19 @@ namespace cfgUtils
 
   SgProject* getProject();
 
- // returns whether a given AST node that represents a constant is an integer and
+  // Returns whether a given AST node that represents a constant is an integer and
   // sets *val to be the numeric value of that integer (all integer types are included
   // but not floating point, characters, etc.)
-  bool IsConstInt (const SgExpression* rhs, long &val);
+  bool IsConstInt(const SgExpression* rhs, long &val);
 
   // pulls off all the SgCastExps that may be wrapping the given expression, returning the expression that is being wrapped
   const SgExpression* unwrapCasts(const SgExpression* e);
 
   // returns the DataflowNode that represents that start of the CFG of the given function's body
-  dataflow::PartPtr getFuncStartCFG(SgFunctionDefinition* func, bool (*f) (CFGNode) = defaultFilter );
+  CFGNode getFuncStartCFG(SgFunctionDefinition* func);
 
   // returns the DataflowNode that represents that end of the CFG of the given function's body
-  dataflow::PartPtr getFuncEndCFG(SgFunctionDefinition* func, bool (*f) (CFGNode) = defaultFilter);
+  CFGNode getFuncEndCFG(SgFunctionDefinition* func);
 
   // returns a string containing a unique name that is not otherwise used inside this project
   std::string genUniqueName();

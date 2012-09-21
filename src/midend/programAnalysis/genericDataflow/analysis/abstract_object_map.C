@@ -105,7 +105,7 @@ std::string AbstractObjectMap::str(std::string indent) {
 std::string AbstractObjectMap::strp(PartPtr part, std::string indent)
 {
   ostringstream oss;
-  oss << "[AbstractObjectMap ("<<part.getNode()->class_name()<<"): ";
+  oss << "[AbstractObjectMap ("<<part->str()<<"): ";
   
   //printf("[AbstractObjectMap: "); fflush(stdout);
   for(list<MapElement>::iterator it = items.begin();
@@ -321,8 +321,8 @@ Lattice* AbstractObjectMap::remapML(const std::set<pair<MemLocObjectPtr, MemLocO
       // If either the key or the value of this mapping is dead within its respective part, skip it
       if(!m->first->isLive(part) || (m->second && !m->second->isLive(newPart)))
         Dbg::dbg << "<b>AbstractObjectMap::remapML() WARNING: Skipping dead ml2ml mapping "<<m->first->strp(part)<<"(live="<<m->first->isLive(part)<<") => "<<(m->second ? m->second->strp(newPart) : "NULL")<<"(live="<<(m->second ? m->second->isLive(newPart) : -1)<<")"<<endl
-                 << "&nbsp;&nbsp;&nbsp;&nbsp;part=["<<part.getNode()->unparseToString()<<" | "<<part.getNode()->class_name()<<"]"<<endl
-                 << "&nbsp;&nbsp;&nbsp;&nbsp;part=["<<newPart.getNode()->unparseToString()<<" | "<<newPart.getNode()->class_name()<<"]</b>"<<endl;
+                 << "&nbsp;&nbsp;&nbsp;&nbsp;part=["<<part->str()<<"]"<<endl
+                 << "&nbsp;&nbsp;&nbsp;&nbsp;part=["<<newPart->str()<<"]</b>"<<endl;
   }
   
   AbstractObjectMap* newM = new AbstractObjectMap(equalFunctor, defaultLat, newPart);
