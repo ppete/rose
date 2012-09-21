@@ -141,6 +141,9 @@ IntraBWDataflow::getInitialWorklist(const Function &func, bool analyzeFromDirect
 {
   list<PartPtr> dfIt;
   dfIt.push_back(getComposer()->GetFunctionEndPart(func, this));
+  Dbg::dbg << "IntraBWDataflow::getInitialWorklist() end="<<getComposer()->GetFunctionEndPart(func, this)->str()<<endl;
+  
+  
   //RoseSTLContainer<SgNode*> rets=NodeQuery::querySubTree(project,VSgReturnStmt);
   //for(RoseSTLContainer<SgNode*>::iterator r=rets.begin(); r!=rets.end(); r++)
   GetReturnStmts grs(this);
@@ -209,7 +212,8 @@ void IntraBWDataflow::transferFunctionCall(const Function &caller, PartPtr callP
 vector<PartPtr> IntraFWDataflow::getDescendants(PartPtr part)
 { 
   vector<PartPtr> descendants;
-  for(vector<PartEdgePtr>::const_iterator ei = part->outEdges().begin(); ei!=part->outEdges().end(); ei++)
+  vector<PartEdgePtr> outEdges = part->outEdges();
+  for(vector<PartEdgePtr>::const_iterator ei=outEdges.begin(); ei!=outEdges.end(); ei++)
     descendants.push_back((*ei)->target());
   return descendants;
 }
@@ -217,7 +221,8 @@ vector<PartPtr> IntraFWDataflow::getDescendants(PartPtr part)
 vector<PartPtr> IntraBWDataflow::getDescendants(PartPtr part)
 { 
   vector<PartPtr> descendants;
-  for(vector<PartEdgePtr>::const_iterator ei = part->inEdges().begin(); ei!=part->inEdges().end(); ei++)
+  vector<PartEdgePtr> inEdges = part->inEdges();
+  for(vector<PartEdgePtr>::const_iterator ei=inEdges.begin(); ei!=inEdges.end(); ei++)
     descendants.push_back((*ei)->source());
   return descendants;
 }
@@ -238,7 +243,7 @@ dataflowPartIterator* IntraBWDataflow::getIterator(const Function &func)
 // analyzeFromDirectionStart - If true the function should be analyzed from its starting point from the analysis' 
 //    perspective (fw: entry point, bw: exit point)
 void ComposedAnalysis::runAnalysis(const Function& func, NodeState* fState, bool analyzeFromDirectionStart, 
-                                              set<Function> calleesUpdated)
+                                   set<Function> calleesUpdated)
 {
   // Make sure that we've been paired with a valid inter-procedural dataflow analysis
   ROSE_ASSERT(dynamic_cast<InterProceduralDataflow*>(interAnalysis));
@@ -260,7 +265,7 @@ void ComposedAnalysis::runAnalysis(const Function& func, NodeState* fState, bool
   //printf("IntraFWDataflow::runAnalysis() function %s()\n", func.get_name().getString());
   
   // Set of all the Parts that have already been visited by the analysis
-  set<PartPtr> visited;
+  set<PartPtrCmp> visited;
   
   // Re-analyze it from scratch
   list<PartPtr> startingParts = getInitialWorklist(func, true, calleesUpdated, fState);
@@ -280,10 +285,11 @@ void ComposedAnalysis::runAnalysis(const Function& func, NodeState* fState, bool
       nodeNameStr << "Current Part "<<part->str()<<endl; Dbg::region reg(analysisDebugLevel, 1, Dbg::region::topLevel, nodeNameStr.str());
       
       bool modified = false;
-      visited.insert(part);
+      visited.insert(PartPtrCmp(part));
       
       // The NodeState associated with this part
       NodeState* state = NodeState::getNodeState(this, part);
+      Dbg::dbg << "analysis="<<this<<"="<<((ComposedAnalysis*)this)<<"="<<str()<<" state="<<state<<"="<<state->str(this)<<endl;
         
       // Iterate over all the CFGNodes associated with this part and merge the result of applying to transfer function
       // to all of them
@@ -429,7 +435,7 @@ void ComposedAnalysis::runAnalysis(const Function& func, NodeState* fState, bool
           }
           // If the next node's state gets modified as a result of the propagation, or the next node has not yet been
           // visited, add it to the processing queue.
-          if(modified || visited.find(nextNode)==visited.end())
+          if(modified || visited.find(PartPtrCmp(nextNode))==visited.end())
             curNodeIt->add(nextNode);
         }
       }

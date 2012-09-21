@@ -443,7 +443,7 @@ class InterProceduralDataflow : virtual public InterProceduralAnalysis
 
   // Since InterProceduralDataflow takes in only Composed intra analyses,
   // this method is a simple way to get access to the intra analysis with the right type.
-  ComposedAnalysis* getIntraComposeAnalysis() { 
+  ComposedAnalysis* getIntraComposedAnalysis() { 
     ComposedAnalysis* ca = dynamic_cast<ComposedAnalysis*>(intraAnalysis);
     ROSE_ASSERT(ca);
     return ca;
@@ -510,15 +510,7 @@ class ContextInsensitiveInterProceduralDataflow : virtual public InterProcedural
 
   public:
   ContextInsensitiveInterProceduralDataflow(ComposedAnalysis* intraDataflowAnalysis, SgIncidenceDirectedGraph* graph) ;
-  
-  // Since InterProceduralDataflow takes in only ComposedAnalysis intra analyses,
-  // this method is a simple way to get access to the intra analysis with the right type.
-  ComposedAnalysis* getIntraUnidirAnalysis() { 
-    ComposedAnalysis* iudd = dynamic_cast<ComposedAnalysis*>(intraAnalysis);
-    ROSE_ASSERT(iudd);
-    return iudd;
-  }
-  
+    
   public:
 
   // the transfer function that is applied to SgFunctionCallExp nodes to perform the appropriate state transfers

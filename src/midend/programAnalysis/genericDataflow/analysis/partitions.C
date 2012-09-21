@@ -26,40 +26,44 @@ bool Part::filterAll(bool (*filter) (CFGNode cfgn))
   return true;
 }
 
-bool Part::operator!=(const PartPtr o) { return !(*this==o); }
-bool Part::operator>=(const PartPtr o) { return !(*this<o); }
-bool Part::operator<=(const PartPtr o) { return (*this<o) || (*this == o); }
-bool Part::operator>(const PartPtr o)  { return !(*this<=o); }
+bool Part::operator!=(const PartPtr o) const { return !(*this==o); }
+bool Part::operator>=(const PartPtr o) const { return !(*this<o); }
+bool Part::operator<=(const PartPtr o) const { return (*this<o) || (*this == o); }
+bool Part::operator>(const PartPtr o)  const { return !(*this<=o); }
 
 /***********************
  ***** PartPtrCmp ******
  ***********************/
 
-bool PartPtrCmp::operator==(const PartPtr o) { return (*get()) == o; }
-bool PartPtrCmp::operator< (const PartPtr o) { return (*get()) <  o; }
-bool PartPtrCmp::operator!=(const PartPtr o) { return (*get()) != o; }
-bool PartPtrCmp::operator>=(const PartPtr o) { return (*get()) >= o; }
-bool PartPtrCmp::operator<=(const PartPtr o) { return (*get()) <= o; }
-bool PartPtrCmp::operator> (const PartPtr o) { return (*get()) >  o; }
+bool PartPtrCmp::operator==(PartPtrCmp const & o) const { return (*ptr.get()) == o.ptr; }
+bool PartPtrCmp::operator< (PartPtrCmp const & o) const { return (*ptr.get()) <  o.ptr; }
+bool PartPtrCmp::operator!=(PartPtrCmp const & o) const { return (*ptr.get()) != o.ptr; }
+bool PartPtrCmp::operator>=(PartPtrCmp const & o) const { return (*ptr.get()) >= o.ptr; }
+bool PartPtrCmp::operator<=(PartPtrCmp const & o) const { return (*ptr.get()) <= o.ptr; }
+bool PartPtrCmp::operator> (PartPtrCmp const & o) const { return (*ptr.get()) >  o.ptr; }
+
+std::string PartPtrCmp::str(std::string indent) { return ptr->str(indent); }
 
 /*********************
  ***** PartEdge ******
  *********************/
 
-bool PartEdge::operator!=(PartEdgePtr o) { return !(*this==o); }
-bool PartEdge::operator>=(PartEdgePtr o) { return !(*this<o); }
-bool PartEdge::operator<=(PartEdgePtr o) { return (*this<o) || (*this == o); }
-bool PartEdge::operator>(PartEdgePtr o)  { return !(*this<=o); }
+bool PartEdge::operator!=(PartEdgePtr o) const { return !(*this==o); }
+bool PartEdge::operator>=(PartEdgePtr o) const { return !(*this<o); }
+bool PartEdge::operator<=(PartEdgePtr o) const { return (*this<o) || (*this == o); }
+bool PartEdge::operator>(PartEdgePtr o)  const { return !(*this<=o); }
 
 /***************************
  ***** PartEdgePtrCmp ******
  ***************************/
 
-bool PartEdgePtrCmp::operator==(const PartEdgePtr o) { return (*get()) == o; }
-bool PartEdgePtrCmp::operator< (const PartEdgePtr o) { return (*get()) <  o; }
-bool PartEdgePtrCmp::operator!=(const PartEdgePtr o) { return (*get()) != o; }
-bool PartEdgePtrCmp::operator>=(const PartEdgePtr o) { return (*get()) >= o; }
-bool PartEdgePtrCmp::operator<=(const PartEdgePtr o) { return (*get()) <= o; }
-bool PartEdgePtrCmp::operator> (const PartEdgePtr o) { return (*get()) >  o; }
+bool PartEdgePtrCmp::operator==(PartEdgePtrCmp const & o) const { return (*ptr.get()) == o.ptr; }
+bool PartEdgePtrCmp::operator< (PartEdgePtrCmp const & o) const { return (*ptr.get()) <  o.ptr; }
+bool PartEdgePtrCmp::operator!=(PartEdgePtrCmp const & o) const { return (*ptr.get()) != o.ptr; }
+bool PartEdgePtrCmp::operator>=(PartEdgePtrCmp const & o) const { return (*ptr.get()) >= o.ptr; }
+bool PartEdgePtrCmp::operator<=(PartEdgePtrCmp const & o) const { return (*ptr.get()) <= o.ptr; }
+bool PartEdgePtrCmp::operator> (PartEdgePtrCmp const & o) const { return (*ptr.get()) >  o.ptr; }
+
+std::string PartEdgePtrCmp::str(std::string indent) { return ptr->str(indent); }
 
 }; // namespace dataflow

@@ -78,7 +78,13 @@ LiveDeadMemTransfer(const Function &f, PartPtr part, NodeState &s, const std::ve
                     ComposerExpr2MemLocPtr ceml, funcSideEffectUses *fseu)
     : IntraDFTransferVisitor(f, part, s, d),
     liveLat(dynamic_cast<AbstractObjectSet*>(*(dfInfo.begin()))), 
-    ldma(ldma), ceml(ceml), modified(false), assigned(part, AbstractObjectSet::may), used(part, AbstractObjectSet::may), part(part), fseu(fseu)
+    ldma(ldma), 
+    ceml(ceml), 
+    modified(false), 
+    assigned(part, AbstractObjectSet::may), 
+    used(part, AbstractObjectSet::may), 
+    part(part), 
+    fseu(fseu)
     {
         if(liveDeadAnalysisDebugLevel>=1) {
           Dbg::dbg << "LiveDeadMemTransfer: liveLat=";

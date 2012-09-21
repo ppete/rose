@@ -760,9 +760,21 @@ map<ComposedAnalysis*, map<PartPtrCmp, NodeState*> > NodeState::nodeStateMap;
 // Returns the NodeState object associated with the given Part from the given analysis.
 NodeState* NodeState::getNodeState(ComposedAnalysis* analysis, PartPtr p)
 {
-  if(nodeStateMap.find(analysis)    == nodeStateMap.end() ||
-     nodeStateMap[analysis].find(PartPtrCmp(p)) == nodeStateMap[analysis].end())
+  if(nodeStateMap.find(analysis)                == nodeStateMap.end() ||
+     nodeStateMap[analysis].find(PartPtrCmp(p)) == nodeStateMap[analysis].end()) {
+    /*Dbg::dbg << "NodeState::getNodeState() Creating new state. analysis="<<analysis<<"(found="<<(nodeStateMap.find(analysis) == nodeStateMap.end())<< ") p="<<p->str();
+    if(nodeStateMap.find(analysis) != nodeStateMap.end()) 
+      Dbg::dbg<<"(found="<<(nodeStateMap[analysis].find(PartPtrCmp(p)) == nodeStateMap[analysis].end())<<")";
+    if(nodeStateMap[analysis].size() > 0) {
+      PartPtrCmp last = nodeStateMap[analysis].rbegin()->first;
+      Dbg::dbg << "nodeStateMap[analysis].rbegin()"<<last.str()<<endl;
+      PartPtrCmp c(p);
+      Dbg::dbg << "eq="<<(last == c)<<endl;
+    }*/
+    
     nodeStateMap[analysis][PartPtrCmp(p)] = new NodeState();
+    //Dbg::dbg << "state="<<nodeStateMap[analysis][PartPtrCmp(p)]<<endl;
+  }
   
   return nodeStateMap[analysis][PartPtrCmp(p)];
 }

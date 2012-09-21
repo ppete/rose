@@ -174,7 +174,7 @@ class GetFunctionEndPartCaller : public FuncCaller<PartPtr, const Function>
 };
 
 PartPtr ChainComposer::GetFunctionEndPart(const Function& func, ComposedAnalysis* client) { 
-  GetFunctionStartPartCaller c;
+  GetFunctionEndPartCaller c;
   //FuncCallerArgs_GetFunctionAnyPart args(func);
   return callServerAnalysisFunc<PartPtr, Function>(func, client, c);
 }
@@ -200,10 +200,10 @@ CodeLocMap* ChainComposer::NewCodeLocMap() { return new CodeLocMap(); }*/
 ChainComposer::ChainComposer(int argc, char** argv, list<ComposedAnalysis*>& analyses) : allAnalyses(analyses)
 {
   //cout << "#allAnalyses="<<allAnalyses.size()<<endl;
-  // Create an instance of the syntactic analysis and insert it at the front of the list.
+  // Create an instance of the syntactic analysis and insert it at the front of the done list.
   // This analysis will be called last if matching functions do not exist in any other
   // analysis and does not need a round of fixed-point iteration to produce its results.
-  allAnalyses.push_front((ComposedAnalysis*)new SyntacticAnalysis());
+  doneAnalyses.push_front((ComposedAnalysis*)new SyntacticAnalysis());
   
   // Inform each analysis of the composer's identity
   //cout << "#allAnalyses="<<allAnalyses.size()<<endl;
@@ -258,7 +258,8 @@ void ChainComposer::runAnalysis()
 template<class RetObject, class FuncCallerArgs>
 RetObject ChainComposer::callServerAnalysisFunc(const FuncCallerArgs& args, ComposedAnalysis* client,
                                    FuncCaller<RetObject, const FuncCallerArgs>& caller) {
-  if(composerDebugLevel>=1) Dbg::dbg << "ChainComposer::callServerAnalysisFunc() "<<caller.funcName()<<" #doneAnalyses="<<doneAnalyses.size()<<endl;
+  if(composerDebugLevel>=2) Dbg::dbg << "ChainComposer::callServerAnalysisFunc() "<<caller.funcName()<<" #doneAnalyses="<<doneAnalyses.size()<<endl;
+  ROSE_ASSERT(doneAnalyses.size()>0);
   /*for(list<ComposedAnalysis*>::reverse_iterator a=doneAnalyses.rbegin(); a!=doneAnalyses.rend(); a++) {
       Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;"<<(*a)->str("")<<endl;
   }*/
@@ -266,7 +267,7 @@ RetObject ChainComposer::callServerAnalysisFunc(const FuncCallerArgs& args, Comp
   // Iterate backwards looking for an analysis that implements caller() behind in the chain of completed analyses
   list<ComposedAnalysis*>::reverse_iterator a=doneAnalyses.rbegin();
   while(doneAnalyses.size() >= 0) {
-    ostringstream label; label << caller.funcName() << "  : " << (*a)->str("") << " " << args.str();
+    std::ostringstream label; label << caller.funcName() << "  : " << (*a)->str("") << " " << args.str();
     Dbg::region reg(composerDebugLevel, 1, Dbg::region::topLevel, label.str());
     ComposedAnalysis* curAnalysis = *a;
     // Move the current analysis from doneAnalyses onto a backup list to ensure that in recursive calls

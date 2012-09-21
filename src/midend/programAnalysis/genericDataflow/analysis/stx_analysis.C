@@ -12,6 +12,7 @@
 
 
 using namespace std;
+using namespace cfgUtils;
 
 //namespace bll = boost::lambda;
 
@@ -124,7 +125,7 @@ PartPtr SyntacticAnalysis::GetFunctionEndPart(const Function& func)
 // XXX: This code is duplicated from frontend/SageIII/virtualCFG/virtualCFG.C
 // Make a set of raw CFG edges closure. Raw edges may have src and dest CFG nodes which are to be filtered out. 
 // The method used is to connect them into CFG paths so src and dest nodes of each path are interesting, skipping intermediate filtered nodes)
-vector<StxPartEdgePtr> makeClosureDF(const vector<StxPartEdgePtr>& orig, // raw in or out edges to be processed
+vector<StxPartEdgePtr> makeClosureDF(const vector<CFGEdge>& orig, // raw in or out edges to be processed
                                      vector<CFGEdge> (CFGNode::*closure)() const, // find successor edges from a node, CFGNode::outEdges() for example
                                      CFGNode (CFGPath::*otherSide)() const, // node from the other side of the path: CFGPath::target()
                                      CFGPath (*merge)(const CFGPath&, const CFGPath&),  // merge two paths into one
@@ -132,22 +133,34 @@ vector<StxPartEdgePtr> makeClosureDF(const vector<StxPartEdgePtr>& orig, // raw 
 {
   // a filter function here
   // A set of CFG paths, each of them is made from a raw CFG edge initially
-  //vector<CFGPath> currentPaths(orig.begin()->get()->getPath(), orig.end()->get()->getPath());
-  vector<CFGPath> currentPaths;
+  vector<CFGPath> currentPaths(orig.begin(), orig.end());
+  /*vector<CFGPath> currentPaths;
   for(vector<StxPartEdgePtr>::const_iterator o=orig.begin(); o!=orig.end(); o++)
-    currentPaths.push_back((*o)->getPath());
+    currentPaths.push_back((*o)->getPath());*/
   
-  // cerr << "makeClosure starting with " << orig.size() << endl;
+  /*{
+  Dbg::dbg << "currentPaths="<<endl;
+  Dbg::indent ind;
+  for(vector<CFGPath>::iterator p=currentPaths.begin(); p!=currentPaths.end(); p++)
+    Dbg::dbg << SgNode2Str(currentPaths[i].source().getNode())<<" ==> "<<SgNode2Str(currentPaths[i].target().getNode())<<endl;
+  }*/
+  
+  //cerr << "makeClosure starting with " << currentPaths.size() << endl;
   while (true) {
 top:
+    Dbg::indent ind;
     for (size_t i = 0; i < currentPaths.size(); ++i) { // check each of the current paths
+      //Dbg::dbg << "currentPaths["<<i<<"]="<<SgNode2Str(currentPaths[i].source().getNode())<<" ==> "<<SgNode2Str(currentPaths[i].target().getNode())<<endl;
       // if a path has a node from the other side which is not interesting, do the path merge
       if (!filter((currentPaths[i].*otherSide)())) {
         unsigned int oldSize = currentPaths.size(); // the number of unique paths before merge
         //get all other successor edges from the non-interesting dest node
         vector<CFGEdge> currentPaths2 = ((currentPaths[i].*otherSide)().*closure)(); 
+        
         // merge the successor edges one by one
         for (unsigned int j = 0; j < currentPaths2.size(); ++j) {
+          //Dbg::dbg << "currentPaths["<<i<<"]="<<SgNode2Str(currentPaths[i].source().getNode())<<" ==> "<<SgNode2Str(currentPaths[i].target().getNode())<<endl;
+          //Dbg::dbg << "currentPaths2["<<j<<"]="<<SgNode2Str(currentPaths2[j].source().getNode())<<" ==> "<<SgNode2Str(currentPaths2[j].target().getNode())<<endl;
           CFGPath merged = (*merge)(currentPaths[i], currentPaths2[j]);
           if (std::find(currentPaths.begin(), currentPaths.end(), merged) == currentPaths.end()) { // find a new path? push it to the working set of initial edges
             currentPaths.push_back(merged); // a new path will be inserted. Old path ending with non-interesting node still exists
@@ -180,7 +193,7 @@ top:
 }
 
 vector<PartEdgePtr> StxPart::outEdges() {
-  vector<StxPartEdgePtr> vStx = makeClosureDF(outStxEdges(), &CFGNode::outEdges, &CFGPath::target, &mergePaths, filter);
+  vector<StxPartEdgePtr> vStx = makeClosureDF(n.outEdges(), &CFGNode::outEdges, &CFGPath::target, &mergePaths, filter);
   vector<PartEdgePtr> v;
   for(vector<StxPartEdgePtr>::iterator i=vStx.begin(); i!=vStx.end(); i++)
     v.push_back(boost::static_pointer_cast<PartEdge>(*i));
@@ -188,19 +201,21 @@ vector<PartEdgePtr> StxPart::outEdges() {
 }
 
 vector<StxPartEdgePtr> StxPart::outStxEdges() {
-  return makeClosureDF(outStxEdges(), &CFGNode::outEdges, &CFGPath::target, &mergePaths, filter);
+  return makeClosureDF(n.outEdges(), &CFGNode::outEdges, &CFGPath::target, &mergePaths, filter);
 }
 
 vector<PartEdgePtr> StxPart::inEdges() {
-  vector<StxPartEdgePtr> vStx = makeClosureDF(inStxEdges(), &CFGNode::inEdges, &CFGPath::target, &mergePaths, filter);
+  vector<StxPartEdgePtr> vStx = makeClosureDF(n.inEdges(), &CFGNode::inEdges, &CFGPath::source, &mergePathsReversed, filter);
   vector<PartEdgePtr> v;
-  for(vector<StxPartEdgePtr>::iterator i=vStx.begin(); i!=vStx.end(); i++)
+  for(vector<StxPartEdgePtr>::iterator i=vStx.begin(); i!=vStx.end(); i++) {
     v.push_back(boost::static_pointer_cast<PartEdge>(*i));
+  }
+  
   return v;
 }
 
 vector<StxPartEdgePtr> StxPart::inStxEdges() {
-  return makeClosureDF(inStxEdges(), &CFGNode::inEdges, &CFGPath::source, &mergePathsReversed, filter);
+  return makeClosureDF(n.inEdges(), &CFGNode::inEdges, &CFGPath::source, &mergePathsReversed, filter);
 }
 
 std::vector<CFGNode> StxPart::CFGNodes()
@@ -210,13 +225,13 @@ std::vector<CFGNode> StxPart::CFGNodes()
   return v;
 }
 
-bool StxPart::operator==(PartPtr o)
+bool StxPart::operator==(PartPtr o) const
 {
   ROSE_ASSERT(boost::dynamic_pointer_cast<StxPart>(o));
   return n == boost::dynamic_pointer_cast<StxPart>(o)->n;
 }
 
-bool StxPart::operator<(PartPtr o)
+bool StxPart::operator<(PartPtr o) const
 {
   ROSE_ASSERT(boost::dynamic_pointer_cast<StxPart>(o));
   return n < boost::dynamic_pointer_cast<StxPart>(o)->n;
@@ -225,7 +240,7 @@ bool StxPart::operator<(PartPtr o)
 std::string StxPart::str(std::string indent)
 {
   ostringstream oss;
-  oss << "[" << Dbg::escape(n.getNode()->unparseToString()) << " | " << n.getNode()->class_name() << "]";
+  oss << "[" << Dbg::escape(n.getNode()->unparseToString()) << " | " << n.getNode()->class_name() << " | " << n.getIndex() << "]";
   return oss.str();
 }
 
@@ -236,13 +251,13 @@ std::string StxPart::str(std::string indent)
 PartPtr StxPartEdge::source() { return boost::make_shared<StxPart>(p.source(), filter); }
 PartPtr StxPartEdge::target() { return boost::make_shared<StxPart>(p.target(), filter); }
 
-bool StxPartEdge::operator==(PartEdgePtr o)
+bool StxPartEdge::operator==(PartEdgePtr o) const
 {
   ROSE_ASSERT(boost::dynamic_pointer_cast<StxPartEdge>(o));
   return p == boost::dynamic_pointer_cast<StxPartEdge>(o)->p;
 }
 
-bool StxPartEdge::operator<(PartEdgePtr o)
+bool StxPartEdge::operator<(PartEdgePtr o) const
 {
   ROSE_ASSERT(boost::dynamic_pointer_cast<StxPartEdge>(o));
   return p < boost::dynamic_pointer_cast<StxPartEdge>(o)->p;

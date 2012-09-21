@@ -96,8 +96,8 @@ class StxPart : public Part
   std::vector<StxPartEdgePtr> inStxEdges();
   std::vector<CFGNode>  CFGNodes();
   
-  bool operator==(PartPtr o);
-  bool operator<(PartPtr o);
+  bool operator==(PartPtr o) const;
+  bool operator<(PartPtr o)  const;
   
   std::string str(std::string indent="");
 };
@@ -116,8 +116,8 @@ class StxPartEdge : public PartEdge
   
   CFGPath getPath() const { return p; }
   
-  bool operator==(PartEdgePtr o);
-  bool operator<(PartEdgePtr o);
+  bool operator==(PartEdgePtr o) const;
+  bool operator<(PartEdgePtr o)  const;
   
   std::string str(std::string indent="");
 };

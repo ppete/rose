@@ -35,7 +35,7 @@ class Part : public printable {
     Ret r = (Ret)NULL;
     std::vector<CFGNode> v=CFGNodes();
     for(std::vector<CFGNode>::iterator i=v.begin(); i!=v.end(); i++) {
-      if(r = func(*i)) return r;
+      if((r = func(*i))) return r;
     }
     return r;
   }
@@ -88,26 +88,30 @@ class Part : public printable {
   // If the filter accepts (returns true) on all of the CFGNodes within this part, return true)
   bool filterAll(bool (*filter) (CFGNode cfgn));
   
-  virtual bool operator==(const PartPtr o)=0;
-  virtual bool operator<(const PartPtr o)=0;
-  bool operator!=(const PartPtr o);
-  bool operator>=(const PartPtr o);
-  bool operator<=(const PartPtr o);
-  bool operator> (const PartPtr o);
+  virtual bool operator==(const PartPtr o) const=0;
+  virtual bool operator<(const PartPtr o)  const=0;
+  bool operator!=(const PartPtr o) const;
+  bool operator>=(const PartPtr o) const;
+  bool operator<=(const PartPtr o) const;
+  bool operator> (const PartPtr o) const;
 };
 
 // Extension to PartPtr that that can be used as keys in maps because it wraps comparison operations by forwarding 
 // them to the Part's own comparison operations. In contrast, the base boost::shared_ptr uses pointer equality.
-class PartPtrCmp : public PartPtr
+class PartPtrCmp : public printable
 {
+  PartPtr ptr;
+  
   public:
-  PartPtrCmp(const PartPtr& o) : PartPtr(o) {}
-  bool operator==(const PartPtr o);
-  bool operator< (const PartPtr o);
-  bool operator!=(const PartPtr o);
-  bool operator>=(const PartPtr o);
-  bool operator<=(const PartPtr o);
-  bool operator> (const PartPtr o);
+  PartPtrCmp(const PartPtr& o) : ptr(o) {}
+  bool operator==(PartPtrCmp const & o) const;
+  bool operator< (PartPtrCmp const & o) const;
+  bool operator!=(PartPtrCmp const & o) const;
+  bool operator>=(PartPtrCmp const & o) const;
+  bool operator<=(PartPtrCmp const & o) const;
+  bool operator> (PartPtrCmp const & o) const;
+  
+  std::string str(std::string indent="");
 };
 
 class PartEdge : public printable {
@@ -115,26 +119,30 @@ class PartEdge : public printable {
   virtual PartPtr source()=0;
   virtual PartPtr target()=0;
   
-  virtual bool operator==(const PartEdgePtr o)=0;
-  virtual bool operator<(const PartEdgePtr o)=0;
-  bool operator!=(const PartEdgePtr o);
-  bool operator>=(const PartEdgePtr o);
-  bool operator<=(const PartEdgePtr o);
-  bool operator> (const PartEdgePtr o);
+  virtual bool operator==(const PartEdgePtr o) const=0;
+  virtual bool operator<(const PartEdgePtr o)  const=0;
+  bool operator!=(const PartEdgePtr o) const;
+  bool operator>=(const PartEdgePtr o) const;
+  bool operator<=(const PartEdgePtr o) const;
+  bool operator> (const PartEdgePtr o) const;
 };
 
 // Extension to PartEdgePtr that that can be used as keys in maps because it wraps comparison operations by forwarding 
 // them to the Part's own comparison operations. In contrast, the base boost::shared_ptr uses pointer equality.
-class PartEdgePtrCmp : public PartEdgePtr
+class PartEdgePtrCmp : public printable
 {
+  PartEdgePtr ptr;
+  
   public:
-  PartEdgePtrCmp(const PartEdgePtr& o) : PartEdgePtr(o) {}
-  bool operator==(const PartEdgePtr o);
-  bool operator< (const PartEdgePtr o);
-  bool operator!=(const PartEdgePtr o);
-  bool operator>=(const PartEdgePtr o);
-  bool operator<=(const PartEdgePtr o);
-  bool operator> (const PartEdgePtr o);
+  PartEdgePtrCmp(const PartEdgePtr& o) : ptr(o) {}
+  bool operator== (PartEdgePtrCmp const & o) const;
+  bool operator<  (PartEdgePtrCmp const & o) const;
+  bool operator!= (PartEdgePtrCmp const & o) const;
+  bool operator>= (PartEdgePtrCmp const & o) const;
+  bool operator<= (PartEdgePtrCmp const & o) const;
+  bool operator>  (PartEdgePtrCmp const & o) const;
+  
+  std::string str(std::string indent="");
 };
 
 }; // namespace dataflow
