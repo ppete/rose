@@ -184,6 +184,66 @@ std::string MemLocObjectPtrPair::strp(PartPtr part, std::string indent)
 }
 
 /* ################################
+   ##### CombinedMemLocObject ##### 
+   ################################ */
+
+template <bool defaultMayEq>
+CombinedMemLocObject::CombinedMemLocObject(MemLocObjectPtr memLoc) {
+  memLocs.push_back(memLoc);
+}
+
+template <bool defaultMayEq>
+CombinedMemLocObject::CombinedMemLocObject(const list<MemLocObjectPtr>& memLocs) : memLocs(memLocs) {}
+
+template <bool defaultMayEq>
+void CombinedMemLocObject::add(MemLocObjectPtr memLoc) {
+  memLocs.push_back(memLoc);
+}
+
+// Returns whether this object may/must be equal to o within the given Part p
+// These methods are private to prevent analyses from calling them directly.
+template <bool defaultMayEq>
+bool CombinedMemLocObject::mayEqualML(MemLocObjectPtr o, PartPtr part)
+{
+  CombinedMemLocObjectPtr that = boost::dynamic_ptr_cast<CombinedMemLocObject>(o);
+  // If the two combination objects include different numbers of MemLocObjects, say that they may be equal since 
+  // we can't be sure either way.
+  if(memLocs.size() != that.memLocs.size()) return true;
+  
+  // Compare all the pairs of MemLocObjects in memLocs and that.memLocs, returning defaultMayEq if any pair
+  // returns defaultMayEq since we're looking for the tightest (if defaultMayEq=false) / loosest (if defaultMayEq=true) 
+  // answer that any MemLocObject in memLocs can give
+  for(list<MemLocObjectPtr>::iterator thisIt=memLocs.begin(), thatIt=that->memLocs.begin();
+      thisIt!=memLocs.end();
+      thisIt++, thatIt++)
+  {
+    if((*thisIt)->mayEqual(thatIt, part) == defaultMayEq) return defaultMayEq;
+  }
+  
+  return !defaultMayEq;
+}
+
+template <bool defaultMayEq>
+bool CombinedMemLocObject::mustEqualML(MemLocObjectPtr o, PartPtr part)
+{
+  CombinedMemLocObjectPtr that = boost::dynamic_ptr_cast<CombinedMemLocObject>(o);
+  // If the two combination  objects include different numbers of MemLocObjects, say that they are not must equal since 
+  // we can't be sure either way.
+  if(memLocs.size() != that.memLocs.size()) return false;
+  
+  // Compare all the pairs of MemLocObjects in memLocs and that.memLocs, returning !defaultMayEq if any pair
+  // returns !defaultMayEqual since we're looking for the tightest answer that any MemLocObject in memLocs can give
+  for(list<MemLocObjectPtr>::iterator thisIt=memLocs.begin(), thatIt=that->memLocs.begin();
+      thisIt!=memLocs.end();
+      thisIt++, thatIt++)
+  {
+    if((*thisIt)->mustEqual(thatIt, part) == !defaultMayEqual) return !defaultMayEqual;
+  }
+  
+  return defaultMayEqual;
+}
+
+/* ################################
    ##### CodeLocObjectPtrPair ##### 
    ################################ */
 
@@ -238,6 +298,230 @@ std::string CodeLocObjectPtrPair::strp(PartPtr part, std::string indent)
   }
   oss << "]";
   return oss.str();
+}
+
+/* #################################
+   ##### CombinedCodeLocObject ##### 
+   ################################# */
+
+template <bool defaultMayEq>
+CombinedCodeLocObject::CombinedCodeLocObject(CodeLocObjectPtr codeLoc) {
+  codeLocs.push_back(codeLoc);
+}
+
+template <bool defaultMayEq>
+CombinedCodeLocObject::CombinedCodeLocObject(const list<CodeLocObjectPtr>& codeLocs) : codeLocs(codeLocs) {}
+
+template <bool defaultMayEq>
+void CombinedCodeLocObject::add(CodeLocObjectPtr codeLoc) {
+  codeLocs.push_back(codeLoc);
+}
+
+// Returns whether this object may/must be equal to o within the given Part p
+// These methods are private to prevent analyses from calling them directly.
+template <bool defaultMayEq>
+bool CombinedCodeLocObject::mayEqualCL(CodeLocObjectPtr o, PartPtr part)
+{
+  CombinedCodeLocObjectPtr that = boost::dynamic_ptr_cast<CombinedCodeLocObject>(o);
+  // If the two combination objects include different numbers of CodeLocObjects, say that they may be equal since 
+  // we can't be sure either way.
+  if(codeLocs.size() != that.codeLocs.size()) return true;
+  
+  // Compare all the pairs of CodeLocObjects in codeLocs and that.codeLocs, returning defaultMayEq if any pair
+  // returns defaultMayEq since we're looking for the tightest (if defaultMayEq=false) / loosest (if defaultMayEq=true) 
+  // answer that any CodeLocObject in codeLocs can give
+  for(list<CodeLocObjectPtr>::iterator thisIt=codeLocs.begin(), thatIt=that->codeLocs.begin();
+      thisIt!=codeLocs.end();
+      thisIt++, thatIt++)
+  {
+    if((*thisIt)->mayEqual(thatIt, part) == defaultMayEq) return defaultMayEq;
+  }
+  
+  return !defaultMayEq;
+}
+
+template <bool defaultMayEq>
+bool CombinedCodeLocObject::mustEqualCL(CodeLocObjectPtr o, PartPtr part)
+{
+  CombinedCodeLocObjectPtr that = boost::dynamic_ptr_cast<CombinedCodeLocObject>(o);
+  // If the two combination  objects include different numbers of CodeLocObjects, say that they are not must equal since 
+  // we can't be sure either way.
+  if(codeLocs.size() != that.codeLocs.size()) return false;
+  
+  // Compare all the pairs of CodeLocObjects in codeLocs and that.codeLocs, returning !defaultMayEq if any pair
+  // returns !defaultMayEqual since we're looking for the tightest answer that any CodeLocObject in codeLocs can give
+  for(list<CodeLocObjectPtr>::iterator thisIt=codeLocs.begin(), thatIt=that->codeLocs.begin();
+      thisIt!=codeLocs.end();
+      thisIt++, thatIt++)
+  {
+    if((*thisIt)->mustEqual(thatIt, part) == !defaultMayEqual) return !defaultMayEqual;
+  }
+  
+  return defaultMayEqual;
+}
+
+/* #######################
+   ##### ValueObject ##### 
+   ####################### */
+
+bool ValueObject::mayEqual(AbstractObjectPtr o, PartPtr p)
+{
+  ValueObjectPtr vo = boost::dynamic_pointer_cast<ValueObject>(o);
+  if(vo) return mayEqual(vo, p);
+  else   return false;
+}
+
+bool ValueObject::mustEqual(AbstractObjectPtr o, PartPtr p)
+{
+  ValueObjectPtr vo = boost::dynamic_pointer_cast<ValueObject>(o);
+  if(vo) return mustEqual(vo, p);
+  else   return false;
+}
+
+// Returns true if this object is live at the given part and false otherwise.
+// Values are always live.
+bool ValueObject::isLive(PartPtr p) const
+{ return true; }
+
+// Allocates a copy of this object and returns a pointer to it
+AbstractObjectPtr ValueObject::copyAO() const
+{ return copyV(); }
+
+// Returns true if the two SgValueExps correspond to the same value when cast to the given type (if t!=NULL)
+bool ValueObject::equalValueExp(SgValueExp* e1, SgValueExp* e2, SgType* t=NULL)
+{
+  // Currently not handling type conversions
+  ROSE_ASSERT(t!=NULL);
+  
+  if(e1->variantT() != e2->variantT()) return false;
+  
+  if(isSgBoolValExp(e1))             { return isSgBoolValExp(e1)->get_value()             == isSgBoolValExp(e2)->get_value(); }
+  if(isSgCharVal(e1))                { return isSgCharVal(e1)->get_value()                == isSgCharVal(e2)->get_value(); }
+  if(isSgComplexVal(e1))             { return isSgComplexVal(e1)->get_value()             == isSgComplexVal(e2)->get_value(); }
+  if(isSgDoubleVal(e1))              { return isSgDoubleVal(e1)->get_value()              == isSgDoubleVal(e2)->get_value(); }
+  if(isSgEnumVal(e1))                { return isSgEnumVal(e1)->get_value()                == isSgEnumVal(e2)->get_value(); }
+  if(isSgFloatVal(e1))               { return isSgFloatVal(e1)->get_value()               == isSgFloatVal(e2)->get_value(); }
+  if(isSgIntVal(e1))                 { return isSgIntVal(e1)->get_value()                 == isSgIntVal(e2)->get_value(); }
+  if(isSgLongDoubleVal(e1))          { return isSgLongDoubleVal(e1)->get_value()          == isSgLongDoubleVal(e2)->get_value(); }
+  if(isSgLongIntVal(e1))             { return isSgLongIntVal(e1)->get_value()             == isSgLongIntVal(e2)->get_value(); }
+  if(isSgLongLongIntVal(e1))         { return isSgLongLongIntVal(e1)->get_value()         == isSgLongLongIntVal(e2)->get_value(); }
+  if(isSgShortVal(e1))               { return isSgShortVal(e1)->get_value()               == isSgShortVal(e2)->get_value(); }
+  if(isSgStringVal(e1))              { return isSgStringVal(e1)->get_value()              == isSgStringVal(e2)->get_value(); }
+  if(isSgWcharVal(e1))               { return isSgWcharVal(e1)->get_value()               == isSgWcharVal(e2)->get_value(); }
+  if(isSgUnsignedCharVal(e1))        { return isSgUnsignedCharVal(e1)->get_value()        == isSgUnsignedCharVal(e2)->get_value(); }
+  if(isSgUnsignedIntVal(e1))         { return isSgUnsignedIntVal(e1)->get_value()         == isSgUnsignedIntVal(e2)->get_value(); }
+  if(isSgUnsignedLongLongIntVal(e1)) { return isSgUnsignedLongLongIntVal(e1)->get_value() == isSgUnsignedLongLongIntVal(e2)->get_value(); }
+  if(isSgUnsignedLongVal(e1))        { return isSgUnsignedLongVal(e1)->get_value()        == isSgUnsignedLongVal(e2)->get_value(); }
+  if(isSgUnsignedShortVal(e1))       { return isSgWcharVal(e1)->get_value()               == isSgUnsignedShortVal(e2)->get_value(); }
+  if(isSgUpcMythread(e1))            { return isSgUpcMythread(e1)->get_value()            == isSgUpcMythread(e2)->get_value(); }
+  if(isSgUpcThreads(e1))             { return isSgUpcThreads(e1)->get_value()             == isSgUpcThreads(e2)->get_value(); }
+  
+  ROSE_ASSERT(0);
+}
+
+/* ################################
+   ##### CombinedValueObject ##### 
+   ################################ */
+
+template <bool defaultMayEq>
+CombinedValueObject::CombinedValueObject(ValueObjectPtr val) {
+  vals.push_back(val);
+}
+
+template <bool defaultMayEq>
+CombinedValueObject::CombinedValueObject(const list<ValueObjectPtr>& vals) : vals(vals) {}
+
+template <bool defaultMayEq>
+void CombinedValueObject::add(ValueObjectPtr val) {
+  vals.push_back(val);
+}
+
+// Returns whether this object may/must be equal to o within the given Part p
+// These methods are private to prevent analyses from calling them directly.
+template <bool defaultMayEq>
+bool CombinedValueObject::mayEqual(ValueObjectPtr o, PartPtr part)
+{
+  CombinedValueObjectPtr that = boost::dynamic_ptr_cast<CombinedValueObject>(o);
+  // If the two combination objects include different numbers of ValueObjects, say that they may be equal since 
+  // we can't be sure either way.
+  if(vals.size() != that.vals.size()) return true;
+  
+  // Compare all the pairs of ValueObjects in vals and that.vals, returning defaultMayEq if any pair
+  // returns defaultMayEq since we're looking for the tightest (if defaultMayEq=false) / loosest (if defaultMayEq=true) 
+  // answer that any ValueObject in vals can give
+  for(list<ValueObjectPtr>::iterator thisIt=vals.begin(), thatIt=that->vals.begin();
+      thisIt!=vals.end();
+      thisIt++, thatIt++)
+  {
+    if((*thisIt)->mayEqual(thatIt, part) == defaultMayEq) return defaultMayEq;
+  }
+  
+  return !defaultMayEq;
+}
+
+template <bool defaultMayEq>
+bool CombinedValueObject::mustEqual(ValueObjectPtr o, PartPtr part)
+{
+  CombinedValueObjectPtr that = boost::dynamic_ptr_cast<CombinedValueObject>(o);
+  // If the two combination  objects include different numbers of ValueObjects, say that they are not must equal since 
+  // we can't be sure either way.
+  if(vals.size() != that.vals.size()) return false;
+  
+  // Compare all the pairs of ValueObjects in vals and that.vals, returning !defaultMayEq if any pair
+  // returns !defaultMayEqual since we're looking for the tightest answer that any ValueObject in vals can give
+  for(list<ValueObjectPtr>::iterator thisIt=vals.begin(), thatIt=that->vals.begin();
+      thisIt!=vals.end();
+      thisIt++, thatIt++)
+  {
+    if((*thisIt)->mustEqual(thatIt, part) == !defaultMayEqual) return !defaultMayEqual;
+  }
+  
+  return defaultMayEqual;
+}
+
+// Returns true if this ValueObject corresponds to a concrete value that is statically-known
+bool CombinedValueObject::isConcrete()
+{
+  // The combined object is concrete if 
+  // intersect (defaultMayEq=false) : any sub-value is concrete
+  // union (defaultMayEq=true) : all the sub-values are concrete and have the same type and value
+  
+  // Intersection
+  if(defaultMayEq==false) {
+    for(list<ValueObjectPtr>::iterator v=vals.begin(); v!=vals.end(); v++)
+      if(!(*v)->isConcrete()) return true;
+    return false;
+  // Union
+  } else {
+    // The union is not concrete if 
+    for(list<ValueObjectPtr>::iterator v=vals.begin(); v!=vals.end(); v++) {
+         // Any sub-value is not concrete, OR
+      if(!(*v)->isConcrete() || 
+         // Any pair of sub-values have different types, OR
+         (*v)->getConcreteType().get() != (*vals.begin())->getConcreteType().get() ||
+         // Any pair of sub-values have different values
+         !ValueObject::equalValueExp((*v)->get(), (*vals.begin())->get()))
+      return false;
+    }
+    return true;
+  }
+}
+
+// Returns the type of the concrete value (if there is one)
+boost::shared_ptr<SgType> CombinedValueObject::getConcreteType()
+{
+  ROSE_ASSERT(isConcrete());
+  
+  return (*vals.begin())->getConcreteType();
+}
+
+// Returns the concrete value (if there is one) as an SgValueExp, which allows callers to use
+// the normal ROSE mechanisms to decode it
+boost::shared_ptr<SgValueExp> CombinedValueObject::getConcreteValue()
+{
+  ROSE_ASSERT(isConcrete());
+  
+  return (*vals.begin())->getConcreteValue();
 }
 
 /* ############################

@@ -21,6 +21,10 @@ int LDPropThroughRet3(int q) {
 	q += 501;
 	return q;
 }
+int LDPropThroughRet4(int q) {
+	q += 601;
+	return q;
+}
 
 int main()
 {
@@ -29,22 +33,32 @@ int main()
   int c=3;
   int d=4;
 
+  // ConstProp: a=1, b=2, c=3, d=4
+  // LiveDead: a, b, c, d
   int W = noLDProp(a);
-  // W : 102
+  // ConstProp: a=1, b=2, c=3, d=4, W=102
+  // LiveDead: a, b, c, d, W
   int X = LDPropThroughArg(W);
-  // X : 202
-  // W : 303
-  int Y = LDPropThroughRet1(X);
-  // Y : 503
+  // ConstProp: a=1, b=2, c=3, d=4, X=202, W=303
+  // LiveDead: a, b, c, d, X, W
+  int Y = LDPropThroughRet1(X)+W;
+  // ConstProp: a=1, b=2, c=3, d=4, Y=806
+  // LiveDead: a, b, c, d, Y
   int array[100000];
+  // ConstProp: a=1, b=2, c=3, d=4, Y=806
+  // LiveDead: a, b, c, d, Y
   array[a] = LDPropThroughRet3(Y);
+  // ConstProp: a=1, b=2, c=3, d=4, Y=806, array[1]=1307
+  // LiveDead: a, b, c, d, Y, array[1]
   array[b] = Y;
-  // array[1] : 1004 
-  // array[2] : 503
-  array[array[d-c]] = array[a];
-  // array[1004] : 1004
-  array[c] = LDPropThroughRet2(LDPropThroughRet3(array[b]));
-  // array[3] : 1405;
+  // ConstProp: a=1, b=2, c=3, d=4, array[1]=1307, array[2]=806
+  // LiveDead: a, b, c, d, array[1], array[2]
+  array[array[d-c]+array[b]] = array[a];
+  // ConstProp: c=3, array[2113]=1307
+  // LiveDead: c, array[2113]
+  array[c] = LDPropThroughRet2(LDPropThroughRet4(array[2113]));
+  // ConstProp: array[3]=3209
+  // LiveDead: array[3]
 
-  return array[1];
+  return array[3];
 }

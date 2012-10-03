@@ -101,9 +101,12 @@ CodeLocObjectPtr SyntacticAnalysis::Expr2CodeLocStatic(SgNode* n, PartPtr p)
 PartPtr SyntacticAnalysis::GetFunctionStartPart(const Function& func)
 {
   // Find the SgFunctionParameterList node by walking the CFG forwards from the function's start
-  for(VirtualCFG::iterator it(cfgUtils::getFuncStartCFG(func.get_definition())); it!=VirtualCFG::iterator::end(); it++) {
-    if(isSgFunctionParameterList((*it).getNode()) && (*it).getIndex()==0)
-      return boost::make_shared<StxPart>(*it, filter);
+  /*Dbg::dbg << "SyntacticAnalysis::GetFunctionStartPart()"<<endl;
+  Dbg::indent ind;*/
+  for(VirtualCFG::back_iterator it(cfgUtils::getFuncEndCFG(func.get_definition())); it!=VirtualCFG::back_iterator::end(); it++) {
+    //Dbg::dbg << "it="<<cfgUtils::CFGNode2Str(*it)<<endl;
+    if(isSgFunctionParameterList((*it).getNode())/* && (*it).getIndex()==1*/)
+      return makePart<StxPart>(*it, filter);//boost::make_shared<StxPart>(*it, filter);
   }
   // We should never get here
   ROSE_ASSERT(0);
@@ -111,7 +114,7 @@ PartPtr SyntacticAnalysis::GetFunctionStartPart(const Function& func)
 
 PartPtr SyntacticAnalysis::GetFunctionEndPart(const Function& func)
 {
-  return boost::make_shared<StxPart>(cfgUtils::getFuncEndCFG(func.get_definition()), filter);
+  return makePart<StxPart>(cfgUtils::getFuncEndCFG(func.get_definition()), filter);//boost::make_shared<StxPart>(cfgUtils::getFuncEndCFG(func.get_definition()), filter);
 }
 
 /**********************
@@ -176,16 +179,17 @@ top:
 
   // Now convert the set of CFG paths with interesting src and dest nodes into a set of DataflowEdge 
   vector<StxPartEdgePtr> edges;
-  for (vector<CFGPath>::const_iterator i = currentPaths.begin(); i != currentPaths.end(); ++i) {
+  for (vector<CFGPath>::iterator i = currentPaths.begin(); i != currentPaths.end(); ++i) {
     // Only if the end node of the path is interesting
     //if (((*i).*otherSide)().isInteresting())
     if (filter(((*i).*otherSide)()))
-      edges.push_back(/*boost::static_pointer_cast<PartEdge>(*/boost::make_shared<StxPartEdge>(*i, filter)/*)*/);
+      //edges.push_back(/*boost::static_pointer_cast<PartEdge>(*/boost::make_shared<StxPartEdge>(*i, filter)/*)*/);
+      edges.push_back(makePart<StxPartEdge>(*i, filter));
   }
   //cout << "makeClosure done: #edges=" << edges.size() << endl;
   //for(vector<DataflowEdge>::iterator e=edges.begin(); e!=edges.end(); e++)
   //    printf("Current Node %p<%s | %s>\n", e.target().getNode(), e.target().getNode()->unparseToString().c_str(), e.target().getNode()->class_name().c_str());
-  for (vector<StxPartEdgePtr>::const_iterator i = edges.begin(); i != edges.end(); ++i) {
+  for (vector<StxPartEdgePtr>::iterator i = edges.begin(); i != edges.end(); ++i) {
     ROSE_ASSERT((*i)->source()->filterAny(filter)  || 
                 (*i)->target()->filterAny(filter)); // at least one node is interesting
   }
@@ -196,7 +200,8 @@ vector<PartEdgePtr> StxPart::outEdges() {
   vector<StxPartEdgePtr> vStx = makeClosureDF(n.outEdges(), &CFGNode::outEdges, &CFGPath::target, &mergePaths, filter);
   vector<PartEdgePtr> v;
   for(vector<StxPartEdgePtr>::iterator i=vStx.begin(); i!=vStx.end(); i++)
-    v.push_back(boost::static_pointer_cast<PartEdge>(*i));
+    //v.push_back(boost::static_pointer_cast<PartEdge>(*i));
+    v.push_back(static_cast<PartEdgePtr>(*i));
   return v;
 }
 
@@ -208,7 +213,8 @@ vector<PartEdgePtr> StxPart::inEdges() {
   vector<StxPartEdgePtr> vStx = makeClosureDF(n.inEdges(), &CFGNode::inEdges, &CFGPath::source, &mergePathsReversed, filter);
   vector<PartEdgePtr> v;
   for(vector<StxPartEdgePtr>::iterator i=vStx.begin(); i!=vStx.end(); i++) {
-    v.push_back(boost::static_pointer_cast<PartEdge>(*i));
+    //v.push_back(boost::static_pointer_cast<PartEdge>(*i));
+    v.push_back(static_cast<PartEdgePtr>(*i));
   }
   
   return v;
@@ -225,16 +231,34 @@ std::vector<CFGNode> StxPart::CFGNodes()
   return v;
 }
 
+// Let A={ set of execution prefixes that terminate at the given anchor SgNode }
+// Let O={ set of execution prefixes that terminate at anchor's operand SgNode }
+// Since to reach a given SgNode an execution must first execute all of its operands it must
+//    be true that there is a 1-1 mapping m() : O->A such that o in O is a prefix of m(o).
+// This function is the inverse of m: given the anchor node and operand as well as the
+//    Part that denotes a subset of A (the function is called on this part), 
+//    it returns a list of Parts that partition O.
+std::list<PartPtr> StxPart::getOperandPart(SgNode* anchor, SgNode* operand, PartPtr part)
+{
+  list<PartPtr> l;
+  l.push_back(makePart<StxPart>(operand->cfgForEnd()));
+  return l;
+}
+
 bool StxPart::operator==(PartPtr o) const
 {
-  ROSE_ASSERT(boost::dynamic_pointer_cast<StxPart>(o));
-  return n == boost::dynamic_pointer_cast<StxPart>(o)->n;
+  /*ROSE_ASSERT(boost::dynamic_pointer_cast<StxPart>(o));
+  return n == boost::dynamic_pointer_cast<StxPart>(o)->n;*/
+  ROSE_ASSERT(dynamic_part_cast<StxPart>(o).get());
+  return n == dynamic_part_cast<StxPart>(o)->n;
 }
 
 bool StxPart::operator<(PartPtr o) const
 {
-  ROSE_ASSERT(boost::dynamic_pointer_cast<StxPart>(o));
-  return n < boost::dynamic_pointer_cast<StxPart>(o)->n;
+  /*ROSE_ASSERT(boost::dynamic_pointer_cast<StxPart>(o));
+  return n < boost::dynamic_pointer_cast<StxPart>(o)->n;*/
+  ROSE_ASSERT(dynamic_part_cast<StxPart>(o).get());
+  return n < dynamic_part_cast<StxPart>(o)->n;
 }
 
 std::string StxPart::str(std::string indent)
@@ -248,19 +272,23 @@ std::string StxPart::str(std::string indent)
  ***** StxPartEdge *****
  ***********************/
 
-PartPtr StxPartEdge::source() { return boost::make_shared<StxPart>(p.source(), filter); }
-PartPtr StxPartEdge::target() { return boost::make_shared<StxPart>(p.target(), filter); }
+PartPtr StxPartEdge::source() { return makePart<StxPart>(p.source(), filter); } //boost::make_shared<StxPart>(p.source(), filter); }
+PartPtr StxPartEdge::target() { return makePart<StxPart>(p.target(), filter); } //boost::make_shared<StxPart>(p.target(), filter); }
 
 bool StxPartEdge::operator==(PartEdgePtr o) const
 {
-  ROSE_ASSERT(boost::dynamic_pointer_cast<StxPartEdge>(o));
-  return p == boost::dynamic_pointer_cast<StxPartEdge>(o)->p;
+  /*ROSE_ASSERT(boost::dynamic_pointer_cast<StxPartEdge>(o));
+  return p == boost::dynamic_pointer_cast<StxPartEdge>(o)->p;*/
+  ROSE_ASSERT(dynamic_part_cast<StxPartEdge>(o).get());
+  return p == dynamic_part_cast<StxPartEdge>(o)->p;
 }
 
 bool StxPartEdge::operator<(PartEdgePtr o) const
 {
-  ROSE_ASSERT(boost::dynamic_pointer_cast<StxPartEdge>(o));
-  return p < boost::dynamic_pointer_cast<StxPartEdge>(o)->p;
+  /*ROSE_ASSERT(boost::dynamic_pointer_cast<StxPartEdge>(o));
+  return p < boost::dynamic_pointer_cast<StxPartEdge>(o)->p;*/
+  ROSE_ASSERT(dynamic_part_cast<StxPartEdge>(o).get());
+  return p < dynamic_part_cast<StxPartEdge>(o)->p;
 }
 
 std::string StxPartEdge::str(std::string indent)
@@ -384,9 +412,26 @@ bool StxValueObject::equalValExp(SgValueExp* a, SgValueExp* b)
     return false;
 }
 
-/* Don't have good idea how to represent a finite number of options 
-bool isFiniteSet();
-set<AbstractObj> getValueSet();*/
+// Returns true if this ValueObject corresponds to a concrete value that is statically-known
+bool StxValueObject::isConcrete()
+{
+  return val;
+}
+
+// Returns the type of the concrete value (if there is one)
+boost::shared_ptr<SgType> StxValueObject::getConcreteType()
+{
+  ROSE_ASSERT(val);
+  return boost::shared_ptr<SgType>(val->get_type()->copy(copyHelp));
+}
+
+// Returns the concrete value (if there is one) as an SgValueExp, which allows callers to use
+// the normal ROSE mechanisms to decode it
+boost::shared_ptr<SgValueExp> StxValueObject::getConcreteValue()
+{
+  ROSE_ASSERT(val);
+  return boost::shared_ptr<SgType>(val->copy(copyHelp));
+}
  
 //std::string StxValueObject::str(const string& indent) {
 std::string StxValueObject::str(std::string indent) const { // pretty print for the object
@@ -839,8 +884,22 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
   }
   
   bool enc (SgExpression* anchor_exp, const CFGNode& n) {
-    return SageInterface::getEnclosingStatement(anchor_exp) == 
-           SageInterface::getEnclosingStatement(n.getNode());
+    // anchor_expr is in-scope at n if they're inside the same statement or n is an SgIfStmt, SgForStatement, SgWhileStmt 
+    // or SgDoWhileStmt and anchor_expr is inside its sub-statements
+    return (SageInterface::getEnclosingStatement(n.getNode()) == 
+            SageInterface::getEnclosingStatement(anchor_exp)) ||
+           (isSgIfStmt(n.getNode()) && 
+            isSgIfStmt(n.getNode())->get_conditional()==
+            SageInterface::getEnclosingStatement(anchor_exp)) ||
+           (isSgWhileStmt(n.getNode()) && 
+            isSgWhileStmt(n.getNode())->get_conditional()==
+            SageInterface::getEnclosingStatement(anchor_exp)) ||
+           (isSgDoWhileStmt(n.getNode()) && 
+            isSgDoWhileStmt(n.getNode())->get_conditional()==
+            SageInterface::getEnclosingStatement(anchor_exp)) ||
+           (SgForStatement(n.getNode()) && 
+            (SgForStatement(n.getNode())->get_for_init_stmt()==SageInterface::getEnclosingStatement(anchor_exp) ||
+             SgForStatement(n.getNode())->get_test()         ==SageInterface::getEnclosingStatement(anchor_exp));
   }
     
   // Returns true if this MemLocObject is in-scope at the given part and false otherwise
@@ -859,6 +918,7 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
            SageInterface::getEnclosingStatement(part.getNode());*/    
     //boost::function<bool (SgExpression*, const CFGNode&)> enc1 = &enc;
     return part->mapCFGNodeANY<bool>(boost::bind(enc, anchor_exp, _1));
+    
     /*struct enc { public: bool op(SgExpression* anchor_exp, const CFGNode& n) {
       return SageInterface::getEnclosingStatement(anchor_exp) == 
              SageInterface::getEnclosingStatement(n.getNode());
@@ -1018,12 +1078,12 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
   //std::string ScalarExprObj::str(const string& indent)
   std::string ScalarExprObj::str(std::string indent) const // pretty print for the object
   {
-    string rt = "<u>ScalarExprObj:str()</u> "/*@" + StringUtility::numberToString(this)+ " "*/+ ExprObj::str(indent+"    ");
+    string rt = /*"<u>ScalarExprObj:str()</u> @" + StringUtility::numberToString(this)+ " "+*/ExprObj::str(indent+"    ");
     return rt;
   }
   
   std::string ScalarExprObj::strp(PartPtr part, std::string indent) const // pretty print for the object
-  { return "<u>ScalarExprObj:strp()</u> "+ (isLive(part) ? ExprObj::strp(part, indent+"    "): "OUT-OF-SCOPE "+ExprObj::str(indent+"    ")); }
+  { return /*"<u>ScalarExprObj:strp()</u> "+*/ (isLive(part) ? ExprObj::strp(part, indent+"    "): "OUT-OF-SCOPE "+ExprObj::str(indent+"    ")); }
   
   // Allocates a copy of this object and returns a pointer to it
   MemLocObjectPtr ScalarExprObj::copyML() const

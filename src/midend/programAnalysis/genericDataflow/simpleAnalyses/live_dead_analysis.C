@@ -26,7 +26,7 @@ void LiveDeadMemAnalysis::genInitState(const Function& func, PartPtr part, const
   SgReturnStmt* returnStmt;
   if(func.get_declaration() == SageInterface::findMain(SageInterface::getGlobalScope(func.get_declaration())) && 
      (returnStmt = part->maySgNodeAny<SgReturnStmt>())) {
-    MemLocObjectPtrPair p(composer->Expr2MemLoc(returnStmt->get_expression(), part, this));
+    MemLocObjectPtrPair p(composer->OperandExpr2MemLoc(returnStmt, returnStmt->get_expression(), part, this));
     s->insert(p.expr? p.expr : p.mem);
   }
   
@@ -149,8 +149,12 @@ public:
     }
     // Array access
     void visit(SgPntrArrRefExp *sgn) {
+      Dbg::dbg << "visit(SgPntrArrRefExp *sgn)"<<endl;
       // The only way for this SgPntrArrRefExp to appear s if it is used by its parent expression
       ldmt.useMem(sgn);
+      // Both the lhs and rhs are used to identify the memory location being accessed
+      ldmt.use(sgn->get_lhs_operand());
+      ldmt.use(sgn->get_rhs_operand());
     }
     // Binary Operations
     void visit(SgBinaryOp *sgn) {
@@ -493,7 +497,6 @@ bool LiveDeadMemTransfer::finish()
       //     Dbg::dbg << indent << "    add assigned expr as live <" << (*asgn)->class_name() <<":"<<(*asgn)->unparseToString();
       // }
     }
-    //} // end isVarExpr()
   } // end for
 
   // Record that the used variables are live

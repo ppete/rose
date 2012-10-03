@@ -228,3 +228,11 @@ std::string cfgUtils::SgNode2Str(SgNode* sgn)
   oss << "[" << sgn->unparseToString() << " | " << sgn->class_name() << "]";
   return oss.str();
 }
+
+// Returns a string representation of this CFG node's key information
+std::string cfgUtils::CFGNode2Str(CFGNode n)
+{
+  ostringstream oss;
+  oss << "[" << n.getNode()->unparseToString() << " | " << n.getNode()->class_name() << " | " << n.getIndex() << "]";
+  return oss.str();
+}

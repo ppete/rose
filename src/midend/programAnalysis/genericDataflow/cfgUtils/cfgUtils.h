@@ -40,6 +40,8 @@ namespace cfgUtils
   // Returns a string representation of this node's key information
   std::string SgNode2Str(SgNode* sgn);
 
+  // Returns a string representation of this CFG node's key information
+  std::string CFGNode2Str(CFGNode n);
 }
 
 #endif

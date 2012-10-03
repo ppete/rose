@@ -74,9 +74,10 @@ class SyntacticAnalysis : virtual public IntraUndirDataflow
 
 class StxPart;
 class StxPartEdge;
-typedef boost::shared_ptr<StxPart> StxPartPtr;
-typedef boost::shared_ptr<const StxPart> ConstStxPartPtr;
-typedef boost::shared_ptr<StxPartEdge> StxPartEdgePtr;
+//typedef boost::shared_ptr<StxPart> StxPartPtr;
+//typedef boost::shared_ptr<StxPartEdge> StxPartEdgePtr;
+typedef CompSharedPtr<StxPart> StxPartPtr;
+typedef CompSharedPtr<StxPartEdge> StxPartEdgePtr;
 
 class StxPart : public Part
 {
@@ -95,6 +96,15 @@ class StxPart : public Part
   std::vector<PartEdgePtr> inEdges();
   std::vector<StxPartEdgePtr> inStxEdges();
   std::vector<CFGNode>  CFGNodes();
+  
+  // Let A={ set of execution prefixes that terminate at the given anchor SgNode }
+  // Let O={ set of execution prefixes that terminate at anchor's operand SgNode }
+  // Since to reach a given SgNode an execution must first execute all of its operands it must
+  //    be true that there is a 1-1 mapping m() : O->A such that o in O is a prefix of m(o).
+  // This function is the inverse of m: given the anchor node and operand as well as the
+  //    Part that denotes a subset of A (the function is called on this part), 
+  //    it returns a list of Parts that partition O.
+  std::list<PartPtr> getOperandPart(SgNode* anchor, SgNode* operand, PartPtr part);
   
   bool operator==(PartPtr o) const;
   bool operator<(PartPtr o)  const;
@@ -140,9 +150,13 @@ class StxValueObject : public ValueObject
   // Returns true if the given pair of SgValueExps represent the same value and false otherwise
   static bool equalValExp(SgValueExp* a, SgValueExp* b);
 
-  /* Don't have good idea how to represent a finite number of options 
-  bool isFiniteSet();
-  set<AbstractObj> getValueSet();*/
+  // Returns true if this ValueObject corresponds to a concrete value that is statically-known
+  bool isConcrete();
+  // Returns the type of the concrete value (if there is one)
+  boost::shared_ptr<SgType> getConcreteType();
+  // Returns the concrete value (if there is one) as an SgValueExp, which allows callers to use
+  // the normal ROSE mechanisms to decode it
+  boost::shared_ptr<SgValueExp> getConcreteValue();
   
   std::string str(std::string indent) const; // pretty print for the object
   std::string str(std::string indent) { return ((const StxValueObject*)this)->str(indent); }

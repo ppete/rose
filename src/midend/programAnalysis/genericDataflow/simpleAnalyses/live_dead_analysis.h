@@ -73,11 +73,11 @@ class LiveDeadMemTransfer : public IntraDFTransferVisitor
     bool isMemLocLive(SgExpression* expr);
 
 public:
-LiveDeadMemTransfer(const Function &f, PartPtr part, NodeState &s, const std::vector<Lattice*> &d, 
+LiveDeadMemTransfer(const Function &f, PartPtr part, NodeState &s, 
+                    const std::map<PartEdgePtr, std::vector<Lattice*> > &d, 
                     LiveDeadMemAnalysis* ldma,
                     ComposerExpr2MemLocPtr ceml, funcSideEffectUses *fseu)
     : IntraDFTransferVisitor(f, part, s, d),
-    liveLat(dynamic_cast<AbstractObjectSet*>(*(dfInfo.begin()))), 
     ldma(ldma), 
     ceml(ceml), 
     modified(false), 
@@ -86,13 +86,16 @@ LiveDeadMemTransfer(const Function &f, PartPtr part, NodeState &s, const std::ve
     part(part), 
     fseu(fseu)
     {
-        if(liveDeadAnalysisDebugLevel>=1) {
-          Dbg::dbg << "LiveDeadMemTransfer: liveLat=";
-          Dbg::indent ind(liveDeadAnalysisDebugLevel, 1);
-          Dbg::dbg << liveLat->str("")<<endl;
-        }
-        // Make sure that all the lattice is initialized
-        liveLat->initialize();
+      ROSE_ASSERT(dfInfo.find(PartEdgePtr()) != dfInfo.end());
+      liveLat = dynamic_cast<AbstractObjectSet*>(*(dfInfo[PartEdgePtr()].begin()));
+      
+      if(liveDeadAnalysisDebugLevel>=1) {
+        Dbg::dbg << "LiveDeadMemTransfer: liveLat=";
+        Dbg::indent ind(liveDeadAnalysisDebugLevel, 1);
+        Dbg::dbg << liveLat->str("")<<endl;
+      }
+      // Make sure that all the lattice is initialized
+      liveLat->initialize();
     }
 
     bool finish();
@@ -124,8 +127,10 @@ public:
     void genInitState(const Function& func, PartPtr p, const NodeState& state,
                       std::vector<Lattice*>& initLattices, std::vector<NodeFact*>& initFacts);
         
-    boost::shared_ptr<IntraDFTransferVisitor> getTransferVisitor(const Function& func, PartPtr part, 
-                                                                 NodeState& state, const std::vector<Lattice*>& dfInfo)
+    boost::shared_ptr<IntraDFTransferVisitor> getTransferVisitor(
+                                                      const Function& func, PartPtr part, 
+                                                      NodeState& state, 
+                                                      const std::map<PartEdgePtr, std::vector<Lattice*> >& dfInfo)
     { return boost::shared_ptr<IntraDFTransferVisitor>(
     		new LiveDeadMemTransfer(func, part, state, dfInfo, 
     		                        this, ComposerExpr2MemLocPtr(new ComposerExpr2MemLoc(*getComposer(), part, *((ComposedAnalysis*)this))),

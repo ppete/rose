@@ -56,6 +56,23 @@ ValueObjectPtr ChainComposer::Expr2Val(SgNode* n, PartPtr p, ComposedAnalysis* c
   return callServerAnalysisFunc<ValueObjectPtr, FuncCallerArgs_Expr2Any>(args, client, c);
 }
 
+// Variant of Expr2Val that inquires about the value of the memory location denoted by the operand of the 
+// given node n, where the part denotes the set of prefixes that terminate at SgNode n.
+ValueObjectPtr ChainComposer::OperandExpr2Val(SgNode* n, SgNode* operand, PartPtr part, ComposedAnalysis* client) {
+  // Get the parts of the execution prefixes that terminate at the operand before continuing directly 
+  // to SgNode n in the given part
+  list<PartPtr> opParts = part.getOperandPart(n, operand);
+  
+  // The memory and expression MemLocObjects that represent the operand within different Parts in opParts
+  list<ValueObjectPtr> partVs; 
+  
+  // Iterate over all the parts to get the expression and memory MemLocObjects for operand within those parts
+  for(list<PartPtr>::iterator part=opParts.begin(); part!=opParts.end(); part++)
+    partVs.push_back(Expr2Value(operand, *part, client));
+
+  return boost::make_shared<UnionValueObjectPtr>(partVs);
+}
+
 // --- Calling Expr2MemLoc ---
 
 class Expr2MemLocCaller : public FuncCaller<MemLocObjectPtr, const FuncCallerArgs_Expr2Any>
@@ -91,6 +108,92 @@ MemLocObjectPtrPair ChainComposer::Expr2MemLoc(SgNode* n, PartPtr p, ComposedAna
                 createExpressionMemLocObject(isSgExpression(n), isSgExpression(n)->get_type(), p) :
                 MemLocObjectPtr(),
               mem);
+}
+
+// Variant of Expr2MemLoc that inquires about the memory location denoted by the operand of the given node n, where
+// the part denotes the set of prefixes that terminate at SgNode n.
+MemLocObjectPtrPair ChainComposer::OperandExpr2MemLoc(SgNode* n, SgNode* operand, PartPtr part, ComposedAnalysis* client)
+{
+  Dbg::dbg << "ChainComposer::OperandExpr2MemLoc()"<<endl << "n="<<cfgUtils::SgNode2Str(n)<<endl << "operand("<<operand<<")="<<cfgUtils::SgNode2Str(operand)<<endl << "part="<<part.str()<<endl;
+  
+  // Get the parts of the execution prefixes that terminate at the operand before continuing directly 
+  // to SgNode n in the given part
+  list<PartPtr> opParts = part.getOperandPart(n, operand);
+  
+  // The memory and expression MemLocObjects that represent the operand within different Parts in opParts
+  list<MemLocObjectPtr> partMLsExpr; 
+  list<MemLocObjectPtr> partMLsMem;
+  
+  // Flags that indicate whether we have memory and expression objects from all/none of the sub-parts
+  // Exactly One of these must be true
+  bool expr4All=true, expr4None=true;
+  bool mem4All=true,  mem4None=true;
+  
+  // Iterate over all the parts to get the expression and memory MemLocObjects for operand within those parts
+  for(list<PartPtr>::iterator part=opParts.begin(); part!=opParts.end(); part++) {
+    MemLocObjectPtrPair p = Expr2MemLoc(operand, *part, client);
+    if(!p.expr) expr4All=false;
+    else        expr4None=false;
+    
+    if(!p.mem) mem4All=false;
+    else       mem4None=false;
+    
+    if(p.expr) partMLsMem.push_back(p.expr);
+    if(p.mem)  partMLsMem.push_back(p.mem);
+  }
+  
+  // Either we got expression/memory MemLocObjects from all parts or none of them
+  ROSE_ASERT((expr4All && !expr4None) || (!expr4All && expr4None));
+  ROSE_ASERT((mem4All  && !mem4None)  || (!mem4All  && mem4None));
+  
+  // Create a MemLocObjectPtrPair that includes UnionMemLocObjects that combine all the expression and memory
+  // MemLocObjects from all the Parts that terminate at operand, using the Null MemLocObjectPtr if either
+  // the expression or the memory MemLocObjects were not provided.
+  if(expr4all && mem4All) 
+    return MemLocObjectPtrPair(boost::make_shared<UnionMemLocObjectPtr>(partMLsExpr),
+                               boost::make_shared<UnionMemLocObjectPtr>(partMLsMem));
+  else if(expr4All)
+    return MemLocObjectPtrPair(boost::make_shared<UnionMemLocObjectPtr>(partMLsExpr),
+                               MemLocObjectPtr());
+  else if(mem4All)
+    return MemLocObjectPtrPair(MemLocObjectPtr(),
+                               boost::make_shared<UnionMemLocObjectPtr>(partMLsMem));
+  // We must get either an expression or a memory object
+  else
+    ROSE_ASSERT(0);
+  
+  /*// Find the Partition(s) that correspond to the given operand of n
+  std::vector<PartEdgePtr> in=part->inEdges();
+  list<PartPtr> opParts;
+  //for(std::vector<PartEdgePtr>::iterator e=in.begin(); e!=in.end(); e++) {
+  // Walk backwards through the partition graph until we reach the Part that includes the operand
+  // GB 2012-09-24: Note that there may be multiple such parts and right now we're only reaching the first one.
+  //                To fully support this we need to integrate partitions into SgNodes to create a fixed mapping 
+  //                between SgNodes and their containing Parts.
+  back_partIterator curPart(part); curPart++;
+  for(; curPart!=back_partIterator::end(); curPart++) {
+    Dbg::indent ind;
+    Dbg::dbg << "curPart="<<(*curPart)->str()<<endl;
+    std::vector<CFGNode> nodes = (*curPart)->CFGNodes();
+    Dbg::indent ind2;
+    // Look to see if any of the CFGNodes within this source Part include this operand
+    for(std::vector<CFGNode>::iterator node=nodes.begin(); node!=nodes.end(); node++) {
+      Dbg::dbg << "node("<<node->getNode()<<")="<<cfgUtils::CFGNode2Str(*node)<<endl;
+      // If so, record it in opParts
+      if(node->getNode()==operand) opParts.push_back(*curPart);
+    }
+    // If we've reached the part that includes the operand, we're done with the search
+    if(opParts.size()>0) { break; }
+  }
+  if(opParts.size()==0) { Dbg::dbg << "Empty opParts."<<endl; }
+  ROSE_ASSERT(opParts.size()>=1);
+  // We currently can only deal with the case where the operand appears in one source Part. To support the general
+  // case we need to implement support for intersections of analyses, where any query to multiple analyses comes back
+  // with the tightest result returned by any of them.
+  ROSE_ASSERT(opParts.size()==1);
+  PartPtr opPart = *opParts.begin();
+  
+  return Expr2MemLoc(operand, opPart, client);*/
 }
 
 // --- CallingExpr2CodeLoc ---
@@ -307,11 +410,11 @@ RetObject ChainComposer::callServerAnalysisFunc(const FuncCallerArgs& args, Comp
       for(list<ComposedAnalysis*>::iterator a=doneAnalyses.begin(); a!=doneAnalyses.end(); a++)
         Dbg::dbg << "    "<<(*a)->str("        ")<<endl;*/
       if(composerDebugLevel>=1) {
-        if(boost::dynamic_pointer_cast<AbstractObject>(v)) {
+        /*if(boost::dynamic_pointer_cast<AbstractObject>(v)) {
           ROSE_ASSERT(reinterpret_cast<const FuncCallerArgs_Expr2Any*>(&args));
           Dbg::dbg << "Returning "<<boost::dynamic_pointer_cast<AbstractObject>(v)->
                 strp(reinterpret_cast<const FuncCallerArgs_Expr2Any*>(&args)->part, "")<<endl;
-        } else Dbg::dbg << "Returning "<<v.get()->str("")<<endl;
+        } else*/ Dbg::dbg << "Returning "<<v.get()->str("")<<endl;
       }
       return v;
     } catch (NotImplementedException exc) {

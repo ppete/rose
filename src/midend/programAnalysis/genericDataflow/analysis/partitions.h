@@ -6,6 +6,8 @@
 //#include <boost/lambda/lambda.hpp>
 //#include <boost/lambda/bind.hpp>
 #include <boost/bind.hpp>
+#include <boost/enable_shared_from_this.hpp>
+#include <boost/make_shared.hpp>
 #include "cfgUtils.h"
 #include "AnalysisDebuggingUtils.h"
 
@@ -15,11 +17,107 @@ namespace dataflow {
 // ----------------
 
 class Part;
-typedef boost::shared_ptr<Part> PartPtr;
-typedef boost::shared_ptr<const Part> ConstPartPtr;
+//typedef boost::shared_ptr<Part> PartPtr;
+//typedef boost::shared_ptr<const Part> ConstPartPtr;
 class PartEdge;
-typedef boost::shared_ptr<PartEdge> PartEdgePtr;
-typedef boost::shared_ptr<const PartEdge> ConstPartEdgePtr;
+//typedef boost::shared_ptr<PartEdge> PartEdgePtr;
+//typedef boost::shared_ptr<const PartEdge> ConstPartEdgePtr;
+
+// Wrapper for boost:shared_ptr<Type> that can be used as keys in maps because it wraps comparison 
+// operations by forwarding them to the Type's own comparison operations. In contrast, the base 
+// boost::shared_ptr uses pointer equality.
+template <class Type>
+class CompSharedPtr : public printable
+{
+  //public:
+  boost::shared_ptr<Type> ptr;
+  
+  public:
+  // Copy constructor
+  CompSharedPtr(const CompSharedPtr<Type>& o) : ptr(o.ptr) {}
+  
+  // Constructor for converting across CompSharedPtr wrappers of compatible types
+  template <class OtherType>
+  CompSharedPtr(const CompSharedPtr<OtherType>& o) : ptr(boost::dynamic_pointer_cast<Type>(o.ptr)) {}
+  
+  // Constructor for wrapping boost::shared_ptr with a CompoSharedPtr
+  CompSharedPtr(boost::shared_ptr<Type> ptr) : ptr(ptr) {}
+  
+  template <class OtherType>
+  CompSharedPtr(boost::shared_ptr<OtherType> ptr) : ptr(boost::dynamic_pointer_cast<Type>(ptr)) {}
+  
+  template <class OtherType>
+  friend class CompSharedPtr;
+  
+  CompSharedPtr& operator=(const CompSharedPtr& o) { ptr = o.ptr; return *this; }
+  bool operator==(CompSharedPtr<Type> const & o) const { return (*ptr.get()) == o; }
+  bool operator< (CompSharedPtr<Type> const & o) const { return (*ptr.get()) <  o; }
+  bool operator!=(CompSharedPtr<Type> const & o) const { return (*ptr.get()) != o; }
+  bool operator>=(CompSharedPtr<Type> const & o) const { return (*ptr.get()) >= o; }
+  bool operator<=(CompSharedPtr<Type> const & o) const { return (*ptr.get()) <= o; }
+  bool operator> (CompSharedPtr<Type> const & o) const { return (*ptr.get()) >  o; }
+  
+  Type* get() { return ptr.get(); }
+  const Type* operator->() const { return ptr.get(); }
+  Type* operator->() { return ptr.get(); }
+  
+  //PartPtr operator * () { return ptr; }
+  
+  std::string str(std::string indent="") { return ptr->str(indent); }
+};
+typedef CompSharedPtr<Part> PartPtr;
+typedef CompSharedPtr<PartEdge> PartEdgePtr;
+typedef CompSharedPtr<Part> PartPtrCmp;
+typedef CompSharedPtr<PartEdge> PartEdgePtrCmp;
+
+// Returns a new instance of a CompSharedPtr that refers to an instance of CompSharedPtr<Type>
+// GB 2012-09-21: We have created an instance of this function for cases with 0-9 input parameters since that is 
+//                what boost::make_shared provides when the compiler doesn't support varyadic types. Support for 
+//                varyadic types is future work.
+template <class Type>
+CompSharedPtr<Type> makePart()
+{ return boost::make_shared<Type>(); }
+
+template <class Type, class Arg1>
+CompSharedPtr<Type> makePart(Arg1 arg1)
+{ return boost::make_shared<Type>(arg1); }
+
+template <class Type, class Arg1, class Arg2>
+CompSharedPtr<Type> makePart(Arg1 arg1, Arg2 arg2)
+{ return boost::make_shared<Type>(arg1, arg2); }
+
+template <class Type, class Arg1, class Arg2, class Arg3>
+CompSharedPtr<Type> makePart(Arg1 arg1, Arg2 arg2, Arg3 arg3)
+{ return boost::make_shared<Type>(arg1, arg2, arg3); }
+
+template <class Type, class Arg1, class Arg2, class Arg3, class Arg4>
+CompSharedPtr<Type> makePart(Arg1 arg1, Arg2 arg2, Arg3 arg3, Arg4 arg4)
+{ return boost::make_shared<Type>(arg1, arg2, arg3, arg4); }
+
+template <class Type, class Arg1, class Arg2, class Arg3, class Arg4, class Arg5>
+CompSharedPtr<Type> makePart(Arg1 arg1, Arg2 arg2, Arg3 arg3, Arg4 arg4, Arg5 arg5)
+{ return boost::make_shared<Type>(arg1, arg2, arg3, arg4, arg5); }
+
+template <class Type, class Arg1, class Arg2, class Arg3, class Arg4, class Arg5, class Arg6>
+CompSharedPtr<Type> makePart(Arg1 arg1, Arg2 arg2, Arg3 arg3, Arg4 arg4, Arg5 arg5, Arg6 arg6)
+{ return boost::make_shared<Type>(arg1, arg2, arg3, arg4, arg5, arg6); }
+
+template <class Type, class Arg1, class Arg2, class Arg3, class Arg4, class Arg5, class Arg6, class Arg7>
+CompSharedPtr<Type> makePart(Arg1 arg1, Arg2 arg2, Arg3 arg3, Arg4 arg4, Arg5 arg5, Arg6 arg6, Arg7 arg7)
+{ return boost::make_shared<Type>(arg1, arg2, arg3, arg4, arg5, arg6, arg7); }
+
+template <class Type, class Arg1, class Arg2, class Arg3, class Arg4, class Arg5, class Arg6, class Arg7, class Arg8>
+CompSharedPtr<Type> makePart(Arg1 arg1, Arg2 arg2, Arg3 arg3, Arg4 arg4, Arg5 arg5, Arg6 arg6, Arg7 arg7, Arg8 arg8)
+{ return boost::make_shared<Type>(arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8); }
+
+template <class Type, class Arg1, class Arg2, class Arg3, class Arg4, class Arg5, class Arg6, class Arg7, class Arg8, class Arg9>
+CompSharedPtr<Type> makePart(Arg1 arg1, Arg2 arg2, Arg3 arg3, Arg4 arg4, Arg5 arg5, Arg6 arg6, Arg7 arg7, Arg8 arg8, Arg9 arg9)
+{ return boost::make_shared<Type>(arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9); }
+
+// Wrapper for boost::dynamic_pointer_cast for CompSharedPtr
+template <class TargetType, class SourceType>
+CompSharedPtr<TargetType> dynamic_part_cast(CompSharedPtr<SourceType> s)
+{ return CompSharedPtr<TargetType>(s); }
 
 class Part : public printable {
   public:
@@ -27,6 +125,15 @@ class Part : public printable {
   virtual std::vector<PartEdgePtr> outEdges()=0;
   virtual std::vector<PartEdgePtr> inEdges()=0;
   virtual std::vector<CFGNode> CFGNodes()=0;
+  
+  // Let A={ set of execution prefixes that terminate at the given anchor SgNode }
+  // Let O={ set of execution prefixes that terminate at anchor's operand SgNode }
+  // Since to reach a given SgNode an execution must first execute all of its operands it must
+  //    be true that there is a 1-1 mapping m() : O->A such that o in O is a prefix of m(o).
+  // This function is the inverse of m: given the anchor node and operand as well as the
+  //    Part that denotes a subset of A (the function is called on this part), 
+  //    it returns a list of Parts that partition O.
+  virtual std::list<PartPtr> getOperandPart(SgNode* anchor, SgNode* operand)=0;
   
   // Applies the given lambda to all the CFGNodes within this part.
   // Returns true if the lambda returns true on ANY of them.
@@ -96,24 +203,6 @@ class Part : public printable {
   bool operator> (const PartPtr o) const;
 };
 
-// Extension to PartPtr that that can be used as keys in maps because it wraps comparison operations by forwarding 
-// them to the Part's own comparison operations. In contrast, the base boost::shared_ptr uses pointer equality.
-class PartPtrCmp : public printable
-{
-  PartPtr ptr;
-  
-  public:
-  PartPtrCmp(const PartPtr& o) : ptr(o) {}
-  bool operator==(PartPtrCmp const & o) const;
-  bool operator< (PartPtrCmp const & o) const;
-  bool operator!=(PartPtrCmp const & o) const;
-  bool operator>=(PartPtrCmp const & o) const;
-  bool operator<=(PartPtrCmp const & o) const;
-  bool operator> (PartPtrCmp const & o) const;
-  
-  std::string str(std::string indent="");
-};
-
 class PartEdge : public printable {
   public:
   virtual PartPtr source()=0;
@@ -127,23 +216,88 @@ class PartEdge : public printable {
   bool operator> (const PartEdgePtr o) const;
 };
 
-// Extension to PartEdgePtr that that can be used as keys in maps because it wraps comparison operations by forwarding 
-// them to the Part's own comparison operations. In contrast, the base boost::shared_ptr uses pointer equality.
-class PartEdgePtrCmp : public printable
+// The intersection of multiple Parts. Maintains multiple Parts and responds to API calls with the most 
+//   accurate response that its constituent objects return.
+// For practical purposes analyses should ensure that different instances of IntersectPart 
+//   are only compared if they include the same types of Parts in the same order. Otherwise, 
+//   the comparisons will be uselessly inaccurate.
+class IntersectionPart
 {
-  PartEdgePtr ptr;
+  list<PartPtr> parts;
   
-  public:
-  PartEdgePtrCmp(const PartEdgePtr& o) : ptr(o) {}
-  bool operator== (PartEdgePtrCmp const & o) const;
-  bool operator<  (PartEdgePtrCmp const & o) const;
-  bool operator!= (PartEdgePtrCmp const & o) const;
-  bool operator>= (PartEdgePtrCmp const & o) const;
-  bool operator<= (PartEdgePtrCmp const & o) const;
-  bool operator>  (PartEdgePtrCmp const & o) const;
+  IntersectionPart(PartPtr part);
+  IntersectionPart(const list<PartPtr>& parts);
   
-  std::string str(std::string indent="");
+  void add(PartPtr part);
+  
+  // Returns the list of outgoing IntersectionPartEdge of this Part, which are the cross-product of the outEdges()
+  // of its sub-parts.
+  std::vector<PartEdgePtr> outEdges();
+  // Recursive computation of the cross-product of the outEdges of all the sub-parts of this Intersection part.
+  // Hierarchically builds a recursion tree that contains more and more combinations of PartsPtr from the outEdges
+  // of different sub-parts. When the recursion tree reaches its full depth (one level per part in parts), it creates
+  // an intersection the current combination of 
+  // partI - refers to the current part in parts
+  // outPartEdges - the list of outgoing edges of the current combination of this IntersectionPart's sub-parts, 
+  //         upto partI
+  std::vector<PartEdgePtr> outEdges_rec(list<PartPtr>::iterator partI, list<PartEdgePtr> outPartEdges, 
+                                        list<IntersectionPartEdgePtr>& edges);
+  
+  // Returns the list of incoming IntersectionPartEdge of this Part, which are the cross-product of the inEdges()
+  // of its sub-parts.
+  std::vector<PartEdgePtr> inEdges();
+  // Recursive computation of the cross-product of the inEdges of all the sub-parts of this Intersection part.
+  // Hierarchically builds a recursion tree that contains more and more combinations of PartsPtr from the inEdges
+  // of different sub-parts. When the recursion tree reaches its full depth (one level per part in parts), it creates
+  // an intersection the current combination of 
+  // partI - refers to the current part in parts
+  // inPartEdges - the list of incoming edges of the current combination of this IntersectionPart's sub-parts, 
+  //         upto partI
+  std::vector<PartEdgePtr> inEdges_rec(list<PartPtr>::iterator partI, list<PartEdgePtr> inPartEdges, 
+                                       list<IntersectionPartEdgePtr>& edges);
+  
+  // Returns the intersection of the lists of CFGNodes returned by the Parts in parts
+  std::vector<CFGNode> CFGNodes();
+  
+  // Two IntersectionParts are equal of all their constituent sub-parts are equal
+  bool operator==(const PartPtr o) const;
+  
+  // Lexicographic ordering: This IntersectionPart is < that IntersectionPart if this has fewer parts than that or
+  // there exists an index i in this.parts and that.parts s.t. forall j<i. this.parts[j]==that.parts[j] and 
+  // this.parts[i] < that.parts[i].
+  bool operator<(const PartPtr o)  const;
 };
+typedef boost::shared_ptr<IntersectionPart> IntersectionPartPtr;
+
+// The intersection of multiple PartEdges. Maintains multiple PartEdges and responds to API calls with the most 
+//   accurate response that its constituent objects return.
+// For practical purposes analyses should ensure that different instances of IntersectPart 
+//   are only compared if they include the same types of PartEdgess in the same order. Otherwise, 
+//   the comparisons will be uselessly inaccurate.
+class IntersectionPartEdge
+{
+  list<PartEdgePtr> edges;
+  
+  IntersectionPartEdge(PartEdgePtr edge);
+  IntersectionPartEdge(const list<PartEdgePtr>& edges);
+  
+  void add(PartEdgePtr edge);
+  
+  // Return the part that intersects the sources of all the sub-edges of this IntersectionPartEdge
+  PartPtr source();
+  
+  // Return the part that intersects the targets of all the sub-edges of this IntersectionPartEdge
+  PartPtr target();
+  
+  // Two IntersectionPartEdges are equal of all their constituent sub-parts are equal
+  bool operator==(const PartEdgePtr o) const;
+  
+  // Lexicographic ordering: This IntersectionPartEdge is < that IntersectionPartEdge if this has fewer edges than that or
+  // there exists an index i in this.edges and that.edges s.t. forall j<i. this.edges[j]==that.edges[j] and 
+  // this.edges[i] < that.edges[i].
+  bool operator<(const PartEdgePtr o)  const;
+};
+typedef boost::shared_ptr<IntersectionPartEdge> IntersectionPartEdgePtr;
 
 }; // namespace dataflow
 

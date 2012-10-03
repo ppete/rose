@@ -109,6 +109,14 @@ class CPValueObject : public FiniteLattice, public ValueObject
   // Allocates a copy of this object and returns a pointer to it
   ValueObjectPtr copyV() const;
 
+  // Returns true if this ValueObject corresponds to a concrete value that is statically-known
+  bool isConcrete();
+  // Returns the type of the concrete value (if there is one)
+  boost::shared_ptr<SgType> getConcreteType();
+  // Returns the concrete value (if there is one) as an SgValueExp, which allows callers to use
+  // the normal ROSE mechanisms to decode it
+  boost::shared_ptr<SgValueExp> getConcreteValue();
+  
   /* Don't have good idea how to represent a finite number of options 
   virtual bool isFiniteSet()=0;
   virtual set<AbstractObj> getValueSet()=0;*/

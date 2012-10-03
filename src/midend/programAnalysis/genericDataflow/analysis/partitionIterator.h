@@ -19,21 +19,21 @@ class partIterator
   //protected:
   public:
           
-  std::list<PartPtrCmp> remainingNodes;
-  std::set<PartPtrCmp> visited;
+  std::list<PartPtr> remainingNodes;
+  std::set<PartPtr> visited;
   bool initialized;
 
   public:
   partIterator();
   
-  partIterator(const PartPtrCmp start);
+  partIterator(const PartPtr start);
   virtual ~partIterator() { }
   
-  void init(const PartPtrCmp start);
+  void init(const PartPtr start);
 
   protected:
   // returns true if the given PartPtr is in the remainingNodes list and false otherwise
-  bool isRemaining(const PartPtrCmp p);
+  bool isRemaining(const PartPtr p);
           
   // advances this iterator in the given direction. Forwards if fwDir=true and backwards if fwDir=false.
   // if pushAllChildren=true, all of the current node's unvisited children (predecessors or successors, 
@@ -52,7 +52,7 @@ class partIterator
   PartPtr operator * ();
   
   // Returns a fresh iterator that starts at node n
-  static partIterator begin(const PartPtrCmp n);
+  static partIterator begin(const PartPtr n);
   
   // Returns an empty iterator that can be compared to any other iterator to 
   // check if it has completed passing over its iteration space
@@ -62,11 +62,11 @@ class partIterator
   // checkpointed and restarted.
   class checkpoint/* : public virtual BaseCFG::iterator::checkpoint*/
   {
-    std::list<PartPtrCmp> remainingNodes;
-    std::set<PartPtrCmp>  visited;
+    std::list<PartPtr> remainingNodes;
+    std::set<PartPtr>  visited;
   
     public:
-    checkpoint(const std::list<PartPtrCmp>& remainingNodes, const std::set<PartPtrCmp>& visited);
+    checkpoint(const std::list<PartPtr>& remainingNodes, const std::set<PartPtr>& visited);
           
     checkpoint(const checkpoint& that);
     
@@ -89,7 +89,7 @@ class back_partIterator : public virtual partIterator
   public:
   back_partIterator(): partIterator() {}
   
-  back_partIterator(const PartPtrCmp end): partIterator(end) { }
+  back_partIterator(const PartPtr end): partIterator(end) { }
   
   void operator ++ (int);
 };
@@ -97,14 +97,14 @@ class back_partIterator : public virtual partIterator
 class dataflowPartIterator : public virtual partIterator
 {
   protected:
-  PartPtrCmp terminator;
+  PartPtr terminator;
   public:
   //dataflow(): iterator() {}
   
-  dataflowPartIterator(const PartPtrCmp terminator_arg);
-  dataflowPartIterator(const PartPtrCmp start, const PartPtrCmp terminator_arg);
+  dataflowPartIterator(const PartPtr terminator_arg);
+  dataflowPartIterator(const PartPtr start, const PartPtr terminator_arg);
   
-  void init(const PartPtrCmp start_arg, const PartPtrCmp terminator_arg);
+  void init(const PartPtr start_arg, const PartPtr terminator_arg);
   
   // Initializes this iterator's terminator node
   /*void setTerminator(const PartPtr terminator) {
@@ -112,7 +112,7 @@ class dataflowPartIterator : public virtual partIterator
           this->terminator = terminator;
   }*/
   
-  void add(const PartPtrCmp next);
+  void add(const PartPtr next);
   
   void operator ++ (int);
   
@@ -122,10 +122,10 @@ class dataflowPartIterator : public virtual partIterator
   {
     protected:
     partIterator::checkpoint iChkpt;
-    PartPtrCmp terminator;
+    PartPtr terminator;
     
     public:
-    checkpoint(const partIterator::checkpoint& iChkpt, const PartPtrCmp terminator);
+    checkpoint(const partIterator::checkpoint& iChkpt, const PartPtr terminator);
     
     checkpoint(const checkpoint &that);
             
@@ -146,8 +146,8 @@ class dataflowPartIterator : public virtual partIterator
 class back_dataflowPartIterator: public virtual dataflowPartIterator
 {
   public: 
-  back_dataflowPartIterator(const PartPtrCmp terminator_arg) : dataflowPartIterator(terminator_arg) {}
-  back_dataflowPartIterator(const PartPtrCmp end, const PartPtrCmp terminator_arg);
+  back_dataflowPartIterator(const PartPtr terminator_arg) : dataflowPartIterator(terminator_arg) {}
+  back_dataflowPartIterator(const PartPtr end, const PartPtr terminator_arg);
           
   void operator ++ (int);
   
