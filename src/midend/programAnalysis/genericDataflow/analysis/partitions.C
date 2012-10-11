@@ -1,11 +1,16 @@
 #include "partitions.h"
 
+using namespace std;
+
 namespace dataflow {
 
 /* ################
    ##### Part #####
    ################ */
 
+PartEdgePtr NULLPart;
+PartEdgePtr NULLPartEdge;
+  
 // If the filter accepts (returns true) on any of the CFGNodes within this part, return true)
 bool Part::filterAny(bool (*filter) (CFGNode cfgn))
 {
@@ -26,34 +31,34 @@ bool Part::filterAll(bool (*filter) (CFGNode cfgn))
   return true;
 }
 
-bool Part::operator!=(const PartPtr o) const { return !(*this==o); }
-bool Part::operator>=(const PartPtr o) const { return !(*this<o); }
-bool Part::operator<=(const PartPtr o) const { return (*this<o) || (*this == o); }
-bool Part::operator>(const PartPtr o)  const { return !(*this<=o); }
+bool Part::operator!=(const PartPtr& o) const { return !(*this==o); }
+bool Part::operator>=(const PartPtr& o) const { return !(*this<o); }
+bool Part::operator<=(const PartPtr& o) const { return (*this<o) || (*this == o); }
+bool Part::operator> (const PartPtr& o) const { return !(*this<=o); }
 
 /* ####################
    ##### PartEdge #####
    #################### */
 
-bool PartEdge::operator!=(PartEdgePtr o) const { return !(*this==o); }
-bool PartEdge::operator>=(PartEdgePtr o) const { return !(*this<o); }
-bool PartEdge::operator<=(PartEdgePtr o) const { return (*this<o) || (*this == o); }
-bool PartEdge::operator>(PartEdgePtr o)  const { return !(*this<=o); }
+bool PartEdge::operator!=(const PartEdgePtr& o) const { return !(*this==o); }
+bool PartEdge::operator>=(const PartEdgePtr& o) const { return !(*this<o); }
+bool PartEdge::operator<=(const PartEdgePtr& o) const { return (*this<o) || (*this == o); }
+bool PartEdge::operator> (const PartEdgePtr& o) const { return !(*this<=o); }
 
 /* ############################
    ##### IntersectionPart #####
    ############################ */
 IntersectionPart::IntersectionPart(PartPtr part) { parts.push_back(part); }
-IntersectionPart::IntersectionPart(const list<PartPtr>& parts) : parts(parts) {}
+IntersectionPart::IntersectionPart(const std::list<PartPtr>& parts) : parts(parts) {}
 
 void IntersectionPart::add(PartPtr part) { parts.push_back(part); }
 
 // Returns the list of outgoing IntersectionPartEdge of this Part, which are the cross-product of the outEdges()
 // of its sub-parts.
 std::vector<PartEdgePtr> IntersectionPart::outEdges() {
-  list<PartEdgePtr> outPartEdges;
-  list<IntersectionPartEdgePtr> edges;
-  outEdges_rec(parts.begin(), outPartEdges, edges)
+  std::list<PartEdgePtr> outPartEdges;
+  std::vector<PartEdgePtr> edges;
+  outEdges_rec(parts.begin(), outPartEdges, edges);
   return edges;
 }
 
@@ -64,11 +69,11 @@ std::vector<PartEdgePtr> IntersectionPart::outEdges() {
 // partI - refers to the current part in parts
 // outPartEdges - the list of outgoing edges of the current combination of this IntersectionPart's sub-parts, 
 //         upto partI
-std::vector<PartEdgePtr> IntersectionPart::outEdges_rec(list<PartPtr>::iterator partI, list<PartEdgePtr> outPartEdges, 
-                                                        list<IntersectionPartEdgePtr>& edges) {
+void IntersectionPart::outEdges_rec(std::list<PartPtr>::iterator partI, std::list<PartEdgePtr> outPartEdges, 
+                                                        std::vector<PartEdgePtr>& edges) {
   // If we've reached the last part in parts and outEdgeParts contains all the outgoing PartEdges
   if(partI == parts.end())
-    edges.push(makePart<IntersectionPartEdge>(outPartEdges));
+    edges.push_back(makePart<IntersectionPartEdge>(outPartEdges));
   // If we haven't yet reached the end, recurse on all the outgoing edges of the current part
   else {
     // Get this part's outgoing edges
@@ -90,8 +95,8 @@ std::vector<PartEdgePtr> IntersectionPart::outEdges_rec(list<PartPtr>::iterator 
 // of its sub-parts.
 std::vector<PartEdgePtr> IntersectionPart::inEdges() {
   list<PartEdgePtr> inPartEdges;
-  list<IntersectionPartEdgePtr> edges;
-  inEdges_rec(parts.begin(), inPartEdges, edges)
+  vector<PartEdgePtr> edges;
+  inEdges_rec(parts.begin(), inPartEdges, edges);
   return edges;
 }
 // Recursive computation of the cross-product of the inEdges of all the sub-parts of this Intersection part.
@@ -101,11 +106,11 @@ std::vector<PartEdgePtr> IntersectionPart::inEdges() {
 // partI - refers to the current part in parts
 // inPartEdges - the list of incoming edges of the current combination of this IntersectionPart's sub-parts, 
 //         upto partI
-std::vector<PartEdgePtr> IntersectionPart::inEdges_rec(list<PartPtr>::iterator partI, list<PartEdgePtr> inPartEdges, 
-                                                        list<IntersectionPartEdgePtr>& edges) {
+void IntersectionPart::inEdges_rec(list<PartPtr>::iterator partI, list<PartEdgePtr> inPartEdges, 
+                                   vector<PartEdgePtr>& edges) {
   // If we've reached the last part in parts and inEdgeParts contains all the incoming PartEdges
   if(partI == parts.end())
-    edges.push(makePart<IntersectionPartEdge>(inPartEdges));
+    edges.push_back(makePart<IntersectionPartEdge>(inPartEdges));
   // If we haven't yet reached the end, recurse on all the incoming edges of the current part
   else {
     // Get this part's incoming edges
@@ -148,17 +153,64 @@ std::vector<CFGNode> IntersectionPart::CFGNodes() {
       }
     }
   }
+  
+  return nodes;
+}
+
+// Let A={ set of execution prefixes that terminate at the given anchor SgNode }
+// Let O={ set of execution prefixes that terminate at anchor's operand SgNode }
+// Since to reach a given SgNode an execution must first execute all of its operands it must
+//    be true that there is a 1-1 mapping m() : O->A such that o in O is a prefix of m(o).
+// This function is the inverse of m: given the anchor node and operand as well as the
+//    Part that denotes a subset of A (the function is called on this part), 
+//    it returns a list of Parts that partition O.
+std::list<PartPtr> IntersectionPart::getOperandPart(SgNode* anchor, SgNode* operand)
+{
+  list<PartPtr> accumOperandParts;
+  list<PartPtr> allParts;
+  getOperandPart_rec(anchor, operand, parts.begin(), accumOperandParts, allParts);
+  return allParts;
+}
+// Recursive computation of the cross-product of the getOperandParts of all the sub-parts of this Intersection part.
+// Hierarchically builds a recursion tree that contains more and more combinations of PartsPtr from the inEdges
+// of different sub-parts. When the recursion tree reaches its full depth (one level per part in parts), it creates
+// an intersection the current combination of 
+// partI - refers to the current part in parts
+// accumOperandParts - the list of incoming parts of the current combination of this IntersectionPart's sub-parts, 
+//         upto partI
+void IntersectionPart::getOperandPart_rec(SgNode* anchor, SgNode* operand,
+                                          list<PartPtr>::iterator partI, list<PartPtr> accumOperandParts, 
+                                          list<PartPtr>& allParts)
+{
+  // If we've reached the last part in parts and inEdgeParts contains all the incoming PartEdges
+  if(partI == parts.end())
+    allParts.push_back(makePart<IntersectionPart>(accumOperandParts));
+  // If we haven't yet reached the end, recurse on all the incoming edges of the current part
+  else {
+    // Get this part's incoming edges
+    list<PartPtr> operandParts = (*partI)->getOperandPart(anchor, operand);
+    
+    // Advance to the next part in parts
+    partI++;
+    
+    // Recurse on the cross product of the ingoing edges of this part and the incoming edges of subsequent parts
+    for(list<PartPtr>::iterator opP=operandParts.begin(); opP!=operandParts.end(); opP++){
+      accumOperandParts.push_back(*opP);
+      getOperandPart_rec(anchor, operand, partI, accumOperandParts, allParts);
+      accumOperandParts.pop_back();
+    }
+  }
 }
 
 // Two IntersectionParts are equal of all their constituent sub-parts are equal
-bool IntersectionPart::operator==(const PartPtr o) const
+bool IntersectionPart::operator==(const PartPtr& o) const
 {
-  const IntersectionPartPtr that = dynamic_part_cast<const IntersectionPart>(o);
+  IntersectionPartPtr that = dynamic_part_cast<IntersectionPart>(o);
   
   // Two intersection parts with different numbers of sub-parts are definitely not equal
-  if(parts.size() != that.parts.size()) return false;
+  if(parts.size() != that->parts.size()) return false;
   
-  for(list<PartPtr>::const iterator thisIt=parts.begin(), thatIt=that->parts.begin();
+  for(list<PartPtr>::const_iterator thisIt=parts.begin(), thatIt=that->parts.begin();
       thisIt!=parts.end(); thisIt++) {
     if(*thisIt != *thatIt) return false;
   }
@@ -169,18 +221,18 @@ bool IntersectionPart::operator==(const PartPtr o) const
 // Lexicographic ordering: This IntersectionPart is < that IntersectionPart if this has fewer parts than that or
 // there exists an index i in this.parts and that.parts s.t. forall j<i. this.parts[j]==that.parts[j] and 
 // this.parts[i] < that.parts[i].
-bool IntersectionPart::operator<(const PartPtr o)  const
+bool IntersectionPart::operator<(const PartPtr& o) const
 {
-  const IntersectionPartPtr that = dynamic_part_cast<const IntersectionPart>(o);
+  IntersectionPartPtr that = dynamic_part_cast<IntersectionPart>(o);
   
   // If this has fewer parts than that, it is ordered before it
-  if(parts.size() < that.parts.size()) return true;
+  if(parts.size() < that->parts.size()) return true;
   // If greater number of parts, it is order afterwards
-  if(parts.size() > that.parts.size()) return false;
+  if(parts.size() > that->parts.size()) return false;
   
   // Keep iterating for as long as the sub-parts are equal and declare this < that if we find
   // a sub-part in this < the corresponding sub-part in that
-  for(list<PartPtr>::const iterator thisIt=parts.begin(), thatIt=that->parts.begin();
+  for(list<PartPtr>::const_iterator thisIt=parts.begin(), thatIt=that->parts.begin();
       thisIt!=parts.end(); thisIt++) {
     if(*thisIt < *thatIt) return true;
     else if(*thisIt > *thatIt) return false;
@@ -188,6 +240,16 @@ bool IntersectionPart::operator<(const PartPtr o)  const
   
   // If the lexicographic < condition was not met then this is not < than that
   return false;
+}
+
+std::string IntersectionPart::str(std::string indent)
+{
+  ostringstream oss;
+  oss << "[IntersectionPart:"<<endl;
+  for(list<PartPtr>::iterator part=parts.begin(); part!=parts.end(); part++)
+    oss << indent << "&nbsp;&nbsp;&nbsp;&nbsp;" << (*part)->str(indent+"&nbsp;&nbsp;&nbsp;&nbsp;") << endl;
+  oss << "]";
+  return oss.str();
 }
 
 /* ################################
@@ -215,14 +277,14 @@ PartPtr IntersectionPartEdge::target() {
 }
 
 // Two IntersectionPartEdges are equal of all their constituent sub-parts are equal
-bool IntersectionPartEdge::operator==(const PartEdgePtr o) const
+bool IntersectionPartEdge::operator==(const PartEdgePtr& o) const
 {
-  const IntersectionPartEdgePtr that = dynamic_part_cast<const IntersectionPartEdge>(o);
+  IntersectionPartEdgePtr that = dynamic_part_cast<IntersectionPartEdge>(o);
   
   // Two intersection parts with different numbers of sub-parts are definitely not equal
-  if(edges.size() != that.edges.size()) return false;
+  if(edges.size() != that->edges.size()) return false;
   
-  for(list<PartEdgePtr>::const iterator thisIt=edges.begin(), thatIt=that->edges.begin();
+  for(list<PartEdgePtr>::const_iterator thisIt=edges.begin(), thatIt=that->edges.begin();
       thisIt!=edges.end(); thisIt++) {
     if(*thisIt != *thatIt) return false;
   }
@@ -233,18 +295,18 @@ bool IntersectionPartEdge::operator==(const PartEdgePtr o) const
 // Lexicographic ordering: This IntersectionPartEdge is < that IntersectionPartEdge if this has fewer edges than that or
 // there exists an index i in this.edges and that.edges s.t. forall j<i. this.edges[j]==that.edges[j] and 
 // this.edges[i] < that.edges[i].
-bool IntersectionPartEdge::operator<(const PartEdgePtr o)  const;
+bool IntersectionPartEdge::operator<(const PartEdgePtr& o) const
 {
-  const IntersectionPartEdgePtr that = dynamic_part_cast<const IntersectionPartEdge>(o);
+  IntersectionPartEdgePtr that = dynamic_part_cast<IntersectionPartEdge>(o);
   
   // If this has fewer edges than that, it is ordered before it
-  if(edges.size() < that.edges.size()) return true;
+  if(edges.size() < that->edges.size()) return true;
   // If greater number of edges, it is order afterwards
-  if(edges.size() > that.edges.size()) return false;
+  if(edges.size() > that->edges.size()) return false;
   
   // Keep iterating for as long as the sub-edges are equal and declare this < that if we find
   // a sub-edge in this < the corresponding sub-edge in that
-  for(list<PartEdgePtr>::const iterator thisIt=edges.begin(), thatIt=that->edges.begin();
+  for(list<PartEdgePtr>::const_iterator thisIt=edges.begin(), thatIt=that->edges.begin();
       thisIt!=edges.end(); thisIt++) {
     if(*thisIt < *thatIt) return true;
     else if(*thisIt > *thatIt) return false;
@@ -252,6 +314,16 @@ bool IntersectionPartEdge::operator<(const PartEdgePtr o)  const;
   
   // If the lexicographic < condition was not met then this is not < than that
   return false;
+}
+
+std::string IntersectionPartEdge::str(std::string indent)
+{
+  ostringstream oss;
+  oss << "[IntersectionPartEdge:"<<endl;
+  for(list<PartEdgePtr>::iterator edge=edges.begin(); edge!=edges.end(); edge++)
+    oss << indent << "&nbsp;&nbsp;&nbsp;&nbsp;" << (*edge)->str(indent+"&nbsp;&nbsp;&nbsp;&nbsp;") << endl;
+  oss << "]";
+  return oss.str();
 }
 
 }; // namespace dataflow

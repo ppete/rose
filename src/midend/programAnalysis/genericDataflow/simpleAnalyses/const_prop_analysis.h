@@ -136,9 +136,10 @@ class ConstantPropagationAnalysis : virtual public IntraFWDataflow
   
   void genInitState(const Function& func, PartPtr p, const NodeState& state, std::vector<Lattice*>& initLattices, std::vector<NodeFact*>& initFacts);
   
-  bool transfer(const Function& func, PartPtr p, NodeState& state, const std::vector<Lattice*>& dfInfo);
+  bool transfer(const Function& func, PartPtr p, NodeState& state, std::map<PartEdgePtr, std::vector<Lattice*> >& dfInfo);
   
-  boost::shared_ptr<IntraDFTransferVisitor> getTransferVisitor(const Function& func, PartPtr part, NodeState& state, const std::vector<Lattice*>& dfInfo);
+  boost::shared_ptr<IntraDFTransferVisitor> getTransferVisitor(const Function& func, PartPtr part, NodeState& state, 
+                                                               std::map<PartEdgePtr, std::vector<Lattice*> >& dfInfo);
   
   boost::shared_ptr<ValueObject> Expr2Val(SgNode* n, PartPtr p);
   
@@ -164,9 +165,11 @@ class ConstantPropagationAnalysisTransfer : public VariableStateTransfer<CPValue
    void transferMultiplicative(CPValueObjectPtr arg1Lat, CPValueObjectPtr arg2Lat, CPValueObjectPtr resLat);
    void transferDivision(CPValueObjectPtr arg1Lat, CPValueObjectPtr arg2Lat, CPValueObjectPtr resLat);
    void transferMod(CPValueObjectPtr arg1Lat, CPValueObjectPtr arg2Lat, CPValueObjectPtr resLat);
-   
+   void transferLogical(CPValueObjectPtr arg1Lat, CPValueObjectPtr arg2Lat, 
+                        CPValueObjectPtr resLat, SgExpression* expr);
    public:
    //  void visit(SgNode *);
+   // Values
    void visit(SgLongLongIntVal *sgn);
    void visit(SgLongIntVal *sgn);
    void visit(SgIntVal *sgn);
@@ -176,6 +179,7 @@ class ConstantPropagationAnalysisTransfer : public VariableStateTransfer<CPValue
    void visit(SgUnsignedIntVal *sgn);
    void visit(SgUnsignedShortVal *sgn);
    void visit(SgValueExp *sgn);
+   // Arithmetic Operations
    void visit(SgPlusAssignOp *sgn);
    void visit(SgMinusAssignOp *sgn);
    void visit(SgMultAssignOp *sgn);
@@ -186,14 +190,27 @@ class ConstantPropagationAnalysisTransfer : public VariableStateTransfer<CPValue
    void visit(SgMultiplyOp *sgn);
    void visit(SgDivideOp *sgn);
    void visit(SgModOp *sgn);
+   // Increment Operations
    void visit(SgPlusPlusOp *sgn);
    void visit(SgMinusMinusOp *sgn);
+   // Unary Operations
    void visit(SgUnaryAddOp *sgn);
    void visit(SgMinusOp *sgn);
+   // Logical Operations
+   void visit(SgGreaterOrEqualOp *sgn);
+   void visit(SgGreaterThanOp *sgn);
+   void visit(SgLessOrEqualOp *sgn);
+   void visit(SgLessThanOp *sgn);
+   void visit(SgEqualityOp *sgn);
+   void visit(SgNotEqualOp *sgn);
+   void visit(SgAndOp *sgn);
+   void visit(SgOrOp *sgn);
    
    bool finish();
    
-   ConstantPropagationAnalysisTransfer(const Function& func, PartPtr part, NodeState& state, const std::vector<Lattice*>& dfInfo, Composer* composer, ConstantPropagationAnalysis* analysis);
+   ConstantPropagationAnalysisTransfer(const Function& func, PartPtr part, NodeState& state, 
+                                       std::map<PartEdgePtr, std::vector<Lattice*> >& dfInfo, 
+                                       Composer* composer, ConstantPropagationAnalysis* analysis);
 };
 
 }; //namespace dataflow

@@ -101,10 +101,10 @@ class dataflowPartIterator : public virtual partIterator
   public:
   //dataflow(): iterator() {}
   
-  dataflowPartIterator(const PartPtr terminator_arg);
-  dataflowPartIterator(const PartPtr start, const PartPtr terminator_arg);
+  dataflowPartIterator(const PartPtr& terminator_arg);
+  dataflowPartIterator(const PartPtr& start, const PartPtr& terminator_arg);
   
-  void init(const PartPtr start_arg, const PartPtr terminator_arg);
+  void init(const PartPtr& start_arg, const PartPtr& terminator_arg);
   
   // Initializes this iterator's terminator node
   /*void setTerminator(const PartPtr terminator) {
@@ -125,7 +125,7 @@ class dataflowPartIterator : public virtual partIterator
     PartPtr terminator;
     
     public:
-    checkpoint(const partIterator::checkpoint& iChkpt, const PartPtr terminator);
+    checkpoint(const partIterator::checkpoint& iChkpt, const PartPtr& terminator);
     
     checkpoint(const checkpoint &that);
             

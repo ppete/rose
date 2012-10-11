@@ -13,7 +13,6 @@
 
 using namespace std;
 using namespace cfgUtils;
-
 //namespace bll = boost::lambda;
 
 namespace dataflow {
@@ -238,14 +237,14 @@ std::vector<CFGNode> StxPart::CFGNodes()
 // This function is the inverse of m: given the anchor node and operand as well as the
 //    Part that denotes a subset of A (the function is called on this part), 
 //    it returns a list of Parts that partition O.
-std::list<PartPtr> StxPart::getOperandPart(SgNode* anchor, SgNode* operand, PartPtr part)
+std::list<PartPtr> StxPart::getOperandPart(SgNode* anchor, SgNode* operand)
 {
   list<PartPtr> l;
   l.push_back(makePart<StxPart>(operand->cfgForEnd()));
   return l;
 }
 
-bool StxPart::operator==(PartPtr o) const
+bool StxPart::operator==(const PartPtr& o) const
 {
   /*ROSE_ASSERT(boost::dynamic_pointer_cast<StxPart>(o));
   return n == boost::dynamic_pointer_cast<StxPart>(o)->n;*/
@@ -253,7 +252,7 @@ bool StxPart::operator==(PartPtr o) const
   return n == dynamic_part_cast<StxPart>(o)->n;
 }
 
-bool StxPart::operator<(PartPtr o) const
+bool StxPart::operator<(const PartPtr& o) const
 {
   /*ROSE_ASSERT(boost::dynamic_pointer_cast<StxPart>(o));
   return n < boost::dynamic_pointer_cast<StxPart>(o)->n;*/
@@ -275,7 +274,25 @@ std::string StxPart::str(std::string indent)
 PartPtr StxPartEdge::source() { return makePart<StxPart>(p.source(), filter); } //boost::make_shared<StxPart>(p.source(), filter); }
 PartPtr StxPartEdge::target() { return makePart<StxPart>(p.target(), filter); } //boost::make_shared<StxPart>(p.target(), filter); }
 
-bool StxPartEdge::operator==(PartEdgePtr o) const
+// Let A={ set of execution prefixes that terminate at the given anchor SgNode }
+// Let O={ set of execution prefixes that terminate at anchor's operand SgNode }
+// Since to reach a given SgNode an execution must first execute all of its operands it must
+//    be true that there is a 1-1 mapping m() : O->A such that o in O is a prefix of m(o).
+// This function is the inverse of m: given the anchor node and operand as well as the
+//    PartEdge that denotes a subset of A (the function is called on this PartEdge), 
+//    it returns a list of PartEdges that partition O.
+std::list<PartEdgePtr> StxPartEdge::getOperandPartEdge(SgNode* anchor, SgNode* operand)
+{
+  CFGNode opCFG = operand->cfgForEnd();
+  vector<CFGEdge>::edges = opCFG.inEdges()
+  // Iterate over all the edges that terminate at the operand CFG Node, adding each to the output list
+  list<PartEdgePtr> l;
+  for(vector<CFGEdge>::iterator e=edges.begin(); e!=edges.end(); e++)
+    l.push_back(makePart<StxPartEdge>(*e);
+  return l;
+}
+
+bool StxPartEdge::operator==(const PartEdgePtr& o) const
 {
   /*ROSE_ASSERT(boost::dynamic_pointer_cast<StxPartEdge>(o));
   return p == boost::dynamic_pointer_cast<StxPartEdge>(o)->p;*/
@@ -283,7 +300,7 @@ bool StxPartEdge::operator==(PartEdgePtr o) const
   return p == dynamic_part_cast<StxPartEdge>(o)->p;
 }
 
-bool StxPartEdge::operator<(PartEdgePtr o) const
+bool StxPartEdge::operator<(const PartEdgePtr& o) const
 {
   /*ROSE_ASSERT(boost::dynamic_pointer_cast<StxPartEdge>(o));
   return p < boost::dynamic_pointer_cast<StxPartEdge>(o)->p;*/
@@ -329,9 +346,20 @@ StxMemLocObject::eqType StxMemLocObject::equal(MemLocObjectPtr that_arg, PartPtr
 StxValueObject::StxValueObject(SgNode* n)
 {
   // If a valid node is passed, check if it is an SgValue
-  if(n) val = isSgValueExp(n);
+  if(n) {
+    Dbg::dbg << "StxValueObject::StxValueObject("<<cfgUtils::SgNode2Str(n)<<")";
+    Dbg::dbg << " isSgCastExp(n)="<<isSgCastExp(n)<<" cfgUtils::unwrapCasts(isSgCastExp(n))="<<(isSgCastExp(n) ? cfgUtils::SgNode2Str(cfgUtils::unwrapCasts(isSgCastExp(n))) : "NULL")<<" iscast="<<(isSgCastExp(n) ? isSgValueExp(cfgUtils::unwrapCasts(isSgCastExp(n))) : 0)<<endl;
+    if(isSgValueExp(n)) 
+      val = isSgValueExp(n);
+    // If this is a value that has been wrapped in many casts
+    // GB 2012-10-09 - NOTE: in the future we'll need to refine this code to accurately capture the effect of these casts!
+    else if(isSgCastExp(n) && isSgValueExp(cfgUtils::unwrapCasts(isSgCastExp(n))))
+      val = isSgValueExp(cfgUtils::unwrapCasts(isSgCastExp(n)));
+    else
+      val = NULL;
   // Otherwise, default this ValueObject to an unknown 
-  else val = NULL;
+  } else 
+    val = NULL;
 }
 
 StxValueObject::StxValueObject(const StxValueObject& that) : val(that.val)
@@ -422,7 +450,8 @@ bool StxValueObject::isConcrete()
 boost::shared_ptr<SgType> StxValueObject::getConcreteType()
 {
   ROSE_ASSERT(val);
-  return boost::shared_ptr<SgType>(val->get_type()->copy(copyHelp));
+  SgTreeCopy copyHelp;
+  return boost::shared_ptr<SgType>((SgType*)val->get_type()->copy(copyHelp));
 }
 
 // Returns the concrete value (if there is one) as an SgValueExp, which allows callers to use
@@ -430,7 +459,8 @@ boost::shared_ptr<SgType> StxValueObject::getConcreteType()
 boost::shared_ptr<SgValueExp> StxValueObject::getConcreteValue()
 {
   ROSE_ASSERT(val);
-  return boost::shared_ptr<SgType>(val->copy(copyHelp));
+  SgTreeCopy copyHelp;
+  return boost::shared_ptr<SgValueExp>((SgValueExp*)val->copy(copyHelp));
 }
  
 //std::string StxValueObject::str(const string& indent) {
@@ -892,14 +922,14 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
             isSgIfStmt(n.getNode())->get_conditional()==
             SageInterface::getEnclosingStatement(anchor_exp)) ||
            (isSgWhileStmt(n.getNode()) && 
-            isSgWhileStmt(n.getNode())->get_conditional()==
+            isSgWhileStmt(n.getNode())->get_condition()==
             SageInterface::getEnclosingStatement(anchor_exp)) ||
            (isSgDoWhileStmt(n.getNode()) && 
-            isSgDoWhileStmt(n.getNode())->get_conditional()==
+            isSgDoWhileStmt(n.getNode())->get_condition()==
             SageInterface::getEnclosingStatement(anchor_exp)) ||
-           (SgForStatement(n.getNode()) && 
-            (SgForStatement(n.getNode())->get_for_init_stmt()==SageInterface::getEnclosingStatement(anchor_exp) ||
-             SgForStatement(n.getNode())->get_test()         ==SageInterface::getEnclosingStatement(anchor_exp));
+           (isSgForStatement(n.getNode()) && 
+            (isSgForStatement(n.getNode())->get_for_init_stmt()==SageInterface::getEnclosingStatement(anchor_exp) ||
+             isSgForStatement(n.getNode())->get_test()         ==SageInterface::getEnclosingStatement(anchor_exp)));
   }
     
   // Returns true if this MemLocObject is in-scope at the given part and false otherwise

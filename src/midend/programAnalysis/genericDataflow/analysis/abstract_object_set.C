@@ -186,6 +186,7 @@ void AbstractObjectSet::copy(Lattice* thatL)
 //    deleted.
 // The function takes newPart, the part within which the values of ml2ml should be interpreted. It corresponds
 //    to the code region(s) to which we are remapping.
+// remapML must return a freshly-allocated object.
 // In must mode for each MemLocObject o in the set, if there exist any pairs <old, new> in ml2ml such that 
 //    o mustEquals old, then new will be included in the final set.
 // May mode is the same, except if for some pair <old, new> old mayEquals o but not mustEquals o then new is 

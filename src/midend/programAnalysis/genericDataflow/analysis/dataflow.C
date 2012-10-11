@@ -42,7 +42,7 @@ NodeState* IntraFWDataflow::initializeFunctionNodeState(const Function &func, No
   ///   Dbg::dbg << "Lattice "<<i<<": "<<*l<<" = "<<(*l)->str("            ")<<endl;
   //Dbg::dbg << "this="<<this<<endl;
         
-  NodeState::copyLattices_aEQa(this, *entryState, /*interAnalysis*/this, *fState);
+  NodeState::copyLattices_aEQa((Analysis*)this, *entryState, *fState);
 
   return entryState;
 }
@@ -152,28 +152,28 @@ IntraBWDataflow::getInitialWorklist(const Function &func, bool analyzeFromDirect
   return dfIt;
 }
 
-vector<Lattice*> IntraFWDataflow::getLatticeAnte(NodeState *state) { return state->getLatticeAbove(this); }
-vector<Lattice*> IntraFWDataflow::getLatticePost(NodeState *state) { return state->getLatticeBelow(this); }
-vector<Lattice*> IntraBWDataflow::getLatticeAnte(NodeState *state) { return state->getLatticeBelow(this); }
-vector<Lattice*> IntraBWDataflow::getLatticePost(NodeState *state) { return state->getLatticeAbove(this); }
+map<PartEdgePtr, vector<Lattice*> >& IntraFWDataflow::getLatticeAnte(NodeState *state) { return state->getLatticeAboveAllMod(this); }
+map<PartEdgePtr, vector<Lattice*> >& IntraFWDataflow::getLatticePost(NodeState *state) { return state->getLatticeBelowAllMod(this); }
+map<PartEdgePtr, vector<Lattice*> >& IntraBWDataflow::getLatticeAnte(NodeState *state) { return state->getLatticeBelowAllMod(this); }
+map<PartEdgePtr, vector<Lattice*> >& IntraBWDataflow::getLatticePost(NodeState *state) { return state->getLatticeAboveAllMod(this); }
 
-void IntraFWDataflow::transferFunctionCall(const Function &caller, PartPtr callPart, CFGNode callCFG, NodeState *state)
+/*void IntraFWDataflow::transferFunctionCall(const Function &caller, PartPtr callPart, CFGNode callCFG, NodeState *state)
 {
   vector<Lattice*> dfInfoBelow = state->getLatticeBelow(this);
 
   //vector<Lattice*>* retState = NULL;
   dynamic_cast<InterProceduralDataflow*>(interAnalysis)->
-    transfer(caller, callPart, callCFG, *state, dfInfoBelow/*, &retState*/);
+    transfer(caller, callPart, callCFG, *state, dfInfoBelow);
 }
 
 void IntraBWDataflow::transferFunctionCall(const Function &caller, PartPtr callPart, CFGNode callCFG, NodeState *state)
 {
   //vector<Lattice*>* retState;
   dynamic_cast<InterProceduralDataflow*>(interAnalysis)->
-    transfer(caller, callPart, callCFG, *state, state->getLatticeAbove(this)/*, &retState*/);
+    transfer(caller, callPart, callCFG, *state, state->getLatticeAboveMod(this));
                                 
   // NEED TO INCORPORATE INFORMATION ABOUT RETURN INTO DATAFLOW SOMEHOW
-}
+}*/
 
 vector<PartPtr> IntraFWDataflow::getDescendants(PartPtr part)
 { 
@@ -247,12 +247,12 @@ void ComposedAnalysis::runAnalysis(const Function& func, NodeState* fState, bool
     dataflowPartIterator* curNodeIt = getIterator(func);
     Dbg::dbg << "Initial curNodeIt="<<curNodeIt->str()<<endl;
     curNodeIt->add(*start);
-    while(curNodeIt!=dataflowPartIterator::end())
+    while(*curNodeIt!=dataflowPartIterator::end())
     {
       PartPtr part = **curNodeIt;
       
       ostringstream nodeNameStr;
-      nodeNameStr << "Current Part "<<partDepEdge->str()<<endl; Dbg::region reg(analysisDebugLevel, 1, Dbg::region::topLevel, nodeNameStr.str());
+      nodeNameStr << "Current Part "<<part->str()<<endl; Dbg::region reg(analysisDebugLevel, 1, Dbg::region::topLevel, nodeNameStr.str());
       
       bool modified = false;
       visited.insert(part);
@@ -261,6 +261,11 @@ void ComposedAnalysis::runAnalysis(const Function& func, NodeState* fState, bool
       NodeState* state = NodeState::getNodeState(this, part);
       Dbg::dbg << "analysis="<<this<<"="<<((ComposedAnalysis*)this)<<"="<<str()<<" state="<<state<<"="<<state->str(this)<<endl;
         
+      map<PartEdgePtr, vector<Lattice*> >& dfInfoAnte = getLatticeAnte(state);
+      // Create a local map for the post dataflow information. It will be deallocated 
+      // at the end of the transfer function.
+      map<PartEdgePtr, vector<Lattice*> > dfInfoPost;
+      
       // Iterate over all the CFGNodes associated with this part and merge the result of applying to transfer function
       // to all of them
       vector<CFGNode> v=part->CFGNodes();
@@ -271,18 +276,15 @@ void ComposedAnalysis::runAnalysis(const Function& func, NodeState* fState, bool
         Dbg::region reg(analysisDebugLevel, (v.size()==1 ? 10: 1), Dbg::region::topLevel, nodeNameStr.str());
         
         // =================== Copy incoming lattices to outgoing lattices ===================
-        const map<PartEdgePtr, vector<Lattice*> > dfInfoAnte = getLatticeAnte(state);
-        map<PartEdgePtr, vector<Lattice*> > dfInfoPost;
-
+        // For the case where dfInfoPost needs to be created fresh, this shared pointer dfInfoPostPtr will ensure that 
+        // the map is deallocated when dfInfoPostPtr goes out of scope.
+        boost::shared_ptr<map<PartEdgePtr, vector<Lattice*> > > dfInfoPostPtr;
         // Overwrite the Lattices below this node with the lattices above this node.
         // The transfer function will then operate on these Lattices to produce the
         // correct state below this node.
 
         //printf("                 dfInfoAnte.size()=%d, dfInfoPost.size()=%d, this=%p\n", dfInfoAnte.size(), dfInfoPost.size(), this);
-        // If this is the first CFGNode within Part p, use the lattices stored in the NodeState as the post state
         if(c==v.begin()) {
-          dfInfoPost = getLatticePost(state);
-
           if(analysisDebugLevel>=1) {
              Dbg::dbg << "==================================  "<<endl;
              Dbg::dbg << "  Copying incoming Lattice :"<<endl;
@@ -292,13 +294,17 @@ void ComposedAnalysis::runAnalysis(const Function& func, NodeState* fState, bool
           }
           
           // Over-write the post information with the ante information, creating it if it doesn't exist yet
-          if(dfInfoPost.size()==0) NodeState::copyLatticesOW(dfInfoPost, dfInfoAnte);
+          /*if(dfInfoPost.size()==0) */NodeState::copyLatticesOW(dfInfoPost, dfInfoAnte);
           // GB 2012-09-28: Do we even need to keep post information around after the transfer 
           //                function is done or can we just deallocate it?
-          else                     NodeState::copyLattices  (dfInfoPost, dfInfoAnte);
+          //else                     NodeState::copyLattices  (dfInfoPost, dfInfoAnte);
         // If this is not the first CFGNode, create a new post state. It will be merged into the lattices in 
         // the NodeState after the transfer function
         } else {
+          // Since this is not the first CFGNode within Part p, create a new post state for it
+          dfInfoPostPtr = boost::make_shared<map<PartEdgePtr, vector<Lattice*> > >();
+          dfInfoPost = *dfInfoPostPtr.get();
+          
           Dbg::dbg << "=================================="<<endl;
           Dbg::dbg << "Creating outgoing state from incoming state"<<endl;
           
@@ -312,11 +318,13 @@ void ComposedAnalysis::runAnalysis(const Function& func, NodeState* fState, bool
           Dbg::dbg << "  Transferring the outgoing  Lattice ... "<<endl;
         }
         if (isSgFunctionCallExp(sgn))
-          transferFunctionCall(func, part, *c, state);
+          //transferFunctionCall(func, part, *c, state);
+          dynamic_cast<InterProceduralDataflow*>(interAnalysis)->
+                                                   transfer(func, part, *c, *state, dfInfoPost[NULLPartEdge]);
         
         // When a dfInfo map goes into a transfer function it must only have one key: the NULL edge
         ROSE_ASSERT(dfInfoPost.size()==1);
-        ROSE_ASSERT(dfInfoPost.find(PartEdgePtr()) != dfInfoPost.end());
+        ROSE_ASSERT(dfInfoPost.find(NULLPartEdge) != dfInfoPost.end());
         
         boost::shared_ptr<IntraDFTransferVisitor> transferVisitor = getTransferVisitor(func, part, *state, dfInfoPost);
         sgn->accept(*transferVisitor);
@@ -326,22 +334,23 @@ void ComposedAnalysis::runAnalysis(const Function& func, NodeState* fState, bool
         // descendant edge
         vector<PartEdgePtr> descEdges = getEdgesToDescendants(part);
         // If the key is still the NULL edge
-        if(dfInfoPost.size()==1 && (dfInfoPost.find(PartEdgePtr()) != dfInfoPost.end())) {
+        if(dfInfoPost.size()==1 && (dfInfoPost.find(NULLPartEdge) != dfInfoPost.end())) {
           // Adjust dfInfoPost to make one copy of the value for each descendant edge
           
           vector<PartEdgePtr>::iterator first=descEdges.begin();
           // First, map the original key to the first descendant edge
-          dfInfoPost[first] = dfInfoPost[PartEdgePtr()];
+          dfInfoPost[*first] = dfInfoPost[NULLPartEdge];
+          dfInfoPost.erase(NULLPartEdge);
           
           // Now copy its value to the other descendant edges
           vector<PartEdgePtr>::iterator e=first;
           for(e++; e!=descEdges.end(); e++)
-            NodeState::copyLatticesOW(dfInfoPost[e], dfInfoPost[first]);
+            NodeState::copyLatticesOW(dfInfoPost, *e, dfInfoPost, *first);
         // If the key has been changed
         } else {
           // First, verify that it has been changed correctly
           ROSE_ASSERT(descEdges.size() == dfInfoPost.size());
-          for(<vector<PartEdgePtr>::iterator e=descEdges.begin(); e!=descEdges.end(); e++)
+          for(vector<PartEdgePtr>::iterator e=descEdges.begin(); e!=descEdges.end(); e++)
             ROSE_ASSERT(dfInfoPost.find(*e) != dfInfoPost.end());
         }
         
@@ -362,6 +371,7 @@ void ComposedAnalysis::runAnalysis(const Function& func, NodeState* fState, bool
             Dbg::dbg << "With lattice  for the current CFGNodes:"<<endl;
             {Dbg::indent ind(analysisDebugLevel, 1); Dbg::dbg <<NodeState::str(dfInfoPost); }
           }
+          ROSE_ASSERT(getLatticePost(state).begin()->first == NULLPartEdge);
           modified = NodeState::unionLatticeMaps(getLatticePost(state), dfInfoPost) || modified;
           
           if(analysisDebugLevel>=1) {
@@ -385,11 +395,9 @@ void ComposedAnalysis::runAnalysis(const Function& func, NodeState* fState, bool
         }
         Dbg::indent ind(analysisDebugLevel, 1);
         
-        map<PartEdgePtr, vector<Lattice*> > dfInfoPost = getLatticePost(state);
-        
         // Iterate over all descendants
         vector<PartPtr>::iterator d;
-        vector<PartPtr>::iterator de;
+        vector<PartEdgePtr>::iterator de;
         for(d = descendants.begin(), de = descEdges.begin(); d != descendants.end(); d++, de++)
         {
           // The CFG node corresponding to the current descendant of n
@@ -399,12 +407,12 @@ void ComposedAnalysis::runAnalysis(const Function& func, NodeState* fState, bool
           NodeState* nextState = NodeState::getNodeState(this, nextNode);
           
           // Make sure that dfInfoPost has a key for this descendant
-          ROSE_ASSERT(dfInfoPost.find(*de) != dfInfoPost.end())
+          ROSE_ASSERT(dfInfoPost.find(*de) != dfInfoPost.end());
                   
-          // The dfInfo map for this descendant will have its Lattice* vector from dfInfoPost mapped 
+          // The temporary dfInfo map for this descendant will have its Lattice* vector from dfInfoPost mapped 
           // under the NULL edge key
-          map<PartEdgePtr, vector<Lattice*> > dfInfoNext = getLatticePost(state);
-          dfInfoNext[PartEdgePtr()] = dfInfoPost[*de];
+          map<PartEdgePtr, vector<Lattice*> > dfInfoNext;
+          dfInfoNext[NULLPartEdge] = dfInfoPost[*de];
           
           // Propagate the Lattices below this node to its descendant
           modified = propagateStateToNextNode(dfInfoNext, part, getLatticeAnte(nextState), nextNode);
@@ -418,6 +426,12 @@ void ComposedAnalysis::runAnalysis(const Function& func, NodeState* fState, bool
             curNodeIt->add(nextNode);
         }
       }
+      
+      // Deallocate dfInfoPost and its Lattices
+      for(map<PartEdgePtr, vector<Lattice*> >::iterator e=dfInfoPost.begin(); e!=dfInfoPost.end(); e++)
+        for(vector<Lattice*>::iterator l=e->second.begin(); l!=e->second.end(); l++)
+          delete *l;
+      
       (*curNodeIt)++;
     } // while(curNodeIt!=dataflowPartIterator::end())
   } // for(list<PartPtr>::iterator start=startingParts.begin(); start!=startingParts.end(); start++) {

@@ -3,9 +3,8 @@
 #include <boost/bind.hpp>
 #include <boost/mem_fn.hpp>
 #include <boost/make_shared.hpp>
-
+  
 namespace dataflow {
-
 int constantPropagationAnalysisDebugLevel = 2;
 
 // **********************************************************************
@@ -254,7 +253,7 @@ boost::shared_ptr<SgType> CPValueObject::getConcreteType()
 {
   ROSE_ASSERT(isConcrete());
   // GB 2012-09-26: We only support integer types for our constants. This will need to be improved.
-  return boost::shared<SgType>(SageBuilder::buidIntType());
+  return boost::shared_ptr<SgType>(SageBuilder::buildIntType());
 }
 
 // Returns the concrete value (if there is one) as an SgValueExp, which allows callers to use
@@ -262,7 +261,7 @@ boost::shared_ptr<SgType> CPValueObject::getConcreteType()
 boost::shared_ptr<SgValueExp> CPValueObject::getConcreteValue()
 {
   ROSE_ASSERT(isConcrete());
-  return boost::shared<SgValueExp>(SageBuilder::buidIntVal(value));
+  return boost::shared_ptr<SgValueExp>(SageBuilder::buildIntVal(value));
 }
   
 /*string CPValueObject::str(const string& indent)
@@ -405,6 +404,34 @@ ConstantPropagationAnalysisTransfer::transferMod(CPValueObjectPtr arg1Lat, CPVal
    }
 
 void
+ConstantPropagationAnalysisTransfer::transferLogical(CPValueObjectPtr arg1Lat, CPValueObjectPtr arg2Lat, 
+                                                     CPValueObjectPtr resLat, SgExpression* expr)
+{
+  if (arg1Lat->getLevel() == CPValueObject::bottom || arg2Lat->getLevel() == CPValueObject::bottom)
+    updateModified(resLat->setLevel(CPValueObject::bottom));
+  else {
+    // Both knownValue
+    if(arg1Lat->getLevel() == CPValueObject::constantValue && arg2Lat->getLevel() == CPValueObject::constantValue) {
+      switch(expr->variantT()) {
+        case V_SgGreaterOrEqualOp: updateModified(resLat->setValue(arg1Lat->getValue() >= arg2Lat->getValue())); break;
+        case V_SgGreaterThanOp:    updateModified(resLat->setValue(arg1Lat->getValue() >  arg2Lat->getValue())); break;
+        case V_SgLessOrEqualOp:    updateModified(resLat->setValue(arg1Lat->getValue() <= arg2Lat->getValue())); break;
+        case V_SgLessThanOp:       updateModified(resLat->setValue(arg1Lat->getValue() <  arg2Lat->getValue())); break;
+        case V_SgEqualityOp:       updateModified(resLat->setValue(arg1Lat->getValue() == arg2Lat->getValue())); break;
+        case V_SgNotEqualOp:       updateModified(resLat->setValue(arg1Lat->getValue() != arg2Lat->getValue())); break;
+        case V_SgAndOp:            updateModified(resLat->setValue(arg1Lat->getValue() && arg2Lat->getValue())); break;
+        case V_SgOrOp:             updateModified(resLat->setValue(arg1Lat->getValue() || arg2Lat->getValue())); break;
+        default: ROSE_ASSERT(0);
+      }
+    } else {
+      // Else => Top
+      updateModified(resLat->setLevel(CPValueObject::top));
+    }
+  }
+}
+
+// Values
+void
 ConstantPropagationAnalysisTransfer::visit(SgLongLongIntVal *sgn)
    {
    }
@@ -456,6 +483,7 @@ ConstantPropagationAnalysisTransfer::visit(SgValueExp *sgn)
    {
    }
 
+// Arithmetic Operations
 void
 ConstantPropagationAnalysisTransfer::visit(SgPlusAssignOp *sgn)
    {
@@ -516,6 +544,7 @@ ConstantPropagationAnalysisTransfer::visit(SgModOp *sgn)
    transferArith(sgn, boost::bind(&ConstantPropagationAnalysisTransfer::transferMod, _1, _2, _3, _4 ));
    }
 
+// Increment Operations
 void
 ConstantPropagationAnalysisTransfer::visit(SgPlusPlusOp *sgn)
    {
@@ -528,6 +557,7 @@ ConstantPropagationAnalysisTransfer::visit(SgMinusMinusOp *sgn)
    transferIncrement(sgn);
    }
 
+// Unary Operations
 void
 ConstantPropagationAnalysisTransfer::visit(SgUnaryAddOp *sgn)
    {
@@ -545,14 +575,51 @@ ConstantPropagationAnalysisTransfer::visit(SgMinusOp *sgn)
    setLattice(sgn, operandLat);
    }
 
+// Logical Operations
+void
+ConstantPropagationAnalysisTransfer::visit(SgGreaterOrEqualOp *sgn)
+{ transferArith(sgn, boost::bind(&ConstantPropagationAnalysisTransfer::transferLogical, _1, _2, _3, _4, sgn)); }
+
+void
+ConstantPropagationAnalysisTransfer::visit(SgGreaterThanOp *sgn)
+{ transferArith(sgn, boost::bind(&ConstantPropagationAnalysisTransfer::transferLogical, _1, _2, _3, _4, sgn)); }
+
+void
+ConstantPropagationAnalysisTransfer::visit(SgLessOrEqualOp *sgn)
+{ transferArith(sgn, boost::bind(&ConstantPropagationAnalysisTransfer::transferLogical, _1, _2, _3, _4, sgn)); }
+
+void
+ConstantPropagationAnalysisTransfer::visit(SgLessThanOp *sgn)
+{ transferArith(sgn, boost::bind(&ConstantPropagationAnalysisTransfer::transferLogical, _1, _2, _3, _4, sgn)); }
+
+void
+ConstantPropagationAnalysisTransfer::visit(SgEqualityOp *sgn)
+{ transferArith(sgn, boost::bind(&ConstantPropagationAnalysisTransfer::transferLogical, _1, _2, _3, _4, sgn)); }
+
+void
+ConstantPropagationAnalysisTransfer::visit(SgNotEqualOp *sgn)
+{ transferArith(sgn, boost::bind(&ConstantPropagationAnalysisTransfer::transferLogical, _1, _2, _3, _4, sgn)); }
+
+void
+ConstantPropagationAnalysisTransfer::visit(SgAndOp *sgn)
+{ transferArith(sgn, boost::bind(&ConstantPropagationAnalysisTransfer::transferLogical, _1, _2, _3, _4, sgn)); }
+
+void
+ConstantPropagationAnalysisTransfer::visit(SgOrOp *sgn)
+{ transferArith(sgn, boost::bind(&ConstantPropagationAnalysisTransfer::transferLogical, _1, _2, _3, _4, sgn)); }
+
 bool
 ConstantPropagationAnalysisTransfer::finish()
    {
    return modified;
    }
 
-ConstantPropagationAnalysisTransfer::ConstantPropagationAnalysisTransfer(const Function& func, PartPtr part, NodeState& state, const std::vector<Lattice*>& dfInfo, Composer* composer, ConstantPropagationAnalysis* analysis)
-   : VariableStateTransfer<CPValueObject>(func, state, dfInfo, boost::make_shared<CPValueObject>(part), composer, analysis, part, constantPropagationAnalysisDebugLevel)
+ConstantPropagationAnalysisTransfer::ConstantPropagationAnalysisTransfer(
+          const Function& func, PartPtr part, NodeState& state, 
+          std::map<PartEdgePtr, std::vector<Lattice*> >& dfInfo, 
+          Composer* composer, ConstantPropagationAnalysis* analysis)
+   : VariableStateTransfer<CPValueObject>(func, state, dfInfo, boost::make_shared<CPValueObject>(part), 
+                                          composer, analysis, part, constantPropagationAnalysisDebugLevel)
    {
    }
 
@@ -570,7 +637,8 @@ ConstantPropagationAnalysis::ConstantPropagationAnalysis()
 
 // generates the initial lattice state for the given dataflow node, in the given function, with the given NodeState
 void
-ConstantPropagationAnalysis::genInitState(const Function& func, PartPtr p, const NodeState& state, std::vector<Lattice*>& initLattices, std::vector<NodeFact*>& initFacts)
+ConstantPropagationAnalysis::genInitState(const Function& func, PartPtr p, const NodeState& state, 
+                                          std::vector<Lattice*>& initLattices, std::vector<NodeFact*>& initFacts)
    {
     //ComposerExpr2MemLocPtr ceml(new ComposerExpr2MemLoc(*getComposer(), p, *((ComposedAnalysis*)this)));
     AbstractObjectMap* l = new AbstractObjectMap(new MustEqualFunctor(), boost::make_shared<CPValueObject>(p)/*, ceml*/, p);
@@ -583,14 +651,16 @@ ConstantPropagationAnalysis::genInitState(const Function& func, PartPtr p, const
 
   
 bool
-ConstantPropagationAnalysis::transfer(const Function& func, PartPtr p, NodeState& state, const std::vector<Lattice*>& dfInfo)
+ConstantPropagationAnalysis::transfer(const Function& func, PartPtr p, NodeState& state, 
+                                      std::map<PartEdgePtr, std::vector<Lattice*> >& dfInfo)
    {
    assert(0); 
    return false;
    }
 
 boost::shared_ptr<IntraDFTransferVisitor>
-ConstantPropagationAnalysis::getTransferVisitor(const Function& func, PartPtr part, NodeState& state, const std::vector<Lattice*>& dfInfo)
+ConstantPropagationAnalysis::getTransferVisitor(const Function& func, PartPtr part, NodeState& state, 
+                                                std::map<PartEdgePtr, std::vector<Lattice*> >& dfInfo)
    {
   // Why is the boost shared pointer used here?
    return boost::shared_ptr<IntraDFTransferVisitor>(new ConstantPropagationAnalysisTransfer(func, part, state, dfInfo, composer, this));
@@ -598,14 +668,19 @@ ConstantPropagationAnalysis::getTransferVisitor(const Function& func, PartPtr pa
 
 ValueObjectPtr ConstantPropagationAnalysis::Expr2Val(SgNode* n, PartPtr part)
 {
+  Dbg::dbg << "ConstantPropagationAnalysis::Expr2Val(n="<<cfgUtils::SgNode2Str(n)<<", part="<<part->str()<<endl;
   AbstractObjectMap* cpMap = dynamic_cast<AbstractObjectMap*>(NodeState::getNodeState(this, part)->getLatticeAbove(this, 0));
   ROSE_ASSERT(cpMap);
   
   MemLocObjectPtrPair p = composer->Expr2MemLoc(n, part, this);
+  Dbg::indent ind;
+  Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;p="<<p.str()<<endl;
+  Dbg::dbg << "cpMap="<<cpMap<<"="<<cpMap->str()<<endl;
+  
   // Return the lattice associated with n's expression since that is likely to be more precise
   // but if it is not available, used the memory object
   return (p.expr ? boost::dynamic_pointer_cast<ValueObject>(cpMap->get(p.expr)) :
-             boost::dynamic_pointer_cast<ValueObject>(cpMap->get(p.mem)));
+                   boost::dynamic_pointer_cast<ValueObject>(cpMap->get(p.mem)));
 }
 
 }; // namespace dataflow;

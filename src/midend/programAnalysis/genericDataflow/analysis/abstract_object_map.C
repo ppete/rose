@@ -310,6 +310,7 @@ void AbstractObjectMap::copy(Lattice* thatL) {
 //    deleted.
 // The function takes newPart, the part within which the values of ml2ml should be interpreted. It corresponds
 //    to the code region(s) to which we are remapping.
+// remapML must return a freshly-allocated object.
 Lattice* AbstractObjectMap::remapML(const std::set<pair<MemLocObjectPtr, MemLocObjectPtr> >& ml2ml, PartPtr newPart)
 {
   if(isFull) { return copy(); }

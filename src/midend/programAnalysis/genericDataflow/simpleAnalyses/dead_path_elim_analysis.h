@@ -2,6 +2,7 @@
 #define	DEAD_PATH_ELIM_ANALYSIS_H
 
 #include "compose.h"
+#include "boost/enable_shared_from_this.hpp"
 
 namespace dataflow
 {
@@ -15,8 +16,12 @@ namespace dataflow
 extern int deadPathElimAnalysisDebugLevel;
 
 class DeadPathElimAnalysis;
+class DeadPathElimPart;
+typedef CompSharedPtr<DeadPathElimPart> DeadPathElimPartPtr;
+class DeadPathElimPartEdge;
+typedef CompSharedPtr<DeadPathElimPartEdge> DeadPathElimPartEdgePtr;
 
-class DeadPathElimPart : public FiniteLattice, public Part
+class DeadPathElimPart : public FiniteLattice, public Part, public boost::enable_shared_from_this<DeadPathElimPart>
 {
   private:
   // This object's current level in the lattice: (bottom, dead, live)
@@ -45,6 +50,24 @@ class DeadPathElimPart : public FiniteLattice, public Part
   
   bool operator==(Lattice* that) /*const*/;
   
+// Called by analyses to transfer this lattice's contents from across function scopes from a caller function 
+  //    to a callee's scope and vice versa. If this this lattice maintains any information on the basis of 
+  //    individual MemLocObjects these mappings must be converted, with MemLocObjects that are keys of the ml2ml 
+  //    replaced with their corresponding values. If a given key of ml2ml does not appear in the lattice, it must
+  //    be added to the lattice and assigned a default initial value. In many cases (e.g. over-approximate sets 
+  //    of MemLocObjects) this may not require any actual insertions. If the value of a given ml2ml mapping is 
+  //    NULL (empty boost::shared_ptr), any information for MemLocObjects that must-equal to the key should be 
+  //    deleted.
+  // The function takes newPart, the part within which the values of ml2ml should be interpreted. It corresponds
+  //    to the code region(s) to which we are remapping.
+  // remapML must return a freshly-allocated object.
+  Lattice* remapML(const std::set<pair<MemLocObjectPtr, MemLocObjectPtr> >& ml2ml, PartPtr newPart);
+  
+  // Adds information about the MemLocObjects in newL to this Lattice, overwriting any information previously 
+  //    maintained in this lattice about them.
+  // Returns true if the Lattice state is modified and false otherwise.
+  bool replaceML(Lattice* newL);
+  
   // Computes the meet of this and that and saves the result in this
   // Returns true if this causes this to change and false otherwise
   bool meetUpdate(Lattice* that);
@@ -57,6 +80,9 @@ class DeadPathElimPart : public FiniteLattice, public Part
   // Return true if this causes the object to change and false otherwise.
   bool setToEmpty();
   
+  // Set this Lattice object to represent a dead part
+  bool setToDead();
+  
   // Pretty print for the object
   std::string str(std::string indent="");
   
@@ -68,23 +94,35 @@ class DeadPathElimPart : public FiniteLattice, public Part
   std::vector<PartEdgePtr> inEdges();
   std::vector<CFGNode> CFGNodes();
   
-  bool operator==(const PartPtr o) const;
-  bool operator<(const PartPtr o)  const;
+  // Let A={ set of execution prefixes that terminate at the given anchor SgNode }
+  // Let O={ set of execution prefixes that terminate at anchor's operand SgNode }
+  // Since to reach a given SgNode an execution must first execute all of its operands it must
+  //    be true that there is a 1-1 mapping m() : O->A such that o in O is a prefix of m(o).
+  // This function is the inverse of m: given the anchor node and operand as well as the
+  //    Part that denotes a subset of A (the function is called on this part), 
+  //    it returns a list of Parts that partition O.
+  std::list<PartPtr> getOperandPart(SgNode* anchor, SgNode* operand);
+  
+  bool operator==(const PartPtr& o) const;
+  bool operator<(const PartPtr& o)  const;
 }; // class DeadPathElimPart
 
-class DeadPathElimPartPartEdge : public PartEdge {
+class DeadPathElimPartEdge : public PartEdge {
   // The part that this object is wrapping with live/dead status
-  PartPtr base;
-  bool live;
+  DeadPathElimPartPtr src;
+  DeadPathElimPartPtr tgt;
   
   public:
-  DeadPathElimPartPartEdge(PartPtr base, bool live=true) : base(base), live(true) {}
+  DeadPathElimPartEdge(DeadPathElimPartPtr src, DeadPathElimPartPtr tgt) : src(src), tgt(tgt) {}
     
   PartPtr source();
   PartPtr target();
   
-  bool operator==(const PartEdgePtr o) const;
-  bool operator<(const PartEdgePtr o)  const;
+  bool operator==(const PartEdgePtr& o) const;
+  bool operator<(const PartEdgePtr& o)  const;
+  
+  // Pretty print for the object
+  std::string str(std::string indent="");
 };
 
 /********************************
@@ -93,12 +131,12 @@ class DeadPathElimPartPartEdge : public PartEdge {
 
 class DeadPathElimTransfer : public IntraDFTransferVisitor
 {
-  DeadPathElimPart* curPart;
   DeadPathElimAnalysis* dpea;
   PartPtr part;
+  bool modified;
 
   public:
-  DeadPathElimTransfer(const Function &f, PartPtr part, NodeState &s, const std::vector<Lattice*> &d, 
+  DeadPathElimTransfer(const Function &f, PartPtr part, NodeState &s, std::map<PartEdgePtr, std::vector<Lattice*> > &d, 
                        DeadPathElimAnalysis* dpea);
 
   bool finish();
@@ -107,59 +145,26 @@ class DeadPathElimTransfer : public IntraDFTransferVisitor
   void visit(SgNode *sgn);
 };
 
-class DeadPathElimAnalysis : virtual public IntraFWDataflow
+class DeadPathElimAnalysis : public IntraFWDataflow
 {
   protected:
-  //static std::map<varID, Lattice*> constVars;
-  //AbstractObjectMap constVars;
    
   public:
   DeadPathElimAnalysis();
   
   void genInitState(const Function& func, PartPtr p, const NodeState& state, std::vector<Lattice*>& initLattices, std::vector<NodeFact*>& initFacts);
   
-  bool transfer(const Function& func, PartPtr p, NodeState& state, const std::vector<Lattice*>& dfInfo);
+  bool transfer(const Function& func, PartPtr part, NodeState& state, 
+                std::map<PartEdgePtr, std::vector<Lattice*> >& dfInfo);
   
-  boost::shared_ptr<IntraDFTransferVisitor> getTransferVisitor(const Function& func, PartPtr part, NodeState& state, const std::vector<Lattice*>& dfInfo);
+  boost::shared_ptr<IntraDFTransferVisitor> getTransferVisitor(const Function& func, PartPtr part, NodeState& state, 
+                                                               map<PartEdgePtr, vector<Lattice*> >& dfInfo);
   
   // Return the anchor Parts of a given function
-  PartPtr GetFunctionStartPart(const Function& func);
-  PartPtr GetFunctionEndPart(const Function& func);
+  PartPtr GetFunctionStartPart(const Function& func, ComposedAnalysis* client);
+  PartPtr GetFunctionEndPart(const Function& func, ComposedAnalysis* client);
   
   // Pretty print for the object
-  std::string str(std::string indent="")
-  { return "DeadPathElimAnalysis"; }
-};
-
-class DeadPathElimAnalysis : virtual public IntraUndirDataflow
-{
-  // Map that records which parts are live. Maintaining this mapping concretely is important because a given path 
-  // is live if any of its predecessors (source parts of incoming edges) are live and thus to determine whether
-  // a successor S of a given part P is live, we must look at the predecessors of S that are not P, which will likely
-  // induce a large graph search. To avoid the large expense of repeated searches we must store the liveness status
-  // of any parts for which it has already been computed. In the current implementation we keep the design simple
-  // by pre-computing the liveness status of all parts in each function when we analyze it.
-  static std::map<DeadPathElimPartPtr, bool> partLiveness;
-  
-  public:
-  DeadPathElimAnalysis() : IntraUndirDataflow() {}
-  
-  void runAnalysis(const Function&  func, NodeState* state, bool, std::set<Function>) { }
-  
-  void genInitState(const Function& func, PartPtr p, const NodeState& state, std::vector<Lattice*>& initLattices, std::vector<NodeFact*>& initFacts);
-   
-  bool transfer(const Function& func, PartPtr p, NodeState& state, const std::vector<Lattice*>& dfInfo) {
-    return true;
-  }
-  
-  // Returns true if the given Part is live and false otherwise
-  bool isPartLive(DeadPathElimPartPtr part);
-   
-  // Return the anchor Parts of a given function
-  PartPtr GetFunctionStartPart(const Function& func);
-  PartPtr GetFunctionEndPart(const Function& func);
-
-  // pretty print for the object
   std::string str(std::string indent="")
   { return "DeadPathElimAnalysis"; }
 };

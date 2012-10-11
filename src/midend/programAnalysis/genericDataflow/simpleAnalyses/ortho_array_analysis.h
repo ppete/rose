@@ -89,7 +89,7 @@ class OrthogonalArrayAnalysis : virtual public IntraUndirDataflow
   {}
    
    //void transfer(SgNode &n, Part& p) {}
-  bool transfer(const Function& func, PartPtr p, NodeState& state, const std::vector<Lattice*>& dfInfo) {
+  bool transfer(const Function& func, PartPtr p, NodeState& state, std::map<PartEdgePtr, std::vector<Lattice*> >& dfInfo) {
     return true;
   }
    

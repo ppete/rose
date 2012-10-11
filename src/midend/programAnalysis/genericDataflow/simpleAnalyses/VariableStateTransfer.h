@@ -138,7 +138,7 @@ protected:
 
 public:
   VariableStateTransfer(const Function& func, 
-                        NodeState& state, const std::vector<Lattice*>& dfInfo, 
+                        NodeState& state, std::map<PartEdgePtr, std::vector<Lattice*> >& dfInfo, 
                         // A pointer to a default example lattice that can be duplicated
                         // via defaultLat->copy() to make more instances of this Lattice type.
                         LatticePtr defaultLat_,
@@ -148,14 +148,19 @@ public:
     modified(false),
     debugLevel(debugLevel_), 
     defaultLat(defaultLat_),
-    composer(composer_), analysis(analysis_), part(part_),
-    prodLat(dynamic_cast<AbstractObjectMap*>(*(dfInfo.begin())))
+    composer(composer_), analysis(analysis_), part(part_)
   {
     //Dbg::dbg << "transfer A prodLat="<<prodLat<<"="<<prodLat->str("    ")<<"\n";
     // Make sure that all the lattices are initialized
     /*conVariableStateTransferst std::vector<Lattice*>& lattices = prodLat->getLattices();
     for(std::vector<Lattice*>::const_iterator it = lattices.begin(); it!=lattices.end(); it++)
       (dynamic_cast<LatticeType *>(*it))->initialize();*/
+    ROSE_ASSERT(dfInfo.size()==1);
+    ROSE_ASSERT(dfInfo[NULLPartEdge].size()==1);
+    ROSE_ASSERT(*dfInfo[NULLPartEdge].begin());
+    Lattice *l = *dfInfo[NULLPartEdge].begin();
+    prodLat = (dynamic_cast<AbstractObjectMap*>(l));
+    ROSE_ASSERT(prodLat);
   }
 
   void visit(SgAssignOp *sgn)

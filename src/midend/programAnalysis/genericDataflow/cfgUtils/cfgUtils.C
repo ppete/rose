@@ -43,7 +43,7 @@ namespace cfgUtils
 // returns whether a given AST node that represents a constant is an integer and
 // sets val to be the numeric value of that integer (all integer types are included
 // but not floating point, characters, etc.)
-bool IsConstInt(const SgExpression* rhs, long &val)
+bool IsConstInt(SgExpression* rhs, long &val)
 {
   //    printf("rhs = %s: %s\n", rhs->unparseToString().c_str(), rhs->class_name().c_str());
 
@@ -106,7 +106,7 @@ bool IsConstInt(const SgExpression* rhs, long &val)
 
 // Liao 10/7/2010, made a few functions' namespace explicit
 // pulls off all the SgCastExps that may be wrapping the given expression, returning the expression that is being wrapped
-const SgExpression* cfgUtils::unwrapCasts(const SgExpression* e)
+SgExpression* cfgUtils::unwrapCasts(SgExpression* e)
 {
   if(isSgCastExp(e))
   {

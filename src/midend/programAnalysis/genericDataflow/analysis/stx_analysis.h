@@ -43,7 +43,7 @@ class SyntacticAnalysis : virtual public IntraUndirDataflow
   {}
    
    //void transfer(SgNode &n, Part& p) {}
-  bool transfer(const Function& func, PartPtr p, NodeState& state, const std::vector<Lattice*>& dfInfo) {
+  bool transfer(const Function& func, PartPtr p, NodeState& state, std::map<PartEdgePtr, std::vector<Lattice*> >& dfInfo) {
     return true;
   }
   
@@ -104,10 +104,10 @@ class StxPart : public Part
   // This function is the inverse of m: given the anchor node and operand as well as the
   //    Part that denotes a subset of A (the function is called on this part), 
   //    it returns a list of Parts that partition O.
-  std::list<PartPtr> getOperandPart(SgNode* anchor, SgNode* operand, PartPtr part);
+  std::list<PartPtr> getOperandPart(SgNode* anchor, SgNode* operand);
   
-  bool operator==(PartPtr o) const;
-  bool operator<(PartPtr o)  const;
+  bool operator==(const PartPtr& o) const;
+  bool operator<(const PartPtr& o) const;
   
   std::string str(std::string indent="");
 };
@@ -126,8 +126,17 @@ class StxPartEdge : public PartEdge
   
   CFGPath getPath() const { return p; }
   
-  bool operator==(PartEdgePtr o) const;
-  bool operator<(PartEdgePtr o)  const;
+  // Let A={ set of execution prefixes that terminate at the given anchor SgNode }
+  // Let O={ set of execution prefixes that terminate at anchor's operand SgNode }
+  // Since to reach a given SgNode an execution must first execute all of its operands it must
+  //    be true that there is a 1-1 mapping m() : O->A such that o in O is a prefix of m(o).
+  // This function is the inverse of m: given the anchor node and operand as well as the
+  //    PartEdge that denotes a subset of A (the function is called on this PartEdge), 
+  //    it returns a list of PartEdges that partition O.
+  std::list<PartEdgePtr> getOperandPartEdge(SgNode* anchor, SgNode* operand);
+  
+  bool operator==(const PartEdgePtr& o) const;
+  bool operator<(const PartEdgePtr& o) const;
   
   std::string str(std::string indent="");
 };

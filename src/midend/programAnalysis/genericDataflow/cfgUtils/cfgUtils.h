@@ -16,10 +16,10 @@ namespace cfgUtils
   // Returns whether a given AST node that represents a constant is an integer and
   // sets *val to be the numeric value of that integer (all integer types are included
   // but not floating point, characters, etc.)
-  bool IsConstInt(const SgExpression* rhs, long &val);
+  bool IsConstInt(SgExpression* rhs, long &val);
 
   // pulls off all the SgCastExps that may be wrapping the given expression, returning the expression that is being wrapped
-  const SgExpression* unwrapCasts(const SgExpression* e);
+  SgExpression* unwrapCasts(SgExpression* e);
 
   // returns the DataflowNode that represents that start of the CFG of the given function's body
   CFGNode getFuncStartCFG(SgFunctionDefinition* func);

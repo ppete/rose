@@ -100,7 +100,7 @@ namespace dataflow {
     // Return true if this causes the object to change and false otherwise.
     bool setToEmpty();
 
-    std::string str(std::string indent);
+    std::string str(std::string indent="");
     // Variant of the str method that can produce information specific to the current Part.
     // Useful since AbstractObjects can change from one Part to another.
     std::string strp(PartPtr part, std::string indent="");
@@ -126,6 +126,7 @@ namespace dataflow {
     //    deleted.    
     // The function takes newPart, the part within which the values of ml2ml should be interpreted. It corresponds
     //    to the code region(s) to which we are remapping.
+    // remapML must return a freshly-allocated object.
     Lattice* remapML(const std::set<pair<MemLocObjectPtr, MemLocObjectPtr> >& ml2ml, PartPtr newPart);
 
     // Adds information about the MemLocObjects in newL to this Lattice, overwriting any information previously 

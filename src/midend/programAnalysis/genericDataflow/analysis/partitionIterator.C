@@ -27,14 +27,14 @@ partIterator::partIterator() {
   initialized     = false;
 }
 
-partIterator::partIterator(const PartPtrCmp start) 
+partIterator::partIterator(const PartPtr start) 
 {
   initialized     = true;
   remainingNodes.push_front(start);
   visited.insert(start);
 }
 
-void partIterator::init(const PartPtrCmp start) {
+void partIterator::init(const PartPtr start) {
   initialized     = true;
   remainingNodes.push_front(start);
   visited.insert(start);
@@ -42,10 +42,10 @@ void partIterator::init(const PartPtrCmp start) {
 
 
 // returns true if the given PartPtr  is in the remainingNodes list and false otherwise
-bool partIterator::isRemaining(const PartPtrCmp n)
+bool partIterator::isRemaining(const PartPtr n)
 {
   ROSE_ASSERT(initialized);
-  for(list<PartPtrCmp>::const_iterator it=remainingNodes.begin(); it!=remainingNodes.end(); it++)
+  for(list<PartPtr>::const_iterator it=remainingNodes.begin(); it!=remainingNodes.end(); it++)
   {
     // if in is currently n remainingNodes, say so
     if(*it == n) return true;
@@ -68,7 +68,7 @@ void partIterator::advance(bool fwDir, bool pushAllChildren)
   if(remainingNodes.size()>0)
   {
     // pop the next CFG node from the front of the list
-    PartPtrCmp cur = remainingNodes.front();
+    PartPtr cur = remainingNodes.front();
     remainingNodes.pop_front();
     //Dbg::dbg << "#remainingNodes="<<remainingNodes.size()<<" cur=["<<cur.getNode()->unparseToString()<<" | "<<cur.getNode()->class_name()<<"]"<<endl;
     
@@ -77,8 +77,8 @@ void partIterator::advance(bool fwDir, bool pushAllChildren)
       // find its followers (either successors or predecessors, depending on value of fwDir), push back 
       // those that have not yet been visited
       vector<PartEdgePtr> nextE;
-      if(fwDir) nextE = (*cur)->outEdges();
-      else      nextE = (*cur)->inEdges();
+      if(fwDir) nextE = cur->outEdges();
+      else      nextE = cur->inEdges();
       for(vector<PartEdgePtr>::iterator it=nextE.begin(); it!=nextE.end(); it++)
       {
         PartPtr nextN = (fwDir ? (*it)->target() : nextN = (*it)->source());
@@ -90,8 +90,8 @@ void partIterator::advance(bool fwDir, bool pushAllChildren)
                " remaining="<<isRemaining(nextN)<<"\n";*/
         
         // if we haven't yet visited this node and don't yet have it on the remainingNodes list
-        if(visited.find(PartPtrCmp(nextN)) == visited.end() &&
-           !isRemaining(PartPtrCmp(nextN)))
+        if(visited.find(PartPtr(nextN)) == visited.end() &&
+           !isRemaining(PartPtr(nextN)))
         {
           //printf("   pushing back node <%s: 0x%x: %s> visited=%d\n", nextN.getNode()->class_name().c_str(), nextN.getNode(), nextN.getNode()->unparseToString().c_str(), visited.find(nextN)!=visited.end());
           remainingNodes.push_back(nextN);
@@ -127,7 +127,7 @@ bool partIterator::eq(const partIterator& other_it) const
   //printf("iterator::eq() remainingNodes.size()=%d  other_it.remainingNodes.size()=%d\n", remainingNodes.size(), other_it.remainingNodes.size());
   if(remainingNodes.size() != other_it.remainingNodes.size()) return false;
   
-  list<PartPtrCmp>::const_iterator it1, it2;
+  list<PartPtr>::const_iterator it1, it2;
   // look to ensure that every CFG node in other_it.remainingNodes appears in remainingNodes
   
   for(it1=remainingNodes.begin(); it1!=remainingNodes.end(); it1++)
@@ -177,10 +177,10 @@ bool partIterator::operator!=(const partIterator& it) const
 PartPtr partIterator::operator * ()
 {
   ROSE_ASSERT(initialized);
-  return *(remainingNodes.front());
+  return remainingNodes.front();
 }
 
-partIterator partIterator::begin(const PartPtrCmp n)
+partIterator partIterator::begin(const PartPtr n)
 {
   partIterator newIter(n);
   return newIter;
@@ -194,7 +194,7 @@ partIterator partIterator::end()
   return blank;
 }
 
-partIterator::checkpoint::checkpoint(const list<PartPtrCmp>& remainingNodes, const set<PartPtrCmp>& visited)
+partIterator::checkpoint::checkpoint(const list<PartPtr>& remainingNodes, const set<PartPtr>& visited)
 {
   this->remainingNodes = remainingNodes;
   this->visited  = visited;
@@ -210,7 +210,7 @@ string partIterator::checkpoint::str(string indent)
 {
   ostringstream outs;
   outs << indent << "[partIterator::checkpoint : "<<endl;
-  for(list<PartPtrCmp>::iterator it=remainingNodes.begin();
+  for(list<PartPtr>::iterator it=remainingNodes.begin();
       it!=remainingNodes.end(); )
   {
     outs << indent << "&nbsp;&nbsp;&nbsp;&nbsp;"<<it->str();
@@ -249,12 +249,12 @@ string partIterator::str(string indent)
   if(initialized) {
     outs << "[partIterator:"<<endl;
     outs << "&nbsp;&nbsp;&nbsp;&nbsp;remainingNodes(#"<<remainingNodes.size()<<") = "<<endl;
-    for(list<PartPtrCmp>::iterator it=remainingNodes.begin(); it!=remainingNodes.end(); it++)
+    for(list<PartPtr>::iterator it=remainingNodes.begin(); it!=remainingNodes.end(); it++)
     { outs << "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"<<it->str()<<endl; }
     
     outs << "&nbsp;&nbsp;&nbsp;&nbsp;visited(#"<<visited.size()<<")  = \n";
-    for(set<PartPtrCmp>::iterator it=visited.begin(); it!=visited.end(); it++) { 
-      PartPtrCmp c = *it;
+    for(set<PartPtr>::iterator it=visited.begin(); it!=visited.end(); it++) { 
+      PartPtr c = *it;
       outs << "&nbsp;&nbsp;&nbsp;&nbsp;"<<c.str()<<endl;
     }
     
@@ -281,13 +281,13 @@ void back_partIterator::operator ++ (int)
  ********** DATAFLOW **********
  ******************************/
 
-dataflowPartIterator::dataflowPartIterator(const PartPtrCmp terminator_arg) : terminator(terminator_arg)
+dataflowPartIterator::dataflowPartIterator(const PartPtr& terminator_arg) : terminator(terminator_arg)
 {
   // Record that the terminator has been visited to ensure that it is never analyzed
   visited.insert(terminator);
 }
 
-dataflowPartIterator::dataflowPartIterator(const PartPtrCmp start, const PartPtrCmp terminator_arg): 
+dataflowPartIterator::dataflowPartIterator(const PartPtr& start, const PartPtr& terminator_arg): 
     partIterator(start), terminator(terminator_arg)
 {
   // Record that the terminator has been visited to ensure that it is never analyzed
@@ -296,7 +296,7 @@ dataflowPartIterator::dataflowPartIterator(const PartPtrCmp start, const PartPtr
   ROSE_ASSERT(start!=terminator);
 }
 
-void dataflowPartIterator::init(const PartPtrCmp start_arg, const PartPtrCmp terminator_arg)
+void dataflowPartIterator::init(const PartPtr& start_arg, const PartPtr& terminator_arg)
 {
   ROSE_ASSERT(start_arg!=terminator_arg);
   // Use the init method to initialize the starting point to make sure that the object is recorded as being initialized
@@ -304,7 +304,7 @@ void dataflowPartIterator::init(const PartPtrCmp start_arg, const PartPtrCmp ter
   terminator = terminator_arg;
 }
  
-void dataflowPartIterator::add(const PartPtrCmp next)
+void dataflowPartIterator::add(const PartPtr next)
 {
   // If this dataflow iterator is not initialized, initialize it now since it will now have real state
   if(!initialized) initialized = true;
@@ -316,7 +316,7 @@ void dataflowPartIterator::add(const PartPtrCmp next)
   // if next is not currently in remainingNodes, add it
   if(!isRemaining(next))
   {
-    set<PartPtrCmp>::iterator nextLoc = visited.find(next);
+    set<PartPtr>::iterator nextLoc = visited.find(next);
     if(nextLoc != visited.end())
       visited.erase(visited.find(next));
     remainingNodes.push_back(next);
@@ -329,7 +329,7 @@ void dataflowPartIterator::operator ++ (int)
   advance(true, false);
 }
 
-dataflowPartIterator::checkpoint::checkpoint(const partIterator::checkpoint& iChkpt, const PartPtrCmp terminator): 
+dataflowPartIterator::checkpoint::checkpoint(const partIterator::checkpoint& iChkpt, const PartPtr& terminator): 
   iChkpt(iChkpt), terminator(terminator) {}
 
 dataflowPartIterator::checkpoint::checkpoint(const dataflowPartIterator::checkpoint &that): 
@@ -378,7 +378,7 @@ string dataflowPartIterator::str(string indent)
 /*****************************
 ******* BACK_DATAFLOW *******
 *****************************/
-back_dataflowPartIterator::back_dataflowPartIterator(const PartPtrCmp end, const PartPtrCmp terminator_arg): 
+back_dataflowPartIterator::back_dataflowPartIterator(const PartPtr end, const PartPtr terminator_arg): 
     partIterator(end), dataflowPartIterator(end, terminator_arg) {
 }
 

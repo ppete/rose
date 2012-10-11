@@ -38,8 +38,9 @@ class Lattice : public printable
   //    deleted.
   // The function takes newPart, the part within which the values of ml2ml should be interpreted. It corresponds
   //    to the code region(s) to which we are remapping.
+  // remapML must return a freshly-allocated object.
   virtual Lattice* remapML(const std::set<pair<MemLocObjectPtr, MemLocObjectPtr> >& ml2ml, PartPtr newPart) {
-    return false;
+    return NULL;
   }
   
   // Adds information about the MemLocObjects in newL to this Lattice, overwriting any information previously 

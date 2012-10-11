@@ -74,10 +74,10 @@ class LiveDeadMemTransfer : public IntraDFTransferVisitor
 
 public:
 LiveDeadMemTransfer(const Function &f, PartPtr part, NodeState &s, 
-                    const std::map<PartEdgePtr, std::vector<Lattice*> > &d, 
+                    std::map<PartEdgePtr, std::vector<Lattice*> > &dfInfo, 
                     LiveDeadMemAnalysis* ldma,
                     ComposerExpr2MemLocPtr ceml, funcSideEffectUses *fseu)
-    : IntraDFTransferVisitor(f, part, s, d),
+    : IntraDFTransferVisitor(f, part, s, dfInfo),
     ldma(ldma), 
     ceml(ceml), 
     modified(false), 
@@ -130,13 +130,14 @@ public:
     boost::shared_ptr<IntraDFTransferVisitor> getTransferVisitor(
                                                       const Function& func, PartPtr part, 
                                                       NodeState& state, 
-                                                      const std::map<PartEdgePtr, std::vector<Lattice*> >& dfInfo)
+                                                      std::map<PartEdgePtr, std::vector<Lattice*> >& dfInfo)
     { return boost::shared_ptr<IntraDFTransferVisitor>(
     		new LiveDeadMemTransfer(func, part, state, dfInfo, 
     		                        this, ComposerExpr2MemLocPtr(new ComposerExpr2MemLoc(*getComposer(), part, *((ComposedAnalysis*)this))),
     		                        fseu)); }
 
-    bool transfer(const Function& func, PartPtr p, NodeState& state, const std::vector<Lattice*>& dfInfo) { assert(0); return false; }
+    bool transfer(const Function& func, PartPtr p, NodeState& state, 
+                  std::map<PartEdgePtr, std::vector<Lattice*> >& dfInfo) { assert(0); return false; }
     
     // Maps the given SgNode to an implementation of the MemLocObject abstraction.
     MemLocObjectPtr Expr2MemLoc(SgNode* n, PartPtr p);
