@@ -86,11 +86,12 @@ class IntraDFTransferVisitor : public ROSE_VisitorPatternDefaultBase
   // Common arguments to the underlying transfer function
   const Function &func;
   PartPtr part;
+  CFGNode cn;
   NodeState &nodeState;
   std::map<PartEdgePtr, std::vector<Lattice*> >& dfInfo;
 
   public:
-  IntraDFTransferVisitor(const Function &f, PartPtr p, NodeState &s, 
+  IntraDFTransferVisitor(const Function &f, PartPtr p, CFGNode cn, NodeState &s, 
                          std::map<PartEdgePtr, std::vector<Lattice*> >& dfInfo)
     : func(f), part(p), nodeState(s), dfInfo(dfInfo)
   { }
@@ -112,7 +113,7 @@ class IntraUnitDataflow : virtual public IntraProceduralDataflow
   //   as input and overwrites them with the result of the transfer.
   // Returns true if any of the input lattices changed as a result of the transfer function and
   //    false otherwise.
-  virtual bool transfer(const Function& func, PartPtr part, NodeState& state, 
+  virtual bool transfer(const Function& func, PartPtr part, CFGNode cn, NodeState& state, 
       std::map<PartEdgePtr, std::vector<Lattice*> >& dfInfo)=0;
 
   class DefaultTransfer : public IntraDFTransferVisitor
@@ -120,13 +121,12 @@ class IntraUnitDataflow : virtual public IntraProceduralDataflow
     bool modified;
     IntraUnitDataflow *analysis;
     public:
-    DefaultTransfer(const Function& func, PartPtr p, NodeState& state, 
+    DefaultTransfer(const Function& func, PartPtr part, CFGNode cn, NodeState& state, 
         std::map<PartEdgePtr, std::vector<Lattice*> >& dfInfo, IntraUnitDataflow *a)
-      : IntraDFTransferVisitor(func, p, state, dfInfo), modified(false), analysis(a)
+      : IntraDFTransferVisitor(func, part, cn, state, dfInfo), modified(false), analysis(a)
       { }
 
-
-    void visit(SgNode *n) { modified = analysis->transfer(func, part, nodeState, dfInfo); }
+    void visit(SgNode *n) { modified = analysis->transfer(func, part, cn, nodeState, dfInfo); }
     bool finish() { return modified; }
   };
 
@@ -146,10 +146,10 @@ class IntraUnitDataflow : virtual public IntraProceduralDataflow
   //     }
   // \endcode
   virtual boost::shared_ptr<IntraDFTransferVisitor> getTransferVisitor(
-                const Function& func, PartPtr part, 
+                const Function& func, PartPtr part, CFGNode cn,
                 NodeState& state, 
                 std::map<PartEdgePtr, std::vector<Lattice*> >& dfInfo)
-  { return boost::shared_ptr<IntraDFTransferVisitor>(new DefaultTransfer(func, part, state, dfInfo, this)); }
+  { return boost::shared_ptr<IntraDFTransferVisitor>(new DefaultTransfer(func, part, cn, state, dfInfo, this)); }
 };
 
 } // namespace dataflow;

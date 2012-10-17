@@ -3,6 +3,7 @@
 #include "const_prop_analysis.h"
 #include "live_dead_analysis.h"
 #include "ortho_array_analysis.h"
+#include "dead_path_elim_analysis.h"
 #include "printAnalysisStates.h"
 #include <vector>
 
@@ -14,15 +15,20 @@ int main(int argc, char** argv)
   printf("========== S T A R T ==========\n");
 
   list<ComposedAnalysis*> analyses;
-  analyses.push_back(new LiveDeadMemAnalysis());
-  analyses.push_back(new OrthogonalArrayAnalysis());
   analyses.push_back(new ConstantPropagationAnalysis());
-  
+  analyses.push_back(new DeadPathElimAnalysis());
+  analyses.push_back(new ConstantPropagationAnalysis());
+  analyses.push_back(new DeadPathElimAnalysis());
+  analyses.push_back(new ConstantPropagationAnalysis());
   //analyses.push_back(new LiveDeadMemAnalysis());
-  analyses.push_back(new OrthogonalArrayAnalysis());
-  analyses.push_back(new ConstantPropagationAnalysis());
-  analyses.push_back(new OrthogonalArrayAnalysis());
-  analyses.push_back(new ConstantPropagationAnalysis());
+  //analyses.push_back(new OrthogonalArrayAnalysis());
+  //analyses.push_back(new ConstantPropagationAnalysis());
+  //
+  ////analyses.push_back(new LiveDeadMemAnalysis());
+  //analyses.push_back(new OrthogonalArrayAnalysis());
+  //analyses.push_back(new ConstantPropagationAnalysis());
+  //analyses.push_back(new OrthogonalArrayAnalysis());
+  //analyses.push_back(new ConstantPropagationAnalysis());
   
   ChainComposer cc(argc, argv, analyses);
   //UnstructuredPassInterDataflow up_cc(&cc);

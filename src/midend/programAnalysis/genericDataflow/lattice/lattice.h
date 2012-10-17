@@ -12,21 +12,22 @@ namespace dataflow {
 class Lattice : public printable
 {
   public:
-  PartPtr part;
+  PartEdgePtr latPEdge;
   //Lattice() {}
-  Lattice(PartPtr p) : part(p) {}
+  Lattice(PartEdgePtr latPEdge) : latPEdge(latPEdge) {}
   
   public:
-  // Sets the Part that this Lattice's information corresponds to
-  void setPart(PartPtr p) { this->part = p; }
-  PartPtr getPart()       { return this->part; }
+  // Sets the PartEdge that this Lattice's information corresponds to
+  void setPartEdge(PartEdgePtr latPEdge) { this->latPEdge = latPEdge; }
+  PartEdgePtr getPartEdge()              { return this->latPEdge; }
   
   // initializes this Lattice to its default state, if it is not already initialized
   virtual void initialize()=0;
   // returns a copy of this lattice
   virtual Lattice* copy() const=0;
   // overwrites the state of this Lattice with that of that Lattice
-  virtual void copy(Lattice* that)=0;
+  virtual void copy(Lattice* that)
+  { latPEdge = that->latPEdge; }
   
   // Called by analyses to transfer this lattice's contents from across function scopes from a caller function 
   //    to a callee's scope and vice versa. If this this lattice maintains any information on the basis of 
@@ -36,10 +37,10 @@ class Lattice : public printable
   //    of MemLocObjects) this may not require any actual insertions. If the value of a given ml2ml mapping is 
   //    NULL (empty boost::shared_ptr), any information for MemLocObjects that must-equal to the key should be 
   //    deleted.
-  // The function takes newPart, the part within which the values of ml2ml should be interpreted. It corresponds
-  //    to the code region(s) to which we are remapping.
+  // The function takes newPEdge, the edge that points to the part within which the values of ml2ml should be 
+  //    interpreted. It corresponds to the code region(s) to which we are remapping.
   // remapML must return a freshly-allocated object.
-  virtual Lattice* remapML(const std::set<pair<MemLocObjectPtr, MemLocObjectPtr> >& ml2ml, PartPtr newPart) {
+  virtual Lattice* remapML(const std::set<pair<MemLocObjectPtr, MemLocObjectPtr> >& ml2ml, PartEdgePtr newPEdge) {
     return NULL;
   }
   
@@ -136,7 +137,7 @@ class FiniteLattice : public virtual Lattice
 {
   public:
   //FiniteLattice() {}
-  FiniteLattice(PartPtr p) : Lattice(p) {}
+  FiniteLattice(PartEdgePtr latPEdge) : Lattice(latPEdge) {}
   
   bool finiteLattice()
   { return true;  }
@@ -146,7 +147,7 @@ class InfiniteLattice : public virtual Lattice
 {
   public:
   //InfiniteLattice() {}
-  InfiniteLattice(PartPtr p) : Lattice(p) {}
+  InfiniteLattice(PartEdgePtr latPEdge) : Lattice(latPEdge) {}
   
   bool finiteLattice()
   { return false; }

@@ -41,12 +41,12 @@ void NodeState::setLattices(Analysis* analysis, vector<Lattice*>& lattices)
   // Set dfInfoAbove to lattices
   dfInfoAbove[(Analysis*)analysis][NULLPartEdge] = lattices;
   // copy dfInfoAbove to dfInfoBelow (including copies of all the lattices)
-  Dbg::dbg << "NodeState::setLattices()"<<endl;
+  //Dbg::dbg << "NodeState::setLattices()"<<endl;
   for(vector<Lattice*>::iterator it = dfInfoAbove[(Analysis*)analysis][NULLPartEdge].begin(); 
       it!=dfInfoAbove[(Analysis*)analysis][NULLPartEdge].end(); it++)
   {
-    Dbg::indent ind;
-    Dbg::dbg << (*it)->str()<<endl;
+    //Dbg::indent ind;
+    //Dbg::dbg << (*it)->str()<<endl;
     Lattice* l = (*it)->copy();
     //Dbg::dbg << "NodeState::setLattices pushing dfInfoBelow: "<<l->str("")<<"\n";
     dfInfoBelow[(Analysis*)analysis][NULLPartEdge].push_back(l);
@@ -215,11 +215,25 @@ Lattice* NodeState::getLattice_ex(const LatticeMap& dfMap, Analysis* analysis,
 {
   LatticeMap::const_iterator a;
   std::map<PartEdgePtr, std::vector<Lattice*> >::const_iterator w;
+
+  if(dfMap.find((Analysis*)analysis) == dfMap.end()) {
+    Dbg::region reg(1,1, Dbg::region::topLevel, "NodeState::getLattice_ex");
+    Dbg::dbg << "dfMap.find("<<analysis<<")!=dfMap.end() = "<<(dfMap.find((Analysis*)analysis) != dfMap.end())<<" dfMap.size()="<<dfMap.size()<<endl;
+    for(LatticeMap::const_iterator i=dfMap.begin(); i!=dfMap.end(); i++)
+    { Dbg::dbg << "i="<<i->first<<endl; }
+  }
+  /*if((a=dfMap.find((Analysis*)analysis)) != dfMap.end()) {
+    Dbg::dbg << "a->second.find("<<(departEdge? departEdge->str(): "NULL")<<")!= a->second.end() = "<<(a->second.find(departEdge) != a->second.end())<<endl;
+    Dbg::dbg << "a->second="<<endl;
+    Dbg::indent ind;
+    std::map<PartEdgePtr, vector<Lattice*> > b = a->second;
+    Dbg::dbg << str(b)<<endl;
+  }*/
   
   // If this analysis has registered some Lattices at this node/edge combination
   if((a=dfMap.find((Analysis*)analysis)) != dfMap.end() && 
      ((w = a->second.find(departEdge)) != a->second.end())) {
-      //printf("dfLattices->first=%p, dfLattices->second.size()=%d\n", dfLattices->first, dfLattices->second.size());
+      //Dbg::dbg << "w->second.size()="<<w->second.size()<<" latticeName="<<latticeName<<endl;
     if(w->second.size()>=(unsigned int)latticeName)
       return w->second.at(latticeName);
     else
@@ -364,7 +378,6 @@ bool NodeState::unionLatticeMaps(map<PartEdgePtr, vector<Lattice*> >& to,
   map<PartEdgePtr, vector<Lattice*> >::const_iterator eFrom;
   for(eTo=to.begin(), eFrom=from.begin(); eTo!=to.end(); eTo++, eFrom++) {
     // All the analyses in unionSet must have the same number of lattices associated with each edge
-    ROSE_ASSERT(eTo->second.size() == eFrom->second.size());
     ROSE_ASSERT(eTo->second.size() == eFrom->second.size());
 
     // Union the Above lattices 
@@ -662,10 +675,12 @@ string NodeState::str(Analysis* analysis, string indent)
   
   // If the analysis has not yet been initialized, say so
   if(initializedAnalyses.find(analysis) == initializedAnalyses.end()) {
-    oss << "[NodeState: NONE for Analysis]\n";
+    oss << "[NodeState: NONE for Analysis"<<analysis<<"]\n";
+    for(std::map<Analysis*, bool >::iterator a=initializedAnalyses.begin(); a!=initializedAnalyses.end(); a++)
+      oss << "a="<<a->first<<endl;
   // If it has been initialized, stringify it
   } else {
-    oss << "[NodeState: \n";
+    oss << "[NodeState: analysis ("<<analysis<<")\n";
     /*ROSE_ASSERT(dfInfoAbove.size() == dfInfoBelow.size());
     ROSE_ASSERT(dfInfoAbove.find(analysis) != dfInfoAbove.end());
     ROSE_ASSERT(dfInfoBelow.find(analysis) != dfInfoBelow.end());*/

@@ -42,6 +42,13 @@ namespace cfgUtils
 
   // Returns a string representation of this CFG node's key information
   std::string CFGNode2Str(CFGNode n);
+
+  // Returns a string representation of this CFG edge's key information
+  std::string CFGEdge2Str(CFGEdge e);
+
+  // Returns a string representation of this CFG paths's key information
+  std::string CFGPath2Str(CFGPath p);
+
 }
 
 #endif

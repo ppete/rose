@@ -236,3 +236,26 @@ std::string cfgUtils::CFGNode2Str(CFGNode n)
   oss << "[" << n.getNode()->unparseToString() << " | " << n.getNode()->class_name() << " | " << n.getIndex() << "]";
   return oss.str();
 }
+
+// Returns a string representation of this CFG edge's key information
+std::string cfgUtils::CFGEdge2Str(CFGEdge e)
+{
+  ostringstream oss;
+  oss << "[" << CFGNode2Str(e.source()) << " ==> " << CFGNode2Str(e.target())<<"]";
+  return oss.str();
+}
+
+// Returns a string representation of this CFG paths's key information
+std::string cfgUtils::CFGPath2Str(CFGPath p)
+{
+  ostringstream oss;
+  const std::vector<CFGEdge>& edges = p.getEdges();
+  oss << "[";
+  for(std::vector<CFGEdge>::const_iterator e=edges.begin(); e!=edges.end(); ) {
+    oss << CFGEdge2Str(*e);
+    e++;
+    if(e!=edges.end()) oss << endl;
+  }
+  oss << "]";
+  return oss.str();
+}

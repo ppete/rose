@@ -13,7 +13,8 @@ template <class LatticeType>
 class VariableStateTransfer : public IntraDFTransferVisitor
 {
   typedef boost::shared_ptr<LatticeType> LatticePtr;
-protected:
+//protected:
+  public:
   bool modified;
   void updateModified(bool latModified) { modified = latModified || modified; }
 
@@ -31,7 +32,7 @@ protected:
   // Returns a Lattice object that corresponds to the memory location denoted by sgn in the current part
   LatticePtr getLattice(SgExpression *sgn) {
     ROSE_ASSERT(sgn);
-    MemLocObjectPtrPair p = composer->Expr2MemLoc(sgn, part, analysis);
+    MemLocObjectPtrPair p = composer->Expr2MemLoc(sgn, part->inEdgeFromAny(), analysis);
     Dbg::dbg << "VariableStateTransfer::getLattice() p="<<p.str("&nbsp;&nbsp;&nbsp;&nbsp;")<<endl;
     
     return getLatticeCommon(sgn, p);
@@ -41,7 +42,7 @@ protected:
   // in the current part
   LatticePtr getLatticeOperand(SgNode *sgn, SgExpression* operand) {
     ROSE_ASSERT(sgn);
-    MemLocObjectPtrPair p = composer->OperandExpr2MemLoc(sgn, operand, part, analysis);
+    MemLocObjectPtrPair p = composer->OperandExpr2MemLoc(sgn, operand, part->inEdgeFromAny(), analysis);
     Dbg::dbg << "VariableStateTransfer::getLatticeOperand() p="<<p.str("&nbsp;&nbsp;&nbsp;&nbsp;")<<endl;
     
     return getLatticeCommon(operand, p);
@@ -62,7 +63,7 @@ protected:
   
   LatticePtr getLattice(const AbstractObjectPtr o) {
     LatticePtr l = boost::dynamic_pointer_cast<LatticeType>(prodLat->get(o));
-    Dbg::dbg << "getLattice(o="<<o->strp(part, "")<<", l="<<l->strp(part, "")<<endl;
+    Dbg::dbg << "getLattice(o="<<o->strp(part->inEdgeFromAny(), "")<<", l="<<l->strp(part->inEdgeFromAny(), "")<<endl;
     ROSE_ASSERT(l);
     return l;
   }
@@ -71,8 +72,8 @@ protected:
   // Returns true if this causes prodLat to change and false otherwise.
   void setLattice(SgNode *sgn, LatticePtr lat) {
     ROSE_ASSERT(sgn);
-    MemLocObjectPtrPair p = composer->Expr2MemLoc(sgn, part, analysis);
-    Dbg::dbg << "setLattice() p="<<p.strp(part, "&nbsp;&nbsp;&nbsp;&nbsp;")<<endl;
+    MemLocObjectPtrPair p = composer->Expr2MemLoc(sgn, part->inEdgeFromAny(), analysis);
+    Dbg::dbg << "setLattice() p="<<p.strp(part->inEdgeFromAny(), "&nbsp;&nbsp;&nbsp;&nbsp;")<<endl;
     
     setLatticeCommon(sgn, p, lat);
   }
@@ -81,8 +82,8 @@ protected:
   // Returns true if this causes prodLat to change and false otherwise.
   void setLatticeOperand(SgNode *sgn, SgExpression* operand, LatticePtr lat) {
     ROSE_ASSERT(sgn);
-    MemLocObjectPtrPair p = composer->OperandExpr2MemLoc(sgn, operand, part, analysis);
-    Dbg::dbg << "setLatticeOperand() p="<<p.strp(part, "&nbsp;&nbsp;&nbsp;&nbsp;")<<endl;
+    MemLocObjectPtrPair p = composer->OperandExpr2MemLoc(sgn, operand, part->inEdgeFromAny(), analysis);
+    Dbg::dbg << "setLatticeOperand() p="<<p.strp(part->inEdgeFromAny(), "&nbsp;&nbsp;&nbsp;&nbsp;")<<endl;
     
     setLatticeCommon(operand, p, lat);
   }
@@ -106,7 +107,7 @@ protected:
   }
   
   void setLattice(const AbstractObjectPtr o, LatticePtr lat) {
-    //Dbg::dbg << "setLattice(o="<<o->strp(part, "")<<", lat="<<lat->strp(part, "")<<endl;
+    //Dbg::dbg << "setLattice(o="<<o->strp(part->inEdgeFromAny(), "")<<", lat="<<lat->strp(part->inEdgeFromAny(), "")<<endl;
     updateModified(prodLat->insert(o, lat));
     //Dbg::dbg << "&nbsp;&nbsp;&nbsp;prodLat="<<prodLat->str("&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;")<<endl;
   }
@@ -128,7 +129,7 @@ protected:
     // Unary Update
     if(isSgMinusMinusOp(sgn) || isSgPlusPlusOp(sgn)) {
       // GB: This will not work for general lattices
-      arg2Lat = (LatticePtr)(new LatticeType(1, part));
+      arg2Lat = (LatticePtr)(new LatticeType(1, part->inEdgeFromAny()));
     }
     //Dbg::dbg << "res="<<res.str()<<" arg1="<<arg1.str()<<" arg1Lat="<<arg1Lat<<", arg2Lat="<<arg2Lat<<"\n";
     //Dbg::dbg << "transfer B, resLat="<<resLat<<"\n";
@@ -141,14 +142,14 @@ public:
                         NodeState& state, std::map<PartEdgePtr, std::vector<Lattice*> >& dfInfo, 
                         // A pointer to a default example lattice that can be duplicated
                         // via defaultLat->copy() to make more instances of this Lattice type.
-                        LatticePtr defaultLat_,
-                        Composer* composer_, ComposedAnalysis* analysis_, PartPtr part_, 
-                        const int &debugLevel_) : 
-    IntraDFTransferVisitor(func, part_, state, dfInfo), 
+                        LatticePtr defaultLat,
+                        Composer* composer, ComposedAnalysis* analysis, PartPtr part, CFGNode cn, 
+                        const int &debugLevel) : 
+    IntraDFTransferVisitor(func, part, cn, state, dfInfo), 
     modified(false),
-    debugLevel(debugLevel_), 
-    defaultLat(defaultLat_),
-    composer(composer_), analysis(analysis_), part(part_)
+    debugLevel(debugLevel), 
+    defaultLat(defaultLat),
+    composer(composer), analysis(analysis), part(part)
   {
     //Dbg::dbg << "transfer A prodLat="<<prodLat<<"="<<prodLat->str("    ")<<"\n";
     // Make sure that all the lattices are initialized
@@ -265,7 +266,7 @@ public:
     Dbg::indent ind;
     // Copy data from the memory location identified by the array index expression to the
     // expression object of the SgPntrArrRefExp.
-    MemLocObjectPtrPair p = composer->Expr2MemLoc(sgn, part, analysis);
+    MemLocObjectPtrPair p = composer->Expr2MemLoc(sgn, part->inEdgeFromAny(), analysis);
     LatticePtr dataLat;
     // If this is a top-level array access expression
     if(isSgPntrArrRefExp (sgn) && 

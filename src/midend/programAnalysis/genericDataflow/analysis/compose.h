@@ -28,18 +28,21 @@ class Composer
 {
   public:
    // Abstract interpretation functions that return this analysis' abstractions that 
-   // represent the outcome of the given SgExpression. 
+   // represent the outcome of the given SgExpression at the end of all execution prefixes
+   // that terminate at PartEdge pedge
    // The objects returned by these functions are expected to be deallocated by their callers.
-   virtual ValueObjectPtr       Expr2Val    (SgNode* n, PartPtr p, ComposedAnalysis* client)=0;
-   // Variant of Expr2Val that inquires about the value of the memory location denoted by the operand of the 
-   // given node n, where the part denotes the set of prefixes that terminate at SgNode n.
-   virtual ValueObjectPtr OperandExpr2Val(SgNode* n, SgNode* operand, PartPtr part, ComposedAnalysis* client)=0;
    
-   virtual MemLocObjectPtrPair  Expr2MemLoc (SgNode* n, PartPtr p, ComposedAnalysis* client)=0;
+   virtual ValueObjectPtr       Expr2Val(SgNode* n, PartEdgePtr pedge, ComposedAnalysis* client)=0;
+   // Variant of Expr2Val that inquires about the value of the memory location denoted by the operand of the 
+   // given node n, where the part edge denotes the set of execution prefixes that terminate at SgNode n.
+   virtual ValueObjectPtr OperandExpr2Val(SgNode* n, SgNode* operand, PartEdgePtr pedge, ComposedAnalysis* client)=0;
+   
+   virtual MemLocObjectPtrPair  Expr2MemLoc(SgNode* n, PartEdgePtr pedge, ComposedAnalysis* client)=0;
    // Variant of Expr2MemLoc that inquires about the memory location denoted by the operand of the given node n, where
    // the part denotes the set of prefixes that terminate at SgNode n.
-   virtual MemLocObjectPtrPair OperandExpr2MemLoc(SgNode* n, SgNode* operand, PartPtr part, ComposedAnalysis* client)=0;
-   virtual CodeLocObjectPtrPair Expr2CodeLoc(SgNode* n, PartPtr p, ComposedAnalysis* client)=0;
+   virtual MemLocObjectPtrPair OperandExpr2MemLoc(SgNode* n, SgNode* operand, PartEdgePtr pedge, ComposedAnalysis* client)=0;
+   
+   virtual CodeLocObjectPtrPair Expr2CodeLoc(SgNode* n, PartEdgePtr pedge, ComposedAnalysis* client)=0;
    
    // Return the anchor Parts of a given function
    virtual PartPtr GetFunctionStartPart(const Function& func, ComposedAnalysis* client)=0;
@@ -107,48 +110,48 @@ class ComposerExpr2Obj
 {
   protected:
   Composer&         composer;
-  PartPtr           part;
+  PartEdgePtr           pedge;
   ComposedAnalysis& analysis;
   
   public:
-  ComposerExpr2Obj(Composer& _composer, PartPtr _part, ComposedAnalysis& _analysis) :
-  composer(_composer), part(_part), analysis(_analysis) {}
+  ComposerExpr2Obj(Composer& composer, PartEdgePtr pedge, ComposedAnalysis& analysis) :
+  composer(composer), pedge(pedge), analysis(analysis) {}
 };
 typedef boost::shared_ptr<ComposerExpr2Obj> ComposerExpr2ObjPtr;
 
 class ComposerExpr2Val: public ComposerExpr2Obj
 {
   public:
-  ComposerExpr2Val(Composer& composer, PartPtr part, ComposedAnalysis& analysis) :
-      ComposerExpr2Obj(composer, part, analysis) {}
+  ComposerExpr2Val(Composer& composer, PartEdgePtr pedge, ComposedAnalysis& analysis) :
+      ComposerExpr2Obj(composer, pedge, analysis) {}
   //ComposerExpr2Val(ComposerInv civ) : ComposerExpr2Obj(civ.composer, civ.part, civ.analysis) {}
   
   ValueObjectPtr Expr2Obj(SgNode* n)
-  { return composer.Expr2Val(n, part, &analysis); }
+  { return composer.Expr2Val(n, pedge, &analysis); }
 };
 typedef boost::shared_ptr<ComposerExpr2Val> ComposerExpr2ValPtr;
 
 class ComposerExpr2MemLoc: public ComposerExpr2Obj
 {
   public:
-  ComposerExpr2MemLoc(Composer& composer, PartPtr part, ComposedAnalysis& analysis) :
-  ComposerExpr2Obj(composer, part, analysis) {}
+  ComposerExpr2MemLoc(Composer& composer, PartEdgePtr pedge, ComposedAnalysis& analysis) :
+  ComposerExpr2Obj(composer, pedge, analysis) {}
   //ComposerExpr2MemLoc(ComposerInv civ) : ComposerExpr2Obj(civ.composer, civ.part, civ.analysis) {}
   
   MemLocObjectPtrPair Expr2Obj(SgNode* n)
-  { return composer.Expr2MemLoc(n, part, &analysis); }
+  { return composer.Expr2MemLoc(n, pedge, &analysis); }
 };
 typedef boost::shared_ptr<ComposerExpr2MemLoc> ComposerExpr2MemLocPtr;
 
 class ComposerExpr2CodeLoc: public ComposerExpr2Obj
 {
   public:
-  ComposerExpr2CodeLoc(Composer& composer, PartPtr part, ComposedAnalysis& analysis) :
-    ComposerExpr2Obj(composer, part, analysis) {}
+  ComposerExpr2CodeLoc(Composer& composer, PartEdgePtr pedge, ComposedAnalysis& analysis) :
+    ComposerExpr2Obj(composer, pedge, analysis) {}
   //ComposerExpr2CodeLoc(ComposerInv civ) : ComposerExpr2Obj(civ.composer, civ.part, civ.analysis) {}
   
   CodeLocObjectPtrPair Expr2Obj(SgNode* n)
-  { return composer.Expr2CodeLoc(n, part, &analysis); }
+  { return composer.Expr2CodeLoc(n, pedge, &analysis); }
 };
 typedef boost::shared_ptr<ComposerExpr2CodeLoc> ComposerExpr2CodeLocPtr;
 
@@ -220,28 +223,28 @@ class ChainComposer : public Composer
   // analysis and returns the result produced by the first instance of the function 
   // called by the caller object found along the way.
   template<class RetObject, class ArgsObject>
-  RetObject callServerAnalysisFunc(const ArgsObject& args, ComposedAnalysis* client, 
+  RetObject callServerAnalysisFunc(ArgsObject& args, ComposedAnalysis* client, 
                                    FuncCaller<RetObject, const ArgsObject>& caller);
   
   // Abstract interpretation functions that return this analysis' abstractions that 
   // represent the outcome of the given SgExpression. 
   // The objects returned by these functions are expected to be deallocated by their callers.
-  ValueObjectPtr Expr2Val(SgNode* n, PartPtr p, ComposedAnalysis* client);
+  ValueObjectPtr Expr2Val(SgNode* n, PartEdgePtr pedge, ComposedAnalysis* client);
   // Variant of Expr2Val that inquires about the value of the memory location denoted by the operand of the 
   // given node n, where the part denotes the set of prefixes that terminate at SgNode n.
-  ValueObjectPtr OperandExpr2Val(SgNode* n, SgNode* operand, PartPtr part, ComposedAnalysis* client);
+  ValueObjectPtr OperandExpr2Val(SgNode* n, SgNode* operand, PartEdgePtr pedge, ComposedAnalysis* client);
   
-  MemLocObjectPtrPair Expr2MemLoc(SgNode* n, PartPtr p, ComposedAnalysis* client);
+  MemLocObjectPtrPair Expr2MemLoc(SgNode* n, PartEdgePtr pedge, ComposedAnalysis* client);
   
   private:
-  MemLocObjectPtrPair Expr2MemLoc_ex(SgNode* n, PartPtr p, ComposedAnalysis* client);
+  MemLocObjectPtrPair Expr2MemLoc_ex(SgNode* n, PartEdgePtr pedge, ComposedAnalysis* client);
   
   public:
   // Variant of Expr2MemLoc that inquires about the memory location denoted by the operand of the given node n, where
   // the part denotes the set of prefixes that terminate at SgNode n.
-  MemLocObjectPtrPair OperandExpr2MemLoc(SgNode* n, SgNode* operand, PartPtr part, ComposedAnalysis* client);
+  MemLocObjectPtrPair OperandExpr2MemLoc(SgNode* n, SgNode* operand, PartEdgePtr pedge, ComposedAnalysis* client);
   
-  CodeLocObjectPtrPair Expr2CodeLoc(SgNode* n, PartPtr p, ComposedAnalysis* client);
+  CodeLocObjectPtrPair Expr2CodeLoc(SgNode* n, PartEdgePtr pedge, ComposedAnalysis* client);
   
   // Return the anchor Parts of a given function
   PartPtr GetFunctionStartPart(const Function& func, ComposedAnalysis* client);
@@ -307,9 +310,9 @@ class ComposedAnalysis : public virtual IntraUnitDataflow, public printable
   // any of these functions, the Composer is informed.
   //
   // The objects returned by these functions are expected to be deallocated by their callers.
-  virtual ValueObjectPtr   Expr2Val    (SgNode* n, PartPtr p)  { throw NotImplementedException(); }
-  virtual MemLocObjectPtr  Expr2MemLoc  (SgNode* n, PartPtr p) { throw NotImplementedException(); }
-  virtual CodeLocObjectPtr Expr2CodeLoc(SgNode* n, PartPtr p)  { throw NotImplementedException(); }
+  virtual ValueObjectPtr   Expr2Val    (SgNode* n, PartEdgePtr pedge)  { throw NotImplementedException(); }
+  virtual MemLocObjectPtr  Expr2MemLoc (SgNode* n, PartEdgePtr pedge) { throw NotImplementedException(); }
+  virtual CodeLocObjectPtr Expr2CodeLoc(SgNode* n, PartEdgePtr pedge)  { throw NotImplementedException(); }
   
   // Return the anchor Parts of a given function
   virtual PartPtr GetFunctionStartPart(const Function& func) { throw NotImplementedException(); }
@@ -356,6 +359,8 @@ class IntraUniDirectionalDataflow : public ComposedAnalysis
     getInitialWorklist(const Function &func, bool analyzeFromDirectionStart, const set<Function> &calleesUpdated, NodeState *fState) = 0;
   virtual std::map<PartEdgePtr, std::vector<Lattice*> >& getLatticeAnte(NodeState *state) = 0;
   virtual std::map<PartEdgePtr, std::vector<Lattice*> >& getLatticePost(NodeState *state) = 0;
+  virtual void setLatticeAnte(NodeState *state, std::map<PartEdgePtr, std::vector<Lattice*> >& dfInfo, bool overwrite) = 0;
+  virtual void setLatticePost(NodeState *state, std::map<PartEdgePtr, std::vector<Lattice*> >& dfInfo, bool overwrite) = 0;
 
   // If we're currently at a function call, use the associated inter-procedural
   // analysis to determine the effect of this function call on the dataflow state.
@@ -383,6 +388,9 @@ class IntraFWDataflow  : public ComposedAnalysis
     getInitialWorklist(const Function &func/*, bool firstVisit*/, bool analyzeDueToCallers, const set<Function> &calleesUpdated, NodeState *fState);
   std::map<PartEdgePtr, std::vector<Lattice*> >& getLatticeAnte(NodeState *state);
   std::map<PartEdgePtr, std::vector<Lattice*> >& getLatticePost(NodeState *state);
+  void setLatticeAnte(NodeState *state, std::map<PartEdgePtr, std::vector<Lattice*> >& dfInfo, bool overwrite);
+  void setLatticePost(NodeState *state, std::map<PartEdgePtr, std::vector<Lattice*> >& dfInfo, bool overwrite);
+  
   //void transferFunctionCall(const Function &func, PartPtr callPart, CFGNode callCFG, NodeState *state);
   vector<PartPtr> getDescendants(PartPtr p);
   vector<PartEdgePtr> getEdgesToDescendants(PartPtr part);
@@ -405,6 +413,8 @@ class IntraBWDataflow  : public ComposedAnalysis
     getInitialWorklist(const Function &func/*, bool firstVisit*/, bool analyzeDueToCallers, const set<Function> &calleesUpdated, NodeState *fState);
   std::map<PartEdgePtr, std::vector<Lattice*> >& getLatticeAnte(NodeState *state);
   std::map<PartEdgePtr, std::vector<Lattice*> >& getLatticePost(NodeState *state);
+  void setLatticeAnte(NodeState *state, std::map<PartEdgePtr, std::vector<Lattice*> >& dfInfo, bool overwrite);
+  void setLatticePost(NodeState *state, std::map<PartEdgePtr, std::vector<Lattice*> >& dfInfo, bool overwrite);
   //void transferFunctionCall(const Function &func, PartPtr callPart, CFGNode callCFG, NodeState *state);
   vector<PartPtr> getDescendants(PartPtr p);
   vector<PartEdgePtr> getEdgesToDescendants(PartPtr part);
@@ -430,6 +440,8 @@ class IntraUndirDataflow  : public ComposedAnalysis
   static std::map<PartEdgePtr, std::vector<Lattice*> > emptyMap;
   std::map<PartEdgePtr, std::vector<Lattice*> >& getLatticeAnte(NodeState *state) { return emptyMap; }
   std::map<PartEdgePtr, std::vector<Lattice*> >& getLatticePost(NodeState *state) { return emptyMap; }
+  void setLatticeAnte(NodeState *state, std::map<PartEdgePtr, std::vector<Lattice*> >& dfInfo, bool overwrite) { }
+  void setLatticePost(NodeState *state, std::map<PartEdgePtr, std::vector<Lattice*> >& dfInfo, bool overwrite) { }
   //void transferFunctionCall(const Function &func, PartPtr callPart, CFGNode callCFG, NodeState *state) {};
   vector<PartPtr> getDescendants(PartPtr p) { vector<PartPtr> empty; return empty; }
   vector<PartEdgePtr> getEdgesToDescendants(PartPtr part) { vector<PartEdgePtr> empty; return empty; }

@@ -45,13 +45,13 @@ class CompSharedPtr : public printable
   
   // Constructor for converting across CompSharedPtr wrappers of compatible types
   template <class OtherType>
-  CompSharedPtr(const CompSharedPtr<OtherType>& o) : ptr(boost::dynamic_pointer_cast<Type>(o.ptr)) {}
+  CompSharedPtr(const CompSharedPtr<OtherType>& o) : ptr(boost::static_pointer_cast<Type>(o.ptr)) {}
   
   // Constructor for wrapping boost::shared_ptr with a CompoSharedPtr
   CompSharedPtr(boost::shared_ptr<Type> ptr) : ptr(ptr) {}
   
   template <class OtherType>
-  CompSharedPtr(boost::shared_ptr<OtherType> ptr) : ptr(boost::dynamic_pointer_cast<Type>(ptr)) {}
+  CompSharedPtr(boost::shared_ptr<OtherType> ptr) : ptr(boost::static_pointer_cast<Type>(ptr)) {}
   
   template <class OtherType>
   friend class CompSharedPtr;
@@ -125,13 +125,13 @@ CompSharedPtr<Type> makePart(Arg1 arg1, Arg2 arg2, Arg3 arg3, Arg4 arg4, Arg5 ar
 { return boost::make_shared<Type>(arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9); }
 
 // Wrapper for boost::dynamic_pointer_cast for CompSharedPtr
-// Used as: dynamic_part_cast<SomePartImplementation>(objectWithPartPtrType);
+// Used as: static_part_cast<SomePartImplementation>(objectWithPartPtrType);
 template <class TargetType, class SourceType>
-CompSharedPtr<TargetType> dynamic_part_cast(CompSharedPtr<SourceType> s)
+CompSharedPtr<TargetType> static_part_cast(CompSharedPtr<SourceType> s)
 { return CompSharedPtr<TargetType>(s); }
 
 template <class TargetType, class SourceType>
-const CompSharedPtr<TargetType> dynamic_const_part_cast(const CompSharedPtr<SourceType> s)
+const CompSharedPtr<TargetType> static_const_part_cast(const CompSharedPtr<SourceType> s)
 { return CompSharedPtr<TargetType>(s); }
 
 // Wrapper for boost::make_shared_from_this.
@@ -152,24 +152,29 @@ class Part : public printable {
   
   virtual std::vector<PartEdgePtr> outEdges()=0;
   virtual std::vector<PartEdgePtr> inEdges()=0;
-  virtual std::vector<CFGNode> CFGNodes()=0;
+  virtual std::set<CFGNode> CFGNodes()=0;
   
-  // Let A={ set of execution prefixes that terminate at the given anchor SgNode }
+  /*// Let A={ set of execution prefixes that terminate at the given anchor SgNode }
   // Let O={ set of execution prefixes that terminate at anchor's operand SgNode }
   // Since to reach a given SgNode an execution must first execute all of its operands it must
   //    be true that there is a 1-1 mapping m() : O->A such that o in O is a prefix of m(o).
   // This function is the inverse of m: given the anchor node and operand as well as the
   //    Part that denotes a subset of A (the function is called on this part), 
   //    it returns a list of Parts that partition O.
-  virtual std::list<PartPtr> getOperandPart(SgNode* anchor, SgNode* operand)=0;
+  virtual std::list<PartPtr> getOperandPart(SgNode* anchor, SgNode* operand)=0;*/
+  
+  // Returns a PartEdgePtr, where the source is a wild-card part (NULLPart) and the target is this Part
+  virtual PartEdgePtr inEdgeFromAny()=0;
+  // Returns a PartEdgePtr, where the target is a wild-card part (NULLPart) and the source is this Part
+  virtual PartEdgePtr outEdgeToAny()=0;
   
   // Applies the given lambda to all the CFGNodes within this part.
   // Returns true if the lambda returns true on ANY of them.
   template <typename Ret> 
   Ret mapCFGNodeANY(boost::function<bool(const CFGNode&)> func) {
     Ret r = (Ret)NULL;
-    std::vector<CFGNode> v=CFGNodes();
-    for(std::vector<CFGNode>::iterator i=v.begin(); i!=v.end(); i++) {
+    std::set<CFGNode> v=CFGNodes();
+    for(std::set<CFGNode>::iterator i=v.begin(); i!=v.end(); i++) {
       if((r = func(*i))) return r;
     }
     return r;
@@ -180,8 +185,8 @@ class Part : public printable {
   template <typename Ret> 
   Ret mapCFGNodeALL(boost::function<bool(const CFGNode&)> func){
     Ret r = (Ret)NULL;
-    std::vector<CFGNode> v=CFGNodes();
-    for(std::vector<CFGNode>::iterator i=v.begin(); i!=v.end(); i++) {
+    std::set<CFGNode> v=CFGNodes();
+    for(std::set<CFGNode>::iterator i=v.begin(); i!=v.end(); i++) {
       if(!(r = func(*i))) return r;
     }
     return r;
@@ -191,8 +196,8 @@ class Part : public printable {
   // returns a pointer to one of them.
   template <class NodeType>
   NodeType* maySgNodeAny() {
-    std::vector<CFGNode> v=CFGNodes();
-    for(std::vector<CFGNode>::iterator i=v.begin(); i!=v.end(); i++) {
+    std::set<CFGNode> v=CFGNodes();
+    for(std::set<CFGNode>::iterator i=v.begin(); i!=v.end(); i++) {
       if(dynamic_cast<NodeType*>(i->getNode()) == NULL)  return NULL;
     }
     return dynamic_cast<NodeType*>(v.begin()->getNode());
@@ -206,8 +211,8 @@ class Part : public printable {
   // returns a pointer to one of them.
   template <class NodeType>
   NodeType* mustSgNodeAny() {
-    std::vector<CFGNode> v=CFGNodes();
-    for(std::vector<CFGNode>::iterator i=v.begin(); i!=v.end(); i++) {
+    std::set<CFGNode> v=CFGNodes();
+    for(std::set<CFGNode>::iterator i=v.begin(); i!=v.end(); i++) {
       if(dynamic_cast<NodeType*>(i->getNode()) == NULL)  return NULL;
     }
     return dynamic_cast<NodeType*>(v.begin()->getNode());
@@ -226,11 +231,12 @@ class Part : public printable {
   virtual bool operator==(const PartPtr& o) const=0;
   virtual bool operator<(const PartPtr& o) const=0;
   bool operator!=(const PartPtr& o) const;
-  bool operator>=(const PartPtr& o) const;
+  bool operator>=(
+  const PartPtr& o) const;
   bool operator<=(const PartPtr& o) const;
   bool operator> (const PartPtr& o) const;
 };
-extern PartEdgePtr NULLPart;
+extern PartPtr NULLPart;
 
 class PartEdge : public printable {
   public:
@@ -245,6 +251,15 @@ class PartEdge : public printable {
   //    PartEdge that denotes a subset of A (the function is called on this PartEdge), 
   //    it returns a list of PartEdges that partition O.
   virtual std::list<PartEdgePtr> getOperandPartEdge(SgNode* anchor, SgNode* operand)=0;
+  
+  // If the source Part corresponds to a conditional of some sort (if, switch, while test, etc.)
+  // it must evaluate some predicate and depending on its value continue, execution along one of the
+  // outgoing edges. The value associated with each outgoing edge is fixed and known statically.
+  // getPredicateValue() returns the value associated with this particular edge. Since a single 
+  // Part may correspond to multiple CFGNodes getPredicateValue() returns a map from each CFG node
+  // within its source part that corresponds to a conditional to the value of its predicate along 
+  // this edge.
+  virtual std::map<CFGNode, boost::shared_ptr<SgValueExp> > getPredicateValue()=0;
   
   virtual bool operator==(const PartEdgePtr& o) const=0;
   virtual bool operator<(const PartEdgePtr& o) const=0;
@@ -292,6 +307,7 @@ class IntersectionPart : public Part
   // Returns the list of incoming IntersectionPartEdge of this Part, which are the cross-product of the inEdges()
   // of its sub-parts.
   std::vector<PartEdgePtr> inEdges();
+  
   // Recursive computation of the cross-product of the inEdges of all the sub-parts of this Intersection part.
   // Hierarchically builds a recursion tree that contains more and more combinations of PartsPtr from the inEdges
   // of different sub-parts. When the recursion tree reaches its full depth (one level per part in parts), it creates
@@ -303,8 +319,9 @@ class IntersectionPart : public Part
                    std::vector<PartEdgePtr>& edges);
   
   // Returns the intersection of the lists of CFGNodes returned by the Parts in parts
-  std::vector<CFGNode> CFGNodes();
+  std::set<CFGNode> CFGNodes();
   
+  /*
   // Let A={ set of execution prefixes that terminate at the given anchor SgNode }
   // Let O={ set of execution prefixes that terminate at anchor's operand SgNode }
   // Since to reach a given SgNode an execution must first execute all of its operands it must
@@ -323,7 +340,13 @@ class IntersectionPart : public Part
   //         upto partI
   void getOperandPart_rec(SgNode* anchor, SgNode* operand,
                           std::list<PartPtr>::iterator partI, std::list<PartPtr> accumOperandParts, 
-                          std::list<PartPtr>& allParts);
+                          std::list<PartPtr>& allParts);*/
+  
+  // Returns a PartEdgePtr, where the source is a wild-card part (NULLPart) and the target is this Part
+  PartEdgePtr inEdgeFromAny();
+  
+  // Returns a PartEdgePtr, where the target is a wild-card part (NULLPart) and the source is this Part
+  PartEdgePtr outEdgeToAny();
   
   // Two IntersectionParts are equal of all their constituent sub-parts are equal
   bool operator==(const PartPtr& o) const;
@@ -358,6 +381,37 @@ class IntersectionPartEdge : public PartEdge
   // Return the part that intersects the targets of all the sub-edges of this IntersectionPartEdge
   PartPtr target();
   
+  // Let A={ set of execution prefixes that terminate at the given anchor SgNode }
+  // Let O={ set of execution prefixes that terminate at anchor's operand SgNode }
+  // Since to reach a given SgNode an execution must first execute all of its operands it must
+  //    be true that there is a 1-1 mapping m() : O->A such that o in O is a prefix of m(o).
+  // This function is the inverse of m: given the anchor node and operand as well as the
+  //    PartEdge that denotes a subset of A (the function is called on this PartEdge), 
+  //    it returns a list of PartEdges that partition O.
+  std::list<PartEdgePtr> getOperandPartEdge(SgNode* anchor, SgNode* operand);
+  
+  private:
+  // Recursive computation of the cross-product of the getOperandParts of all the sub-part edges of this Intersection part edge.
+  // Hierarchically builds a recursion tree that contains more and more combinations of PartEdgePtrs from the results of
+  // getOperandPart of different sub-part edges. When the recursion tree reaches its full depth (one level per edge in edges), 
+  // it creates an intersection the current combination of edges.
+  // edgeI - refers to the current edge in edges
+  // accumOperandPartEdges - the list of incoming edgesof the current combination of this IntersectionPartEdges's sub-Edges, 
+  //         upto edgeI
+  void getOperandPartEdge_rec(SgNode* anchor, SgNode* operand,
+                              std::list<PartEdgePtr>::iterator edgeI, std::list<PartEdgePtr> accumOperandPartEdges, 
+                              std::list<PartEdgePtr>& allPartEdges);
+  
+  // If the source Part corresponds to a conditional of some sort (if, switch, while test, etc.)
+  // it must evaluate some predicate and depending on its value continue, execution along one of the
+  // outgoing edges. The value associated with each outgoing edge is fixed and known statically.
+  // getPredicateValue() returns the value associated with this particular edge. Since a single 
+  // Part may correspond to multiple CFGNodes getPredicateValue() returns a map from each CFG node
+  // within its source part that corresponds to a conditional to the value of its predicate along 
+  // this edge.
+  std::map<CFGNode, boost::shared_ptr<SgValueExp> > getPredicateValue();  
+
+  public:
   // Two IntersectionPartEdges are equal of all their constituent sub-parts are equal
   bool operator==(const PartEdgePtr& o) const;
   

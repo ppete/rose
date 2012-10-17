@@ -19,14 +19,18 @@ void LiveDeadMemAnalysis::genInitState(const Function& func, PartPtr part, const
                                         vector<Lattice*>& initLattices, vector<NodeFact*>& initFacts)
 {
   //ComposerExpr2MemLocPtr ceml(new ComposerExpr2MemLoc(*getComposer(), p, *((ComposedAnalysis*)this)));
-  AbstractObjectSet* s = new AbstractObjectSet(/*ceml, */part, AbstractObjectSet::may);
+  AbstractObjectSet* s = new AbstractObjectSet(part->outEdgeToAny(), AbstractObjectSet::may);
   
   // If this part is the return statement of main(), make sure that its return value is live
   //if(func.get_name().getString() == "main" && 
   SgReturnStmt* returnStmt;
   if(func.get_declaration() == SageInterface::findMain(SageInterface::getGlobalScope(func.get_declaration())) && 
      (returnStmt = part->maySgNodeAny<SgReturnStmt>())) {
-    MemLocObjectPtrPair p(composer->OperandExpr2MemLoc(returnStmt, returnStmt->get_expression(), part, this));
+    // Get the memory location of the return statement's operand. Note that although this is a backward
+    // analysis, the edge passed to OperandExpr2MemLoc() is the edge that comes into part. This is because
+    // this edge denotes the set of executions that terminates at the return statement part and executions
+    // always run forwards.
+    MemLocObjectPtrPair p(composer->OperandExpr2MemLoc(returnStmt, returnStmt->get_expression(), part->inEdgeFromAny(), this));
     s->insert(p.expr? p.expr : p.mem);
   }
   
@@ -511,9 +515,9 @@ bool LiveDeadMemTransfer::finish()
  *******************************/
 
 // Maps the given SgNode to an implementation of the MemLocObject abstraction.
-MemLocObjectPtr LiveDeadMemAnalysis::Expr2MemLoc(SgNode* n, PartPtr part)
+MemLocObjectPtr LiveDeadMemAnalysis::Expr2MemLoc(SgNode* n, PartEdgePtr pedge)
 {
-  MemLocObjectPtrPair p = composer->Expr2MemLoc(n, part, this);
+  MemLocObjectPtrPair p = composer->Expr2MemLoc(n, pedge, this);
   if(p.mem) return createLDMemLocObjectCategory(p.mem, this);
   else      return p.expr;
 }
@@ -529,12 +533,12 @@ LDMemLocObject::LDMemLocObject(MemLocObjectPtr parent_, LiveDeadMemAnalysis* ldm
 LDMemLocObject::LDMemLocObject(const LDMemLocObject& that) : parent(that.parent), ldma(that.ldma) 
 {}
 
-bool LDMemLocObject::mayEqualML(MemLocObjectPtr o, PartPtr part)
+bool LDMemLocObject::mayEqualML(MemLocObjectPtr o, PartEdgePtr pedge)
 {
   LDMemLocObjectPtr that = boost::dynamic_pointer_cast<LDMemLocObject>(o);
   //ROSE_ASSERT(that);
-  bool isThisLive = isLive(part);
-  bool isThatLive = that->isLive(part);
+  bool isThisLive = isLive(pedge);
+  bool isThatLive = that->isLive(pedge);
 
   /*Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;LDMemLocObject::mayEqual"<<endl;
   Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;this (live="<<isThisLive<<")="<<str("")<<endl;
@@ -544,7 +548,7 @@ bool LDMemLocObject::mayEqualML(MemLocObjectPtr o, PartPtr part)
   //Dbg::dbg << "    isThisLive="<<isThisLive<<" isThisLive="<<isThisLive<<endl;
   // If both objects may be live, use the parents' equality operator
   if(isThisLive && isThatLive) {
-    bool tmp=parent->mayEqual(that->parent, part);
+    bool tmp=parent->mayEqual(that->parent, pedge);
     //Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;==>"<<(tmp?"TRUE":"FALSE")<<endl; 
     return tmp;
   // If both objects are definitely not live, they're counted as being equal
@@ -556,11 +560,11 @@ bool LDMemLocObject::mayEqualML(MemLocObjectPtr o, PartPtr part)
   { /*Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;==>FALSE"<<endl;*/ return false; }
 }
 
-bool LDMemLocObject::mustEqualML(MemLocObjectPtr o, PartPtr part)
+bool LDMemLocObject::mustEqualML(MemLocObjectPtr o, PartEdgePtr pedge)
 {
   LDMemLocObjectPtr that = boost::dynamic_pointer_cast<LDMemLocObject>(o);
-  bool isThisLive = isLive(part);
-  bool isThatLive = that->isLive(part);
+  bool isThisLive = isLive(pedge);
+  bool isThatLive = that->isLive(pedge);
 	
   /*Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;LDMemLocObject::mustEqual"<<endl;
   Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;this (live="<<isThisLive<<")="<<str("")<<endl;
@@ -569,7 +573,7 @@ bool LDMemLocObject::mustEqualML(MemLocObjectPtr o, PartPtr part)
   if(!that) { /*Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;==>FALSE"<<endl;*/ return false; }
   // If both objects may be live, use the parents' equality operator
   if(isThisLive && isThisLive) {
-    bool tmp=parent->mustEqual(that->parent, part);
+    bool tmp=parent->mustEqual(that->parent, pedge);
     //Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;==>"<<(tmp?"TRUE":"FALSE")<<endl; 
     return tmp;
   // If both objects are definitely not live, they're counted as being equal
@@ -582,7 +586,7 @@ bool LDMemLocObject::mustEqualML(MemLocObjectPtr o, PartPtr part)
 }
 
 // Returns true if this object is live at the given part and false otherwise
-bool LDMemLocObject::isLive(PartPtr part) const
+bool LDMemLocObject::isLive(PartEdgePtr pedge) const
 { 
   /*Dbg::dbg << "LDMemLocObject::isLive() part="<<cfgUtils::SgNode2Str(part.getNode())<<endl;
   Dbg::dbg << "parent str="<<parent->str()<<endl;
@@ -591,7 +595,7 @@ bool LDMemLocObject::isLive(PartPtr part) const
   Dbg::dbg << "live="<<isLiveMay(parent, ldma, part, *NodeState::getNodeState(part), "")<<endl;*/
   // We don't track liveness of function pointers so we default them to live
   if(MemLocObject::isFunctionMemLoc(parent)) return true;
-  else return isLiveMay(parent, ldma, part, *NodeState::getNodeState(ldma, part), "");
+  else return isLiveMay(parent, ldma, pedge, *NodeState::getNodeState(ldma, pedge->target()), "");
 }
 
 // pretty print for the object
@@ -610,10 +614,10 @@ std::string LDMemLocObject::str(std::string indent) const
   return oss.str();
 }
 
-std::string LDMemLocObject::strp(PartPtr part, std::string indent)
+std::string LDMemLocObject::strp(PartEdgePtr pedge, std::string indent)
 {
   ostringstream oss;
-  if(isLive(part))
+  if(isLive(pedge))
     oss << "[LDMemLocObject: LIVE: "<<parent->str("    ")<<"]";
   else
     oss << "[LDMemLocObject: DEAD]";
@@ -662,17 +666,17 @@ LDLabeledAggregate::LDLabeledAggregate(MemLocObjectPtr parent, LiveDeadMemAnalys
   : LDMemLocObject(parent, ldma)
 {/* Dbg::dbg << "LDLabeledAggregate::LDLabeledAggregate(parent="<<(parent ? parent->str("") : "NULL")<<")"<<endl;*/ }
 
-size_t LDLabeledAggregate::fieldCount(PartPtr part)
+size_t LDLabeledAggregate::fieldCount(PartEdgePtr pedge)
 {
   //if(isLiveMay(parent, ldma, part, *NodeState::getNodeState(ldma, part), "")) 
-    return MemLocObject::isLabeledAggregate(parent)->fieldCount(part);
+    return MemLocObject::isLabeledAggregate(parent)->fieldCount(pedge);
   //return 0;
 }
 
-std::vector<boost::shared_ptr<LabeledAggregateField> > LDLabeledAggregate::getElements(PartPtr part) const
+std::vector<boost::shared_ptr<LabeledAggregateField> > LDLabeledAggregate::getElements(PartEdgePtr pedge) const
 {
   //if(isLiveMay(parent, ldma, part, *NodeState::getNodeState(ldma, part), "")) 
-    return MemLocObject::isLabeledAggregate(parent)->getElements(part);
+    return MemLocObject::isLabeledAggregate(parent)->getElements(pedge);
   /*else {
     std::vector<boost::shared_ptr<LabeledAggregateField> > ret;
     return ret;
@@ -684,36 +688,36 @@ LDArray::LDArray(MemLocObjectPtr parent, LiveDeadMemAnalysis* ldma)
 { /*Dbg::dbg << "LDArray::LDArray(parent="<<(parent ? parent->str("") : "NULL")<<")"<<endl;*/ }
 
 // Returns a memory object that corresponds to all the elements in the given array
-MemLocObjectPtr LDArray::getElements(PartPtr part)
+MemLocObjectPtr LDArray::getElements(PartEdgePtr pedge)
 {
   //if(isLiveMay(parent, ldma, part, *NodeState::getNodeState(ldma, part), "")) 
-    return createLDMemLocObjectCategory(MemLocObject::isArray(parent)->getElements(part), ldma);
+    return createLDMemLocObjectCategory(MemLocObject::isArray(parent)->getElements(pedge), ldma);
   //else return MemLocObjectPtr();
 }
 
 // Returns the memory object that corresponds to the elements described by the given abstract index, 
 // which represents one or more indexes within the array
-MemLocObjectPtr LDArray::getElements(IndexVectorPtr ai, PartPtr part)
+MemLocObjectPtr LDArray::getElements(IndexVectorPtr ai, PartEdgePtr pedge)
 {
   //if(isLiveMay(parent, ldma, part, *NodeState::getNodeState(ldma, part), "")) 
-    return createLDMemLocObjectCategory(MemLocObject::isArray(parent)->getElements(ai, part), ldma);
+    return createLDMemLocObjectCategory(MemLocObject::isArray(parent)->getElements(ai, pedge), ldma);
   //else return MemLocObjectPtr();
 }
 
 // number of dimensions of the array
-size_t LDArray::getNumDims(PartPtr part)
+size_t LDArray::getNumDims(PartEdgePtr pedge)
 {
-  if(isLive(part)) return MemLocObject::isArray(parent)->getNumDims(part);
+  if(isLive(pedge)) return MemLocObject::isArray(parent)->getNumDims(pedge);
   else return 0;
 }
 
 //--- pointer like semantics
 // support dereference of array object, similar to the dereference of pointer
 // Return the element object: array[0]
-MemLocObjectPtr LDArray::getDereference(PartPtr part)
+MemLocObjectPtr LDArray::getDereference(PartEdgePtr pedge)
 {
   //if(isLiveMay(parent, ldma, part, *NodeState::getNodeState(ldma, part), "")) 
-    return createLDMemLocObjectCategory(MemLocObject::isArray(parent)->getDereference(part), ldma);
+    return createLDMemLocObjectCategory(MemLocObject::isArray(parent)->getDereference(pedge), ldma);
   //else return MemLocObjectPtr();
 }
 
@@ -721,10 +725,10 @@ LDPointer::LDPointer(MemLocObjectPtr parent, LiveDeadMemAnalysis* ldma)
   : LDMemLocObject(parent, ldma)
 { /*Dbg::dbg << "LDPointer::LDPointer(parent="<<(parent ? parent->str("") : "NULL")<<")"<<endl;*/ }
 
-MemLocObjectPtr LDPointer::getDereference(PartPtr part)
+MemLocObjectPtr LDPointer::getDereference(PartEdgePtr pedge)
 {
   //if(isLiveMay(parent, ldma, part, *NodeState::getNodeState(ldma, part), "")) 
-  return createLDMemLocObjectCategory(MemLocObject::isPointer(parent)->getDereference(part), ldma);
+  return createLDMemLocObjectCategory(MemLocObject::isPointer(parent)->getDereference(pedge), ldma);
   //else return MemLocObjectPtr();
 }
 
@@ -736,8 +740,8 @@ bool LDPointer::equalPoints(const Pointer & that)
   //else return false;
 }
 
-// Initialize vars to hold all the variables and expressions that are live at PartPtr p
-void getAllLiveMemAt(LiveDeadMemAnalysis* ldma, PartPtr part, const NodeState& state, set<AbstractObjectPtr>& vars, string indent)
+// Initialize vars to hold all the variables and expressions that are live at PartEdgePtr pedge
+void getAllLiveMemAt(LiveDeadMemAnalysis* ldma, PartEdgePtr pedge, const NodeState& state, set<AbstractObjectPtr>& vars, string indent)
 {
   //Dbg::dbg << "getAllLiveVarsAt() n="<<Dbg::escape(n.getNode()->unparseToString()) << " | " << n.getNode()->class_name()<<" | "<<n.getIndex()<<endl;
   //Dbg::dbg << "    state.getLatticeAbove(ldma): #="<<state.getLatticeAbove(ldma).size()<<endl;
@@ -753,52 +757,63 @@ void getAllLiveMemAt(LiveDeadMemAnalysis* ldma, PartPtr part, const NodeState& s
   //Dbg::dbg << "    state = "<<state.str(ldma, "        ")<<endl;
   //Dbg::dbg.flush();
       
-  AbstractObjectSet* liveLAbove = dynamic_cast<AbstractObjectSet*>(*(state.getLatticeAbove(ldma).begin()));
+  /*AbstractObjectSet* liveLAbove = dynamic_cast<AbstractObjectSet*>(*(state.getLatticeAbove(ldma).begin()));
   AbstractObjectSet* liveLBelow = dynamic_cast<AbstractObjectSet*>(*(state.getLatticeBelow(ldma).begin()));
 
   // The set of live vars AT this node is the union of vars that are live above it and below it
   for(AbstractObjectSet::const_iterator var=liveLAbove->begin(); var!=liveLAbove->end(); var++)
     vars.insert(*var);
   for(AbstractObjectSet::const_iterator var=liveLBelow->begin(); var!=liveLBelow->end(); var++)
+    vars.insert(*var);*/
+  
+  AbstractObjectSet* liveL = dynamic_cast<AbstractObjectSet*>(state.getLatticeAbove(ldma, pedge, 0));
+  ROSE_ASSERT(liveL);
+  for(AbstractObjectSet::const_iterator var=liveL->begin(); var!=liveL->end(); var++)
     vars.insert(*var);
 }
 
-// Returns the set of variables and expressions that are live at PartPtr p
-set<AbstractObjectPtr> getAllLiveMemAt(LiveDeadMemAnalysis* ldma, PartPtr part, const NodeState& state, string indent)
+// Returns the set of variables and expressions that are live at PartEdgePtr pedge
+set<AbstractObjectPtr> getAllLiveMemAt(LiveDeadMemAnalysis* ldma, PartEdgePtr pedge, const NodeState& state, string indent)
 {
     set<AbstractObjectPtr> vars;
-    getAllLiveMemAt(ldma, part, state, vars, indent);
+    getAllLiveMemAt(ldma, pedge, state, vars, indent);
     return vars;
 }
 
-// Returns true if the given MemLocObject must be live at the given PartPtr p
-bool isLiveMust(MemLocObjectPtr mem, LiveDeadMemAnalysis* ldma, PartPtr part, const NodeState& state, string indent)
+// Returns true if the given MemLocObject must be live at the given PartEdgePtr pedge
+bool isLiveMust(MemLocObjectPtr mem, LiveDeadMemAnalysis* ldma, PartEdgePtr pedge, const NodeState& state, string indent)
 {
-  AbstractObjectSet* liveLAbove = dynamic_cast<AbstractObjectSet*>(*(state.getLatticeAbove(ldma).begin()));
+  /*AbstractObjectSet* liveLAbove = dynamic_cast<AbstractObjectSet*>(*(state.getLatticeAbove(ldma).begin()));
   AbstractObjectSet* liveLBelow = dynamic_cast<AbstractObjectSet*>(*(state.getLatticeBelow(ldma).begin()));
   
   //Dbg::dbg << "isLiveMust: liveLAbove="<<liveLAbove->str("")<<endl;
   //Dbg::dbg << "isLiveMust: liveLBelow="<<liveLAbove->str("")<<endl;
   
   if(liveLAbove->containsMust(mem)) return true;
-  if(liveLBelow->containsMust(mem)) return true;
+  if(liveLBelow->containsMust(mem)) return true;*/
+  AbstractObjectSet* liveL = dynamic_cast<AbstractObjectSet*>(state.getLatticeAbove(ldma, pedge, 0));
+  ROSE_ASSERT(liveL);
+  if(liveL->containsMust(mem)) return true;
   
   return false;
 }
 
-// Returns true if the given MemLocObject may be live at the given PartPtr p
-bool isLiveMay(MemLocObjectPtr mem, LiveDeadMemAnalysis* ldma, PartPtr part, const NodeState& state, string indent)
+// Returns true if the given MemLocObject may be live at the given PartEdgePtr pedge
+bool isLiveMay(MemLocObjectPtr mem, LiveDeadMemAnalysis* ldma, PartEdgePtr pedge, const NodeState& state, string indent)
 {
   //Dbg::dbg << "isLiveMay(mem="<<mem->str("")<<")"<<endl;
   
-  AbstractObjectSet* liveLAbove = dynamic_cast<AbstractObjectSet*>(*(state.getLatticeAbove(ldma).begin()));
+  /*AbstractObjectSet* liveLAbove = dynamic_cast<AbstractObjectSet*>(*(state.getLatticeAbove(ldma).begin()));
   AbstractObjectSet* liveLBelow = dynamic_cast<AbstractObjectSet*>(*(state.getLatticeBelow(ldma).begin()));
   
   //Dbg::dbg << "isLiveMay: liveLAbove="<<liveLAbove->str("")<<endl;
   //Dbg::dbg << "isLiveMay: liveLBelow="<<liveLAbove->str("")<<endl;
   
   if(liveLAbove->containsMay(mem)) return true;
-  if(liveLBelow->containsMay(mem)) return true;
+  if(liveLBelow->containsMay(mem)) return true;*/
+  AbstractObjectSet* liveL = dynamic_cast<AbstractObjectSet*>(state.getLatticeAbove(ldma, pedge, 0));
+  ROSE_ASSERT(liveL);
+  if(liveL->containsMay(mem)) return true;
 
   return false;
 }

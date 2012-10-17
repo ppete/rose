@@ -152,7 +152,7 @@ class NodeState
 
   // Returns the map containing all the lattices above the node from the given analysis along the all edges
   // (read/write access)
-    std::map<PartEdgePtr, std::vector<Lattice*> >& getLatticeAboveAllMod(Analysis* analysis);
+  std::map<PartEdgePtr, std::vector<Lattice*> >& getLatticeAboveAllMod(Analysis* analysis);
   // Returns the map containing all the lattices below the node from the given analysis along the all edges
   // (read/write access)
   std::map<PartEdgePtr, std::vector<Lattice*> >& getLatticeBelowAllMod(Analysis* analysis);

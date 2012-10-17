@@ -53,12 +53,12 @@ class CPValueObject : public FiniteLattice, public ValueObject
   
   public:
   // Do we need a default constructor?
-  CPValueObject(PartPtr p);
+  CPValueObject(PartEdgePtr pedge);
   
   // This constructor builds a constant value lattice.
-  CPValueObject(int v, PartPtr p);
+  CPValueObject(int v, PartEdgePtr pedge);
   
-  CPValueObject(short level, int v, PartPtr p);
+  CPValueObject(short level, int v, PartEdgePtr pedge);
   
   // Do we need th copy constructor?
   CPValueObject(const CPValueObject & X);
@@ -101,10 +101,10 @@ class CPValueObject : public FiniteLattice, public ValueObject
   // pretty print for the object
   std::string str(std::string indent="") const;
   std::string str(std::string indent="") { return ((const CPValueObject*)this)->str(indent); }
-  std::string strp(PartPtr part, std::string indent="") const;
+  std::string strp(PartEdgePtr pedge, std::string indent="") const;
     
-  bool mayEqual(ValueObjectPtr o, PartPtr p);
-  bool mustEqual(ValueObjectPtr o, PartPtr p);
+  bool mayEqual(ValueObjectPtr o, PartEdgePtr pedge);
+  bool mustEqual(ValueObjectPtr o, PartEdgePtr pedge);
   
   // Allocates a copy of this object and returns a pointer to it
   ValueObjectPtr copyV() const;
@@ -112,7 +112,7 @@ class CPValueObject : public FiniteLattice, public ValueObject
   // Returns true if this ValueObject corresponds to a concrete value that is statically-known
   bool isConcrete();
   // Returns the type of the concrete value (if there is one)
-  boost::shared_ptr<SgType> getConcreteType();
+  SgType* getConcreteType();
   // Returns the concrete value (if there is one) as an SgValueExp, which allows callers to use
   // the normal ROSE mechanisms to decode it
   boost::shared_ptr<SgValueExp> getConcreteValue();
@@ -134,14 +134,14 @@ class ConstantPropagationAnalysis : virtual public IntraFWDataflow
   public:
   ConstantPropagationAnalysis();
   
-  void genInitState(const Function& func, PartPtr p, const NodeState& state, std::vector<Lattice*>& initLattices, std::vector<NodeFact*>& initFacts);
+  void genInitState(const Function& func, PartPtr part, const NodeState& state, std::vector<Lattice*>& initLattices, std::vector<NodeFact*>& initFacts);
   
-  bool transfer(const Function& func, PartPtr p, NodeState& state, std::map<PartEdgePtr, std::vector<Lattice*> >& dfInfo);
+  bool transfer(const Function& func, PartPtr part, CFGNode cn, NodeState& state, std::map<PartEdgePtr, std::vector<Lattice*> >& dfInfo);
   
-  boost::shared_ptr<IntraDFTransferVisitor> getTransferVisitor(const Function& func, PartPtr part, NodeState& state, 
-                                                               std::map<PartEdgePtr, std::vector<Lattice*> >& dfInfo);
+  boost::shared_ptr<IntraDFTransferVisitor> getTransferVisitor(const Function& func, PartPtr part, CFGNode cn, 
+                                              NodeState& state, std::map<PartEdgePtr, std::vector<Lattice*> >& dfInfo);
   
-  boost::shared_ptr<ValueObject> Expr2Val(SgNode* n, PartPtr p);
+  boost::shared_ptr<ValueObject> Expr2Val(SgNode* n, PartEdgePtr pedge);
   
   // pretty print for the object
   std::string str(std::string indent="")
@@ -208,7 +208,7 @@ class ConstantPropagationAnalysisTransfer : public VariableStateTransfer<CPValue
    
    bool finish();
    
-   ConstantPropagationAnalysisTransfer(const Function& func, PartPtr part, NodeState& state, 
+   ConstantPropagationAnalysisTransfer(const Function& func, PartPtr part, CFGNode cn, NodeState& state, 
                                        std::map<PartEdgePtr, std::vector<Lattice*> >& dfInfo, 
                                        Composer* composer, ConstantPropagationAnalysis* analysis);
 };

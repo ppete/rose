@@ -15,18 +15,18 @@ MemLocObjectPtr NULLMemLocObject;
   
 // General version of mayEqual and mustEqual that implements may/must equality with respect to ExprObj
 // and uses the derived class' may/mustEqual check for all the other cases
-bool MemLocObject::mayEqual(MemLocObjectPtr o, PartPtr p)
+bool MemLocObject::mayEqual(MemLocObjectPtr o, PartEdgePtr pedge)
 {
   // If both this and that are both expression objects or both not expression objects, use the
   // derived class' equality check
   //Dbg::dbg << "MemLocObject::mayEqual() dynamic_cast<const ExprObj*>(this)="<<dynamic_cast<const ExprObj*>(this)<<" dynamic_cast<const ExprObj*>(o.get())="<<dynamic_cast<const ExprObj*>(o.get())<<endl;
   if((dynamic_cast<const ExprObj*>(this)  && dynamic_cast<const ExprObj*>(o.get())) ||
      (!dynamic_cast<const ExprObj*>(this) && !dynamic_cast<const ExprObj*>(o.get())))
-  { return mayEqualML(o, p); }
+  { return mayEqualML(o, pedge); }
   // Otherwise, we know they're not equal
   { return false; }
 }
-bool MemLocObject::mustEqual(MemLocObjectPtr o, PartPtr p)
+bool MemLocObject::mustEqual(MemLocObjectPtr o, PartEdgePtr pedge)
 {
   // If both this and that are both expression objects or both not expression objects, use the
   // derived class' equality check
@@ -34,22 +34,22 @@ bool MemLocObject::mustEqual(MemLocObjectPtr o, PartPtr p)
   //Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;dynamic_cast<const ExprObj*>(o.get())="<<dynamic_cast<const ExprObj*>(o.get())<<"="<<o->str("")<<endl;
   if((dynamic_cast<const ExprObj*>(this)  && dynamic_cast<const ExprObj*>(o.get())) ||
      (!dynamic_cast<const ExprObj*>(this) && !dynamic_cast<const ExprObj*>(o.get())))
-  { return mustEqualML(o, p); }
+  { return mustEqualML(o, pedge); }
   // Otherwise, we know they're not equal
   { return false; }
 }
 
-bool MemLocObject::mayEqual(AbstractObjectPtr o, PartPtr p)
+bool MemLocObject::mayEqual(AbstractObjectPtr o, PartEdgePtr pedge)
 {
   MemLocObjectPtr mo = boost::dynamic_pointer_cast<MemLocObject>(o);
-  if(mo) return mayEqual(mo, p);
+  if(mo) return mayEqual(mo, pedge);
   else   return false;
 }
 
-bool MemLocObject::mustEqual(AbstractObjectPtr o, PartPtr p)
+bool MemLocObject::mustEqual(AbstractObjectPtr o, PartEdgePtr pedge)
 {
   MemLocObjectPtr mo = boost::dynamic_pointer_cast<MemLocObject>(o);
-  if(mo) return mustEqual(mo, p);
+  if(mo) return mustEqual(mo, pedge);
   else   return false;
 }
 
@@ -58,24 +58,24 @@ bool MemLocObject::mustEqual(AbstractObjectPtr o, PartPtr p)
    ############################### */
 
 // Returns whether this object may/must be equal to o within the given Part p
-bool MemLocObjectPtrPair::mayEqual(MemLocObjectPtrPair that, PartPtr p)
+bool MemLocObjectPtrPair::mayEqual(MemLocObjectPtrPair that, PartEdgePtr pedge)
 {
   // Both this and that have the same structure
   assert((expr && that.expr) || (!mem && !that.mem));
   // At least one of expr or mem have to be non-NULL
   assert(expr || mem);
-  return (expr ? expr->mayEqual(that.expr, p): false) ||
-         (mem  ? mem->mayEqual (that.mem, p): false); 
+  return (expr ? expr->mayEqual(that.expr, pedge): false) ||
+         (mem  ? mem->mayEqual (that.mem, pedge): false); 
 }
 
-bool MemLocObjectPtrPair::mustEqual(MemLocObjectPtrPair that, PartPtr p)
+bool MemLocObjectPtrPair::mustEqual(MemLocObjectPtrPair that, PartEdgePtr pedge)
 {
   // Both this and that have the same structure
   assert((expr && that.expr) || (!mem && !that.mem));
   // At least one of expr or mem have to be non-NULL
   assert(expr || mem);
-  return (expr ? expr->mustEqual(that.expr, p): true) &&
-         (mem  ? mem->mustEqual (that.mem, p): true);
+  return (expr ? expr->mustEqual(that.expr, pedge): true) &&
+         (mem  ? mem->mustEqual (that.mem, pedge): true);
 }
 
 // Allocates a copy of this object and returns a pointer to it
@@ -172,14 +172,14 @@ std::string MemLocObjectPtrPair::str(std::string indent)
   return oss.str();
 }
 
-std::string MemLocObjectPtrPair::strp(PartPtr part, std::string indent)
+std::string MemLocObjectPtrPair::strp(PartEdgePtr pedge, std::string indent)
 { 
   ostringstream oss;
   oss << "[";
-  if(expr) oss << "expr=" << expr->strp(part, indent) << endl;
+  if(expr) oss << "expr=" << expr->strp(pedge, indent) << endl;
   if(mem) {
     if(expr) oss << indent;
-    oss << "mem="  << mem->strp(part, indent);
+    oss << "mem="  << mem->strp(pedge, indent);
   }
   oss << "]";
   return oss.str();
@@ -204,7 +204,7 @@ void CombinedMemLocObject<defaultMayEq>::add(MemLocObjectPtr memLoc) {
 
 // Returns whether this object may/must be equal to o within the given Part p
 template <bool defaultMayEq>
-bool CombinedMemLocObject<defaultMayEq>::mayEqualML(MemLocObjectPtr o, PartPtr part)
+bool CombinedMemLocObject<defaultMayEq>::mayEqualML(MemLocObjectPtr o, PartEdgePtr pedge)
 {
   boost::shared_ptr<CombinedMemLocObject> that = boost::dynamic_pointer_cast<CombinedMemLocObject>(o);
   ROSE_ASSERT(that);
@@ -220,14 +220,14 @@ bool CombinedMemLocObject<defaultMayEq>::mayEqualML(MemLocObjectPtr o, PartPtr p
       thisIt!=memLocs.end();
       thisIt++, thatIt++)
   {
-    if((*thisIt)->mayEqual(*thatIt, part) == defaultMayEq) return defaultMayEq;
+    if((*thisIt)->mayEqual(*thatIt, pedge) == defaultMayEq) return defaultMayEq;
   }
   
   return !defaultMayEq;
 }
 
 template <bool defaultMayEq>
-bool CombinedMemLocObject<defaultMayEq>::mustEqualML(MemLocObjectPtr o, PartPtr part)
+bool CombinedMemLocObject<defaultMayEq>::mustEqualML(MemLocObjectPtr o, PartEdgePtr pedge)
 {
   boost::shared_ptr<CombinedMemLocObject> that = boost::dynamic_pointer_cast<CombinedMemLocObject>(o);
   ROSE_ASSERT(that);
@@ -242,7 +242,7 @@ bool CombinedMemLocObject<defaultMayEq>::mustEqualML(MemLocObjectPtr o, PartPtr 
       thisIt!=memLocs.end();
       thisIt++, thatIt++)
   {
-    if((*thisIt)->mustEqual(*thatIt, part) == !defaultMayEq) return !defaultMayEq;
+    if((*thisIt)->mustEqual(*thatIt, pedge) == !defaultMayEq) return !defaultMayEq;
   }
   
   return defaultMayEq;
@@ -250,12 +250,12 @@ bool CombinedMemLocObject<defaultMayEq>::mustEqualML(MemLocObjectPtr o, PartPtr 
 
 // Returns true if this object is live at the given part and false otherwise
 template <bool defaultMayEq>
-bool CombinedMemLocObject<defaultMayEq>::isLive(PartPtr part) const
+bool CombinedMemLocObject<defaultMayEq>::isLive(PartEdgePtr pedge) const
 {
   // If this is a union type (defaultMayEq=true), an object is live if any of its components are live (weakest constraint)
   // If this is an intersection type (defaultMayEq=false), an object is dead if any of its components are dead (strongest constraint)
   for(list<MemLocObjectPtr>::const_iterator ml=memLocs.begin(); ml!=memLocs.end(); ml++)
-    if((*ml)->isLive(part) == defaultMayEq) return defaultMayEq;
+    if((*ml)->isLive(pedge) == defaultMayEq) return defaultMayEq;
   
   return !defaultMayEq;
 }
@@ -308,24 +308,24 @@ CodeLocObjectPtr NULLCodeLocObject;
    ################################ */
 
 // Returns whether this object may/must be equal to o within the given Part p
-bool CodeLocObjectPtrPair::mayEqual(CodeLocObjectPtrPair that, PartPtr p)
+bool CodeLocObjectPtrPair::mayEqual(CodeLocObjectPtrPair that, PartEdgePtr pedge)
 {
   // Both this and that have the same structure
   assert((expr && that.expr) || (!mem && !that.mem));
   // At least one of expr or mem have to be non-NULL
   assert(expr || mem);
-  return (expr ? expr->mayEqual(that.expr, p): false) ||
-         (mem  ? mem->mayEqual (that.mem, p): false); 
+  return (expr ? expr->mayEqual(that.expr, pedge): false) ||
+         (mem  ? mem->mayEqual (that.mem, pedge): false); 
 }
 
-bool CodeLocObjectPtrPair::mustEqual(CodeLocObjectPtrPair that, PartPtr p)
+bool CodeLocObjectPtrPair::mustEqual(CodeLocObjectPtrPair that, PartEdgePtr pedge)
 {
   // Both this and that have the same structure
   assert((expr && that.expr) || (!mem && !that.mem));
   // At least one of expr or mem have to be non-NULL
   assert(expr || mem);
-  return (expr ? expr->mustEqual(that.expr, p): true) &&
-         (mem  ? mem->mustEqual (that.mem, p): true);
+  return (expr ? expr->mustEqual(that.expr, pedge): true) &&
+         (mem  ? mem->mustEqual (that.mem, pedge): true);
 }
 
 // Returns a copy of this object
@@ -347,14 +347,14 @@ std::string CodeLocObjectPtrPair::str(std::string indent)
   return oss.str();
 }
 
-std::string CodeLocObjectPtrPair::strp(PartPtr part, std::string indent)
+std::string CodeLocObjectPtrPair::strp(PartEdgePtr pedge, std::string indent)
 { 
   ostringstream oss;
   oss << "[";
-  if(expr) oss << "expr=" << expr->strp(part, indent) << endl;
+  if(expr) oss << "expr=" << expr->strp(pedge, indent) << endl;
   if(mem) {
     if(expr) oss << indent;
-    oss << "mem="  << mem->strp(part, indent);
+    oss << "mem="  << mem->strp(pedge, indent);
   }
   oss << "]";
   return oss.str();
@@ -380,7 +380,7 @@ void CombinedCodeLocObject<defaultMayEq>::add(CodeLocObjectPtr codeLoc) {
 // Returns whether this object may/must be equal to o within the given Part p
 // These methods are private to prevent analyses from calling them directly.
 template <bool defaultMayEq>
-bool CombinedCodeLocObject<defaultMayEq>::mayEqualCL(CodeLocObjectPtr o, PartPtr part)
+bool CombinedCodeLocObject<defaultMayEq>::mayEqualCL(CodeLocObjectPtr o, PartEdgePtr pedge)
 {
   boost::shared_ptr<CombinedCodeLocObject> that = boost::dynamic_pointer_cast<CombinedCodeLocObject>(o);
   // If the two combination objects include different numbers of CodeLocObjects, say that they may be equal since 
@@ -394,14 +394,14 @@ bool CombinedCodeLocObject<defaultMayEq>::mayEqualCL(CodeLocObjectPtr o, PartPtr
       thisIt!=codeLocs.end();
       thisIt++, thatIt++)
   {
-    if((*thisIt)->mayEqual(*thatIt, part) == defaultMayEq) return defaultMayEq;
+    if((*thisIt)->mayEqual(*thatIt, pedge) == defaultMayEq) return defaultMayEq;
   }
   
   return !defaultMayEq;
 }
 
 template <bool defaultMayEq>
-bool CombinedCodeLocObject<defaultMayEq>::mustEqualCL(CodeLocObjectPtr o, PartPtr part)
+bool CombinedCodeLocObject<defaultMayEq>::mustEqualCL(CodeLocObjectPtr o, PartEdgePtr pedge)
 {
   boost::shared_ptr<CombinedCodeLocObject> that = boost::dynamic_pointer_cast<CombinedCodeLocObject>(o);
   // If the two combination  objects include different numbers of CodeLocObjects, say that they are not must equal since 
@@ -414,7 +414,7 @@ bool CombinedCodeLocObject<defaultMayEq>::mustEqualCL(CodeLocObjectPtr o, PartPt
       thisIt!=codeLocs.end();
       thisIt++, thatIt++)
   {
-    if((*thisIt)->mustEqual(*thatIt, part) == !defaultMayEq) return !defaultMayEq;
+    if((*thisIt)->mustEqual(*thatIt, pedge) == !defaultMayEq) return !defaultMayEq;
   }
   
   return defaultMayEq;
@@ -422,12 +422,12 @@ bool CombinedCodeLocObject<defaultMayEq>::mustEqualCL(CodeLocObjectPtr o, PartPt
 
 // Returns true if this object is live at the given part and false otherwise
 template <bool defaultMayEq>
-bool CombinedCodeLocObject<defaultMayEq>::isLive(PartPtr part) const
+bool CombinedCodeLocObject<defaultMayEq>::isLive(PartEdgePtr pedge) const
 {
   // If this is a union type (defaultMayEq=true), an object is live if any of its components are live (weakest constraint)
   // If this is an intersection type (defaultMayEq=false), an object is dead if any of its components are dead (strongest constraint)
   for(list<CodeLocObjectPtr>::iterator cl=codeLocs.begin(); cl!=codeLocs.end(); cl++)
-    if((*cl)->isLive(part) == defaultMayEq) return defaultMayEq;
+    if((*cl)->isLive(pedge) == defaultMayEq) return defaultMayEq;
   
   return !defaultMayEq;
 }
@@ -460,17 +460,17 @@ std::string CombinedCodeLocObject<defaultMayEq>::str(std::string indent)
 
 ValueObjectPtr NULLValueObject;
 
-bool ValueObject::mayEqual(AbstractObjectPtr o, PartPtr p)
+bool ValueObject::mayEqual(AbstractObjectPtr o, PartEdgePtr pedge)
 {
   ValueObjectPtr vo = boost::dynamic_pointer_cast<ValueObject>(o);
-  if(vo) return mayEqual(vo, p);
+  if(vo) return mayEqual(vo, pedge);
   else   return false;
 }
 
-bool ValueObject::mustEqual(AbstractObjectPtr o, PartPtr p)
+bool ValueObject::mustEqual(AbstractObjectPtr o, PartEdgePtr pedge)
 {
   ValueObjectPtr vo = boost::dynamic_pointer_cast<ValueObject>(o);
-  if(vo) return mustEqual(vo, p);
+  if(vo) return mustEqual(vo, pedge);
   else   return false;
 }
 
@@ -495,26 +495,27 @@ bool ValueObject::isValueBoolCompatible(boost::shared_ptr<SgValueExp> val)
 bool ValueObject::SgValue2Bool(boost::shared_ptr<SgValueExp> val)
 {
   bool ret;
-  if((isSgCharVal(val.get())                && (ret = isSgCharVal(val.get())->get_value())) || 
-     (isSgBoolValExp(val.get())             && (ret = isSgBoolValExp(val.get())->get_value())) || 
-     (isSgEnumVal(val.get())                && (ret = isSgEnumVal(val.get())->get_value())) ||
-     (isSgIntVal(val.get())                 && (ret = isSgIntVal(val.get())->get_value())) || 
-     (isSgLongIntVal(val.get())             && (ret = isSgLongIntVal(val.get())->get_value())) || 
-     (isSgLongLongIntVal(val.get())         && (ret = isSgLongLongIntVal(val.get())->get_value())) || 
-     (isSgShortVal(val.get())               && (ret = isSgShortVal(val.get())->get_value())) || 
-     (isSgUnsignedCharVal(val.get())        && (ret = isSgUnsignedCharVal(val.get())->get_value())) || 
-     (isSgUnsignedLongVal(val.get())        && (ret = isSgUnsignedLongVal(val.get())->get_value())) || 
-     (isSgUnsignedLongLongIntVal(val.get()) && (ret = isSgUnsignedLongLongIntVal(val.get())->get_value())) || 
-     (isSgUnsignedShortVal(val.get())       && (ret = isSgUnsignedShortVal(val.get())->get_value())) || 
-     (isSgWcharVal(val.get())               && (ret = isSgWcharVal(val.get())->get_valueUL()))) {
-    return ret;
+       if(isSgCharVal(val.get()))                return isSgCharVal(val.get())->get_value();
+  else if(isSgBoolValExp(val.get()))             return isSgBoolValExp(val.get())->get_value();
+  else if(isSgEnumVal(val.get()))                return isSgEnumVal(val.get())->get_value();
+  else if(isSgIntVal(val.get()))                 return isSgIntVal(val.get())->get_value();
+  else if(isSgLongIntVal(val.get()))             return isSgLongIntVal(val.get())->get_value();
+  else if(isSgLongLongIntVal(val.get()))         return isSgLongLongIntVal(val.get())->get_value();
+  else if(isSgShortVal(val.get()))               return isSgShortVal(val.get())->get_value();
+  else if(isSgUnsignedCharVal(val.get()))        return isSgUnsignedCharVal(val.get())->get_value();
+  else if(isSgUnsignedLongVal(val.get()))        return isSgUnsignedLongVal(val.get())->get_value();
+  else if(isSgUnsignedLongLongIntVal(val.get())) return isSgUnsignedLongLongIntVal(val.get())->get_value();
+  else if(isSgUnsignedShortVal(val.get()))       return isSgUnsignedShortVal(val.get())->get_value();
+  else if(isSgWcharVal(val.get()))               return isSgWcharVal(val.get())->get_valueUL();
+  else {
+    Dbg::dbg << "val="<<cfgUtils::SgNode2Str(val.get())<<endl;
+    ROSE_ASSERT(0);
   }
-  ROSE_ASSERT(0);
 }
 
 // Returns true if this object is live at the given part and false otherwise.
 // Values are always live.
-bool ValueObject::isLive(PartPtr p) const
+bool ValueObject::isLive(PartEdgePtr pedge) const
 { return true; }
 
 // Allocates a copy of this object and returns a pointer to it
@@ -574,7 +575,7 @@ void CombinedValueObject<defaultMayEq>::add(ValueObjectPtr val) {
 // Returns whether this object may/must be equal to o within the given Part p
 // These methods are private to prevent analyses from calling them directly.
 template <bool defaultMayEq>
-bool CombinedValueObject<defaultMayEq>::mayEqual(ValueObjectPtr o, PartPtr part)
+bool CombinedValueObject<defaultMayEq>::mayEqual(ValueObjectPtr o, PartEdgePtr pedge)
 {
   boost::shared_ptr<CombinedValueObject> that = boost::dynamic_pointer_cast<CombinedValueObject>(o);
   // If the two combination objects include different numbers of ValueObjects, say that they may be equal since 
@@ -588,14 +589,14 @@ bool CombinedValueObject<defaultMayEq>::mayEqual(ValueObjectPtr o, PartPtr part)
       thisIt!=vals.end();
       thisIt++, thatIt++)
   {
-    if((*thisIt)->mayEqual(*thatIt, part) == defaultMayEq) return defaultMayEq;
+    if((*thisIt)->mayEqual(*thatIt, pedge) == defaultMayEq) return defaultMayEq;
   }
   
   return !defaultMayEq;
 }
 
 template <bool defaultMayEq>
-bool CombinedValueObject<defaultMayEq>::mustEqual(ValueObjectPtr o, PartPtr part)
+bool CombinedValueObject<defaultMayEq>::mustEqual(ValueObjectPtr o, PartEdgePtr pedge)
 {
   boost::shared_ptr<CombinedValueObject> that = boost::dynamic_pointer_cast<CombinedValueObject>(o);
   // If the two combination  objects include different numbers of ValueObjects, say that they are not must equal since 
@@ -608,7 +609,7 @@ bool CombinedValueObject<defaultMayEq>::mustEqual(ValueObjectPtr o, PartPtr part
       thisIt!=vals.end();
       thisIt++, thatIt++)
   {
-    if((*thisIt)->mustEqual(*thatIt, part) == !defaultMayEq) return !defaultMayEq;
+    if((*thisIt)->mustEqual(*thatIt, pedge) == !defaultMayEq) return !defaultMayEq;
   }
   
   return defaultMayEq;
@@ -630,6 +631,9 @@ bool CombinedValueObject<defaultMayEq>::isConcrete()
     return false;
   // Union
   } else {
+    list<ValueObjectPtr>::iterator firstI = vals.begin();
+    ValueObjectPtr first = *firstI;
+    
     // The union is not concrete if 
     for(list<ValueObjectPtr>::iterator v=vals.begin(); v!=vals.end(); v++) {
       /*Dbg::dbg << "CombinedValueObject<defaultMayEq>::isConcrete(), v="<<(*v)->str()<<" isConcrete="<<(*v)->isConcrete()<<endl;
@@ -638,13 +642,17 @@ bool CombinedValueObject<defaultMayEq>::isConcrete()
         if((*v)->getConcreteType().get()->variantT() == (*vals.begin())->getConcreteType().get()->variantT())
           Dbg::dbg << " ValueObject::equalValueExp((*v)->getConcreteValue().get(), (*vals.begin())->getConcreteValue().get())="<<ValueObject::equalValueExp((*v)->getConcreteValue().get(), (*vals.begin())->getConcreteValue().get())<<endl;
       }*/
-         // Any sub-value is not concrete, OR
+      //Dbg::dbg << "v="<<(*v)->str()<<endl;
+      //Dbg::dbg << "(*v)->getConcreteType()->variantT()="<<t->variantT()<<endl;
+      //Dbg::dbg << "first->getConcreteType()->variantT()="<<first->getConcreteType()->variantT()<<endl;
+      // Any sub-value is not concrete, OR
       if(!(*v)->isConcrete() || 
          // Any pair of sub-values have different types, OR
-         (*v)->getConcreteType().get()->variantT() != (*vals.begin())->getConcreteType().get()->variantT() ||
+         (*v)->getConcreteType()->variantT() != first->getConcreteType()->variantT() ||
          // Any pair of sub-values have different values
-         !ValueObject::equalValueExp((*v)->getConcreteValue().get(), (*vals.begin())->getConcreteValue().get()))
-      return false;
+         !ValueObject::equalValueExp((*v)->getConcreteValue().get(), first->getConcreteValue().get())) {
+        return false;
+      }
     }
     return true;
   }
@@ -652,7 +660,7 @@ bool CombinedValueObject<defaultMayEq>::isConcrete()
 
 // Returns the type of the concrete value (if there is one)
 template <bool defaultMayEq>
-boost::shared_ptr<SgType> CombinedValueObject<defaultMayEq>::getConcreteType()
+SgType* CombinedValueObject<defaultMayEq>::getConcreteType()
 {
   ROSE_ASSERT(isConcrete());
   
@@ -709,7 +717,7 @@ static void exampleCombinedValueObjects2(ValueObjectPtr val, std::list<ValueObje
    ##### LabeledAggregate ##### 
    ############################ */
 
-std::vector<boost::shared_ptr<LabeledAggregateField> > LabeledAggregate::getElements(PartPtr part) const 
+std::vector<boost::shared_ptr<LabeledAggregateField> > LabeledAggregate::getElements(PartEdgePtr pedge) const 
 {
   std::vector<boost::shared_ptr<LabeledAggregateField> > rt;
   cerr<<"Error. Direct call to base class's getElements() is not allowed."<<endl;
@@ -717,7 +725,7 @@ std::vector<boost::shared_ptr<LabeledAggregateField> > LabeledAggregate::getElem
   return rt;
 }
 
-size_t LabeledAggregate::fieldCount(PartPtr part)
+size_t LabeledAggregate::fieldCount(PartEdgePtr pedge)
 {
   cerr<<"Error. Direct call to base class's filedCount() is not allowed."<<endl;
   ROSE_ASSERT (false);
@@ -809,13 +817,13 @@ std::string IndexVector::str(std::string indent)
  ROSE_ASSERT (false);
  return "";  
 }
-bool IndexVector::mayEqual (IndexVectorPtr other, PartPtr p)
+bool IndexVector::mayEqual (IndexVectorPtr other, PartEdgePtr pedge)
 {
  cerr<<"Error. Direct call to base class (IndexVector)'s mayEqual() is not allowed."<<endl;
  ROSE_ASSERT (false);
  return false;  
 }
-bool IndexVector::mustEqual (IndexVectorPtr other, PartPtr p)
+bool IndexVector::mustEqual (IndexVectorPtr other, PartEdgePtr pedge)
 {
  cerr<<"Error. Direct call to base class (IndexVector)'s mustEqual is not allowed."<<endl;
  ROSE_ASSERT (false);
@@ -826,7 +834,7 @@ bool IndexVector::mustEqual (IndexVectorPtr other, PartPtr p)
    ##### Array ##### 
    ################# */
 
-MemLocObjectPtr Array::getElements(PartPtr part)
+MemLocObjectPtr Array::getElements(PartEdgePtr pedge)
 {
   cerr<<"Error. Direct call to base class (Array)'s getElements() is not allowed."<<endl;
   ROSE_ASSERT (false);
@@ -834,7 +842,7 @@ MemLocObjectPtr Array::getElements(PartPtr part)
   return p;  
 }
 
-MemLocObjectPtr Array::getElements(IndexVectorPtr ai, PartPtr part)
+MemLocObjectPtr Array::getElements(IndexVectorPtr ai, PartEdgePtr pedge)
 {
   cerr<<"Error. Direct call to base class (Array)'s getElements(IndexVector* ai) is not allowed."<<endl;
   ROSE_ASSERT (false);
@@ -842,14 +850,14 @@ MemLocObjectPtr Array::getElements(IndexVectorPtr ai, PartPtr part)
   return p;
 }
 
-size_t Array::getNumDims(PartPtr part)
+size_t Array::getNumDims(PartEdgePtr pedge)
 {
   cerr<<"Error. Direct call to base class (Array)'s getNumDims( ) is not allowed."<<endl;
   ROSE_ASSERT (false);
   return 0;
 }
 
-MemLocObjectPtr Array::getDereference(PartPtr part)
+MemLocObjectPtr Array::getDereference(PartEdgePtr pedge)
 {
   cerr<<"Error. Direct call to base class (Array)'s getDereference( ) is not allowed."<<endl;
   ROSE_ASSERT (false);
@@ -876,7 +884,7 @@ MemLocObjectPtr Array::getDereference(PartPtr part)
    ##### Pointer ##### 
    ################### */
 
-MemLocObjectPtr Pointer::getDereference(PartPtr part)
+MemLocObjectPtr Pointer::getDereference(PartEdgePtr pedge)
 {
   cerr<<"Error. Direct call to base class (Pointer)'s getDereference( ) is not allowed."<<endl;
   ROSE_ASSERT (false);

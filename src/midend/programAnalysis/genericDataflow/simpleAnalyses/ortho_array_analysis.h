@@ -25,8 +25,8 @@ class OrthoIndexVector_Impl : public IndexVector
     std::string str(std::string indent) const; // pretty print for the object
     std::string str(std::string indent) { return ((const OrthoIndexVector_Impl*)this)->str(indent); }
 
-    bool mayEqual(IndexVectorPtr other, PartPtr p);
-    bool mustEqual(IndexVectorPtr other, PartPtr p);
+    bool mayEqual(IndexVectorPtr other, PartEdgePtr pedge);
+    bool mustEqual(IndexVectorPtr other, PartEdgePtr pedge);
 };
 typedef boost::shared_ptr<OrthoIndexVector_Impl> OrthoIndexVector_ImplPtr;
 
@@ -89,13 +89,13 @@ class OrthogonalArrayAnalysis : virtual public IntraUndirDataflow
   {}
    
    //void transfer(SgNode &n, Part& p) {}
-  bool transfer(const Function& func, PartPtr p, NodeState& state, std::map<PartEdgePtr, std::vector<Lattice*> >& dfInfo) {
+  bool transfer(const Function& func, PartPtr p, CFGNode cn, NodeState& state, std::map<PartEdgePtr, std::vector<Lattice*> >& dfInfo) {
     return true;
   }
    
   // Maps the given SgNode to an implementation of the MemLocObject abstraction.
   // Variant of Expr2Val where Part field is ignored since it makes no difference for the syntactic analysis.
-  MemLocObjectPtr  Expr2MemLoc (SgNode* n, PartPtr p);
+  MemLocObjectPtr  Expr2MemLoc (SgNode* n, PartEdgePtr pedge);
 
   // pretty print for the object
   std::string str(std::string indent="")
