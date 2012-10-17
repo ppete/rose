@@ -514,7 +514,7 @@ void SetAllReturnStates::visit(const Function& func, PartPtr part, NodeState& st
       //modified = mergeLats(mergedLatsRetStmt, state->getLatticeAbove((Analysis*)analysis)) || modified;
       modified = mergeLats(state.getLatticeBelowMod((Analysis*)analysis), exprLats) || modified;
     }
-  }
+ }
   
   //Dbg::dbg << "visit >>>: modified="<<modified<<endl;
 }
@@ -538,7 +538,7 @@ bool SetAllReturnStates::mergeLats(vector<Lattice*>& mergedLat, const vector<Lat
   vector<Lattice*>::const_iterator l;
   vector<Lattice*>::iterator ml;
   bool modified = false;
-  if(analysisDebugLevel>=1) Dbg::dbg << "Updating lattice:"<<endl;
+  if(analysisDebugLevel>=1) Dbg::dbg << "    Updating lattice: \n";
   for(l=lats.begin(), ml=mergedLat.begin(); l!=lats.end(); l++, ml++) {
     if(analysisDebugLevel>=1) {
       Dbg::dbg << "Update: "<<(*l)->str("&nbsp;&nbsp;&nbsp;&nbsp;")<<endl;
@@ -970,7 +970,7 @@ void ContextInsensitiveInterProceduralDataflow::visit(const CGFunction* funcCG)
       ROSE_ASSERT(paramsListState);
       NodeState* paramsState = paramsListState;
       ROSE_ASSERT(fState->state.getLatticeBelowMod(intraAnalysis).size() == paramsState->getLatticeBelowMod(intraAnalysis).size());
-      afterFuncModified = !NodeState::equivLattices(fState->state.getLatticeBelowMod(intraAnalysis), paramsState->getLatticeBelowMod(intraAnalysis));
+      afterFuncModified = NodeState::equivLattices(fState->state.getLatticeBelowMod(intraAnalysis), paramsState->getLatticeBelowMod(intraAnalysis));
       NodeState::copyLattices_aEQb(intraAnalysis, fState->state, *paramsState);
       /*for(vector<Lattice*>::iterator lA=fState->state.getLatticeAboveMod(intraAnalysis).begin(), lP=paramsState->getLatticeBelowMod(intraAnalysis).begin();
           lA!=fState->state.getLatticeAboveMod(intraAnalysis).end(); lA++, lP++)
