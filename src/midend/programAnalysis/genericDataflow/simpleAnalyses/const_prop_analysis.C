@@ -49,7 +49,7 @@ CPValueObject::getLevel() const
    {
      return level;
    }
-  
+
 bool
 CPValueObject::setValue(int x)
    {
@@ -101,7 +101,7 @@ CPValueObject::initialize()
 
 
 // returns a copy of this lattice
-Lattice*
+CPValueObject*
 CPValueObject::copy() const
    {
      return new CPValueObject(*this);
@@ -110,9 +110,10 @@ CPValueObject::copy() const
 
 // overwrites the state of "this" Lattice with "that" Lattice
 void
-CPValueObject::copy(Lattice* X)
+CPValueObject::copy(const Lattice* X)
    {
-     CPValueObject* that = dynamic_cast<CPValueObject*>(X);
+     const CPValueObject* that = dynamic_cast<const CPValueObject*>(X);
+     ROSE_ASSERT(that);
 
      this->value = that->value;
      this->level = that->level;
@@ -120,19 +121,21 @@ CPValueObject::copy(Lattice* X)
 
 
 bool
-CPValueObject::operator==(Lattice* X) /*const*/
+CPValueObject::operator==(const Lattice* X) const
    {
   // Implementation of equality operator.
-     CPValueObject* that = dynamic_cast<CPValueObject*>(X);
+     const CPValueObject* that = dynamic_cast<const CPValueObject*>(X);
+     ROSE_ASSERT(that);
+
      return (value == that->value) && (level == that->level);
    }
 
 // computes the meet of this and that and saves the result in this
 // returns true if this causes this to change and false otherwise
 bool
-CPValueObject::meetUpdate(Lattice* X)
+CPValueObject::meetUpdate(const Lattice* X)
    {
-     CPValueObject* that = dynamic_cast<CPValueObject*>(X);
+     const CPValueObject* that = dynamic_cast<const CPValueObject*>(X);
 
   // Need to handle bottom, copy from the other side.
 
@@ -229,7 +232,7 @@ CPValueObject::str(string indent) const
 string
 CPValueObject::strp(PartPtr part, string indent) const
 {
-    
+
      ostringstream outs;
      if(level == bottom)
           outs << "[bottom]";
@@ -262,10 +265,10 @@ ValueObjectPtr CPValueObject::copyV() const
   return boost::make_shared<CPValueObject>(*this);
 }
 
-  /* Don't have good idea how to represent a finite number of options 
+  /* Don't have good idea how to represent a finite number of options
   virtual bool isFiniteSet()=0;
   virtual set<AbstractObj> getValueSet()=0;*/
-  
+
 /*string CPValueObject::str(const string& indent)
 {
   ostringstream outs;
@@ -277,7 +280,7 @@ ValueObjectPtr CPValueObject::copyV() const
     outs << indent << "[level: constantValue, val = "<<value<<"]";
   else if(level == top)
     outs << indent << "[level: top]";
-  
+
   return outs.str();
 }*/
 
@@ -288,7 +291,7 @@ ValueObjectPtr CPValueObject::copyV() const
 template <typename T>
 void ConstantPropagationAnalysisTransfer::transferArith(SgBinaryOp *sgn, T transferOp)
    {
-     CPValueObjectPtr arg1Lat, arg2Lat, resLat;
+     lattice_type arg1Lat, arg2Lat, resLat;
      getLattices(sgn, arg1Lat, arg2Lat, resLat);
         {
           transferOp(this, arg1Lat, arg2Lat, resLat);
@@ -304,11 +307,12 @@ ConstantPropagationAnalysisTransfer::transferArith(SgBinaryOp *sgn, TransferOp t
      transferArith(sgn, boost::mem_fn(transferOp));
    }
 
-void 
+void
 ConstantPropagationAnalysisTransfer::transferIncrement(SgUnaryOp *sgn)
    {
-     CPValueObjectPtr arg1Lat, arg2Lat, resLat;
-     getLattices(sgn, arg1Lat, arg2Lat, resLat);
+     lattice_type arg1Lat, arg2Lat, resLat;
+
+     base::getLattices(sgn, arg1Lat, arg2Lat, resLat);
      transferAdditive(arg1Lat, arg2Lat, resLat, isSgPlusPlusOp(sgn));
      setLattice(sgn, resLat);
      // GB: shouldn't need to deallocate when we consistently use boost shared pointers
@@ -323,10 +327,10 @@ ConstantPropagationAnalysisTransfer::transferAdditive(CPValueObjectPtr arg1Lat, 
         {
           updateModified(resLat->setLevel(CPValueObject::bottom));
         }
-       else 
+       else
         {
           // Both knownValue
-          if(arg1Lat->getLevel() == CPValueObject::constantValue && arg2Lat->getLevel() == CPValueObject::constantValue) 
+          if(arg1Lat->getLevel() == CPValueObject::constantValue && arg2Lat->getLevel() == CPValueObject::constantValue)
              {
                updateModified(resLat->setValue(isAddition ? arg1Lat->getValue() + arg2Lat->getValue() : arg1Lat->getValue() - arg2Lat->getValue()));
              }
@@ -346,10 +350,10 @@ ConstantPropagationAnalysisTransfer::transferMultiplicative(CPValueObjectPtr arg
         {
           updateModified(resLat->setLevel(CPValueObject::bottom));
         }
-       else 
+       else
         {
        // Both knownValue
-          if(arg1Lat->getLevel() == CPValueObject::constantValue && arg2Lat->getLevel() == CPValueObject::constantValue) 
+          if(arg1Lat->getLevel() == CPValueObject::constantValue && arg2Lat->getLevel() == CPValueObject::constantValue)
              {
                updateModified(resLat->setValue(arg1Lat->getValue() * arg2Lat->getValue()));
              }
@@ -368,10 +372,10 @@ ConstantPropagationAnalysisTransfer::transferDivision(CPValueObjectPtr arg1Lat, 
         {
           updateModified(resLat->setLevel(CPValueObject::bottom));
         }
-       else 
+       else
         {
        // Both knownValue
-          if(arg1Lat->getLevel() == CPValueObject::constantValue && arg2Lat->getLevel() == CPValueObject::constantValue) 
+          if(arg1Lat->getLevel() == CPValueObject::constantValue && arg2Lat->getLevel() == CPValueObject::constantValue)
              {
                updateModified(resLat->setValue(arg1Lat->getValue() / arg2Lat->getValue()));
              }
@@ -390,10 +394,10 @@ ConstantPropagationAnalysisTransfer::transferMod(CPValueObjectPtr arg1Lat, CPVal
         {
           updateModified(resLat->setLevel(CPValueObject::bottom));
         }
-       else 
+       else
         {
        // Both knownValue
-          if(arg1Lat->getLevel() == CPValueObject::constantValue && arg2Lat->getLevel() == CPValueObject::constantValue) 
+          if(arg1Lat->getLevel() == CPValueObject::constantValue && arg2Lat->getLevel() == CPValueObject::constantValue)
              {
                updateModified(resLat->setValue(arg1Lat->getValue() % arg2Lat->getValue()));
              }
@@ -542,7 +546,7 @@ ConstantPropagationAnalysisTransfer::visit(SgMinusOp *sgn)
 
      // This fixes up the value if it is relevant (where level is neither top not bottom).
      operandLat->setValue(-operandLat->getValue());
-     
+
      setLattice(sgn, operandLat);
    }
 
@@ -552,7 +556,7 @@ ConstantPropagationAnalysisTransfer::finish()
      return modified;
    }
 
-ConstantPropagationAnalysisTransfer::ConstantPropagationAnalysisTransfer(const Function& func, PartPtr p, NodeState& state, const std::vector<Lattice*>& dfInfo, Composer* composer, ConstantPropagationAnalysis* analysis)
+ConstantPropagationAnalysisTransfer::ConstantPropagationAnalysisTransfer(const Function& func, PartPtr p, NodeState& state, AbstractObjectMap& dfInfo, Composer* composer, ConstantPropagationAnalysis* analysis)
    : VariableStateTransfer<CPValueObject>(func, state, dfInfo, boost::make_shared<CPValueObject>(p), composer, analysis, p, constantPropagationAnalysisDebugLevel)
    {
    }
@@ -570,6 +574,7 @@ ConstantPropagationAnalysis::ConstantPropagationAnalysis()
 }
 
 // generates the initial lattice state for the given dataflow node, in the given function, with the given NodeState
+#if OBSOLETE_CODE
 void
 ConstantPropagationAnalysis::genInitState(const Function& func, PartPtr p, const NodeState& state, std::vector<Lattice*>& initLattices, std::vector<NodeFact*>& initFacts)
    {
@@ -578,30 +583,52 @@ ConstantPropagationAnalysis::genInitState(const Function& func, PartPtr p, const
       /*Dbg::dbg << "ConstantPropagationAnalysis::genInitState, returning l="<<l<<" n=<"<<Dbg::escape(p.getNode()->unparseToString())<<" | "<<p.getNode()->class_name()<<" | "<<p.getIndex()<<">\n";
       Dbg::dbg << "    l="<<l->str("    ")<<endl;*/
       initLattices.push_back(l);
-     
+
      // GB: WE NEED TO INITIALIZE THIS LATTICE WITH THE CURRENTLY LIVE VARIABLES. E.G. AS INITIALIZATION-TIME
    }
+#endif /* OBSOLETE_CODE */
 
-  
+AbstractObjectMap*
+ConstantPropagationAnalysis::genLattice(const Function& func, PartPtr p, const NodeState& state)
+{
+  return new AbstractObjectMap(new MustEqualFunctor(), boost::make_shared<CPValueObject>(p)/*, ceml*/, p);
+}
+
+std::vector<NodeFact*>
+ConstantPropagationAnalysis::genFacts(const Function& func, PartPtr p, const NodeState& state)
+{
+  return nullFacts();
+}
+
+
+
 bool
-ConstantPropagationAnalysis::transfer(const Function& func, PartPtr p, NodeState& state, const std::vector<Lattice*>& dfInfo)
-   {
-     assert(0); 
-     return false;
-   }
+ConstantPropagationAnalysis::transfer(const Function& func, PartPtr p, NodeState& state, LatticePtr lat)
+{
+  AbstractObjectMap& aom = dynamic_cast<AbstractObjectMap&>(*lat.get());
 
+  visitor_transfer(ConstantPropagationAnalysisTransfer(func, p, state, aom, composer, this), p);
+  return true;
+}
+
+#if OBSOLETE_CODE
 boost::shared_ptr<IntraDFTransferVisitor>
 ConstantPropagationAnalysis::getTransferVisitor(const Function& func, PartPtr p, NodeState& state, const std::vector<Lattice*>& dfInfo)
    {
   // Why is the boost shared pointer used here?
      return boost::shared_ptr<IntraDFTransferVisitor>(new ConstantPropagationAnalysisTransfer(func, p, state, dfInfo, composer, this));
    }
+#endif /* OBSOLETE_CODE */
 
 ValueObjectPtr ConstantPropagationAnalysis::Expr2Val(SgNode* n, PartPtr part)
 {
-  AbstractObjectMap* cpMap = dynamic_cast<AbstractObjectMap*>(NodeState::getNodeState(part)->getLatticeAbove(this, 0));
-  ROSE_ASSERT(cpMap);
-  
+  typedef boost::shared_ptr<AbstractObjectMap> AbstractObjectMapPtr;
+
+  // AbstractObjectMap* cpMap = dynamic_cast<AbstractObjectMap*>(NodeState::getNodeState(part)->getLatticeAbove(this, 0));
+  NodeState*           nodestate(NodeState::getNodeState(part));
+  AbstractObjectMapPtr cpMap = boost::dynamic_pointer_cast<AbstractObjectMap>(nodestate->getLatticeAboveMod(this));
+  ROSE_ASSERT(cpMap.get());
+
   MemLocObjectPtrPair p = composer->Expr2MemLoc(n, part, this);
   // Return the lattice associated with n's expression since that is likely to be more precise
   // but if it is not available, used the memory object
@@ -609,4 +636,4 @@ ValueObjectPtr ConstantPropagationAnalysis::Expr2Val(SgNode* n, PartPtr part)
                    boost::dynamic_pointer_cast<ValueObject>(cpMap->get(p.mem)));
 }
 
-}; // namespace dataflow;
+} // namespace dataflow;

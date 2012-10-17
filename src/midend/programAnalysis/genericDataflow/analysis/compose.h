@@ -5,11 +5,12 @@
 #include "dataflow.h"
 #include "abstract_object.h"
 #include "partitions.h"
+#include "latticeFull.h" //< needed for BoolAndLattice inheritance
 
 /* GB 2012-09-02: DESIGN NOTE
    Analyses and abstract objects written for the compositional framework must support a wide range of functionality,
    both mandatory (e.g. mayEqual/mustEqual in AbstractObjects) and optional (e.g. Expr2MemLoc() in ComposedAnalysis).
-   In general optional functionality should go into the composer, which will then find an implementor for this 
+   In general optional functionality should go into the composer, which will then find an implementor for this
  * functionality. Mandatory functionality should be placed as body-less virtual methods that are required for specific
  * instances of AbstractObject and ComposedAnalysis. Note that although we do currently have a way for ComposedAnalyses
  * to provide optional functionality and have the Composer find it, the same is not true for AbstractObjects because
@@ -27,8 +28,8 @@ class ComposedAnalysis;
 class Composer
 {
   public:
-   // Abstract interpretation functions that return this analysis' abstractions that 
-   // represent the outcome of the given SgExpression. 
+   // Abstract interpretation functions that return this analysis' abstractions that
+   // represent the outcome of the given SgExpression.
    // The objects returned by these functions are expected to be deallocated by their callers.
    virtual ValueObjectPtr       Expr2Val    (SgNode* n, PartPtr p, ComposedAnalysis* client)=0;
    virtual MemLocObjectPtrPair  Expr2MemLoc (SgNode* n, PartPtr p, ComposedAnalysis* client)=0;
@@ -37,10 +38,10 @@ class Composer
    // Maps and Sets
    /*virtual MemLocSet* NewValueSet()=0;
    virtual ValueSet*  NewValueMap()=0;
-   
+
    virtual MemLocSet* NewMemLocSet()=0;
    virtual MemLocSet* NewMemLocMap()=0;
-   
+
    virtual CodeLocSet* NewCodeLocSet()=0;
    virtual CodeLocSet* NewCodeLocMap()=0;*/
 };
@@ -60,8 +61,8 @@ public:
   composer(_composer), part(_part), analysis(_analysis)
   {}
 
-  // Abstract interpretation functions that return this analysis' abstractions that 
-  // represent the outcome of the given SgExpression. 
+  // Abstract interpretation functions that return this analysis' abstractions that
+  // represent the outcome of the given SgExpression.
   // The objects returned by these functions are expected to be deallocated by their callers.
   ValueObjectPtr   Expr2Val(SgNode* n)
   { return composer.Expr2Val(n, part, &analysis); }
@@ -69,7 +70,7 @@ public:
   { return composer.Expr2MemLoc(n, part, &analysis); }
   CodeLocObjectPtrPair Expr2CodeLoc(SgNode* n)
   { return composer.Expr2CodeLoc(n, part, &analysis); }
-  
+
   friend class ComposerExpr2Obj;
   friend class ComposerExpr2Val;
   friend class ComposerExpr2MemLoc;
@@ -78,7 +79,7 @@ public:
 typedef boost::shared_ptr<ComposerInv> ComposerInvPtr;
 
 // Wraps all the information requires to invoke the Expr2* method of the composer.
-// This class is instantiated with specific classes for invoking Expr2Val, Expr2MemLoc 
+// This class is instantiated with specific classes for invoking Expr2Val, Expr2MemLoc
 // and Expr2CodeLoc and these instances can be passed down to generic data structures
 // to enable them to create a specific type of AbstractObject without knowing the type
 // of object they're creating.
@@ -90,11 +91,11 @@ class ComposerExpr2Obj
   Composer&         composer;
   PartPtr           part;
   ComposedAnalysis& analysis;
-  
+
   public:
   ComposerExpr2Obj(Composer& _composer, PartPtr _part, ComposedAnalysis& _analysis) :
   composer(_composer), part(_part), analysis(_analysis) {}
-  
+
   //virtual AbstractObjectPtr Expr2Obj(SgNode* n)=0;
 };
 typedef boost::shared_ptr<ComposerExpr2Obj> ComposerExpr2ObjPtr;
@@ -105,7 +106,7 @@ class ComposerExpr2Val: public ComposerExpr2Obj
   ComposerExpr2Val(Composer& composer, PartPtr part, ComposedAnalysis& analysis) :
       ComposerExpr2Obj(composer, part, analysis) {}
   ComposerExpr2Val(ComposerInv civ) : ComposerExpr2Obj(civ.composer, civ.part, civ.analysis) {}
-  
+
   ValueObjectPtr Expr2Obj(SgNode* n)
   { return composer.Expr2Val(n, part, &analysis); }
 };
@@ -117,7 +118,7 @@ class ComposerExpr2MemLoc: public ComposerExpr2Obj
   ComposerExpr2MemLoc(Composer& composer, PartPtr part, ComposedAnalysis& analysis) :
   ComposerExpr2Obj(composer, part, analysis) {}
   ComposerExpr2MemLoc(ComposerInv civ) : ComposerExpr2Obj(civ.composer, civ.part, civ.analysis) {}
-  
+
   MemLocObjectPtrPair Expr2Obj(SgNode* n)
   { return composer.Expr2MemLoc(n, part, &analysis); }
 };
@@ -129,7 +130,7 @@ class ComposerExpr2CodeLoc: public ComposerExpr2Obj
   ComposerExpr2CodeLoc(Composer& composer, PartPtr part, ComposedAnalysis& analysis) :
     ComposerExpr2Obj(composer, part, analysis) {}
   ComposerExpr2CodeLoc(ComposerInv civ) : ComposerExpr2Obj(civ.composer, civ.part, civ.analysis) {}
-  
+
   CodeLocObjectPtrPair Expr2Obj(SgNode* n)
   { return composer.Expr2CodeLoc(n, part, &analysis); }
 };
@@ -146,45 +147,45 @@ class FuncCaller
   virtual string funcName()=0;
 };
 
-// Simple implementation of a Composer where the analyses form a linear sequence of 
+// Simple implementation of a Composer where the analyses form a linear sequence of
 // dependences
 class ChainComposer : public Composer
 {
   SgProject* project;
   list<ComposedAnalysis*> allAnalyses;
   list<ComposedAnalysis*> doneAnalyses;
-  
+
   public:
   ChainComposer(int argc, char** argv, list<ComposedAnalysis*>& analyses);
-  
+
   //bool runAnalysis(const Function& func, NodeState* state);
   void runAnalysis();
-  
-  // Generic function that looks up the composition chain from the given client 
-  // analysis and returns the result produced by the first instance of the function 
+
+  // Generic function that looks up the composition chain from the given client
+  // analysis and returns the result produced by the first instance of the function
   // called by the caller object found along the way.
   template<class RetObject>
-  boost::shared_ptr<RetObject> callServerAnalysisFunc(SgNode* e, PartPtr p, ComposedAnalysis* client, 
+  boost::shared_ptr<RetObject> callServerAnalysisFunc(SgNode* e, PartPtr p, ComposedAnalysis* client,
                                     FuncCaller<RetObject>& caller);
-  
-  // Abstract interpretation functions that return this analysis' abstractions that 
-  // represent the outcome of the given SgExpression. 
+
+  // Abstract interpretation functions that return this analysis' abstractions that
+  // represent the outcome of the given SgExpression.
   // The objects returned by these functions are expected to be deallocated by their callers.
   ValueObjectPtr Expr2Val(SgNode* n, PartPtr p, ComposedAnalysis* client);
-  
+
   MemLocObjectPtrPair Expr2MemLoc(SgNode* n, PartPtr p, ComposedAnalysis* client);
-  
+
   CodeLocObjectPtrPair Expr2CodeLoc(SgNode* n, PartPtr p, ComposedAnalysis* client);
-  
-  // Maps and Sets 
-  // (when analyses can implement these internally, these functions will also invoke 
+
+  // Maps and Sets
+  // (when analyses can implement these internally, these functions will also invoke
   //  callServerAnalysisFunc)
   /*ValueSet* NewValueSet()  { return new ValueSet(); }
   ValueMap* NewValueMap()  { return new ValueMap(); }
-  
+
   MemLocSet* NewMemLocSet() { return new MemLocSet(); }
   MemLocMap* NewMemLocMap() { return new MemLocMap(); }
-  
+
   CodeLocSet* NewCodeLocSet() { return new CodeLocSet(); }
   CodeLocMap* NewCodeLocMap() { return new CodeLocMap(); }*/
 };
@@ -195,7 +196,7 @@ class ChainComposer : public Composer
 // --------------------
 namespace dataflow {
 class FunctionState;
-  
+
 class NotImplementedException
 {};
 
@@ -215,8 +216,14 @@ class InterProceduralDataflow : virtual public InterProceduralAnalysis
         //          the function call's return value. The callee may not modify these lattices.
         // Returns true if any of the input lattices changed as a result of the transfer function and
         //    false otherwise.
+#if OBSOLETE_CODE
         virtual bool transfer(const Function& func, PartPtr p, NodeState& state,
                               const std::vector<Lattice*>& dfInfo/*, std::vector<Lattice*>** retState, bool fw*/)=0;
+#endif /* OBSOLETE_CODE */
+
+        virtual bool transfer(const Function& func, PartPtr p, NodeState& state,
+                              LatticePtr dfInfo /*, ConstLatticePtr& retState, bool fw*/) = 0;
+
 };
 
 class InitDataflowState : public UnstructuredPassIntraAnalysis
@@ -254,95 +261,136 @@ class FindAllFunctionCalls : public UnstructuredPassIntraAnalysis
         std::map<Function, std::set<PartPtr> >& getFuncCalls() { return funcCalls; }
 };
 
-
 /* Base class of Uni-directional (Forward or Backward) Intra-Procedural Dataflow Analyses */
 class IntraUniDirectionalDataflow : public IntraUnitDataflow
 {
   public:
-  typedef enum {fw=0, bw=1, none=2} direction;
-  
+  typedef std::vector<PartEdge>      ConnectionContainer; // \todo rename to OutEdgeContainer
+  typedef enum {fw=0, bw=1, none=2}  direction;
+
   // Runs the intra-procedural analysis on the given function and returns true if
   // the function's NodeState gets modified as a result and false otherwise
   // state - the function's NodeState
-  // analyzeFromDirectionStart - If true the function should be analyzed from its starting point from the analysis' 
+  // analyzeFromDirectionStart - If true the function should be analyzed from its starting point from the analysis'
   //    perspective (fw: entry point, bw: exit point)
   void runAnalysis(const Function& func, NodeState* state, bool analyzeFromDirectionStart, std::set<Function> calleesUpdated);
 
   // propagates the dataflow info from the current node's NodeState (curNodeState) to the next node's
   // NodeState (nextNodeState)
-  bool propagateStateToNextNode(
-        const std::vector<Lattice*>& curNodeState, PartPtr curDFNode, int nodeIndex,
-        const std::vector<Lattice*>& nextNodeState, PartPtr nextDFNode);
+  // \pp removed nodeIndex... does not seem to be used
+  bool propagateStateToNextNode(ConstLatticePtr currNodeState, PartPtr curNode,
+                                LatticePtr nextNodeState, PartPtr nextNode);
 
-  std::vector<PartPtr> gatherDescendants(std::vector<DataflowEdge> edges,
-                                          DataflowNode (DataflowEdge::*edgeFn)() const);
+#if OBSOLETE_CODE
+        ConnectionContainer gatherDescendants(std::vector<DataflowEdge> edges, DataflowNode (DataflowEdge::*edgeFn)() const);
+#endif /* OBSOLETE_CODE */
+
+  /// returns the origin node of the dataflow edge @e.
+  virtual DataflowNode flowSource(const DataflowEdge& e) = 0;
+  virtual DataflowNode flowTarget(const DataflowEdge& e) = 0;
 
   virtual NodeState*initializeFunctionNodeState(const Function &func, NodeState *fState) = 0;
   //virtual VirtualCFG::dataflowIterator*
   virtual std::list<PartPtr>
     getInitialWorklist(const Function &func, bool analyzeFromDirectionStart, const set<Function> &calleesUpdated, NodeState *fState) = 0;
-  virtual vector<Lattice*> getLatticeAnte(NodeState *state) = 0;
-  virtual vector<Lattice*> getLatticePost(NodeState *state) = 0;
+
+
+  virtual LatticePtr getLatticeAnte(NodeState *state) = 0;
+  virtual LatticePtr getLatticePost(NodeState *state) = 0;
 
   // If we're currently at a function call, use the associated inter-procedural
   // analysis to determine the effect of this function call on the dataflow state.
   virtual void transferFunctionCall(const Function &caller, PartPtr p, NodeState *state) = 0;
+  virtual ConnectionContainer getDescendants(PartPtr p) = 0;
 
-
-  virtual vector<PartPtr> getDescendants(PartPtr p) = 0;
   virtual PartPtr getUltimate(const Function &func) = 0;
   virtual VirtualCFG::dataflowIterator* getIterator(const Function &func) = 0;
-  
+
   virtual direction getDirection() = 0;
+public:
+
+  using IntraUnitDataflow::transfer; // do not hide the inherited transfer
+
+    /// \brief   the transfer function that is applied to every control flow edge.
+    /// \param   func - the function that is being processed
+    /// \param   n - the dataflow node that is being processed
+    /// \param   state - the NodeState object that describes the state of the node, as established by earlier
+    ///          analysis passes
+    /// \param   dfInfo - the Lattices that this transfer function operates on. The function takes these lattices
+    ///          as input and overwrites them with the result of the transfer. If data transfer along
+    ///          an edge is infeasible the state of dfInfo's lattices should be set to uninitialized.
+    /// \return  true, iff the edge can be taken (lattice will get propagated to the target node)
+    /// \details the default implementation calls the transfer function
+    ///          defined on DataflowNode (called on the source of the
+    ///          dataflow-edge e).
+    /// \note    (1) sage type sensitive implementations are encouraged to discern
+    ///              sage nodes using the visitor pattern. See also the comment
+    ///              for convenience functions IntraUnitDataflow::visitor_transfer.
+    ///          (2) this overloads the transfer function IntraUnitDataflow::transfer
+    ///              with an edge sensitive transfer function.
+    virtual bool transfer(const Function& func, const DataflowEdge& e, NodeState& state, LatticePtr dfInfo);
+
+  private:
+
+    /// encapsulates transfer function invocation along edges
+    void edge_transfer(const Function& func, PartPtr p, NodeState& state, LatticePtr dfInfo, VirtualCFG::dataflowIterator* it);
+
+    /// encapsulates transfer function invocation for nodes
+    void node_transfer(const Function& func, PartPtr p, NodeState& state, LatticePtr dfInfo, VirtualCFG::dataflowIterator* it);
+
+  protected:
+    /// returns true, iff the transfer functions should get invoked
+    ///   on CFG edges, false otherwise (i.e., CFG nodes)
+    virtual bool edgeSensitiveAnalysis() const;
 };
 
 class ComposedAnalysis : public virtual IntraUniDirectionalDataflow, public printable
 {
   public:
   Composer* composer;
-  
+
   // Informs this analysis about the identity of the Composer object that composes
   // this analysis with others
   void setComposer(Composer* composer)
   {
     this->composer = composer;
   }
-  
+
   Composer* getComposer()
   {
     return composer;
   }
-  
+
   public:
   // Returns the initial Lattice at the given part for this analysis
-  /*GOAL: virtual void genInitState(PartPtr p, Lattice** initLattice, 
+  /*GOAL: virtual void genInitState(PartPtr p, Lattice** initLattice,
                             std::vector<NodeFact*>& initFacts)=0;*/
   // LEGACY: virtual void genInitState(const Function& func, const PartPtr p, const NodeState& state, std::vector<Lattice*>& initLattices, std::vector<NodeFact*>& initFacts)=0;
-  
+
   // The transfer function for this analysis
   //GOAL: virtual void transfer(SgNode &n, Part& p)=0;
   //LEGACY: virtual bool transfer(const Function& func, const PartPtr p, NodeState& state, const std::vector<Lattice*>& dfInfo)=0;
-  
-  // Abstract interpretation functions that return this analysis' abstractions that 
-  // represent the outcome of the given SgExpression. The default implementations of 
-  // these throw NotImplementedException so that if a derived class does not implement 
+
+  // Abstract interpretation functions that return this analysis' abstractions that
+  // represent the outcome of the given SgExpression. The default implementations of
+  // these throw NotImplementedException so that if a derived class does not implement
   // any of these functions, the Composer is informed.
   //
   // The objects returned by these functions are expected to be deallocated by their callers.
   virtual ValueObjectPtr   Expr2Val    (SgNode* n, PartPtr p) { throw NotImplementedException(); }
   virtual MemLocObjectPtr  Expr2MemLoc  (SgNode* n, PartPtr p) { throw NotImplementedException(); }
   virtual CodeLocObjectPtr Expr2CodeLoc(SgNode* n, PartPtr p) { throw NotImplementedException(); }
-  
-  // In the long term we will want analyses to return their own implementations of 
-  // maps and sets. This is not strictly required to produce correct code and is 
+
+  // In the long term we will want analyses to return their own implementations of
+  // maps and sets. This is not strictly required to produce correct code and is
   // therefore not supported.
-  // Maps and Sets 
+  // Maps and Sets
   /*virtual ValueSet* NewValueSet()  { throw NotImplementedException; }
   virtual ValueMap* NewValueMap()  { throw NotImplementedException; }
-  
+
   virtual MemLocSet* NewMemLocSet() { throw NotImplementedException; }
   virtual MemLocMap* NewMemLocMap() { throw NotImplementedException; }
-  
+
   virtual CodeLocSet* NewCodeLocSet() { throw NotImplementedException; }
   virtual CodeLocMap* NewCodeLocMap() { throw NotImplementedException; }*/
 };
@@ -351,67 +399,73 @@ class ComposedAnalysis : public virtual IntraUniDirectionalDataflow, public prin
 class IntraFWDataflow  : public ComposedAnalysis
 {
   public:
-  
+
   IntraFWDataflow()
   {}
-  
+
   NodeState* initializeFunctionNodeState(const Function &func, NodeState *fState);
   //VirtualCFG::dataflowIterator*
   std::list<PartPtr>
-    getInitialWorklist(const Function &func/*, bool firstVisit*/, bool analyzeDueToCallers, const set<Function> &calleesUpdated, NodeState *fState);
-  vector<Lattice*> getLatticeAnte(NodeState *state);
-  vector<Lattice*> getLatticePost(NodeState *state);
+  getInitialWorklist(const Function &func/*, bool firstVisit*/, bool analyzeDueToCallers, const set<Function> &calleesUpdated, NodeState *fState);
+
+  LatticePtr getLatticeAnte(NodeState *state);
+  LatticePtr getLatticePost(NodeState *state);
   void transferFunctionCall(const Function &func, PartPtr p, NodeState *state);
-  vector<PartPtr> getDescendants(PartPtr p);
   PartPtr getUltimate(const Function &func);
+  ConnectionContainer getDescendants(PartPtr p);
+
   VirtualCFG::dataflowIterator* getIterator(const Function &func);
-  
+
   direction getDirection() { return fw; }
+  DataflowNode flowSource(const DataflowEdge&) const;
+  DataflowNode flowTarget(const DataflowEdge&) const;
 };
 
 /* Backward Intra-Procedural Dataflow Analysis */
 class IntraBWDataflow  : public ComposedAnalysis
 {
   public:
-  
+
   IntraBWDataflow()
   {}
-  
+
   NodeState* initializeFunctionNodeState(const Function &func, NodeState *fState);
   //VirtualCFG::dataflowIterator*
   std::list<PartPtr>
     getInitialWorklist(const Function &func/*, bool firstVisit*/, bool analyzeDueToCallers, const set<Function> &calleesUpdated, NodeState *fState);
-  virtual vector<Lattice*> getLatticeAnte(NodeState *state);
-  virtual vector<Lattice*> getLatticePost(NodeState *state);
+   LatticePtr getLatticeAnte(NodeState *state);
+   LatticePtr getLatticePost(NodeState *state);
+
   void transferFunctionCall(const Function &func, PartPtr p, NodeState *state);
-  vector<PartPtr> getDescendants(PartPtr p);
   PartPtr getUltimate(const Function &func);
   VirtualCFG::dataflowIterator* getIterator(const Function &func);
-  
-  direction getDirection() { return bw; }
-};
 
+  direction getDirection() { return bw; }
+  DataflowNode flowSource(const DataflowEdge&) const;
+  DataflowNode flowTarget(const DataflowEdge&) const;
+  ConnectionContainer getDescendants(PartPtr p);
+};
 
 /* Dummy Intra-Procedural Dataflow Analysis that doesn't have a direction but is still a compositional
    analysis (e.g. Syntactic analysis or orthogonal array analysis)*/
 class IntraUndirDataflow  : public ComposedAnalysis
 {
   public:
-  
+
   IntraUndirDataflow()
   {}
-  
+
   NodeState* initializeFunctionNodeState(const Function &func, NodeState *fState) { return NULL; }
   //VirtualCFG::dataflowIterator*
   std::list<PartPtr>
     getInitialWorklist(const Function &func/*, bool firstVisit*/, bool analyzeDueToCallers, const set<Function> &calleesUpdated, NodeState *fState) { std::list<PartPtr> empty; return empty; } //return NULL; }
-  vector<Lattice*> getLatticeAnte(NodeState *state) { vector<Lattice*> empty; return empty; }
-  vector<Lattice*> getLatticePost(NodeState *state) { vector<Lattice*> empty; return empty; }
+  LatticePtr getLatticeAnte(NodeState *state) { return LatticePtr(static_cast<Lattice*>(0)); }
+  LatticePtr getLatticePost(NodeState *state) { return LatticePtr(static_cast<Lattice*>(0)); }
   void transferFunctionCall(const Function &func, PartPtr p, NodeState *state) {};
-  vector<PartPtr> getDescendants(PartPtr p) { vector<PartPtr> empty; return empty; }
   PartPtr getUltimate(const Function &func) { return cfgUtils::getFuncStartCFG(func.get_definition(), filter); }
   VirtualCFG::dataflowIterator* getIterator(const Function &func) { return NULL; }
-  
+  ConnectionContainer getDescendants(PartPtr p) { return ConnectionContainer(); }
+
   direction getDirection() { return none; }
 };
 
@@ -479,10 +533,11 @@ class printDataflowInfoPass : public IntraFWDataflow
 
         // generates the initial lattice state for the given dataflow node, in the given function, with the given NodeState
         //std::vector<Lattice*> genInitState(const Function& func, PartPtr p, const NodeState& state);
-        void genInitState(const Function& func, PartPtr p, const NodeState& state,
-                          std::vector<Lattice*>& initLattices, std::vector<NodeFact*>& initFacts);
+        BoolAndLattice*        genLattice (const Function& func, PartPtr p, const NodeState& state);
+        std::vector<NodeFact*> genFacts   (const Function& func, PartPtr p, const NodeState& state);
 
-        bool transfer(const Function& func, PartPtr p, NodeState& state, const std::vector<Lattice*>& dfInfo);
+        // bool transfer(const Function& func, PartPtr p, NodeState& state, const std::vector<Lattice*>& dfInfo);
+        void transfer(const Function& func, PartPtr p, NodeState& state, const std::vector<Lattice*>& dfInfo);
 };
 
 /**********************************************************************
@@ -515,7 +570,7 @@ class UnstructuredPassInterDataflow : virtual public InterProceduralDataflow
         // Returns true if any of the input lattices changed as a result of the transfer function and
         //    false otherwise.
         bool transfer(const Function& func, PartPtr p, NodeState& state,
-                      const std::vector<Lattice*>& dfInfo/*, std::vector<Lattice*>** retState, bool fw*/)
+                      LatticePtr dfInfo /*, std::vector<Lattice*>** retState, bool fw*/)
         {
                 return false;
         }
@@ -525,7 +580,7 @@ class UnstructuredPassInterDataflow : virtual public InterProceduralDataflow
 
 // Analysis that merges the dataflow states belonging to the given Analysis at all the return statements in the given function
 // and produces a list of merged lattices (same number of lattices as were maintained by the nodes in the function).
-// NOTE: The callers of this analysis are responsible for deallocating the lattices stored in mergedLatsRetVal at the 
+// NOTE: The callers of this analysis are responsible for deallocating the lattices stored in mergedLatsRetVal at the
 //       end of the analysis pass.
 class MergeAllReturnStates : public UnstructuredPassIntraAnalysis
 {
@@ -533,8 +588,8 @@ class MergeAllReturnStates : public UnstructuredPassIntraAnalysis
         ComposedAnalysis* analysis;
 
         // List of merged lattices of all the return statements and the returned values
-        //std::vector<Lattice*> mergedLatsRetStmt;
-        std::vector<Lattice*> mergedLatsRetVal;
+        //LatticePtr _mergedLatsRetStmt;
+        LatticePtr _mergedLatsRetVal;
 
         protected:
         // After the pass is complete, records true if the state of the mergedLattices changed
@@ -542,27 +597,37 @@ class MergeAllReturnStates : public UnstructuredPassIntraAnalysis
         bool modified;
 
         public:
-        MergeAllReturnStates(ComposedAnalysis* analysis/*, ab latSide*/): analysis(analysis)/*, latSide(latSide)*/
-        { modified=false; }
+        MergeAllReturnStates(ComposedAnalysis* analysis/*, ab latSide*/)
+        : analysis(analysis), _mergedLatsRetVal(), modified(false)/*, latSide(latSide)*/
+        {}
 
-        MergeAllReturnStates(ComposedAnalysis* analysis, /*const std::vector<Lattice*>& mergedLatsRetStmt, */const std::vector<Lattice*>& mergedLatsRetVal/*, ab latSide*/):
-                analysis(analysis), /*mergedLatsRetStmt(mergedLatsRetStmt), */mergedLatsRetVal(mergedLatsRetVal)/*, latSide(latSide)*/
-        { modified=false; }
+        MergeAllReturnStates(ComposedAnalysis* analysis, /*const std::vector<Lattice*>& mergedLatsRetStmt, */LatticePtr mLatsRetVal/*, ab latSide*/)
+        : analysis(analysis), _mergedLatsRetVal(mLatsRetVal), modified(false) /*, latSide(latSide)*/
+        {}
 
         void visit(const Function& func, PartPtr p, NodeState& state);
 
         // Merges the lattices in the given vector into mergedLat, which may be mergedLatsRetStmt or mergedLatsRetVal
         // Returns true of mergedLatsStmt changes as a result and false otherwise.
-        static bool mergeLats(std::vector<Lattice*>& mergedLat, const std::vector<Lattice*>& lats);
+        static bool mergeLats(LatticePtr& mergedLat, ConstLatticePtr lats);
+
+/* \pp needed?
+        // Returns a reference to mergedLatsRetStmt
+        LatticePtr getMergedLatsRetStmt() { return _mergedLatsRetStmt; }
+
+        // Returns a reference to mergedLatsRetVal
+        LatticePtr getMergedLatsRetVal() { return _mergedLatsRetVal; }
+*/
 
         // Returns the value of modified
         bool getModified() { return modified; }
 
         // Deallocates all the merged lattices
-        ~MergeAllReturnStates();
+        ~MergeAllReturnStates() {}
 };
 
-// Analysis that takes the dataflow state belonging to the given Analysis and initializes to this state all the 
+
+// Analysis that takes the dataflow state belonging to the given Analysis and initializes to this state all the
 //   return statements in the given function and its end. The return value at each return statement is associated
 //   with the portion of the lattice mapped to the function's SgSymbol
 // NOTE: This pass does not modify the Lattices in lats.
@@ -571,33 +636,34 @@ class SetAllReturnStates : public UnstructuredPassIntraAnalysis
         // Analysis the states of which we'll be setting
         ComposedAnalysis* analysis;
 
-        // List of lattices to assign the function's returns to 
-        std::vector<Lattice*> lats;
+        // List of lattices to assign the function's returns to
+        LatticePtr lats;
 
         protected:
-        // After the pass is complete, records true if the state of the lattices at function end or return 
+        // After the pass is complete, records true if the state of the lattices at function end or return
         // statements and false otherwise
         bool modified;
-        
+
         public:
         SgFunctionParameterList* paramList;
         NodeState* paramsState;
-        
-        public:
-        SetAllReturnStates(ComposedAnalysis* analysis): analysis(analysis) { 
-          modified=false;
-          paramList=NULL;
-        }
 
-        SetAllReturnStates(ComposedAnalysis* analysis, const std::vector<Lattice*>& lats) : 
-                analysis(analysis), lats(lats)
-        { modified=false; }
+        public:
+
+        explicit
+        SetAllReturnStates(ComposedAnalysis* analysis)
+        : analysis(analysis), lats(), modified(false), paramList(0), paramsState(0)
+        {}
+
+        SetAllReturnStates(ComposedAnalysis* analysis, LatticePtr lats)
+        : analysis(analysis), lats(lats), modified(false), paramList(0), paramsState(0)
+        {}
 
         void visit(const Function& func, PartPtr p, NodeState& state);
 
         // Merges the lattices in the given vector into mergedLat, which may be mergedLatsRetStmt or mergedLatsRetVal
         // Returns true of mergedLatsStmt changes as a result and false otherwise.
-        static bool mergeLats(std::vector<Lattice*>& mergedLat, const std::vector<Lattice*>& lats);
+        static bool mergeLats(LatticePtr mergedLat, ConstLatticePtr lats);
 
         // Returns the value of modified
         bool getModified() { return modified; }
@@ -652,7 +718,7 @@ class ContextInsensitiveInterProceduralDataflow : virtual public InterProcedural
         // F was analyzed. remainingDueToCalls maps each F to all such functions. As such, F needs to be re-analyzed,
         // starting at the calls to these functions.
         std::map<Function, std::set<Function> > remainingDueToCalls;
-        
+
         // Keeps track of the functions that have already been visited and thus initialized by this inter analysis
         std::set<Function> visited;
 
@@ -661,12 +727,12 @@ class ContextInsensitiveInterProceduralDataflow : virtual public InterProcedural
 
         // Since ContextInsensitiveInterProceduralDataflow takes in only Composed intra analyses,
         // this method is a simple way to get access to the intra analysis with the right type.
-        ComposedAnalysis* getIntraComposeAnalysis() { 
+        ComposedAnalysis* getIntraComposeAnalysis() {
           ComposedAnalysis* ca = dynamic_cast<ComposedAnalysis*>(intraAnalysis);
           ROSE_ASSERT(ca);
           return ca;
         }
-        
+
         public:
 
         // the transfer function that is applied to SgFunctionCallExp nodes to perform the appropriate state transfers
@@ -681,7 +747,7 @@ class ContextInsensitiveInterProceduralDataflow : virtual public InterProcedural
         // Returns true if any of the input lattices changed as a result of the transfer function and
         //    false otherwise.
         bool transfer(const Function& func, PartPtr p, NodeState& state,
-                      const std::vector<Lattice*>& dfInfo/*, std::vector<Lattice*>** retState*/);
+                      LatticePtr dfInfo /*, , ConstLatticePtr& retState, bool fw*/);
 
         // Uses TraverseCallGraphDataflow to traverse the call graph.
         void runAnalysis();
@@ -690,6 +756,6 @@ class ContextInsensitiveInterProceduralDataflow : virtual public InterProcedural
         void visit(const CGFunction* func);
 };
 
-}; // namespace dataflow
+} // namespace dataflow
 
 #endif

@@ -1,4 +1,9 @@
 #define ANALYSIS_C
+#include <vector>
+#include <set>
+#include <map>
+#include <boost/make_shared.hpp>
+
 #include "genericDataflowCommon.h"
 #include "VirtualCFGIterator.h"
 #include "cfgUtils.h"
@@ -10,26 +15,22 @@
 #include "compose.h"
 #include "functionState.h"
 #include "abstract_object.h"
-#include <vector>
-#include <set>
-#include <map>
-#include <boost/make_shared.hpp>
 
 
 using namespace std;
 namespace dataflow {
-  
+
 int analysisDebugLevel=1;
 
 /*******************************
  *** IntraProceduralAnalysis ***
  *******************************/
 
-void IntraProceduralAnalysis::runAnalysis(const Function& func, NodeState* state) { 
+void IntraProceduralAnalysis::runAnalysis(const Function& func, NodeState* state) {
   /* GB: For some reason the compiler complains that SyntacticAnalysis doesn't implement this
-         when it is implemented in its ancestor IntraProceduralDataflow. As such, 
+         when it is implemented in its ancestor IntraProceduralDataflow. As such,
          a dummy implementation is provided here. */
-  ROSE_ASSERT(0); 
+  ROSE_ASSERT(0);
 }
 
 IntraProceduralAnalysis::~IntraProceduralAnalysis() {}
@@ -50,10 +51,10 @@ void UnstructuredPassIntraAnalysis::runAnalysis(const Function& func, NodeState*
 {
   PartPtr funcCFGStart = cfgUtils::getFuncStartCFG(func.get_definition(),filter);
   PartPtr funcCFGEnd   = cfgUtils::getFuncEndCFG(func.get_definition(), filter);
-  
+
   if(analysisDebugLevel>=2)
     Dbg::dbg << "UnstructuredPassIntraAnalysis::runAnalysis() function "<<func.get_name().getString()<<"()\n";
-  
+
   // iterate over all the nodes in this function
   for(VirtualCFG::iterator it(funcCFGStart); it!=VirtualCFG::iterator::end(); it++)
   {
@@ -62,7 +63,7 @@ void UnstructuredPassIntraAnalysis::runAnalysis(const Function& func, NodeState*
     //int numStates=NodeState::numNodeStates(n);
     // The actual NodeStates associated with the given dataflow node
     const vector<NodeState*> nodeStates = NodeState::getNodeStates(p);
-    
+
     // Visit each CFG node
     for(vector<NodeState*>::const_iterator itS = nodeStates.begin(); itS!=nodeStates.end(); itS++)
       visit(func, p, *(*itS));
@@ -93,15 +94,15 @@ void UnstructuredPassInterAnalysis::runAnalysis()
  *** InterProceduralDataflow ***
  *******************************/
 
-InterProceduralDataflow::InterProceduralDataflow(IntraProceduralDataflow* intraDataflowAnalysis) : 
+InterProceduralDataflow::InterProceduralDataflow(IntraProceduralDataflow* intraDataflowAnalysis) :
   InterProceduralAnalysis((IntraProceduralAnalysis*)intraDataflowAnalysis)
 {
   filter = intraDataflowAnalysis->filter; // propagate the CFG filter from intra- to inter-level, or the default filter will kick in at inter-level.
   Dbg::dbg << "InterProceduralDataflow() intraAnalysis="<<intraAnalysis<<", intraDataflowAnalysis="<<intraDataflowAnalysis<<endl;
   set<FunctionState*> allFuncs = FunctionState::getAllDefinedFuncs();
-  
+
   // Initialize the dataflow state of all functions with bodies
-  for(set<FunctionState*>::iterator it=allFuncs.begin(); it!=allFuncs.end(); it++)  
+  for(set<FunctionState*>::iterator it=allFuncs.begin(); it!=allFuncs.end(); it++)
   {
     FunctionState* funcS = *it;
     Function func = funcS->func;
@@ -110,22 +111,22 @@ InterProceduralDataflow::InterProceduralDataflow(IntraProceduralDataflow* intraD
     {
       /*vector<Lattice*> initLats = intraDataflowAnalysis->genInitState(
                func, func.get_definition()->cfgForBeginning(), funcS->state);*/
-      
+
       // !!! NOTE: cfgForEnd() AND cfgForBeginning() PRODUCE THE SAME SgFunctionDefinition SgNode BUT THE DIFFERENT INDEXES
       // !!!       (0 FOR BEGINNING AND 3 FOR END). AS SUCH, IT DOESN'T MATTER WHICH ONE WE CHOOSE. HOWEVER, IT DOES MATTER
-      // !!!       WHETHER WE CALL genInitState TO GENERATE THE STATE BELOW THE NODE (START OF THE FUNCTION) OR ABOVE IT 
+      // !!!       WHETHER WE CALL genInitState TO GENERATE THE STATE BELOW THE NODE (START OF THE FUNCTION) OR ABOVE IT
       // !!!       (END OF THE FUNCTION). THE CAPABILITY TO DIFFERENTIATE THE TWO CASES NEEDS TO BE ADDED TO genInitState
       // !!!       AND WHEN IT IS, WE'LL NEED TO CALL IT INDEPENDENTLY FOR cfgForEnd() AND cfgForBeginning() AND ALSO TO MAKE
-      // !!!       TO SET THE LATTICES ABOVE THE ANALYSIS 
-      
+      // !!!       TO SET THE LATTICES ABOVE THE ANALYSIS
+
       /*PartPtr end = func.get_definition()->cfgForEnd();
       intraDataflowAnalysis->genInitState(func, func.get_definition()->cfgForEnd(), funcS->state,
                   initLats, initFacts);
-      
+
       Dbg::dbg << "InterProceduralAnalysis initLats at Ending "<<(*it)->func.get_name().getString()<<"): node=%s\n", , end.str().c_str());
-        for(vector<Lattice*>::iterator it = initLats.begin(); 
+        for(vector<Lattice*>::iterator it = initLats.begin();
             it!=initLats.end(); it++)
-        {       
+        {
           Dbg::dbg << *it << ": " << (*it)->str("    ") << endl;
         }
       */
@@ -140,7 +141,7 @@ InterProceduralDataflow::InterProceduralDataflow(IntraProceduralDataflow* intraD
                         // Make sure that the starting lattices are initialized
                         //   some lattices can be NULL
                         if (initLatPt.get())
-        {       
+        {
                           initLatPt->initialize();
         }
                         // assert(lattice is initialized)
@@ -148,19 +149,19 @@ InterProceduralDataflow::InterProceduralDataflow(IntraProceduralDataflow* intraD
       funcS->state.setFacts((Analysis*)intraAnalysis, initFacts);
       Dbg::dbg << "Initialized state of function "<<func.get_name().getString()<<"(), state="<<(&(funcS->state))<<endl;
       Dbg::dbg << "    "<<funcS->state.str(intraDataflowAnalysis, "    ")<<endl;
-      
-      // Initialize funcS->retState with initLats. 
+
+      // Initialize funcS->retState with initLats.
       // !!!Need to make a copy of initLats first
       //funcS->retState.setLatticeBelow((Analysis*)intraAnalysis, initLats);
-      
+
       // We do not initialize retState since we don't know the type of the lattice that will capture
       // the projection of the normal lattice type on the return variables. However, there is no
       // need to provide default lattices since DFStateAtReturns and MergeAllReturnStates can
       // deal with Lattice* vectors that start out empty.
-      
+
       // We do not need to deallocate facts in initFacts and lattices in initLats since setFacts() and
       // setLattices() have taken the original facts in initFacts and did not make private copies of them
-      
+
       /*const vector<Lattice*>* funcLatticesBefore = &(funcS->state.getLatticeAbove((Analysis*)intraAnalysis));
       Dbg::dbg << "  funcLatticesBefore->size()="<<funcLatticesBefore->size()<<", intraAnalysis="<<intraAnalysis<<endl;*/
     }
@@ -176,24 +177,24 @@ void InitDataflowState::visit(const Function& func, PartPtr p, NodeState& state)
   SgNode* sgn = p.getNode();
   if(analysisDebugLevel>=2)
     Dbg::dbg << "InitDataflowState::visit() sgn="<<sgn<<"["<<sgn->class_name()<<" | "<<Dbg::escape(sgn->unparseToString())<<"], dfAnalysis="<<dfAnalysis<<endl;
-  
+
   // generate a new initial state for this node
-  
+
         LatticePtr        initLatts(dfAnalysis->genLattice(func, p, state));
         vector<NodeFact*> initFacts = dfAnalysis->genFacts(func, p, state);
         ROSE_ASSERT(initLatts);
-    
+
         // assert(lattice is initialzed)?
         state.setLattice((Analysis*)dfAnalysis, initLatts);
   state.setFacts((Analysis*)dfAnalysis, initFacts);
-  
+
   if(analysisDebugLevel>=2){
     Dbg::dbg << "    state="<<state.str((Analysis*)dfAnalysis, "    ")<<endl;
   }
-  
+
   /*vector<Lattice*> initState = dfAnalysis->genInitState(func, n, state);
   Dbg::dbg << "InitDataflowState::visit() 1"<<endl;
-      
+
   for(int i=0; i<initState.size(); i++)
   {
     Dbg::dbg << "       i="<<i<<", initState[i]="<<initState[i]->str("")<<endl;
@@ -201,7 +202,7 @@ void InitDataflowState::visit(const Function& func, PartPtr p, NodeState& state)
     Dbg::dbg << "       state->getLatticeAbove((Analysis*)dfAnalysis).size()="<<state.getLatticeAbove((Analysis*)dfAnalysis).size()<<endl, );
     //Dbg::dbg << printf("       state->getLatticeBelow((Analysis*)dfAnalysis).size()="<<state.getLatticeBelow((Analysis*)dfAnalysis).size()<<endl;
   }*/
-  
+
   //const vector<Lattice*>& masterLatBel = state.getLatticeBelow((Analysis*)dfAnalysis);
   //printf("    creator=%p, state=%p, masterLatBel.size()=%d\n", (Analysis*)dfAnalysis, &state, masterLatBel.size());
 }
@@ -210,15 +211,15 @@ void InitDataflowState::visit(const Function& func, PartPtr p, NodeState& state)
 /****************************
  *** FindAllFunctionCalls ***
  ****************************/
- 
+
 void FindAllFunctionCalls::visit(const Function& func, PartPtr p, NodeState& state)
 {
   SgNode* sgn = p.getNode();
   if(analysisDebugLevel>=2){
     Dbg::dbg << "FindAllFunctionCalls::visit() sgn="<<sgn<<"["<<sgn->class_name()<<" | "<<Dbg::escape(sgn->unparseToString())<<"]"<<endl;
   }
-  
-  // If this is a function call, find the function that is being called and if it is 
+
+  // If this is a function call, find the function that is being called and if it is
   // in funcsToFind, record the call in funcCalls
   if(isSgFunctionCallExp(sgn)) {
     for(set<Function>::const_iterator func=funcsToFind.begin(); func!=funcsToFind.end(); func++) {
@@ -238,9 +239,9 @@ void FindAllFunctionCalls::visit(const Function& func, PartPtr p, NodeState& sta
 // Propagates the dataflow info from the current node's NodeState (curNodeState) to the next node's
 //     NodeState (nextNodeState).
 // Returns true if the next node's meet state is modified and false otherwise.
-bool IntraUniDirectionalDataflow::propagateStateToNextNode(
-          ConstLatticePtr currNodeState, PartPtr curNode, int curNodeIndex,
-          LatticePtr nextNodeState, PartPtr nextNode)
+bool
+IntraUniDirectionalDataflow::propagateStateToNextNode( ConstLatticePtr currNodeState, PartPtr curNode,
+                                                       LatticePtr nextNodeState,      PartPtr nextNode)
 {
   Dbg::region reg(analysisDebugLevel, 1, Dbg::region::topLevel, "propagateStateToNextNode");
   bool modified = false;
@@ -252,8 +253,8 @@ bool IntraUniDirectionalDataflow::propagateStateToNextNode(
   }
 
   // Update forward info above nextNode from the forward info below curNode.
-  
-  // Compute the meet of the dataflow information along the curNode->nextNode edge with the 
+
+  // Compute the meet of the dataflow information along the curNode->nextNode edge with the
   // next node's current state one Lattice at a time and save the result above the next node.
         // if (currNodeState.isInitialized())
   {
@@ -278,12 +279,12 @@ bool IntraUniDirectionalDataflow::propagateStateToNextNode(
                         Dbg::dbg << "        curr: " << currNodeState->str("            ") << endl;
                         meetResult->meetUpdate(currNodeState.get());
                         Dbg::dbg << "        meetResult: " << meetResult->str("            ") << endl;
-    
+
       // Widen the resulting meet
                         modified =  nextStateInf->widenUpdate(meetResult.get());
     }
   }
-  
+
   if(analysisDebugLevel>=1) {
     Dbg::indent ind(analysisDebugLevel, 1);
     if(modified)
@@ -356,7 +357,7 @@ varIDSet& IntraFWPerVariableDataflow::getRefVars(Function func)
 vector<Lattice*> IntraFWPerVariableDataflow::genInitState(const Function& func, PartPtr p, const NodeState& state)
 {
   printf("IntraFWPerVariableDataflow::genInitState(%s(), [%s | %s])\n", func.get_name().getString(), n.getNode()->class_name().c_str(), p.getNode()->unparseToString().c_str());
-    
+
   // initState contains the non-variable state
   vector<Lattice*> initState;
   Lattice* newLattice = genInitNonVarState(func, n, state);
@@ -372,7 +373,7 @@ vector<Lattice*> IntraFWPerVariableDataflow::genInitState(const Function& func, 
       varIndex[*it] = varLatticeCntr;
     varLatticeIndex[func] = varIndex;
   }
-  
+
   // iterate over all the variables (arrays and/or scalars) referenced in this function
   // adding their initial lattices to initState
   for(varIDSet::iterator it = refVars.begin(); it!=refVars.end(); it++)
@@ -380,7 +381,7 @@ vector<Lattice*> IntraFWPerVariableDataflow::genInitState(const Function& func, 
     newLattice = genInitVarState(func, n, state);
     if(newLattice!=NULL) initState.push_back(newLattice);
   }
-  
+
   return initState;
 }
 
@@ -392,7 +393,7 @@ Lattice* IntraFWPerVariableDataflow::getVarLattice(const Function& func, const v
     constVarLattices = genConstVarLattices();
     constVarLattices_init=true;
   }
-  
+
   map<varID, Lattice*>::iterator constIt;
   // if this is a constant variable
   if((constIt = constVarLattices.find(var)) != constVarLattices.end())
@@ -421,17 +422,17 @@ printDataflowInfoPass::genLattice(const Function& func, PartPtr p, const NodeSta
 }
 
 std::vector<NodeFact*>
-printDataflowInfoPass::genFacts(const Function& func, const DataflowNode& n, const NodeState& state)
+printDataflowInfoPass::genFacts(const Function&, PartPtr, const NodeState&)
 {
   return std::vector<NodeFact*>();
 }
-  
+
 void printDataflowInfoPass::transfer(const Function& func, PartPtr p, NodeState& state, const vector<Lattice*>& dfInfo)
 {
   Dbg::dbg << "-----#############################--------\n";
   Dbg::dbg << "Node: ["<<Dbg::escape(p.getNode()->unparseToString())<<" | "<< p.getNode()->class_name()<<"]\n";
   // print out all the dataflow facts associated with analysis at this node
-  
+
   const /*map <int, NodeFact*>*/vector<NodeFact*> facts = state.getFacts(analysis);
   int i=0;
   for(/*map <int, NodeFact*>*/vector<NodeFact*>::const_iterator it = facts.begin(); it!=facts.end(); it++, i++)
@@ -439,13 +440,13 @@ void printDataflowInfoPass::transfer(const Function& func, PartPtr p, NodeState&
     //Dbg::dbg << "Fact "<<it->first<<": \n    "<<it->second->str("  ")<<endl;
     Dbg::dbg << "Fact "<<i<<": \n    "<<(*it)->str("  ")<<endl;
   }
-  
+
         ConstLatticePtr dfInfoAbove = state.getLatticeAbove((Analysis*)analysis);
         ConstLatticePtr dfInfoBelow = state.getLatticeBelow((Analysis*)analysis);
-  
+
         Dbg::dbg << "    Lattice Above: \n    "<<dfInfoAbove->str("        ")<<endl;
         Dbg::dbg << "    Lattice Below: \n    "<<dfInfoBelow->str("        ")<<endl;
-  
+
         // was: return dynamic_cast<BoolAndLattice*>(dfInfo[0])->set(true);
 }
 
@@ -457,20 +458,20 @@ void UnstructuredPassInterDataflow::runAnalysis()
   set<FunctionState*> allFuncs = FunctionState::getAllDefinedFuncs();
   IntraProceduralDataflow *intraDataflow = dynamic_cast<IntraProceduralDataflow*>(intraAnalysis);
   ROSE_ASSERT(intraDataflow);
-  
+
   // iterate over all functions with bodies
   for(set<FunctionState*>::iterator it=allFuncs.begin(); it!=allFuncs.end(); it++)
   {
     const Function& func = (*it)->func;
     FunctionState* fState = FunctionState::getDefinedFuncState(func);
-    
+
     // Initialize the lattices used by this analysis, if this is the first time the analysis visits this function
     if(visited.find(func) == visited.end()) {
       InitDataflowState ids(intraDataflow);
       ids.runAnalysis(func, &(fState->state));
       visited.insert(func);
     }
-    
+
     // Call the current intra-procedural dataflow as if it were a generic analysi
     intraAnalysis->runAnalysis(func, &(fState->state));
   }
@@ -506,7 +507,7 @@ NodeFact* DFStateAtReturns::copy() const{
 bool DFStateAtReturns::mergeReturnStates(const Function& func, FunctionState* fState, ComposedAnalysis* intraAnalysis)
 {
   // Create a MergeAllReturnStates, initializing its lattices with this object's lattices to make sure
-  // that the analysis pass simply updates these original lattices in-place, also updating the state of 
+  // that the analysis pass simply updates these original lattices in-place, also updating the state of
   // this object in the process.
   Dbg::region r(analysisDebugLevel, 1, "Merging Return States");
 
@@ -521,7 +522,7 @@ bool DFStateAtReturns::mergeReturnStates(const Function& func, FunctionState* fS
 
   // was: if(latsRetVal.size()==0)       latsRetVal       = mars.getMergedLatsRetVal();
   _latsRetVal       = mars.getMergedLatsRetVal();
-  
+
   if(analysisDebugLevel>=1) {
                 Dbg::dbg << "DFStateAtReturns final #latsAtFuncReturn=: \n";
                 Dbg::dbg << "    "<< as_str(_latsAtFuncReturn, "            ")<<endl;
@@ -556,9 +557,9 @@ void MergeAllReturnStates::visit(const Function& func, PartPtr p, NodeState& sta
   SgNode* sgn = p.getNode();
   //if(analysisDebugLevel>=1) Dbg::dbg << "MergeAllReturnStates::visit() func="<<func.get_name().getString()<<"()"<<endl; // sgn="<<sgn<<"["<<Dbg::escape(sgn->unparseToString())<<" | "<<sgn->class_name()<<"]\n";
   //Dbg::dbg << "visit {{{: modified="<<modified<<endl;
-  
+
   Dbg::indent ind(analysisDebugLevel, 1);
-  
+
   // If this is an explicit return statement
   if(isSgReturnStmt(sgn)) {
     if(analysisDebugLevel>=1)
@@ -576,10 +577,10 @@ void MergeAllReturnStates::visit(const Function& func, PartPtr p, NodeState& sta
     MemLocObjectPtrPair retP = analysis->getComposer()->Expr2MemLoc(isSgReturnStmt(sgn)->get_expression(), p, analysis);
     retVal2Decl.insert(make_pair(retP.expr ? retP.expr: retP.mem,
                                  analysis->getComposer()->Expr2MemLoc(func.get_declaration()->search_for_symbol_from_symbol_table(), p, analysis).mem));
-    ConstLatticePtr dfStateAbove = state->getLatticeAbove(analysis);
+    LatticePtr      dfStateAbove = state->getLatticeAboveMod(analysis);
     // \todo ROSE_ASSERT(dfStateAbove.isInitialized());
     LatticePtr      exprLats(dfStateAbove->remapML(retVal2Decl, p));
-    
+
     if(analysisDebugLevel>=1) Dbg::dbg << "    Merging dataflow state of return value\n";
     modified = mergeLats(_mergedLatsRetVal, exprLats) || modified;
   }
@@ -587,15 +588,15 @@ void MergeAllReturnStates::visit(const Function& func, PartPtr p, NodeState& sta
   else if(isSgFunctionDefinition(sgn)) {
     if(analysisDebugLevel>=1)
       Dbg::dbg << "MergeAllReturnStates::visit() isSgFunctionDefinition\n";
-    
+
     ROSE_ASSERT(NodeState::getNodeStates(p).size()==1);
     NodeState* state = *(NodeState::getNodeStates(p).begin());
-    
+
     // Incorporate the entire dataflow state at the implicit return statement
     //modified = mergeLats(mergedLatsRetStmt, state->getLatticeAbove((Analysis*)analysis)) || modified;
-    modified = mergeLats(mergedLatsRetVal, state->getLatticeAbove((Analysis*)analysis)) || modified;
+    modified = mergeLats(_mergedLatsRetVal, state->getLatticeAbove((Analysis*)analysis)) || modified;
   }
-  
+
   //Dbg::dbg << "visit >>>: modified="<<modified<<endl;
 }
 
@@ -665,18 +666,18 @@ void SetAllReturnStates::visit(const Function& func, PartPtr p, NodeState& state
   SgNode* sgn = p.getNode();
   //if(analysisDebugLevel>=1) Dbg::dbg << "SetAllReturnStates::visit() func="<<func.get_name().getString()<<"() sgn="<<sgn<<"["<<Dbg::escape(sgn->unparseToString())<<" | "<<sgn->class_name()<<"], #state.getLatticeAbove="<<state.getLatticeAboveMod((Analysis*)analysis).size()<<", #lats="<<lats.size()<<endl;
   //Dbg::dbg << "visit {{{: modified="<<modified<<endl;
-  
+
   Dbg::indent ind(analysisDebugLevel, 1);
-  
-  if(isSgFunctionParameterList(sgn)) { 
+
+  if(isSgFunctionParameterList(sgn)) {
     paramList = isSgFunctionParameterList(sgn);
     paramsState = &state;
   }
-  
+
   // If this is an explicit return statement
   if(isSgReturnStmt(sgn)) {
     Dbg::region r(analysisDebugLevel, 1, Dbg::region::topLevel, "Setting dataflow at Return Statement");
-    
+
     if(analysisDebugLevel>=1)
       Dbg::dbg << "SetAllReturnStates::visit() isSgReturnStmt(sgn)->get_expression()="<<isSgReturnStmt(sgn)->get_expression()<<"["<<Dbg::escape(isSgReturnStmt(sgn)->get_expression()->unparseToString())<<" | "<<isSgReturnStmt(sgn)->get_expression()->class_name()<<"]\n";
 
@@ -690,79 +691,97 @@ void SetAllReturnStates::visit(const Function& func, PartPtr p, NodeState& state
     MemLocObjectPtrPair returnExpr = analysis->getComposer()->Expr2MemLoc(isSgReturnStmt(sgn)->get_expression(), p, analysis);
     decl2RetVal.insert(make_pair(analysis->getComposer()->Expr2MemLoc(func.get_declaration()->search_for_symbol_from_symbol_table(), p, analysis).mem,
                                  (returnExpr.expr? returnExpr.expr : returnExpr.mem)));
-    
+
     Dbg::dbg << "decl2RetVal="<<endl;
     for(std::set<pair<MemLocObjectPtr, MemLocObjectPtr> >::const_iterator m=decl2RetVal.begin(); m!=decl2RetVal.end(); m++) {
       Dbg::indent ind(analysisDebugLevel, 1);
       Dbg::dbg << m->first.get()->str("")<<" => "<<m->second.get()->str("")<<endl;
     }
-    
+
+#if OBSOLETE_CODE
     vector<Lattice*> exprLats;
     for(vector<Lattice*>::const_iterator l=lats.begin(); l!=lats.end(); l++)
       exprLats.push_back((*l)->remapML(decl2RetVal, p));
-    
+#endif /* OBSOLETE_CODE */
+
+    LatticePtr exprLats(lats->remapML(decl2RetVal, p));
+
     if(analysisDebugLevel>=1) Dbg::dbg << "    Setting dataflow state of return value" << endl;
-    modified = mergeLats(state.getLatticeBelowMod((Analysis*)analysis), exprLats) || modified; 
-    
+    modified = mergeLats(state.getLatticeBelowMod((Analysis*)analysis), exprLats) || modified;
+
+#if OBSOLETE_CODE
     // Deallocate the newly-created renamed lattices
-    for(vector<Lattice*>::iterator l=exprLats.begin(); l!=exprLats.end(); l++) 
+    for(vector<Lattice*>::iterator l=exprLats.begin(); l!=exprLats.end(); l++)
       delete *l;
+#endif /* OBSOLETE_CODE */
   }
   // If this is the end of a function, which is an implicit return that has no return value
   else if(isSgFunctionDefinition(sgn)) {
     Dbg::region r(analysisDebugLevel, 1, Dbg::region::topLevel, "Setting dataflow at isSgFunctionDefinition");
-    
+
     std::set<pair<MemLocObjectPtr, MemLocObjectPtr> > decl2NULL;
     MemLocObjectPtr NULLMemLoc;
     decl2NULL.insert(make_pair(analysis->getComposer()->Expr2MemLoc(func.get_declaration()->search_for_symbol_from_symbol_table(), p, analysis).mem,
                                  NULLMemLoc));
-    
+
+#if OBSOLETE_CODE
     vector<Lattice*> exprLats;
     for(vector<Lattice*>::const_iterator l=lats.begin(); l!=lats.end(); l++)
       exprLats.push_back((*l)->remapML(decl2NULL, p));
-    
+#endif /* OBSOLETE_CODE */
+
+    LatticePtr exprLats(lats->remapML(decl2NULL, p));
+
     //ROSE_ASSERT(NodeState::getNodeStates(p).size()==1);
     //NodeState* state = *(NodeState::getNodeStates(p).begin());
-    
+
     // Incorporate the entire dataflow state at the implicit return statement
     //modified = mergeLats(mergedLatsRetStmt, state->getLatticeAbove((Analysis*)analysis)) || modified;
     modified = mergeLats(state.getLatticeBelowMod((Analysis*)analysis), exprLats) || modified;
   }
-  
+
   //Dbg::dbg << "visit >>>: modified="<<modified<<endl;
 }
 
-// Merges the lattices in the given vector into mergedLats. 
+// Merges the lattices in the given vector into mergedLats.
 // Returns true of mergeLats changes as a result and false otherwise.
-bool SetAllReturnStates::mergeLats(vector<Lattice*>& mergedLat, const vector<Lattice*>& lats) {
+bool SetAllReturnStates::mergeLats(LatticePtr mergedLat, ConstLatticePtr lats) {
   Dbg::indent(analysisDebugLevel, 1);
-  
+
+#if OBSOLETE_CODE
   if(analysisDebugLevel>=1) {
     if(mergedLat.size()!=lats.size()) {
-      Dbg::dbg << "#mergedLat="<<mergedLat.size()<<endl;
-      for(vector<Lattice*>::iterator ml=mergedLat.begin(); ml!=mergedLat.end(); ml++)
-        Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;"<<(*ml)->str("&nbsp;&nbsp;&nbsp;&nbsp;")<<endl;
-      Dbg::dbg << "#lats="<<lats.size()<<endl;
-      for(vector<Lattice*>::const_iterator l=lats.begin(); l!=lats.end(); l++)
-        Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;"<<(*l)->str("&nbsp;&nbsp;&nbsp;&nbsp;")<<endl;
+      // Dbg::dbg << "#mergedLat="<<mergedLat.size()<<endl;
+      // for(vector<Lattice*>::iterator ml=mergedLat.begin(); ml!=mergedLat.end(); ml++)
+        Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;"<<mergedLat->str("&nbsp;&nbsp;&nbsp;&nbsp;")<<endl;
+      // Dbg::dbg << "#lats="<<lats.size()<<endl;
+      // for(vector<Lattice*>::const_iterator l=lats.begin(); l!=lats.end(); l++)
+        Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;"<<lats->str("&nbsp;&nbsp;&nbsp;&nbsp;")<<endl;
     }
   }
+
   ROSE_ASSERT(mergedLat.size()==lats.size());
   vector<Lattice*>::const_iterator l;
   vector<Lattice*>::iterator ml;
+#endif /* OBSOLETE_CODE */
   bool modified = false;
+
+#if OBSOLETE_CODE
   if(analysisDebugLevel>=1) Dbg::dbg << "Updating lattice:"<<endl;
   for(l=lats.begin(), ml=mergedLat.begin(); l!=lats.end(); l++, ml++) {
+#endif /* OBSOLETE_CODE */
     if(analysisDebugLevel>=1) {
-      Dbg::dbg << "Update: "<<(*l)->str("&nbsp;&nbsp;&nbsp;&nbsp;")<<endl;
-      Dbg::dbg << "+ Orig: "<<(*ml)->str("&nbsp;&nbsp;&nbsp;&nbsp;")<<endl;
+      Dbg::dbg << "Update: "<<lats->str("&nbsp;&nbsp;&nbsp;&nbsp;")<<endl;
+      Dbg::dbg << "+ Orig: "<<mergedLat->str("&nbsp;&nbsp;&nbsp;&nbsp;")<<endl;
     }
-    modified = (*ml)->meetUpdate(*l) || modified;
+    modified = mergedLat->meetUpdate(lats.get()) || modified;
     if(analysisDebugLevel>=1) {
-      Dbg::dbg << "=> New: "<<(*ml)->str("&nbsp;&nbsp;&nbsp;&nbsp;")<<endl;
+      Dbg::dbg << "=> New: "<<mergedLat->str("&nbsp;&nbsp;&nbsp;&nbsp;")<<endl;
       Dbg::dbg << "modified="<<modified<<endl;
     }
+#if OBSOLETE_CODE
   }
+#endif /* OBSOLETE_CODE */
   return modified;
 }
 
@@ -773,7 +792,7 @@ bool SetAllReturnStates::mergeLats(vector<Lattice*>& mergedLat, const vector<Lat
 ContextInsensitiveInterProceduralDataflow::ContextInsensitiveInterProceduralDataflow
         (IntraUniDirectionalDataflow* intraDataflow, SgIncidenceDirectedGraph* graph) :
              InterProceduralAnalysis((IntraProceduralAnalysis*)intraDataflow),
-             InterProceduralDataflow((IntraProceduralDataflow*)intraDataflow), 
+             InterProceduralDataflow((IntraProceduralDataflow*)intraDataflow),
              TraverseCallGraphDataflow(graph)
 {
   // Record that the functions that have no callers are being analyzed because the data flow at their
@@ -785,9 +804,9 @@ ContextInsensitiveInterProceduralDataflow::ContextInsensitiveInterProceduralData
     //if(SageInterface::isMain(func->get_declaration()))
       remainingDueToCallers.insert(*func);
   }
-  
+
   if(intraDataflow->getDirection()==IntraUniDirectionalDataflow::none) return;
-  
+
   // Record as part of each FunctionState the merged lattice states above the function's return statements
   set<FunctionState*> allFuncs = FunctionState::getAllDefinedFuncs();
   for(set<FunctionState*>::iterator it=allFuncs.begin(); it!=allFuncs.end(); it++)
@@ -797,32 +816,36 @@ ContextInsensitiveInterProceduralDataflow::ContextInsensitiveInterProceduralData
 //DFStateAtReturns NEED REFERENCES TO vector<Lattice*>'S RATHER THAN COPIES OF THEM
       if(intraDataflow->getDirection()==IntraUniDirectionalDataflow::fw)
       {
-        intraDataflow->genInitState(funcS->getFunc(), cfgUtils::getFuncStartCFG(funcS->getFunc().get_definition(), filter), funcS->state, initLats, initFacts);
-        funcS->state.setLattices(intraAnalysis, initLats);
-        funcS->state.setFacts(intraAnalysis, initFacts);
+        PartPtr    p = cfgUtils::getFuncStartCFG(funcS->getFunc().get_definition(), filter);
+        LatticePtr lat(intraDataflow->genLattice(funcS->getFunc(), p, funcS->state));
+
+        funcS->state.setLattice(intraAnalysis, lat);
+        funcS->state.setFacts  (intraAnalysis, intraDataflow->genFacts(funcS->getFunc(), p, funcS->state));
       }
       else if(intraDataflow->getDirection()==IntraUniDirectionalDataflow::bw)
       {
-        intraDataflow->genInitState(funcS->getFunc(), cfgUtils::getFuncEndCFG(funcS->getFunc().get_definition(), filter), funcS->state, initLats, initFacts);
-      funcS->state.setLattices(intraAnalysis, initLats);
-      funcS->state.setFacts(intraAnalysis, initFacts);
+        PartPtr    p = cfgUtils::getFuncEndCFG(funcS->getFunc().get_definition(), filter);
+        LatticePtr lat(intraDataflow->genLattice(funcS->getFunc(), p, funcS->state));
+
+        funcS->state.setLattice(intraAnalysis, lat);
+        funcS->state.setFacts  (intraAnalysis, intraDataflow->genFacts(funcS->getFunc(), p, funcS->state));
       }
       /*funcS->retState.setLattices(intraAnalysis, empty);
-      
-      funcS->state.addFact(this, 0, 
-             new DFStateAtReturns(funcS->state.getLatticeBelowMod(intraAnalysis), 
+
+      funcS->state.addFact(this, 0,
+             new DFStateAtReturns(funcS->state.getLatticeBelowMod(intraAnalysis),
                                   funcS->retState.getLatticeBelowMod(intraAnalysis)));*/
       Dbg::dbg << "Return state for function " << funcS << " " << funcS->func.get_name().getString() << endl
-                                 << "funcS->state" << funcS->state.str(intraDataflowAnalysis) << endl;
+                                 << "funcS->state" << funcS->state.str(intraAnalysis) << endl;
       //                         << "funcS->retState="<<  funcS->retState.str(intraDataflowAnalysis) << endl;
     }
   }
-  
+
 /*      set<FunctionState*> allFuncs = FunctionState::getAllDefinedFuncs();
   //Function main;
-  
+
   // initialize the dataflow state of all functions with bodies
-  for(set<FunctionState*>::iterator it=allFuncs.begin(); it!=allFuncs.end(); it++)  
+  for(set<FunctionState*>::iterator it=allFuncs.begin(); it!=allFuncs.end(); it++)
   {
     FunctionState* funcS = *it;
     Function func = funcS->func;
@@ -832,42 +855,42 @@ ContextInsensitiveInterProceduralDataflow::ContextInsensitiveInterProceduralData
 printf("ContextInsensitiveInterProceduralDataflow initState %s():\n", (*it)->func.get_name().getString());
 for(vector<Lattice*>::iterator it = initState.begin();
     it!=initState.end(); it++)
-{       
+{
   Dbg::dbg << *it << ": " << (*it)->str("    ") << endl;
 }
-  
+
     funcS->state.setLattices(this, initState);
-    
+
      // remember the main() function
     if(strcmp(func.get_name().getString(), "main")==0)
       main = func;
   }
-  
-  for(set<FunctionState*>::iterator it=allFuncs.begin(); it!=allFuncs.end(); it++)  
+
+  for(set<FunctionState*>::iterator it=allFuncs.begin(); it!=allFuncs.end(); it++)
   {
     FunctionState* funcS = *it;
   }*/
 }
-  
+
 // The transfer function that is applied to SgFunctionCallExp nodes to perform the appropriate state transfers
 // fw - =true if this is a forward analysis and =false if this is a backward analysis
 // n - the dataflow node that is being processed
-// state - The NodeState object that describes the dataflow state immediately before (if fw=true) or immediately after 
+// state - The NodeState object that describes the dataflow state immediately before (if fw=true) or immediately after
 //   (if fw=false) the SgFunctionCallExp node, as established by earlier analysis passes
-// dfInfo - The Lattices that this transfer function operates on. The function propagates them 
+// dfInfo - The Lattices that this transfer function operates on. The function propagates them
 //    to the callee function and overwrites them with the dataflow result of calling this function.
 /*// retState - Pointer reference to a Lattice* vector that will be assigned to point to the lattices of
 //    the function call's return value. The caller may not modify these lattices.*/
 // Returns true if any of the input lattices changed as a result of the transfer function and
 //    false otherwise.
 bool ContextInsensitiveInterProceduralDataflow::transfer(
-                             const Function& func, PartPtr callPart, NodeState& state,
+                             const Function& caller, PartPtr callPart, NodeState& state,
                              LatticePtr dfInfo /* ConstLatticePtr& retState*/)
 {
   // First pass information from the caller to the callee, placing the callee on the worklist if it is modified.
-  // Then, we do not wait for the callee to be processed but rather optimistically guess that the new pass will not 
+  // Then, we do not wait for the callee to be processed but rather optimistically guess that the new pass will not
   // change the info after it and simply take the current info and pass it back to the caller. This is simpler and
-  // ensures that we get debug output for the caller as one contiguous sequence that is not interspersed by debug 
+  // ensures that we get debug output for the caller as one contiguous sequence that is not interspersed by debug
   // info of analysis of other functions.
   // Caller -> Callee
   //   Remap lattices before the call from caller's to callee's scope
@@ -875,43 +898,46 @@ bool ContextInsensitiveInterProceduralDataflow::transfer(
   //      bw: all arguments passed by reference mapped to their parameters
   //          Function call expression mapped to the function's SgDefinition
   //   Merge resulting lattice to the lattice before the function in its FunctionState
-  //   If this lattice is modified, merge the results 
+  //   If this lattice is modified, merge the results
   // Callee -> Caller
-  //   Remap lattices after the callee function to the caller's scope. It is assumed that the state after the function 
+  //   Remap lattices after the callee function to the caller's scope. It is assumed that the state after the function
   //     is the merge of all the states at possible end points. For fw this means the function exit and the
-  //     return statements and for bw it is just the function's entry. For fw it is also assumed that the function's 
+  //     return statements and for bw it is just the function's entry. For fw it is also assumed that the function's
   //     symbol is mapped to the merge of all return values in all the return statements.
-  //     fw: all parameters passed by reference are mapped to their callers (remaining parameters are ignored but 
-  //         if a live-dead analysis is used then they'll automatically be mapped to DEAD, meaning that in practice 
+  //     fw: all parameters passed by reference are mapped to their callers (remaining parameters are ignored but
+  //         if a live-dead analysis is used then they'll automatically be mapped to DEAD, meaning that in practice
   //         it won't be necessary to remove them as part of remap). The function's symbol is mapped to the function
   //         call expression in the caller.
   //     bw: all parameters are mapped back to their arguments
-   
+
   bool modified = false;
   SgFunctionCallExp* call = isSgFunctionCallExp(callPart.getNode());
   Function callee(call);
   ROSE_ASSERT(call);
-  
+
   ComposedAnalysis *intraDataflow = dynamic_cast<ComposedAnalysis*>(intraAnalysis);
   ROSE_ASSERT(intraDataflow);
-  
+
   ROSE_ASSERT(intraDataflow->getDirection()!=IntraUniDirectionalDataflow::none);
-  
+
   if(analysisDebugLevel > 0)
     Dbg::dbg << "ContextInsensitiveInterProceduralDataflow::transfer "<<caller.get_name().getString()<<"()=>"<<callee.get_name().getString()<<"()\n";
+
   if(callee.get_definition())
   {
     FunctionState* funcS = FunctionState::getDefinedFuncState(callee);
+    const bool fw = (intraDataflow->getDirection()==IntraUniDirectionalDataflow::fw);
+
                 // handle lattices before
                 {
     // The lattices before the function (forward: before=above, after=below; backward: before=below, after=above)
-                        LatticePtr funcLatticesBefore = (fw ? funcS->state.getLatticeAboveMod((Analysis*)intraAnalysis)
-                                                            : funcS->state.getLatticeBelowMod((Analysis*)intraAnalysis)
-                                                        );
-      
+    LatticePtr funcLatticesBefore = (fw ? funcS->state.getLatticeAboveMod((Analysis*)intraAnalysis)
+                                        : funcS->state.getLatticeBelowMod((Analysis*)intraAnalysis)
+                                    );
+
     //if(analysisDebugLevel > 0)
     //      printf("  dfInfo.size()=%d, funcLatticesBefore->size()=%d, this=%p\n", dfInfo.size(), funcLatticesBefore->size(), this);
-    
+
     // Caller -> Callee
     // ----------------
     {
@@ -920,12 +946,12 @@ bool ContextInsensitiveInterProceduralDataflow::transfer(
       std::set<pair<MemLocObjectPtr, MemLocObjectPtr> > ml2ml;
       PartPtr entryPart(callPart); // (default entry part to callPart)
       if(intraDataflow->getDirection()==IntraUniDirectionalDataflow::fw) {
-        FunctionState::setArgParamMap(callPart, call, ml2ml, 
+        FunctionState::setArgParamMap(callPart, call, ml2ml,
                                       getIntraComposeAnalysis()->getComposer(),
                                       getIntraComposeAnalysis());
         entryPart = cfgUtils::getFuncStartCFG(callee.get_definition(), filter);
       } else if(intraDataflow->getDirection()==IntraUniDirectionalDataflow::bw) {
-        FunctionState::setArgByRef2ParamMap(callPart, call, ml2ml, 
+        FunctionState::setArgByRef2ParamMap(callPart, call, ml2ml,
                                       getIntraComposeAnalysis()->getComposer(),
                                       getIntraComposeAnalysis());
         entryPart = cfgUtils::getFuncEndCFG(callee.get_definition(), filter);
@@ -951,12 +977,12 @@ bool ContextInsensitiveInterProceduralDataflow::transfer(
         }
 
         // Update the callee's Lattice with the new information at the call site
-        modified = calleeL->meetUpdate(remappedL) || modified;
+        modified = funcLatticesBefore->meetUpdate(remappedL.get()) || modified;
 
         if(analysisDebugLevel>=1) {
           Dbg::dbg << "After modified = "<<modified << endl;
-          Dbg::dbg << "calleeL=["<<calleeL<<"]="<<endl;
-          { Dbg::indent ind; Dbg::dbg<<calleeL->str()<<endl; }
+          Dbg::dbg << "calleeL=["<<funcLatticesBefore<<"]="<<endl;
+          { Dbg::indent ind; Dbg::dbg<<funcLatticesBefore->str()<<endl; }
         }
   //!!!     delete remappedL;
       }
@@ -971,7 +997,7 @@ bool ContextInsensitiveInterProceduralDataflow::transfer(
         remainingDueToCallers.insert(getFunc(callee));
       }
     } // Caller -> Callee
-      
+
     // Callee -> Caller
     // ----------------
     {
@@ -981,15 +1007,15 @@ bool ContextInsensitiveInterProceduralDataflow::transfer(
                                          : funcS->state.getLatticeAboveMod((Analysis*)intraAnalysis)
                                       );
 
-      //Dbg::dbg << "  funcLatticesAfter->size()="<<funcLatticesAfter->size()<<endl;   
+      //Dbg::dbg << "  funcLatticesAfter->size()="<<funcLatticesAfter->size()<<endl;
       // Create a MemLocObject map to remap the lattices from the callee's to the caller's context
       std::set<pair<MemLocObjectPtr, MemLocObjectPtr> > ml2ml;
       if(intraDataflow->getDirection()==IntraUniDirectionalDataflow::fw) {
-        FunctionState::setArgByRef2ParamMap(callPart, call, ml2ml, 
+        FunctionState::setArgByRef2ParamMap(callPart, call, ml2ml,
                                       getIntraComposeAnalysis()->getComposer(),
                                       getIntraComposeAnalysis());
       } else if(intraDataflow->getDirection()==IntraUniDirectionalDataflow::bw) {
-        FunctionState::setArgParamMap(callPart, call, ml2ml, 
+        FunctionState::setArgParamMap(callPart, call, ml2ml,
                                       getIntraComposeAnalysis()->getComposer(),
                                       getIntraComposeAnalysis());
       }
@@ -1001,35 +1027,35 @@ bool ContextInsensitiveInterProceduralDataflow::transfer(
         Dbg::indent ind(analysisDebugLevel, 1);
         Dbg::dbg << m->first.get()->str("")<<" => "<<m->second.get()->str("")<<endl;
       }
-      
+
       {
         Dbg::indent ind(analysisDebugLevel, 1);
 
         if(analysisDebugLevel>=1) {
           Dbg::dbg << "callerL-before=["<<dfInfo.get()<<"]"<<endl;
-          {Dbg::indent ind; Dbg::dbg<<as_str(dfInfo)<<endl; }
+          {Dbg::indent ind; Dbg::dbg<<as_str(dfInfo, "")<<endl; }
           Dbg::dbg << "+calleeL=["<<funcLatticesAfter.get()<<"]"<<endl;
-          {Dbg::indent ind; Dbg::dbg<<as_str(funcLatticesAfter)<<endl; }
+          {Dbg::indent ind; Dbg::dbg<<as_str(funcLatticesAfter, "")<<endl; }
         }
 
         // Update the caller's Lattice with the new information at the call site
-                        LatticePtr calleeRemapped = funcLatticesAfter->remapML(ml2ml, callPart);
+        LatticePtr calleeRemapped(funcLatticesAfter->remapML(ml2ml, callPart));
         if(analysisDebugLevel>=1) {
-          Dbg::dbg << "~calleeRemapped=["<<calleeRemapped<<"]"<<endl; 
+          Dbg::dbg << "~calleeRemapped=["<<calleeRemapped<<"]"<<endl;
           {Dbg::indent ind; Dbg::dbg<<calleeRemapped->str()<<endl; }
         }
-                        modified = dfInfo->replaceML(calleeRemapped) || modified;
-        
+        modified = dfInfo->replaceML(calleeRemapped.get()) || modified;
+
         if(analysisDebugLevel>=1) {
           Dbg::dbg << "==> callerL-after=["<<dfInfo.get()<<"] "<<endl;
-          {Dbg::indent ind; Dbg::dbg<<as_str(dfInfo)<<endl; }
+          {Dbg::indent ind; Dbg::dbg<<as_str(dfInfo, "")<<endl; }
         }
       }
     } // Callee -> Caller
 
     // Point retState to the lattices of the function's return values
     // retState = funcS->retState.getLatticeBelowMod((Analysis*)intraAnalysis);
-    
+
     /*Dbg::dbg << "      retState="<<retState<<endl;
     for(vector<Lattice*>::iterator l=(*retState)->begin(); l!=(*retState)->end(); l++)
       Dbg::dbg << "    "<<(*l)->str("      ")<<endl;*/
@@ -1038,7 +1064,7 @@ bool ContextInsensitiveInterProceduralDataflow::transfer(
   {
     // Don't do anything for functions with no definitions
   }
-  
+
   return modified;
 }
 
@@ -1053,26 +1079,26 @@ void ContextInsensitiveInterProceduralDataflow::visit(const CGFunction* funcCG)
 {
   Function func = *funcCG;
   Dbg::region r(analysisDebugLevel, 1, Dbg::region::topLevel, "Inter-analysis Function "+func.get_name().getString());
-  
-  // 1. Invoke the intra-procedural analysis on the given function. It is assumed that currently the state before this 
-  // function is initialized to the dataflow state at one or more calls to func, remapped to the func's context. 
+
+  // 1. Invoke the intra-procedural analysis on the given function. It is assumed that currently the state before this
+  // function is initialized to the dataflow state at one or more calls to func, remapped to the func's context.
   //   fw: Call arguments remapped to function parameters
   //   bw: For pass-by-reference parameters the call arguments remapped to parameters, and
   //       the function's return value mapped to the function's symbol.
   // 2. propagate the state before func in its FunctionState to the intra analysis on the func.
   //   fw: Copy from before function to function start
   //   bw: Copy from before function to function end (all return statements and the end of the function) and within
-  //       these lattices, maps the state associated with the function's symbol to be the state of the returned values 
+  //       these lattices, maps the state associated with the function's symbol to be the state of the returned values
   //       in all the return statements (done by SetAllReturnStates).
   // 3. Propagate the state produced by the intra analysis to the function's FunctionState after the function
-  //   fw: Merge the state at all return statements and function end, mapping the state of the returned values to 
+  //   fw: Merge the state at all return statements and function end, mapping the state of the returned values to
   //       the function's symbol (done by MergeAllReturnStates).
   //   bw: Copy from the function's start in the intra analysis to the FunctionState after it.
-  
+
   if(func.get_definition())
   {
     FunctionState* fState = FunctionState::getDefinedFuncState(func);
-    
+
     ComposedAnalysis *intraDataflow = dynamic_cast<ComposedAnalysis*>(intraAnalysis);
     ROSE_ASSERT(intraDataflow);
     /*// If this is the first time we've visited this function, initialize its dataflow state
@@ -1090,32 +1116,33 @@ void ContextInsensitiveInterProceduralDataflow::visit(const CGFunction* funcCG)
                         fState->state.setLattice(intraAnalysis, initLatts);
       fState->state.setFacts(intraAnalysis, initFacts);
     }*/
-  
+
     if(analysisDebugLevel>=1)
     {
       if(intraDataflow->getDirection()==IntraUniDirectionalDataflow::fw) {
         Dbg::dbg<<"Function LatticeAbove:"<<endl;
         ConstLatticePtr lat = fState->state.getLatticeAbove(intraAnalysis);
 
-        { Dbg::indent ind; Dbg::dbg << lat->str("") << endl; } 
+        { Dbg::indent ind; Dbg::dbg << lat->str("") << endl; }
       } else if(intraDataflow->getDirection()==IntraUniDirectionalDataflow::bw) {
         Dbg::dbg<<"Function LatticeBelow:"<<endl;
         ConstLatticePtr lat = fState->state.getLatticeBelow(intraAnalysis);
 
         { Dbg::indent ind; Dbg::dbg << lat->str("") << endl; }
+      }
     }
-    
+
     // The reason why the visit function was called was because this is the first time this function was analyzed
     // or because its incoming information was changed. As such, by default we assume that the intra analysis
     // must be re-run.
-    
+
     /*Dbg::dbg << "Visited functions (visited.find(func) == visited.end())="<<(visited.find(func) == visited.end())<<endl;
     for(std::set<Function>::iterator f=visited.begin(); f!=visited.end(); f++)
       Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;"<<f->get_name().getString();*/
-    
+
     // Initialize the lattices used by this analysis, if this is the first time the analysis visits this function
     // Flag that indicates whether this function is being analyzed for the first time
-    bool firstVisit = visited.find(func) == visited.end(); 
+    bool firstVisit = visited.find(func) == visited.end();
     if(firstVisit) {
       visited.insert(func);
     }
@@ -1124,34 +1151,34 @@ void ContextInsensitiveInterProceduralDataflow::visit(const CGFunction* funcCG)
       InitDataflowState ids(intraDataflow);
       ids.runAnalysis(func, &(fState->state));
     }
-    
+
     SgFunctionParameterList* paramListNode = NULL;
     NodeState* paramsListState = NULL;
-    
+
     if(intraDataflow->getDirection()==IntraUniDirectionalDataflow::fw) {
       NodeState* entryState = *(NodeState::getNodeStates(cfgUtils::getFuncStartCFG(func.get_definition(), intraAnalysis->filter)).begin());
       NodeState::copyLattices_aEQa(intraAnalysis, *entryState, fState->state);
     } else if(intraDataflow->getDirection()==IntraUniDirectionalDataflow::bw) {
       Dbg::dbg << "fState->state="<<endl;
       {Dbg::indent ind(analysisDebugLevel, 1); Dbg::dbg << fState->state.str(intraAnalysis, "") <<endl; }
-      
+
       SetAllReturnStates sars(intraDataflow, fState->state.getLatticeBelowMod(intraAnalysis));
-      sars.runAnalysis(func, &(fState->state)); 
+      sars.runAnalysis(func, &(fState->state));
       ROSE_ASSERT(sars.paramList);
       paramListNode = sars.paramList;
       paramsListState = sars.paramsState;
-      
-      // Here we can be more precisely when deciding whether to rerun the intra analysis because it may be the case 
-      // that the overall analysis state gets changed but the state at the function end and the returns to not change. 
-      // However, this shouldn't happen except in buggy situations so we'll take the conservative route and 
+
+      // Here we can be more precisely when deciding whether to rerun the intra analysis because it may be the case
+      // that the overall analysis state gets changed but the state at the function end and the returns to not change.
+      // However, this shouldn't happen except in buggy situations so we'll take the conservative route and
       // always re-run the intra analysis if the visit method gets called.
       //mustRerunIntra = sars.getModified() || mustRerunIntra;
     }
-    
+
     // Run the intra-procedural dataflow analysis on the current function
-    
+
     // <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
-    intraDataflow->runAnalysis(func, &(fState->state), 
+    intraDataflow->runAnalysis(func, &(fState->state),
                       firstVisit || (remainingDueToCallers.find(func)!=remainingDueToCallers.end()),
                       remainingDueToCalls[func]);
     // >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
@@ -1165,10 +1192,10 @@ void ContextInsensitiveInterProceduralDataflow::visit(const CGFunction* funcCG)
       // For forward analyses merge the dataflow states above all the return statements in the function, storing
       // the results in the lattices after the function
       //DFStateAtReturns* dfsar = dynamic_cast<DFStateAtReturns*>(fState->state.getFact(this, 0));
-      //bool modified = dfsar->mergeReturnStates(func, fState, dynamic_cast<ComposedAnalysis*>(intraAnalysis));  
+      //bool modified = dfsar->mergeReturnStates(func, fState, dynamic_cast<ComposedAnalysis*>(intraAnalysis));
 
       MergeAllReturnStates mars(intraDataflow, fState->state.getLatticeBelowMod(intraAnalysis));
-      mars.runAnalysis(func, &(fState->state));  
+      mars.runAnalysis(func, &(fState->state));
       afterFuncModified = mars.getModified();
       finalLatsToPrint = fState->state.getLatticeBelowMod(intraAnalysis);
     } else if(intraDataflow->getDirection()==IntraUniDirectionalDataflow::bw) {
@@ -1183,21 +1210,38 @@ void ContextInsensitiveInterProceduralDataflow::visit(const CGFunction* funcCG)
       //NodeState* paramsState = *(NodeState::getNodeStates(paramListPart).begin());
       ROSE_ASSERT(paramsListState);
       NodeState* paramsState = paramsListState;
-      ROSE_ASSERT(fState->state.getLatticeBelowMod(intraAnalysis).size() == paramsState->getLatticeBelowMod(intraAnalysis).size());
+
+      ROSE_ASSERT(  fState->state.getLatticeBelowMod(intraAnalysis).get() != 0
+                 && paramsState->getLatticeBelowMod(intraAnalysis).get() != 0
+                 );
+
+      {
+#if OBSOLETE_CODE
       afterFuncModified = !NodeState::equivLattices(fState->state.getLatticeBelowMod(intraAnalysis), paramsState->getLatticeBelowMod(intraAnalysis));
+#endif /* OBSOLETE_CODE */
+
+        LatticePtr fstateBelow = fState->state.getLatticeBelowMod(intraAnalysis);
+        LatticePtr pstateBelow = paramsState->getLatticeBelowMod(intraAnalysis);
+
+        afterFuncModified = !fstateBelow->equiv(pstateBelow.get());
+      }
+
       NodeState::copyLattices_aEQb(intraAnalysis, fState->state, *paramsState);
       /*for(vector<Lattice*>::iterator lA=fState->state.getLatticeAboveMod(intraAnalysis).begin(), lP=paramsState->getLatticeBelowMod(intraAnalysis).begin();
           lA!=fState->state.getLatticeAboveMod(intraAnalysis).end(); lA++, lP++)
         (*lA)->copy(*lP);*/
       finalLatsToPrint = fState->state.getLatticeAboveMod(intraAnalysis);
     }
-    
-    if(intraDataflow->getDirection()!=IntraUniDirectionalDataflow::none && analysisDebugLevel>=1) {
+
+    if(intraDataflow->getDirection()!=IntraUniDirectionalDataflow::none && analysisDebugLevel>=1)
+    {
       //Dbg::dbg << "final #lattice="<<finalLatsToPrint->size()<<": "<<endl;
       {
         Dbg::indent ind();
+#if OBSOLETE_CODE
         for(vector<Lattice*>::iterator l=finalLatsToPrint->begin(); l!=finalLatsToPrint->end(); l++)
-            Dbg::dbg << (*l)->str("&nbsp;&nbsp;")<<endl;
+#endif /* OBSOLETE_CODE */
+            Dbg::dbg << finalLatsToPrint->str("&nbsp;&nbsp;")<<endl;
       }
 
       Dbg::dbg << "function "<<func.get_name().getString()<<" <b><u>"<<(afterFuncModified? "modified": "not modified")<<"</u></b>"<<endl;
@@ -1207,7 +1251,7 @@ void ContextInsensitiveInterProceduralDataflow::visit(const CGFunction* funcCG)
       for(vector<Lattice*>::const_iterator it = fState->state.getLatticeBelow((Analysis*)this).begin();
           it!=fState->state.getLatticeBelow((Analysis*)this).end(); it++)
       {
-        Dbg::dbg << (*it)->str("    ") << endl; 
+        Dbg::dbg << (*it)->str("    ") << endl;
       }*/
                         /*
                         Dbg::dbg << "States at Return Statements:\n";
@@ -1221,13 +1265,13 @@ void ContextInsensitiveInterProceduralDataflow::visit(const CGFunction* funcCG)
                         Dbg::dbg << as_str(dfsar->getLatsRetVal(), "&nbsp;&nbsp;") << endl;
                         */
     }
-    
-    // Remove the record for this function from remainingDueToCallers and remainingDueToCalls 
+
+    // Remove the record for this function from remainingDueToCallers and remainingDueToCalls
     // because it has now been analyzed
     remainingDueToCallers.erase(func);
     remainingDueToCalls.erase(func);
 
-    // If this function's final dataflow state was modified, its callers must be 
+    // If this function's final dataflow state was modified, its callers must be
     // placed back onto the remaining list, recording that they're on the list
     // because of their calls to this function
     if(afterFuncModified)
@@ -1248,4 +1292,5 @@ void ContextInsensitiveInterProceduralDataflow::visit(const CGFunction* funcCG)
     }
   } // if(modified)
 } // ContextInsensitiveInterProceduralDataflow::visit(const CGFunction* funcCG)
+
 } // namespace dataflow;

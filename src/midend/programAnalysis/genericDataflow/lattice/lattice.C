@@ -136,7 +136,7 @@ string BoolAndLattice::str(string indent) const
  ************** IntMaxLattice **************
  *******************************************/
 const int IntMaxLattice::infinity = 32768;
-  
+
 // returns a copy of this lattice
 IntMaxLattice* IntMaxLattice::copy() const
 {
@@ -212,7 +212,7 @@ bool IntMaxLattice::set(int state)
   // don't set above infinity
   if(state>infinity)
     state = infinity;
-    
+
   int oldState = state;
   this->state = state;
   return oldState != this->state;
@@ -224,7 +224,7 @@ bool IntMaxLattice::incr(int increment)
 {
   int oldState = this->state;
   this->state+=increment;
-  
+
   // don't increment past infinity
   if(this->state>infinity)
   {
@@ -239,7 +239,7 @@ bool IntMaxLattice::incr(int increment)
   }
   /*else
     printf("IntMaxLattice::incr(%d) incrementing from %d to 0\n", increment, oldState, this->state);*/
-  
+
   return oldState != this->state;
 }
 
@@ -251,7 +251,7 @@ bool IntMaxLattice::maximum(int value)
   // don't set above infinity
   if(state>infinity)
     state = infinity;
-  
+
   int oldState = state;
   state = (state < value? value: state);
   //printf("maximum: oldState=%d state=%d\n", oldState, state);
@@ -281,7 +281,7 @@ string IntMaxLattice::str(string indent) const
   ostringstream outsNum;
   outsNum << state;
   string stateStr = outsNum.str();
-  
+
   ostringstream outs;
   outs << indent << (state==infinity? "infinity" : stateStr);
   return outs.str();
@@ -299,18 +299,18 @@ string IntMaxLattice::str(string indent) const
 ProductLattice::ProductLattice(const ProductLattice& that) : Lattice(that.part)
 {
   isFinite = true;
-  level = that.level;
+  // level = that.level;
   init(that.lattices);
 }
 
 ProductLattice::ProductLattice(PartPtr p) : Lattice(p) {
   isFinite = true;
-  level = uninitialized;
+  // level = uninitialized;
 }
 
 ProductLattice::ProductLattice(const vector<Lattice*>& lattices, PartPtr p) : Lattice(p) {
   isFinite = true;
-  level = uninitialized;
+  // level = uninitialized;
   init(lattices);
 }
 
@@ -366,7 +366,7 @@ void ProductLattice::copy_lattices(vector<Lattice*>& newLattices) const
 }
 
 // returns a copy of this lattice
-Lattice* ProductLattice::copy() const
+ProductLattice* ProductLattice::copy() const
 {
   return new ProductLattice(*this);
 }
@@ -386,11 +386,11 @@ void ProductLattice::copy(const Lattice* that_arg)
   that->copy_lattices(lattices);
 }
 
-// Called by analyses to transfer this lattice's contents from across function scopes from a caller function 
-//    to a callee's scope and vice versa. If this this lattice maintains any information on the basis of 
-//    individual MemLocObjects these mappings must be converted, with MemLocObjects that are keys of the ml2ml 
+// Called by analyses to transfer this lattice's contents from across function scopes from a caller function
+//    to a callee's scope and vice versa. If this this lattice maintains any information on the basis of
+//    individual MemLocObjects these mappings must be converted, with MemLocObjects that are keys of the ml2ml
 //    replaced with their corresponding values. If a given key of ml2ml does not appear in the lattice, it must
-//    be added to the lattice and assigned a default initial value. In many cases (e.g. over-approximate sets 
+//    be added to the lattice and assigned a default initial value. In many cases (e.g. over-approximate sets
 //    of MemLocObjects) this may not require any actual insertions.
 // The function takes newPart, the part within which the values of ml2ml should be interpreted. It corresponds
 //    to the code region(s) to which we are remapping.
@@ -403,7 +403,7 @@ Lattice* ProductLattice::remapML(const std::set<pair<MemLocObjectPtr, MemLocObje
   return pl;
 }
 
-// Adds information about the MemLocObjects in newL to this Lattice, overwriting any information previously 
+// Adds information about the MemLocObjects in newL to this Lattice, overwriting any information previously
 //    maintained in this lattice about them.
 // Returns true if the Lattice state is modified and false otherwise.
 bool ProductLattice::replaceML(Lattice* newL)
@@ -411,12 +411,12 @@ bool ProductLattice::replaceML(Lattice* newL)
   ProductLattice* nl = dynamic_cast<ProductLattice*>(newL);
   ROSE_ASSERT(nl);
   ROSE_ASSERT(lattices.size() == nl->lattices.size());
-  
+
   bool modified = false;
-  for(std::vector<Lattice*>::iterator t=lattices.begin(), n=nl->lattices.begin(); 
+  for(std::vector<Lattice*>::iterator t=lattices.begin(), n=nl->lattices.begin();
       t!=lattices.end(); t++, n++)
     modified = (*t)->replaceML(*n) || modified;
-  
+
   return modified;
 }
 
@@ -426,7 +426,7 @@ bool ProductLattice::meetUpdate(const Lattice* that_arg)
 {
         // \pp \todo discuss impl with Greg
         if (!that_arg->isInitialized()) return false;
-  
+
         bool                  modified = false;
         const ProductLattice* that = dynamic_cast<const ProductLattice*>(that_arg);
 
@@ -436,19 +436,19 @@ bool ProductLattice::meetUpdate(const Lattice* that_arg)
   modified = (newLevel != level) || modified;
   level = newLevel;
 #endif /* OBSOLETE_CODE */
-  
+
         vector<Lattice*>::iterator       it;
         vector<Lattice*>::const_iterator itThat;
-  for(it = lattices.begin(), itThat = that->lattices.begin(); 
-      it!=lattices.end() && itThat!=that->lattices.end(); 
+  for(it = lattices.begin(), itThat = that->lattices.begin();
+      it!=lattices.end() && itThat!=that->lattices.end();
       it++, itThat++)
     modified = (*it)->meetUpdate(*itThat) || modified;
-  
+
   return modified;
 }
 
 // Computes the meet of this and that and returns the result
-bool ProductLattice::finiteLattice()
+bool ProductLattice::finiteLattice() const
 {
   return isFinite;
 }
@@ -468,10 +468,10 @@ bool ProductLattice::operator==(const Lattice* that_arg) const
 #if OBSOLETE_CODE
   if(level != that->level) return false;
 #endif /* OBSOLETE_CODE */
-  
+
   vector<Lattice*>::const_iterator it, itThat;
-  for(it = lattices.begin(), itThat = that->lattices.begin(); 
-      it!=lattices.end() && itThat!=that->lattices.end(); 
+  for(it = lattices.begin(), itThat = that->lattices.begin();
+      it!=lattices.end() && itThat!=that->lattices.end();
       it++, itThat++)
     if((**it) != (**itThat)) return false;
   return true;

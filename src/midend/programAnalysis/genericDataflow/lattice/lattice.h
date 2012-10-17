@@ -5,6 +5,7 @@
 #include <map>
 #include <boost/shared_ptr.hpp>
 #include "CallGraphTraverse.h"
+
 //#include "variables.h"
 #include "partitions.h"
 #include "abstract_object.h"
@@ -16,59 +17,59 @@ class Lattice : public printable
 {
         public:
         explicit
-        Lattice(PartPtr p) 
+        Lattice(PartPtr p)
         : good_state(false), part(p)
         {
           //~ std::cerr << this << "created" << std::endl;
         }
-        
+
 
         // Sets the Part that this Lattice's information corresponds to
         void setPart(PartPtr p) { this->part = p; }
-        PartPtr getPart()       { return this->part; }
-        
+        PartPtr getPart() const { return this->part; }
+
         /// returns a copy of this lattice
         /// \note   derived classes can use co-variant return types to return more
         ///         specific information on the lattice type.
         ///         e.g., MyLattice* MyLattice::copy() const {}
         virtual Lattice* copy() const=0;
-        
+
         /// overwrites the state of this Lattice with that of that Lattice
         /// \note implementation is responsible to also copy the good_state
         ///       A standard implementation could use the copy constructor
         ///       and swap as in exception safe assign operators.
         virtual void copy(const Lattice* that)=0;
-        /// Called by analyses to transfer this lattice's contents from across function scopes from a caller function 
-        ///    to a callee's scope and vice versa. If this this lattice maintains any information on the basis of 
-        ///    individual MemLocObjects these mappings must be converted, with MemLocObjects that are keys of the ml2ml 
+        /// Called by analyses to transfer this lattice's contents from across function scopes from a caller function
+        ///    to a callee's scope and vice versa. If this this lattice maintains any information on the basis of
+        ///    individual MemLocObjects these mappings must be converted, with MemLocObjects that are keys of the ml2ml
         ///    replaced with their corresponding values. If a given key of ml2ml does not appear in the lattice, it must
-        ///    be added to the lattice and assigned a default initial value. In many cases (e.g. over-approximate sets 
-        ///    of MemLocObjects) this may not require any actual insertions. If the value of a given ml2ml mapping is 
-        ///    NULL (empty boost::shared_ptr), any information for MemLocObjects that must-equal to the key should be 
+        ///    be added to the lattice and assigned a default initial value. In many cases (e.g. over-approximate sets
+        ///    of MemLocObjects) this may not require any actual insertions. If the value of a given ml2ml mapping is
+        ///    NULL (empty boost::shared_ptr), any information for MemLocObjects that must-equal to the key should be
         ///    deleted.
         /// The function takes newPart, the part within which the values of ml2ml should be interpreted. It corresponds
         ///    to the code region(s) to which we are remapping.
         virtual Lattice* remapML(const std::set<pair<MemLocObjectPtr, MemLocObjectPtr> >& ml2ml, PartPtr newPart) {
           return false;
         }
-        
-        // Adds information about the MemLocObjects in newL to this Lattice, overwriting any information previously 
+
+        // Adds information about the MemLocObjects in newL to this Lattice, overwriting any information previously
         //    maintained in this lattice about them.
         // Returns true if the Lattice state is modified and false otherwise.
         virtual bool replaceML(Lattice* newL)
         {
           return false;
         }
-        /*
-        // Called by analyses to transfer this lattice's contents from a caller function's scope to the scope of the 
-        //    callee function. If this this lattice maintains any information on the basis of individual MemLocObjects 
+
+        // Called by analyses to transfer this lattice's contents from a caller function's scope to the scope of the
+        //    callee function. If this this lattice maintains any information on the basis of individual MemLocObjects
         //    these mappings must be converted from the caller's context to the callee's through a mapping from the
-        //    call arguments to the callee's parameters. Implementations of this function are expected to return a 
-        //    newly-allocated lattice that only contains information about MemLocObjects that are in the values of the 
+        //    call arguments to the callee's parameters. Implementations of this function are expected to return a
+        //    newly-allocated lattice that only contains information about MemLocObjects that are in the values of the
         //    r2eML map or those reachable from these objects via operations such as LabeledAggregate::getElements() or
-        //    Pointer::getDereference(). Information about the other MemLocObjects maintained by this Lattice may be 
+        //    Pointer::getDereference(). Information about the other MemLocObjects maintained by this Lattice may be
         //    excluded if it does not contribute to this goal.
-        // r2eML - maps MemLocObjects that identify the arguments of a given function call to the corresponding 
+        // r2eML - maps MemLocObjects that identify the arguments of a given function call to the corresponding
         //    parameters of the callee function.
         //    ASSUMED: full mustEquals information is available for the keys and values of this map. They must be
         //       variable references or expressions.
@@ -76,17 +77,46 @@ class Lattice : public printable
         virtual Lattice* remapCaller2Callee(const std::map<MemLocObjectPtr, MemLocObjectPtr>& r2eML) {
           return copy();
         }
-        
-        // Called by analyses to transfer this lattice's contents from a callee function's scope back to the scope of 
-        //    the caller function, in a mirror image of what remapCaller2Callee to callee does. remapCaller2Callee 
-        //     only keeps the portion of the original lattice callerL that has a corresponding mapping in the callee to 
-        //     produce lattice caleeL. Thus, remapCallee2Caller is called on callerL and is given calleeL as an 
+
+        // Called by analyses to transfer this lattice's contents from a callee function's scope back to the scope of
+        //    the caller function, in a mirror image of what remapCaller2Callee to callee does. remapCaller2Callee
+        //     only keeps the portion of the original lattice callerL that has a corresponding mapping in the callee to
+        //     produce lattice caleeL. Thus, remapCallee2Caller is called on callerL and is given calleeL as an
         //     argument and must take all the information about all the MemLocObjects that are the values of the r2eML
         //     map and and bring it back to callerL.
         // Returns true if this causes the Lattice object to change and false otherwise.
         virtual bool remapCallee2Caller(const std::map<MemLocObjectPtr, MemLocObjectPtr>& r2eML, Lattice* calleeL) {
           return false;
         }
+
+        /*
+        // Returns a Lattice that describes the information known within this lattice
+        // about the given expression. By default this could be the entire lattice or any portion of it.
+        // For example, a lattice that maintains lattices for different known variables and expression will
+        // return a lattice for the given expression. Similarly, a lattice that keeps track of constraints
+        // on values of variables and expressions will return the portion of the lattice that relates to
+        // the given expression.
+        // It it legal for this function to return NULL if no information is available.
+        // The function's caller is responsible for deallocating the returned object
+        Lattice* project(MemLocObjectPtr o, MemLocObjectPtr funcO) {
+          Lattice* c = copy();
+          std::map<MemLocObjectPtr, MemLocObjectPtr> r2eML;
+          r2eML[o] = funcO;
+          c->remapCaller2Callee(r2eML);
+          return copy();
+        }
+
+        // The inverse of project(). The call is provided with an expression and a Lattice that describes
+        // the dataflow state that relates to expression. This Lattice must be of the same type as the lattice
+        // returned by project(). unProject() must incorporate this dataflow state into the overall state it holds.
+        // Call must make an internal copy of the passed-in lattice and the caller is responsible for deallocating it.
+        // Returns true if this causes this to change and false otherwise.
+        bool unProject(MemLocObjectPtr funcCallExp, MemLocObjectPtr funcO, Lattice* calleeL) {
+          std::map<MemLocObjectPtr, MemLocObjectPtr> r2eML;
+          r2eML[funcCallExp] = funcO;
+          return remapCallee2Caller(r2eML, calleeL);
+        }
+        */
 
         /// sets lattice to initialized
         virtual void initialize()          { good_state = true;  }
@@ -100,74 +130,51 @@ class Lattice : public printable
         /// clears the lattice (e.g., calls uninitialize)
         virtual void clear() = 0;
 
-        
-        // Returns a Lattice that describes the information known within this lattice
-        // about the given expression. By default this could be the entire lattice or any portion of it.
-        // For example, a lattice that maintains lattices for different known variables and expression will 
-        // return a lattice for the given expression. Similarly, a lattice that keeps track of constraints
-        // on values of variables and expressions will return the portion of the lattice that relates to
-        // the given expression. 
-        // It it legal for this function to return NULL if no information is available.
-        // The function's caller is responsible for deallocating the returned object
-        Lattice* project(MemLocObjectPtr o, MemLocObjectPtr funcO) { 
-          Lattice* c = copy();
-          std::map<MemLocObjectPtr, MemLocObjectPtr> r2eML;
-          r2eML[o] = funcO;
-          c->remapCaller2Callee(r2eML);
-          return copy();
-        }
-        
-        // The inverse of project(). The call is provided with an expression and a Lattice that describes
-        // the dataflow state that relates to expression. This Lattice must be of the same type as the lattice
-        // returned by project(). unProject() must incorporate this dataflow state into the overall state it holds.
-        // Call must make an internal copy of the passed-in lattice and the caller is responsible for deallocating it.
-        // Returns true if this causes this to change and false otherwise.
-        bool unProject(MemLocObjectPtr funcCallExp, MemLocObjectPtr funcO, Lattice* calleeL) { 
-          std::map<MemLocObjectPtr, MemLocObjectPtr> r2eML;
-          r2eML[funcCallExp] = funcO;
-          return remapCallee2Caller(r2eML, calleeL);
-        }*/
-        
+
         // Computes the meet of this and that and saves the result in this
         // returns true if this causes this to change and false otherwise
         // The part of this object is to be used for AbstractObject comparisons.
         virtual
         bool meetUpdate(const Lattice* that) = 0;
-        
-        // Returns true if this Lattice implies that lattice (its constraints are equal to or tighter than those of 
+
+        // Returns true if this Lattice implies that lattice (its constraints are equal to or tighter than those of
         // that Lattice) and false otherwise.
         virtual bool implies(Lattice* that) const {
-          // this is tighter than that if meeting that into this causes this to change (that contains possibilities 
+          typedef boost::shared_ptr<Lattice>       LatticePtr;
+
+          // this is tighter than that if meeting that into this causes this to change (that contains possibilities
           // not already in this) but not vice versa (all the possibilities in this already exist in that)
-          LatticePtr thisCopy = copy();
-          if(!thisCopy->meetUpdate(that)) { 
+          LatticePtr thisCopy(copy());
+          if(!thisCopy->meetUpdate(that)) {
             return false;
           }
-          
-          LatticePtr thatCopy = that->copy();
+
+          LatticePtr thatCopy(that->copy());
           if(thatCopy->meetUpdate(this)) {
             return false;
           }
           return true;
         }
-        
+
         // Returns true if this Lattice is semantically equivalent to that lattice (both correspond to the same set
         // of application executions).
         virtual bool equiv(Lattice* that) {
+          typedef boost::shared_ptr<Lattice>       LatticePtr;
+
           // this and that are equivalent if meeting either one with the other causes no changes
-          LatticePtr thisCopy = copy();
-          if(thisCopy->meetUpdate(that)) { 
+          LatticePtr thisCopy(copy());
+          if(thisCopy->meetUpdate(that)) {
             return false;
           }
-          
-          LatticePtr thatCopy = that->copy();
+
+          LatticePtr thatCopy(that->copy());
           if(thatCopy->meetUpdate(this)) {
             return false;
           }
           return true;
-        }        
-        
-        
+        }
+
+
         // returns true for finite domains
         virtual bool finiteLattice() const = 0;
 
@@ -176,7 +183,7 @@ class Lattice : public printable
         {
           return lhs->good_state == rhs->good_state;
         }
-        
+
         virtual
         bool operator==(const Lattice* that) const = 0;
 
@@ -197,8 +204,8 @@ class Lattice : public printable
         // Set this Lattice object to represent the of no execution prefixes (empty set).
         // Return true if this causes the object to change and false otherwise.
         virtual bool setToEmpty()=0;
-        
-        // Functions used to inform this lattice that a given variable is now in use (e.g. a variable has entered 
+
+        // Functions used to inform this lattice that a given variable is now in use (e.g. a variable has entered
         //    scope or an expression is being analyzed) or is no longer in use (e.g. a variable has exited scope or
         //    an expression or variable is dead).
         // It is assumed that a newly-added variable has not been added before and that a variable that is being
@@ -224,10 +231,14 @@ class Lattice : public printable
 
     private:
         bool good_state;
+
+    public:
         PartPtr part;
 
-        // disable Default C'tor
+    private:
+        // disable default C'tor
         Lattice();
+
 };
 
 inline
@@ -269,8 +280,8 @@ class FiniteLattice : public virtual Lattice
         public:
         //FiniteLattice() {}
         FiniteLattice(PartPtr p) : Lattice(p) {}
-        
-        bool finiteLattice()
+
+        bool finiteLattice() const
         { return true;  }
 
         virtual FiniteLattice* copy() const=0;
@@ -281,8 +292,8 @@ class InfiniteLattice : public virtual Lattice
         public:
         //InfiniteLattice() {}
         InfiniteLattice(PartPtr p) : Lattice(p) {}
-        
-        bool finiteLattice()
+
+        bool finiteLattice() const
         { return false; }
 
         virtual InfiniteLattice* copy() const=0;
@@ -301,7 +312,7 @@ LatticeType& ref(LatticePtr);
 template <class LatticeType>
 const LatticeType& ref(ConstLatticePtr);
 
-}; // namespace dataflow
+} // namespace dataflow
 
 
 #if OBSOLETE_CODE

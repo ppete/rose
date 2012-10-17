@@ -9,12 +9,12 @@ namespace dataflow {
 // ----- Part -----
 // ----------------
 
-// Since version 1 does not support repartitioning, Parts are just trivial wrappers for 
+// Since version 1 does not support repartitioning, Parts are just trivial wrappers for
 // CFGNodes
 /*class Part : public CFGNode
 {
   // In the document these functions are in Part but to keep this implementation simpler,
-  // they've been moved to Analysis so that all analysis-specific code can go into a 
+  // they've been moved to Analysis so that all analysis-specific code can go into a
   // single place
   / *
   virtual ValueObject  Expr2Val   (SgExpression* e) { throw NotImplementedException; };
@@ -31,7 +31,7 @@ namespace dataflow {
   bool operator==(const Part& o) const;
   bool operator!=(const Part& o) const;
   bool operator<(const Part& o) const;
-  
+
   std::string str(std::string indent="") const;
 };
 
@@ -53,6 +53,8 @@ class PartEdge {
 
 typedef DataflowNode Part;
 typedef DataflowNode PartPtr;
+typedef DataflowEdge PartEdge;
+
 //typedef boost::shared_ptr<Part> PartPtr;
 //typedef boost::shared_ptr<Part> ConstPartPtr;
 

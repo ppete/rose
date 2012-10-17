@@ -28,6 +28,7 @@ class IntraProceduralDataflow : virtual public IntraProceduralAnalysis
         public:
         // generates the initial lattice state for the given dataflow node, in the given function, with the given NodeState
 
+#if OBSOLETE_CODE
         // !!! NOTE: THIS FUNCTION SHOULD BE AMENDED TO MAKE IT POSSIBLE TO SPECIFY THAT WE WANT THE INITIAL STATE
         // !!!       FOR ABOVE THIS NODE, BELOW THIS NODE OR A UNION OF BOTH. THIS IS IMPORTANT FOR LATTICES THAT
         // !!!       MAINTAIN DIFFERENT INFORMATION FOR THE DIFFERENT CASES, SUCH AS VarsExprsProductLattice, WHERE
@@ -37,6 +38,7 @@ class IntraProceduralDataflow : virtual public IntraProceduralAnalysis
         // !!!       START OF THE FUNCTION AND THE STATE ABOVE IT CORRESPONDS TO THE END.
         virtual void genInitState(const Function& func, PartPtr p, const NodeState& state,
                                   std::vector<Lattice*>& initLattices, std::vector<NodeFact*>& initFacts)=0;
+#endif /* OBSOLETE_CODE */
 
 /// \brief  generates the initial lattice for a given dataflow-node n
 /// \return a non-null pointer; the caller assumes ownership of the lattice
@@ -49,7 +51,6 @@ class IntraProceduralDataflow : virtual public IntraProceduralAnalysis
 /// };
 /// \endcode
         virtual Lattice* genLattice(const Function& func, PartPtr p, const NodeState& state) = 0;
-
 
         // \pp shall we provide an empty default implementation, which seems
         //     to be the most common case?
@@ -95,6 +96,15 @@ class IntraProceduralDataflow : virtual public IntraProceduralAnalysis
         {
                 return (InterProceduralDataflow*)interAnalysis;
         }
+
+        //
+        // static convenience functions - to be used by derived classes
+
+        /// central Function that returns a uniform NULL Lattice
+        static Lattice* nullLattice() { return 0; }
+
+        /// central Function that returns a uniform empty Facts vector
+        static std::vector<NodeFact*> nullFacts() { return std::vector<NodeFact*>(); }
 };
 
 
@@ -105,10 +115,10 @@ class IntraDFTransferVisitor : public ROSE_VisitorPatternDefaultBase
 {
 protected:
   // Common arguments to the underlying transfer function
-  const Function &func;
-  PartPtr part;
-  NodeState &nodeState;
-  Lattice&            dfInfo;
+  const Function& func;
+  PartPtr         part;
+  NodeState&      nodeState;
+  Lattice&        dfInfo;
 
 public:
 
@@ -221,9 +231,13 @@ class IntraUnitDataflow : virtual public IntraProceduralDataflow
 };
 #endif /* OBSOLETE_CODE */
 
+};
 
 
 #if WHERE_DID_THIS_CODE_GO
+
+went to compose.h
+
 class InterProceduralDataflow : virtual public InterProceduralAnalysis
 {
         public:
@@ -305,8 +319,8 @@ class IntraUniDirectionalDataflow : public IntraUnitDataflow
 #endif /* OBSOLETE_CODE */
 
         /// returns the origin node of the dataflow edge @e.
-        virtual DataflowNode flowSource(const DataflowEdge& e) = 0;
-        virtual DataflowNode flowTarget(const DataflowEdge& e) = 0;
+        virtual DataflowNode flowSource(const DataflowEdge& e) const = 0;
+        virtual DataflowNode flowTarget(const DataflowEdge& e) const = 0;
 
         virtual NodeState*initializeFunctionNodeState(const Function &func, NodeState *fState) = 0;
         virtual VirtualCFG::dataflow*
@@ -318,12 +332,10 @@ class IntraUniDirectionalDataflow : public IntraUnitDataflow
         // If we're currently at a function call, use the associated inter-procedural
         // analysis to determine the effect of this function call on the dataflow state.
         virtual void transferFunctionCall(const Function &func, const DataflowNode &n, NodeState *state) = 0;
-
-
         virtual ConnectionContainer getDescendants(const DataflowNode &n) = 0;
         virtual DataflowNode getUltimate(const Function &func) = 0;
 
-        public:
+      public:
 
         using IntraUnitDataflow::transfer; // do not hide the inherited transfer
 
@@ -349,10 +361,10 @@ class IntraUniDirectionalDataflow : public IntraUnitDataflow
       private:
 
         /// encapsulates transfer function invocation along edges
-        void edge_transfer(const Function& func, PartPtr p, NodeState& state, LatticePtr dfInfo, VirtualCFG::dataflow& it);
+        void edge_transfer(const Function& func, PartPtr p, NodeState& state, LatticePtr dfInfo, VirtualCFG::dataflowIterator* it);
 
         /// encapsulates transfer function invocation for nodes
-        void node_transfer(const Function& func, PartPtr p, NodeState& state, LatticePtr dfInfo, VirtualCFG::dataflow& it);
+        void node_transfer(const Function& func, PartPtr p, NodeState& state, LatticePtr dfInfo, VirtualCFG::dataflowIterator* it);
 
       protected:
         /// returns true, iff the transfer functions should get invoked
@@ -379,8 +391,8 @@ class IntraFWDataflow  : public IntraUniDirectionalDataflow
         ConnectionContainer getDescendants(const DataflowNode &n);
         DataflowNode getUltimate(const Function &func);
 
-        DataflowNode flowSource(const DataflowEdge&);
-        DataflowNode flowTarget(const DataflowEdge&);
+        DataflowNode flowSource(const DataflowEdge&) const;
+        DataflowNode flowTarget(const DataflowEdge&) const;
 };
 
 /* Backward Intra-Procedural Dataflow Analysis */
@@ -469,9 +481,9 @@ class printDataflowInfoPass : public IntraFWDataflow
         {
                 this->analysis = analysis;
         }
-
-        BoolAndLattice*        genLattice (const Function& func, const DataflowNode& n, const NodeState& state);
-        std::vector<NodeFact*> genFacts   (const Function& func, const DataflowNode& n, const NodeState& state);
+                  sd
+        BoolAndLattice*        genLattice (const Function& func, PartPtr p, const NodeState& state);
+        std::vector<NodeFact*> genFacts   (const Function& func, PartPtr p, const NodeState& state);
 
         void transfer(const Function& func, const DataflowNode& n, NodeState& state, const std::vector<Lattice*>& dfInfo);
 };
@@ -558,7 +570,7 @@ class MergeAllReturnStates : public UnstructuredPassIntraAnalysis
         bool getModified() { return modified; }
 
         // Deallocates all the merged lattices
-        ~MergeAllReturnStates();
+        ~MergeAllReturnStates() {}
 };
 
 // A NodeFact associated with a FunctionState that stores the merge of the lattices immediately

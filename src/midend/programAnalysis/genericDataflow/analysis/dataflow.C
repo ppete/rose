@@ -212,17 +212,13 @@ void IntraFWDataflow::transferFunctionCall(const Function &caller, PartPtr p, No
 
 void IntraBWDataflow::transferFunctionCall(const Function &caller, PartPtr p, NodeState *state)
 {
-  Lattice*        nullLattice = 0;
-  ConstLatticePtr retState(nullLattice);
-
   dynamic_cast<InterProceduralDataflow*>(interAnalysis)->
-    transfer(caller, p, *state, state->getLatticeAbove(this)/*, &retState*/);
+    transfer(caller, p, *state, state->getLatticeAboveMod(this)/*, &retState*/);
 
-  // ROSE_ASSERT(retState.get()); \pp does not hold b/c not all analysis set the
-  //                                  the retState lattice
   // NEED TO INCORPORATE INFORMATION ABOUT RETURN INTO DATAFLOW SOMEHOW
 }
 
+#if OBSOLETE_CODE
 vector<PartPtr> IntraUniDirectionalDataflow::gatherDescendants(vector<DataflowEdge> edges,
                                                                DataflowNode (DataflowEdge::*edgeFn)() const)
 {
@@ -236,6 +232,8 @@ vector<PartPtr> IntraUniDirectionalDataflow::gatherDescendants(vector<DataflowEd
 
   return descendants;
 }
+#endif /* OBSOLETE_CODE */
+
 // local debugging functions
 namespace {
   void dbg_Descendants(const IntraBWDataflow::ConnectionContainer& cont)
@@ -320,7 +318,7 @@ void IntraUniDirectionalDataflow::node_transfer( const Function& func,
                                                  PartPtr p,
                                                  NodeState& state,
                                                  LatticePtr lattice,
-                                                 VirtualCFG::dataflow& worklist
+                                                 VirtualCFG::dataflowIterator* worklist
                                                )
 {
   // invoke transfer function
@@ -354,14 +352,14 @@ void IntraUniDirectionalDataflow::node_transfer( const Function& func,
           // add the node to the processing queue.
           if (updNextstate)
           {
-                  worklist.add(nextNode);
+                  worklist->add(nextNode);
           }
 
           dbg_LatticeUpdate(updNextstate);
   }
 }
 
-void IntraUniDirectionalDataflow::edge_transfer(const Function& func, PartPtr p, NodeState& state, LatticePtr lattice, VirtualCFG::dataflow& worklist)
+void IntraUniDirectionalDataflow::edge_transfer(const Function& func, PartPtr p, NodeState& state, LatticePtr lattice, VirtualCFG::dataflowIterator* worklist)
 {
   LatticePtr          totalNodeLattice(lattice->copy());
   ConnectionContainer descendants = getDescendants(p);
@@ -397,7 +395,7 @@ void IntraUniDirectionalDataflow::edge_transfer(const Function& func, PartPtr p,
             // add the node to the processing queue.
             if (updNextstate)
             {
-                    worklist.add(nextNode);
+                    worklist->add(nextNode);
             }
 
             totalNodeLattice->meetUpdate(thisLattice.get());
@@ -412,19 +410,29 @@ void IntraUniDirectionalDataflow::edge_transfer(const Function& func, PartPtr p,
   lattice->copy(totalNodeLattice.get());
 }
 
-static int logid = 0;
-vector<PartPtr> IntraFWDataflow::getDescendants(PartPtr p)
-{ return gatherDescendants(p.outEdges(), &DataflowEdge::target); }
-vector<PartPtr> IntraBWDataflow::getDescendants(PartPtr p)
-{ return gatherDescendants(p.inEdges(), &DataflowEdge::source); }
+IntraFWDataflow::ConnectionContainer
+IntraFWDataflow::getDescendants(PartPtr p)
+{
+  //return gatherDescendants(p.outEdges(), &DataflowEdge::target);
+  return p.outEdges();
+}
+
+IntraBWDataflow::ConnectionContainer
+IntraBWDataflow::getDescendants(PartPtr p)
+{
+  // return gatherDescendants(p.inEdges(), &DataflowEdge::source);
+  return p.inEdges();
+}
 
 PartPtr IntraFWDataflow::getUltimate(const Function &func)
 { return cfgUtils::getFuncEndCFG(func.get_definition(), filter); }
+
 PartPtr IntraBWDataflow::getUltimate(const Function &func)
 { return cfgUtils::getFuncStartCFG(func.get_definition(), filter); }
 
 VirtualCFG::dataflowIterator* IntraFWDataflow::getIterator(const Function &func)
 { return new VirtualCFG::dataflowIterator(cfgUtils::getFuncEndCFG(func.get_definition(), filter)); }
+
 VirtualCFG::dataflowIterator* IntraBWDataflow::getIterator(const Function &func)
 { return new VirtualCFG::back_dataflowIterator(cfgUtils::getFuncStartCFG(func.get_definition(), filter)); }
 
@@ -582,9 +590,9 @@ void IntraUniDirectionalDataflow::runAnalysis(const Function& func, NodeState* f
 #endif /* OBSOLETE_CODE */
 
         if (edgeSensitiveAnalysis())
-          edge_transfer(func, p, *state, dfInfoPost, it);
+          edge_transfer(func, p, *state, dfInfoPost, curNodeIt);
         else
-          node_transfer(func, p, *state, dfInfoPost, it);
+          node_transfer(func, p, *state, dfInfoPost, curNodeIt);
 
         // =================== TRANSFER FUNCTION ===================
         if(analysisDebugLevel>=1)
@@ -709,22 +717,22 @@ void IntraUniDirectionalDataflow::runAnalysis(const Function& func, NodeState* f
 //        return modified;
 }
 
-DataflowNode IntraBWDataflow::flowSource(const DataflowEdge& e)
+DataflowNode IntraBWDataflow::flowSource(const DataflowEdge& e) const
 {
   return e.target();
 }
 
-DataflowNode IntraBWDataflow::flowTarget(const DataflowEdge& e)
+DataflowNode IntraBWDataflow::flowTarget(const DataflowEdge& e) const
 {
   return e.source();
 }
 
-DataflowNode IntraFWDataflow::flowSource(const DataflowEdge& e)
+DataflowNode IntraFWDataflow::flowSource(const DataflowEdge& e) const
 {
   return e.source();
 }
 
-DataflowNode IntraFWDataflow::flowTarget(const DataflowEdge& e)
+DataflowNode IntraFWDataflow::flowTarget(const DataflowEdge& e) const
 {
   return e.target();
 }
