@@ -17,9 +17,12 @@ class Lattice : public printable
   Lattice(PartEdgePtr latPEdge) : latPEdge(latPEdge) {}
   
   public:
-  // Sets the PartEdge that this Lattice's information corresponds to
-  void setPartEdge(PartEdgePtr latPEdge) { this->latPEdge = latPEdge; }
-  PartEdgePtr getPartEdge()              { return this->latPEdge; }
+  // Sets the PartEdge that this Lattice's information corresponds to. 
+  // Returns true if this causes the edge to change and false otherwise
+  bool setPartEdge(PartEdgePtr latPEdge);
+  
+  // Returns the PartEdge that this Lattice's information corresponds to
+  PartEdgePtr getPartEdge();
   
   // initializes this Lattice to its default state, if it is not already initialized
   virtual void initialize()=0;

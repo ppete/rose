@@ -637,21 +637,20 @@ ConstantPropagationAnalysis::ConstantPropagationAnalysis()
 {
 }
 
-// generates the initial lattice state for the given dataflow node, in the given function, with the given NodeState
-void
-ConstantPropagationAnalysis::genInitState(const Function& func, PartPtr part, const NodeState& state, 
-                                          std::vector<Lattice*>& initLattices, std::vector<NodeFact*>& initFacts)
-   {
-    AbstractObjectMap* l = new AbstractObjectMap(new MustEqualFunctor(), 
-                                                 boost::make_shared<CPValueObject>(part->inEdgeFromAny()),
-                                                 part->inEdgeFromAny());
-    /*Dbg::dbg << "ConstantPropagationAnalysis::genInitState, analysis="<<returning l="<<l<<" n=<"<<Dbg::escape(p.getNode()->unparseToString())<<" | "<<p.getNode()->class_name()<<" | "<<p.getIndex()<<">\n";
-    Dbg::dbg << "    l="<<l->str("    ")<<endl;*/
-    initLattices.push_back(l);
-   
-   // GB: WE NEED TO INITIALIZE THIS LATTICE WITH THE CURRENTLY LIVE VARIABLES. E.G. AS INITIALIZATION-TIME
-   }
+// Initializes the state of analysis lattices at the given function, part and edge into our out of the part
+// by setting initLattices to refer to freshly-allocated Lattice objects.
+void ConstantPropagationAnalysis::genInitLattice(const Function& func, PartPtr part, PartEdgePtr pedge, 
+                                                 std::vector<Lattice*>& initLattices)
+{
+  AbstractObjectMap* l = new AbstractObjectMap(new MustEqualFunctor(), 
+                                               boost::make_shared<CPValueObject>(part->inEdgeFromAny()),
+                                               pedge);
+  /*Dbg::dbg << "ConstantPropagationAnalysis::initializeState, analysis="<<returning l="<<l<<" n=<"<<Dbg::escape(p.getNode()->unparseToString())<<" | "<<p.getNode()->class_name()<<" | "<<p.getIndex()<<">\n";
+  Dbg::dbg << "    l="<<l->str("    ")<<endl;*/
+  initLattices.push_back(l);
 
+  // GB: WE NEED TO INITIALIZE THIS LATTICE WITH THE CURRENTLY LIVE VARIABLES. E.G. AS INITIALIZATION-TIME
+}
   
 bool
 ConstantPropagationAnalysis::transfer(const Function& func, PartPtr p, CFGNode cn, NodeState& state, 

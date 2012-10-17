@@ -7,6 +7,23 @@ using namespace std;
 #include <map>
 
 namespace dataflow {
+  
+/*****************************
+ ********** Lattice **********
+ *****************************/
+  
+// Sets the PartEdge that this Lattice's information corresponds to. 
+// Returns true if this causes the edge to change and false otherwise
+bool Lattice::setPartEdge(PartEdgePtr latPEdge) { 
+  bool modified = this->latPEdge != latPEdge;
+  this->latPEdge = latPEdge;
+  return modified;
+}
+
+// Returns the PartEdge that this Lattice's information corresponds to
+PartEdgePtr Lattice::getPartEdge()
+{ return this->latPEdge; }
+  
 /********************************************
  ************** BoolAndLattice **************
  ********************************************/

@@ -168,16 +168,16 @@ DeadPathElimPartEdge::DeadPathElimPartEdge(DeadPathElimPartPtr src, DeadPathElim
     Lattice(baseEdge), FiniteLattice(baseEdge), baseEdge(baseEdge), src(src), tgt(tgt), level(bottom), analysis(analysis)
 {}*/
 
-// Constructor to be used when constructing the edges (e.g. from genInitState()).
+// Constructor to be used when constructing the edges (e.g. from genInitLattice()).
 DeadPathElimPartEdge::DeadPathElimPartEdge(PartEdgePtr baseEdge, DeadPathElimAnalysis* analysis, DPELevel level) : 
         Lattice(baseEdge), FiniteLattice(baseEdge), 
-        baseEdge(baseEdge), analysis(analysis)
+        /*baseEdge(baseEdge), */analysis(analysis)
 {
-  src = baseEdge->source() ? makePart<DeadPathElimPart>(baseEdge->source(), analysis, level) : static_part_cast<DeadPathElimPart>(NULLPart);
-  tgt = baseEdge->target() ? makePart<DeadPathElimPart>(baseEdge->target(), analysis, level) : static_part_cast<DeadPathElimPart>(NULLPart);
+  src = latPEdge->source() ? makePart<DeadPathElimPart>(latPEdge->source(), analysis, level) : static_part_cast<DeadPathElimPart>(NULLPart);
+  tgt = latPEdge->target() ? makePart<DeadPathElimPart>(latPEdge->target(), analysis, level) : static_part_cast<DeadPathElimPart>(NULLPart);
   Dbg::dbg << "DeadPathElimPartEdge::DeadPathElimPartEdge()"<<endl;
-  Dbg::dbg << "baseEdge="<<baseEdge->str()<<endl;
-  Dbg::dbg << "this->baseEdge="<<this->baseEdge->str()<<endl;
+  Dbg::dbg << "latPEdge="<<latPEdge->str()<<endl;
+  Dbg::dbg << "this->latPEdge="<<this->latPEdge->str()<<endl;
   Dbg::dbg << "src="<<(src? src->str() : "NULL")<<endl;
   Dbg::dbg << "tgt="<<(tgt? tgt->str() : "NULL")<<endl;
 
@@ -188,7 +188,7 @@ DeadPathElimPartEdge::DeadPathElimPartEdge(PartEdgePtr baseEdge, DeadPathElimAna
 // all the DeadPathElimPartEdges have been constructed and stored in NodeStates.
 DeadPathElimPartEdge::DeadPathElimPartEdge(PartEdgePtr baseEdge, DeadPathElimAnalysis* analysis) : 
         Lattice(baseEdge), FiniteLattice(baseEdge), 
-        baseEdge(baseEdge), analysis(analysis)
+        /*baseEdge(baseEdge), */analysis(analysis)
 {
   /*src = base.source() ? makePart<DeadPathElimPart>(base.source(), analysis, bottom) : NULLPart;
   tgt = base.target() ? makePart<DeadPathElimPart>(base.target(), analysis, bottom) : NULLPart;
@@ -199,43 +199,47 @@ DeadPathElimPartEdge::DeadPathElimPartEdge(PartEdgePtr baseEdge, DeadPathElimAna
 
   // If the source is not a wildcard, look for the record in the source part, which maintains separate information
   // for all the outgoing edges
-  //Dbg::dbg << "baseEdge="<<baseEdge->str()<<endl;
+  //Dbg::dbg << "latPEdge="<<latPEdge->str()<<endl;
   //Dbg::dbg << "this="<<str()<<endl;
-  //if(baseEdge->source()) {
-  if(baseEdge->source()) {
-    DeadPathElimPartPtr sourceDPEPart = makePart<DeadPathElimPart>(baseEdge->source(), analysis, bottom);
-    /*Dbg::dbg << "seEdge->source()="<<baseEdge->source()->str()<<endl;
-    Dbg::dbg << "seEdge->target()="<<baseEdge->target()->str()<<endl;
+  //if(latPEdge->source()) {
+  if(latPEdge->source()) {
+    /*DeadPathElimPartPtr sourceDPEPart = makePart<DeadPathElimPart>(latPEdge->source(), analysis, bottom);
+    Dbg::dbg << "seEdge->source()="<<latPEdge->source()->str()<<endl;
+    Dbg::dbg << "seEdge->target()="<<latPEdge->target()->str()<<endl;
     Dbg::dbg << "sourceDPEPart="<<sourceDPEPart->str()<<endl;*/
-    NodeState* state = NodeState::getNodeState(analysis, baseEdge->source());
-    vector<PartEdgePtr> edges = baseEdge->source()->outEdges();
-    /*Dbg::dbg << "source->outEdges="<<endl;
+    NodeState* state = NodeState::getNodeState(analysis, latPEdge->source());
+    /*vector<PartEdgePtr> edges = latPEdge->source()->outEdges();
+    Dbg::dbg << "source->outEdges="<<endl;
     for(vector<PartEdgePtr>::iterator e=edges.begin(); e!=edges.end(); e++)
     { Dbg::dbg << (*e)->str()<<endl; }*/
 
-    //Dbg::dbg << "source state="<<state->str(analysis)<<endl;
-    // Get the DeadPathElimPartEdge that is stored along baseEdge at the NodeState of its source part
-    dpeEdge = dynamic_cast<DeadPathElimPartEdge*>(state->getLatticeBelow(analysis, baseEdge, 0));
-    //Dbg::dbg << "dpeEdge lattice = "<<state->getLatticeBelow(analysis, baseEdge, 0)->str()<<endl;
+    Dbg::dbg << "source state="<<state->str(analysis)<<endl;
+    // Get the DeadPathElimPartEdge that is stored along latPEdge at the NodeState of its source part
+    dpeEdge = dynamic_cast<DeadPathElimPartEdge*>(state->getLatticeBelow(analysis, latPEdge, 0));
+    Dbg::dbg << "dpeEdge lattice = "<<state->getLatticeBelow(analysis, latPEdge, 0)->str()<<endl;
   // If the source is a wildcard, look for the record in the target part where all the edges are aggregated
   } else {
-    ROSE_ASSERT(baseEdge->target());
-    DeadPathElimPartPtr targetDPEPart = makePart<DeadPathElimPart>(baseEdge->target(), analysis, bottom);
-    NodeState* state = NodeState::getNodeState(analysis, baseEdge->target());
+    ROSE_ASSERT(latPEdge->target());
+    DeadPathElimPartPtr targetDPEPart = makePart<DeadPathElimPart>(latPEdge->target(), analysis, bottom);
+    NodeState* state = NodeState::getNodeState(analysis, latPEdge->target());
     dpeEdge = dynamic_cast<DeadPathElimPartEdge*>(state->getLatticeAbove(analysis, 0));
   }
   ROSE_ASSERT(dpeEdge);
   
-  // Copy its data to this object
-  src = dpeEdge->src;
-  tgt = dpeEdge->tgt;
+  // Copy its data to this object. If source or target information is not available from dpeEdge but
+  // is available from the latPEdge, use its information. In general we only need source information
+  // for results of getOperandPartEdge() and in this case the dpeEdge will not have the source because
   level = dpeEdge->level;
+  if(dpeEdge->src) src = dpeEdge->src;
+  else if(latPEdge->source()) src = makePart<DeadPathElimPart>(latPEdge->source(), analysis, level);
+  if(dpeEdge->tgt) tgt = dpeEdge->tgt;
+  else if(latPEdge->target()) tgt = makePart<DeadPathElimPart>(latPEdge->target(), analysis, level);
 }
 
 DeadPathElimPartEdge::DeadPathElimPartEdge(const DeadPathElimPartEdge& that) :
   Lattice(that.latPEdge), 
   FiniteLattice(that.latPEdge), 
-  baseEdge(that.baseEdge), src(that.src), tgt(that.tgt), level(that.level), analysis(that.analysis)
+  /*baseEdge(that.baseEdge), */src(that.src), tgt(that.tgt), level(that.level), analysis(that.analysis)
 {}
 
 PartPtr DeadPathElimPartEdge::source()
@@ -276,7 +280,7 @@ std::list<PartEdgePtr> DeadPathElimPartEdge::getOperandPartEdge(SgNode* anchor, 
   Dbg::dbg << "anchor="<<cfgUtils::SgNode2Str(anchor)<<" operand="<<cfgUtils::SgNode2Str(operand)<<endl;
   
   if(tgt->level==live) {
-    std::list<PartEdgePtr> baseEdges = baseEdge->getOperandPartEdge(anchor, operand);
+    std::list<PartEdgePtr> baseEdges = latPEdge->getOperandPartEdge(anchor, operand);
     std::list<PartEdgePtr> dpeEdges;
     for(std::list<PartEdgePtr>::iterator e=baseEdges.begin(); e!=baseEdges.end(); e++) {
       Dbg::dbg << "e="<<(*e)->str()<<endl;
@@ -316,7 +320,7 @@ std::list<PartEdgePtr> DeadPathElimPartEdge::getOperandPartEdge(SgNode* anchor, 
 // this edge. 
 std::map<CFGNode, boost::shared_ptr<SgValueExp> > DeadPathElimPartEdge::getPredicateValue()
 {
-  return baseEdge->getPredicateValue();
+  return latPEdge->getPredicateValue();
 }
 
 // Adds a mapping from a CFGNode to the outcome of its predicate
@@ -335,7 +339,7 @@ bool DeadPathElimPartEdge::operator==(const PartEdgePtr& o) const
 {
   const DeadPathElimPartEdgePtr that = static_const_part_cast<DeadPathElimPartEdge>(o);
   ROSE_ASSERT(that.get());
-  if(baseEdge==that->baseEdge) {
+  if(latPEdge==that->latPEdge) {
     ROSE_ASSERT(src==that->src);
     ROSE_ASSERT(tgt==that->tgt);
     return true;
@@ -348,7 +352,7 @@ bool DeadPathElimPartEdge::operator<(const PartEdgePtr& o)  const
   const DeadPathElimPartEdgePtr that = static_const_part_cast<DeadPathElimPartEdge>(o);
   ROSE_ASSERT(that.get());
 
-  return baseEdge < that->baseEdge;
+  return latPEdge < that->latPEdge;
 }
 
 // Pretty print for the object
@@ -357,7 +361,7 @@ std::string DeadPathElimPartEdge::str(std::string indent)
   ostringstream oss;
   oss << "[DPEEdge("<<(level==dead? "D": (level==live? "L": (level==bottom? "B": "<font color=\"#FF0000\"><b>???</b></font>")))<<"): "<<
                       (src ? src->str(indent+"&nbsp;&nbsp;&nbsp;&nbsp;"): "NULL")<<" ==> " <<
-                      (tgt ? tgt->str(indent+"&nbsp;&nbsp;&nbsp;&nbsp;"): "NULL")<<", baseEdge=<"<<baseEdge->str()<<">]";
+                      (tgt ? tgt->str(indent+"&nbsp;&nbsp;&nbsp;&nbsp;"): "NULL")<<", latPEdge=<"<<latPEdge->str()<<">]";
   return oss.str();
 }
 
@@ -379,7 +383,7 @@ void DeadPathElimPartEdge::copy(Lattice* that_arg)
   DeadPathElimPartEdge* that = dynamic_cast<DeadPathElimPartEdge*>(that_arg);
   ROSE_ASSERT(that);
   
-  baseEdge = that->baseEdge;
+  //baseEdge = that->baseEdge;
   src      = that->src;
   tgt      = that->tgt;
   level    = that->level;
@@ -391,7 +395,7 @@ bool DeadPathElimPartEdge::operator==(Lattice* that_arg) /*const*/
   DeadPathElimPartEdge* that = dynamic_cast<DeadPathElimPartEdge*>(that_arg);
   ROSE_ASSERT(that);
   
-  if(baseEdge==that->baseEdge) {
+  if(latPEdge==that->latPEdge) {
     ROSE_ASSERT(src==that->src);
     ROSE_ASSERT(tgt==that->tgt);
     return true;
@@ -431,7 +435,7 @@ bool DeadPathElimPartEdge::meetUpdate(Lattice* that_arg)
   // We don't check this becase when we meet information from a caller with information from a callee its a pain
   // to convert the edges from caller scope to callee scope, although this may be a good idea in the future to 
   // clean up the code.
-  //ROSE_ASSERT(baseEdge==that->baseEdge);
+  //ROSE_ASSERT(latPEdge==that->latPEdge);
   // We don't need to make sure that the sources are the same since they will be wildcards but will not necessarily be equal to each other
   //ROSE_ASSERT(src==that->src);
   //ROSE_ASSERT(tgt==that->tgt);
@@ -536,13 +540,13 @@ void DeadPathElimTransfer::visit(SgIfStmt *sgn)
     if(val->isConcrete() && ValueObject::isValueBoolCompatible(val->getConcreteValue())) {
       // Get the edge that is propagated along the incoming dataflow path
       DeadPathElimPartEdge* dfEdge = dynamic_cast<DeadPathElimPartEdge*>(*dfInfo[NULLPartEdge].begin());
-      /*// Adjust the base Edge so that it now starts at its original target part and terminates at NULL
+      // Adjust the base Edge so that it now starts at its original target part and terminates at NULL
       // (i.e. advance it forward by one node without specifying the target yet)
-      dfEdge->src = dfEdge->tgt;*/
-      // Adjust the dfEdge so that it now starts from the wildcard edge and terminates at the NULL edge
+      dfEdge->src = dfEdge->tgt;
+      /*// Adjust the dfEdge so that it now starts from the wildcard edge and terminates at the NULL edge
       // i.e. set it to be the incoming edge of any node (since the source is irrelevant for forward analyses)
       //    and don't specify the target yet.
-      dfEdge->src = NULLPart;
+      dfEdge->src = NULLPart;*/
       dfEdge->tgt = NULLPart;
       dfEdge->clearPred2Val(); // Reset its predicate values
       
@@ -604,7 +608,8 @@ void DeadPathElimTransfer::visit(SgIfStmt *sgn)
         dpeEdge->tgt = makePart<DeadPathElimPart>((*e)->target(), dpea, dpeEdge->level);
         
         // Set this dpeEdges's baseEdge to be the current edge but leaving the source as a wildcard since it is irrelavant for forward analyses
-        dpeEdge->baseEdge = (*e)->target()->inEdgeFromAny();
+        //dpeEdge->baseEdge = (*e)->target()->inEdgeFromAny();
+        dpeEdge->setPartEdge(*e);
         
         // Add the current DeadPathElimPartEdge to dfInfo
         vector<Lattice *> dfLatVec; 
@@ -626,13 +631,13 @@ void DeadPathElimTransfer::visit(SgNode *sgn)
 {
   // Get the edge that is propagated along the incoming dataflow path
   DeadPathElimPartEdge* dfEdge = dynamic_cast<DeadPathElimPartEdge*>(*dfInfo[NULLPartEdge].begin());
-  /*// Adjust the base Edge so that it now starts at its original target part and terminates at NULL
+  // Adjust the base Edge so that it now starts at its original target part and terminates at NULL
   // (i.e. advance it forward by one node without specifying the target yet)
-  dfEdge->src = dfEdge->tgt;*/
-  // Adjust the dfEdge so that it now starts from the wildcard edge and terminates at the NULL edge
+  dfEdge->src = dfEdge->tgt;
+  /*// Adjust the dfEdge so that it now starts from the wildcard edge and terminates at the NULL edge
   // i.e. set it to be the incoming edge of any node (since the source is irrelevant for forward analyses)
   //    and don't specify the target yet.
-  dfEdge->src = NULLPart;
+  //dfEdge->src = NULLPart;*/
   dfEdge->tgt = NULLPart;
   dfEdge->clearPred2Val();
   
@@ -653,7 +658,8 @@ void DeadPathElimTransfer::visit(SgNode *sgn)
     dpeEdge->tgt = makePart<DeadPathElimPart>((*e)->target(), dpea, dfEdge->level);
     
     // Set this dpeEdges's baseEdge to be the current edge but leaving the source as a wildcard since it is irrelavant for forward analyses
-    dpeEdge->baseEdge = (*e)->target()->inEdgeFromAny();
+    //dpeEdge->baseEdge = *e; //(*e)->target()->inEdgeFromAny();
+    dpeEdge->setPartEdge(*e);
     
     vector<Lattice *> dfLatVec; 
     dfLatVec.push_back(dpeEdge);
@@ -664,19 +670,21 @@ void DeadPathElimTransfer::visit(SgNode *sgn)
 DeadPathElimAnalysis::DeadPathElimAnalysis()
 {}
 
-void DeadPathElimAnalysis::genInitState(const Function& func, PartPtr part, const NodeState& state, 
-                                        std::vector<Lattice*>& initLattices, std::vector<NodeFact*>& initFacts)
+// Initializes the state of analysis lattices at the given function, part and edge into our out of the part
+// by setting initLattices to refer to freshly-allocated Lattice objects.
+void DeadPathElimAnalysis::genInitLattice(const Function& func, PartPtr part, PartEdgePtr pedge, 
+                                          std::vector<Lattice*>& initLattices)
 {
-  DeadPathElimPartEdge* newPartEdge = new DeadPathElimPartEdge(part->inEdgeFromAny(), this, bottom);
+  DeadPathElimPartEdge* newPartEdge = new DeadPathElimPartEdge(pedge, this, bottom);
   
-  /*Dbg::dbg << "DeadPathElimAnalysis::genInitState()"<<endl;
+  /*Dbg::dbg << "DeadPathElimAnalysis::genInitLattice()"<<endl;
   Dbg::indent ind;
   Dbg::dbg << "part="<<part->str()<<endl;*/
+  
   // If this is the entry node of this function, set newPart to live
   if(part == getComposer()->GetFunctionStartPart(func, this)) {
     newPartEdge->setToFull();
   }
-  //Dbg::dbg << "DeadPathElimAnalysis::genInitState() newPartEdge="<<newPartEdge->str()<<endl;
   initLattices.push_back(newPartEdge);
 }
 

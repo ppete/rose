@@ -123,9 +123,10 @@ protected:
 public:
     LiveDeadMemAnalysis(funcSideEffectUses* fseu=NULL);
     
-    // Generates the initial lattice state for the given dataflow node, in the given function, with the given NodeState
-    void genInitState(const Function& func, PartPtr part, const NodeState& state,
-                      std::vector<Lattice*>& initLattices, std::vector<NodeFact*>& initFacts);
+    // Initializes the state of analysis lattices at the given function, part and edge into our out of the part
+    // by setting initLattices to refer to freshly-allocated Lattice objects.
+    void genInitLattice(const Function& func, PartPtr part, PartEdgePtr pedge, 
+                        std::vector<Lattice*>& initLattices);
         
     boost::shared_ptr<IntraDFTransferVisitor> getTransferVisitor(
                                                       const Function& func, PartPtr part, CFGNode cn,

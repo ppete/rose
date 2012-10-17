@@ -25,19 +25,6 @@ class InterProceduralDataflow;
 class IntraProceduralDataflow : virtual public IntraProceduralAnalysis
 {
   public:
-  // generates the initial lattice state for the given dataflow node, in the given function, with the given NodeState
-  
-  // !!! NOTE: THIS FUNCTION SHOULD BE AMENDED TO MAKE IT POSSIBLE TO SPECIFY THAT WE WANT THE INITIAL STATE
-  // !!!       FOR ABOVE THIS NODE, BELOW THIS NODE OR A UNION OF BOTH. THIS IS IMPORTANT FOR LATTICES THAT
-  // !!!       MAINTAIN DIFFERENT INFORMATION FOR THE DIFFERENT CASES, SUCH AS VarsExprsProductLattice, WHERE
-  // !!!       DIFFERENT VARIABLES ARE LIVE BEFORE AND AFTER THE NODE. IN PARTICULAR, THIS WOULD BE USEFUL FOR
-  // !!!       INTERPROCEDURAL ANALYSES WHERE THE SAME SgFunctionDefinition SgNode IS BOTH THE FIRST AND LAST
-  // !!!       VirtualCFG NODE OF EACH FUNCTION WITH DIFFERENT INDEXES AND THE STATE BELOW IT CORRESPONDS TO THE
-  // !!!       START OF THE FUNCTION AND THE STATE ABOVE IT CORRESPONDS TO THE END.
-  virtual void genInitState(const Function& func, PartPtr p, const NodeState& state,
-                            std::vector<Lattice*>& initLattices, std::vector<NodeFact*>& initFacts)=0;
-
-
   // Set of functions that have already been visited by this analysis, used
   // to make sure that the dataflow state of previously-visited functions is
   // not re-initialized when they are visited again.

@@ -295,11 +295,6 @@ class ComposedAnalysis : public virtual IntraUnitDataflow, public printable
   }
   
   public:
-  // Returns the initial Lattice at the given part for this analysis
-  /*GOAL: virtual void genInitState(PartPtr p, Lattice** initLattice, 
-                            std::vector<NodeFact*>& initFacts)=0;*/
-  // LEGACY: virtual void genInitState(const Function& func, const PartPtr p, const NodeState& state, std::vector<Lattice*>& initLattices, std::vector<NodeFact*>& initFacts)=0;
-  
   // The transfer function for this analysis
   //GOAL: virtual void transfer(SgNode &n, Part& p)=0;
   //LEGACY: virtual bool transfer(const Function& func, const PartPtr p, NodeState& state, const std::vector<Lattice*>& dfInfo)=0;
@@ -347,7 +342,22 @@ class IntraUniDirectionalDataflow : public ComposedAnalysis
   // analyzeFromDirectionStart - If true the function should be analyzed from its starting point from the analysis' 
   //    perspective (fw: entry point, bw: exit point)
   void runAnalysis(const Function& func, NodeState* state, bool analyzeFromDirectionStart, std::set<Function> calleesUpdated);
-
+  
+  // Generates the initial lattice state for the given dataflow node, in the given function. Implementations 
+  // fill in the lattices above and below this part, as well as the facts, as needed. Since in many cases
+  // the lattices above and below each node are the same, implementors can alternately implement the 
+  // genInitLattice and genInitFact functions, which are called by the default implementation of initializeState.
+  virtual void initializeState(const Function& func, PartPtr part, NodeState& state);
+  
+  // Initializes the state of analysis lattices at the given function, part and edge into our out of the part
+  // by setting initLattices to refer to freshly-allocated Lattice objects.
+  virtual void genInitLattice(const Function& func, PartPtr part, PartEdgePtr pedge, 
+                             std::vector<Lattice*>& initLattices) {}
+  
+  // Initializes the state of analysis facts at the given function and part by setting initFacts to 
+  // freshly-allocated Fact objects.
+  virtual void genInitFact(const Function& func, PartPtr part, std::vector<NodeFact*>& initFacts) {}
+  
   // propagates the dataflow info from the current node's NodeState (curNodeState) to the next node's
   // NodeState (nextNodeState)
   bool propagateStateToNextNode(
@@ -365,7 +375,6 @@ class IntraUniDirectionalDataflow : public ComposedAnalysis
   // If we're currently at a function call, use the associated inter-procedural
   // analysis to determine the effect of this function call on the dataflow state.
   //virtual void transferFunctionCall(const Function &caller, PartPtr callPart, CFGNode callCFG, NodeState *state) = 0;
-
 
   virtual vector<PartPtr> getDescendants(PartPtr p) = 0;
   virtual vector<PartEdgePtr> getEdgesToDescendants(PartPtr part) = 0;
@@ -449,6 +458,11 @@ class IntraUndirDataflow  : public ComposedAnalysis
   dataflowPartIterator* getIterator(const Function &func) { return NULL; }
   
   direction getDirection() { return none; }
+  
+  // Dummy transfer function since undirected analyses does not propagate flow information
+  bool transfer(const Function& func, PartPtr p, CFGNode cn, NodeState& state, std::map<PartEdgePtr, std::vector<Lattice*> >& dfInfo) {
+    return true;
+  }
 };
 
 
@@ -597,10 +611,8 @@ class printDataflowInfoPass : public IntraFWDataflow
           this->analysis = analysis;
   }
 
-  // generates the initial lattice state for the given dataflow node, in the given function, with the given NodeState
-  //std::vector<Lattice*> genInitState(const Function& func, PartPtr p, const NodeState& state);
-  void genInitState(const Function& func, PartPtr p, const NodeState& state,
-                    std::vector<Lattice*>& initLattices, std::vector<NodeFact*>& initFacts);
+  // Initializes the state of analysis lattices, for analyses that produce the same lattices above and below each node
+  void genInitLattice(const Function& func, PartPtr part, PartEdgePtr pedge, std::vector<Lattice*>& initLattices);
 
   bool transfer(const Function& func, PartPtr p, NodeState& state, 
                 std::map<PartEdgePtr, std::vector<Lattice*> >& dfInfo);
@@ -645,7 +657,6 @@ class FindAllFunctionCalls : public UnstructuredPassIntraAnalysis
 class MergeAllReturnStates : public UnstructuredPassIntraAnalysis
 {
   // List of merged lattices of all the return statements and the returned values
-  //std::vector<Lattice*> mergedLatsRetStmt;
   std::vector<Lattice*> mergedLatsRetVal;
 
   protected:
@@ -654,12 +665,9 @@ class MergeAllReturnStates : public UnstructuredPassIntraAnalysis
   bool modified;
 
   public:
-  MergeAllReturnStates(ComposedAnalysis* analysis/*, ab latSide*/): UnstructuredPassIntraAnalysis(analysis)
-  { modified=false; }
+  MergeAllReturnStates(ComposedAnalysis* analysis);
 
-  MergeAllReturnStates(ComposedAnalysis* analysis, /*const std::vector<Lattice*>& mergedLatsRetStmt, */const std::vector<Lattice*>& mergedLatsRetVal/*, ab latSide*/):
-          UnstructuredPassIntraAnalysis(analysis), /*mergedLatsRetStmt(mergedLatsRetStmt), */mergedLatsRetVal(mergedLatsRetVal)/*, latSide(latSide)*/
-  { modified=false; }
+  MergeAllReturnStates(ComposedAnalysis* analysis, const std::vector<Lattice*>& mergedLatsRetVal);
 
   void visit(const Function& func, PartPtr p, NodeState& state);
 
@@ -669,6 +677,9 @@ class MergeAllReturnStates : public UnstructuredPassIntraAnalysis
 
   // Returns the value of modified
   bool getModified() { return modified; }
+  
+  // Returns the merged dataflow information at the end of the analyzed function
+  std::map<PartEdgePtr, std::vector<Lattice*> > getMergedDFInfo();
 
   // Deallocates all the merged lattices
   ~MergeAllReturnStates();

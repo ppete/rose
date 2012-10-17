@@ -346,7 +346,7 @@ void ChainComposer::runAnalysis()
   
   int i=1;
   for(list<ComposedAnalysis*>::iterator a=allAnalyses.begin(); a!=allAnalyses.end(); a++, i++) {
-    ostringstream label; label << "Running Analysis " << (*a)->str("");
+    ostringstream label; label << "Running Analysis "<<i<<": "<<(*a)->str("");
     Dbg::region reg(composerDebugLevel, 1, Dbg::region::topLevel, label.str());
     
     ContextInsensitiveInterProceduralDataflow inter_cc(*a, graph);
@@ -379,9 +379,9 @@ RetObject ChainComposer::callServerAnalysisFunc(FuncCallerArgs& args, ComposedAn
                                    FuncCaller<RetObject, const FuncCallerArgs>& caller) {
   if(composerDebugLevel>=1) Dbg::dbg << "ChainComposer::callServerAnalysisFunc() "<<caller.funcName()<<" #doneAnalyses="<<doneAnalyses.size()<<endl;
   ROSE_ASSERT(doneAnalyses.size()>0);
-  for(list<ComposedAnalysis*>::reverse_iterator a=doneAnalyses.rbegin(); a!=doneAnalyses.rend(); a++) {
+  /*for(list<ComposedAnalysis*>::reverse_iterator a=doneAnalyses.rbegin(); a!=doneAnalyses.rend(); a++) {
       Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;"<<(*a)->str("")<<" : "<<(*a)<<endl;
-  }
+  }*/
   list<ComposedAnalysis*> doneAnalyses_back;
   // Iterate backwards looking for an analysis that implements caller() behind in the chain of completed analyses
   list<ComposedAnalysis*>::reverse_iterator a=doneAnalyses.rbegin();
@@ -447,6 +447,74 @@ RetObject ChainComposer::callServerAnalysisFunc(FuncCallerArgs& args, ComposedAn
   ROSE_ASSERT(0);
 }
 
+/****************************
+ ***** ComposedAnalysis *****
+ ****************************/
+
 std::map<PartEdgePtr, std::vector<Lattice*> > IntraUndirDataflow::emptyMap;
+
+// Generates the initial lattice state for the given dataflow node, in the given function. Implementations 
+// fill in the lattices above and below this part, as well as the facts, as needed. Since in many cases
+// the lattices above and below each node are the same, implementors can alternately implement the 
+// genInitLattice and genInitFact functions, which are called by the default implementation of initializeState.
+void ComposedAnalysis::initializeState(const Function& func, PartPtr part, NodeState& state)
+{
+  if(getDirection()==none) return;
+  
+  // Analyses associate all arriving information with a single NULL edge and all departing information
+  // with the edge on which the information departs
+  if(getDirection()==fw) {
+    std::vector<Lattice*> lats;
+    genInitLattice(func, part, part->inEdgeFromAny(), lats);
+    state.setLatticeAbove(this, lats);
+  } else if(getDirection()==bw) {
+    std::vector<Lattice*> lats;
+    genInitLattice(func, part, part->outEdgeToAny(), lats);
+    state.setLatticeBelow(this, lats);
+  }
+  
+  // Don't initialize the departing informaiton. This will be set by ComposedAnalysis::runAnalysis() when
+  // it first touches the part
+  /*vector<PartEdgePtr> edges = part->outEdges();
+  for(vector<PartEdgePtr>::iterator e=edges.begin(); e!=edges.end(); e++) {
+    std::vector<Lattice*> lats;
+    genInitLattice(func, part, *e, lats);
+
+    if(getDirection()==fw)      state.setLatticeBelow(this, *e, lats);
+    else if(getDirection()==bw) state.setLatticeAbove(this, *e, lats);
+  }*/
+  
+  vector<NodeFact*> initFacts;
+  genInitFact(func, part, initFacts);
+  state.setFacts(this, initFacts);
+}
+
+
+/******************************************************
+ ***      printDataflowInfoPass         ***
+ *** Prints out the dataflow information associated ***
+ *** with a given analysis for every CFG node a     ***
+ *** function.              ***
+ ******************************************************/
+
+// Initializes the state of analysis lattices at the given function, part and edge into our out of the part
+// by setting initLattices to refer to freshly-allocated Lattice objects.
+void printDataflowInfoPass::genInitLattice(const Function& func, PartPtr part, PartEdgePtr pedge, 
+                                           std::vector<Lattice*>& initLattices)
+{
+  initLattices.push_back((Lattice*)(new BoolAndLattice(pedge)));
+}
+  
+bool printDataflowInfoPass::transfer(const Function& func, PartPtr part, NodeState& state, 
+                                     std::map<PartEdgePtr, std::vector<Lattice*> >& dfInfo)
+{
+  Dbg::dbg << "-----#############################--------\n";
+  Dbg::dbg << "Node: ["<<part->str()<<"\n";
+  Dbg::dbg << "State:\n";
+  Dbg::indent ind(analysisDebugLevel, 1); 
+  Dbg::dbg << state.str(analysis)<<endl;
+  
+  return dynamic_cast<BoolAndLattice*>(dfInfo[NULLPartEdge][0])->set(true);
+}
 
 }; //namespace dataflow;

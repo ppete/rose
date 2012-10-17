@@ -16,6 +16,7 @@ using boost::mem_fn;
 
 namespace dataflow
 {
+ 
 NodeState* IntraBWDataflow::initializeFunctionNodeState(const Function &func, NodeState *fState)
 {
   // Initialize the function's entry NodeState 
@@ -367,10 +368,18 @@ void ComposedAnalysis::runAnalysis(const Function& func, NodeState* fState, bool
           dfInfoPost[*first] = dfInfoPost[NULLPartEdge];
           dfInfoPost.erase(NULLPartEdge);
           
+          // Set to *first the PartEdge of all the lattices stored under this edge
+          for(vector<Lattice*>::iterator l=dfInfoPost[*first].begin(); l!=dfInfoPost[*first].end(); l++)
+            modified = (*l)->setPartEdge(*first) || modified;
+          
           // Now copy its value to the other descendant edges
           vector<PartEdgePtr>::iterator e=first;
-          for(e++; e!=descEdges.end(); e++)
+          for(e++; e!=descEdges.end(); e++) {
             NodeState::copyLatticesOW(dfInfoPost, *e, dfInfoPost, *first);
+            // Set to *e the PartEdge of all the lattices stored under this edge
+            for(vector<Lattice*>::iterator l=dfInfoPost[*e].begin(); l!=dfInfoPost[*e].end(); l++)
+              modified = (*l)->setPartEdge(*e) || modified;
+          }
         // If the key has been changed
         } else {
           // First, verify that it has been changed correctly

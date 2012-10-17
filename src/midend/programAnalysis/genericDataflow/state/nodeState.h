@@ -292,7 +292,8 @@ class NodeState
   static void copyLattices(std::map<PartEdgePtr, vector<Lattice*> >& dfInfoTo,
                      const std::map<PartEdgePtr, vector<Lattice*> >& dfInfoFrom);
   
-  // Makes dfInfoTo[*] a copy of dfInfoFrom[*]. It is assumed that dfInfoTo is initially empty
+  // Makes dfInfoTo[*] a copy of dfInfoFrom[*]. If dfInfoTo is not initially empty, it is cleared and its 
+  // Lattices are deallocated.
   static void copyLatticesOW(map<PartEdgePtr, vector<Lattice*> >& dfInfoTo,
                        const map<PartEdgePtr, vector<Lattice*> >& dfInfoFrom);
 
@@ -300,7 +301,8 @@ class NodeState
   static void copyLattices(std::map<PartEdgePtr, vector<Lattice*> >& dfInfoTo,   PartEdgePtr toDepartEdge, 
                      const std::map<PartEdgePtr, vector<Lattice*> >& dfInfoFrom, PartEdgePtr fromDepartEdge);
 
-  // Makes dfInfoTo[toDepartEdge] a copy of dfInfoFrom[fromDepartEdge]. It is assumed that dfInfoTo is initially empty.
+  // Makes dfInfoTo[toDepartEdge] a copy of dfInfoFrom[fromDepartEdge]. If dfInfoTo[toDepartEdge] is not initially empty, 
+  // it is cleared and its Lattices are deallocated.
   static void copyLatticesOW(map<PartEdgePtr, vector<Lattice*> >& dfInfoTo,   PartEdgePtr toDepartEdge,
                        const map<PartEdgePtr, vector<Lattice*> >& dfInfoFrom, PartEdgePtr fromDepartEdge);
   
@@ -310,7 +312,7 @@ class NodeState
   std::string str(Analysis* analysis, std::string indent="");
   
   // Returns the string representation of the Lattices stored in the given map
-  static string str(std::map<PartEdgePtr, vector<Lattice*> >& dfInfo, string indent="");
+  static string str(const std::map<PartEdgePtr, std::vector<Lattice*> >& dfInfo, string indent="");
 };
 }; // namespace dataflow
 #endif

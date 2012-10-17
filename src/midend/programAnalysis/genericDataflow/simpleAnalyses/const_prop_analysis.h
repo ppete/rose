@@ -134,7 +134,10 @@ class ConstantPropagationAnalysis : virtual public IntraFWDataflow
   public:
   ConstantPropagationAnalysis();
   
-  void genInitState(const Function& func, PartPtr part, const NodeState& state, std::vector<Lattice*>& initLattices, std::vector<NodeFact*>& initFacts);
+  // Initializes the state of analysis lattices at the given function, part and edge into our out of the part
+  // by setting initLattices to refer to freshly-allocated Lattice objects.
+  void genInitLattice(const Function& func, PartPtr part, PartEdgePtr pedge, 
+                      std::vector<Lattice*>& initLattices);
   
   bool transfer(const Function& func, PartPtr part, CFGNode cn, NodeState& state, std::map<PartEdgePtr, std::vector<Lattice*> >& dfInfo);
   

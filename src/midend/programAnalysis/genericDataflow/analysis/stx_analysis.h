@@ -35,17 +35,8 @@ class SyntacticAnalysis : virtual public IntraUndirDataflow
   
   void runAnalysis(const Function&  func, NodeState* state, bool, std::set<Function>) { }
   
-  // The genInitState and transfer functions are dummy since this is not a dataflow 
-  // analysis.
-  //void genInitState(const Part& p, Lattice** initLattice, 
-  //                  std::vector<NodeFact*>& initFacts) {}
-  void genInitState(const Function& func, PartPtr p, const NodeState& state, std::vector<Lattice*>& initLattices, std::vector<NodeFact*>& initFacts)
-  {}
-   
-   //void transfer(SgNode &n, Part& p) {}
-  bool transfer(const Function& func, PartPtr p, CFGNode cn, NodeState& state, std::map<PartEdgePtr, std::vector<Lattice*> >& dfInfo) {
-    return true;
-  }
+  // The genInitLattice, genInitFact and transfer functions are not implemented since this 
+  // is not a dataflow analysis.
   
   // Maps the given SgNode to an implementation of the ValueObject abstraction.
   ValueObjectPtr   Expr2Val(SgNode* e, PartEdgePtr pedge);

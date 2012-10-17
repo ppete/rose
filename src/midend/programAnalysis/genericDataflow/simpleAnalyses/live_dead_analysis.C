@@ -14,11 +14,11 @@ fseu(fseu)
 {
 }
 
-// Generates the initial lattice state for the given dataflow node, in the given function, with the given NodeState
-void LiveDeadMemAnalysis::genInitState(const Function& func, PartPtr part, const NodeState& state,
-                                        vector<Lattice*>& initLattices, vector<NodeFact*>& initFacts)
+// Initializes the state of analysis lattices at the given function, part and edge into our out of the part
+// by setting initLattices to refer to freshly-allocated Lattice objects.
+void LiveDeadMemAnalysis::genInitLattice(const Function& func, PartPtr part, PartEdgePtr pedge, 
+                                         std::vector<Lattice*>& initLattices)
 {
-  //ComposerExpr2MemLocPtr ceml(new ComposerExpr2MemLoc(*getComposer(), p, *((ComposedAnalysis*)this)));
   AbstractObjectSet* s = new AbstractObjectSet(part->outEdgeToAny(), AbstractObjectSet::may);
   
   // If this part is the return statement of main(), make sure that its return value is live

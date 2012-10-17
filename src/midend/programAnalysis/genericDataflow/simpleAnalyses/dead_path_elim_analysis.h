@@ -83,7 +83,7 @@ class DeadPathElimPart : public Part, public boost::enable_shared_from_this<Dead
 class DeadPathElimPartEdge : public FiniteLattice, public PartEdge {
   
   // The edge (implemented by a server analysis) that this object is wrapping with live/dead status
-  PartEdgePtr baseEdge;
+  //PartEdgePtr baseEdge;
   
   // The part that this object is wrapping with live/dead status
   DeadPathElimPartPtr src;
@@ -106,7 +106,7 @@ class DeadPathElimPartEdge : public FiniteLattice, public PartEdge {
   DeadPathElimPartEdge(DeadPathElimPartPtr src, DeadPathElimPartPtr tgt, 
                        PartEdgePtr baseEdge, DeadPathElimAnalysis* analysis);*/
   
-  // Constructor to be used when constructing the edges (e.g. from genInitState()).  
+  // Constructor to be used when constructing the edges (e.g. from genInitLattice()).  
   DeadPathElimPartEdge(PartEdgePtr baseEdge, DeadPathElimAnalysis* analysis, DPELevel level);
   
   // Constructor to be used when traversing the part graph created by the DeadPathElimAnalysis, after
@@ -224,7 +224,10 @@ class DeadPathElimAnalysis : public IntraFWDataflow
   public:
   DeadPathElimAnalysis();
   
-  void genInitState(const Function& func, PartPtr p, const NodeState& state, std::vector<Lattice*>& initLattices, std::vector<NodeFact*>& initFacts);
+  // Initializes the state of analysis lattices at the given function, part and edge into our out of the part
+  // by setting initLattices to refer to freshly-allocated Lattice objects.
+  void genInitLattice(const Function& func, PartPtr part, PartEdgePtr pedge, 
+                      std::vector<Lattice*>& initLattices);
   
   bool transfer(const Function& func, PartPtr part, CFGNode cn, NodeState& state, 
                 std::map<PartEdgePtr, std::vector<Lattice*> >& dfInfo);

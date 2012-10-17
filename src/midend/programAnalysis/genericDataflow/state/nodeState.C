@@ -624,10 +624,19 @@ void NodeState::copyLattices(map<PartEdgePtr, vector<Lattice*> >& dfInfoTo,
   }
 }
 
-// Makes dfInfoTo[*] a copy of dfInfoFrom[*]. It is assumed that dfInfoTo is initially empty
+// Makes dfInfoTo[*] a copy of dfInfoFrom[*]. If dfInfoTo is not initially empty, it is cleared and its 
+// Lattices are deallocated.
 void NodeState::copyLatticesOW(map<PartEdgePtr, vector<Lattice*> >& dfInfoTo,
                          const map<PartEdgePtr, vector<Lattice*> >& dfInfoFrom)
 {
+  // First, empty out dfInfoTo if needed
+  for(map<PartEdgePtr, vector<Lattice*> >::iterator eTo=dfInfoTo.begin(); eTo!=dfInfoTo.end(); eTo++) {  
+    for(vector<Lattice*>::iterator lTo=eTo->second.begin(); lTo!=eTo->second.end(); lTo++) {
+      delete *lTo;
+    }
+  }
+  dfInfoTo.clear();
+  
   for(map<PartEdgePtr, vector<Lattice*> >::const_iterator eFrom=dfInfoFrom.begin(); eFrom!=dfInfoFrom.end(); eFrom++) {
     for(vector<Lattice*>::const_iterator lFrom=eFrom->second.begin(); lFrom!=eFrom->second.end(); lFrom++) {
       dfInfoTo[eFrom->first].push_back((*lFrom)->copy());
@@ -656,13 +665,17 @@ void NodeState::copyLattices(map<PartEdgePtr, vector<Lattice*> >& dfInfoTo,   Pa
   }
 }
 
-// Makes dfInfoTo[toDepartEdge] a copy of dfInfoFrom[fromDepartEdge]. It is assumed that dfInfoTo is initially empty.
+// Makes dfInfoTo[toDepartEdge] a copy of dfInfoFrom[fromDepartEdge]. If dfInfoTo[toDepartEdge] is not initially empty, 
+// it is cleared and its Lattices are deallocated.
 void NodeState::copyLatticesOW(map<PartEdgePtr, vector<Lattice*> >& dfInfoTo,   PartEdgePtr toDepartEdge,
                          const map<PartEdgePtr, vector<Lattice*> >& dfInfoFrom, PartEdgePtr fromDepartEdge)
 {
-  ROSE_ASSERT(dfInfoTo[toDepartEdge].size() == 0);
-  ROSE_ASSERT(dfInfoTo.find(toDepartEdge) != dfInfoTo.end());
   ROSE_ASSERT(dfInfoFrom.find(fromDepartEdge) != dfInfoFrom.end());
+  
+  // First, empty out dfInfoTo[toDepartEdge] if needed
+  for(vector<Lattice*>::iterator lTo=dfInfoTo[toDepartEdge].begin(); lTo!=dfInfoTo[toDepartEdge].end(); lTo++)
+    delete *lTo;
+  dfInfoTo[toDepartEdge].clear();
   
   map<PartEdgePtr, vector<Lattice*> >::const_iterator eFrom = dfInfoFrom.find(fromDepartEdge);
   for(vector<Lattice*>::const_iterator lFrom=eFrom->second.begin(); lFrom!=eFrom->second.end(); lFrom++)
@@ -676,8 +689,8 @@ string NodeState::str(Analysis* analysis, string indent)
   // If the analysis has not yet been initialized, say so
   if(initializedAnalyses.find(analysis) == initializedAnalyses.end()) {
     oss << "[NodeState: NONE for Analysis"<<analysis<<"]\n";
-    for(std::map<Analysis*, bool >::iterator a=initializedAnalyses.begin(); a!=initializedAnalyses.end(); a++)
-      oss << "a="<<a->first<<endl;
+    /*for(std::map<Analysis*, bool >::iterator a=initializedAnalyses.begin(); a!=initializedAnalyses.end(); a++)
+      oss << "a="<<a->first<<endl;*/
   // If it has been initialized, stringify it
   } else {
     oss << "[NodeState: analysis ("<<analysis<<")\n";
@@ -702,11 +715,11 @@ string NodeState::str(Analysis* analysis, string indent)
 }
 
 // Returns the string representation of the Lattices stored in the given map
-string NodeState::str(map<PartEdgePtr, vector<Lattice*> >& dfInfo, string indent)
+string NodeState::str(const map<PartEdgePtr, vector<Lattice*> >& dfInfo, string indent)
 {
   ostringstream oss;
   
-  for(map<PartEdgePtr, vector<Lattice*> >::iterator e=dfInfo.begin(); e!=dfInfo.end(); e++) {
+  for(map<PartEdgePtr, vector<Lattice*> >::const_iterator e=dfInfo.begin(); e!=dfInfo.end(); e++) {
     PartEdgePtr edg = e->first;
     oss << indent << "edge "<<(edg? edg->str(): "NULL")<<endl;
 
