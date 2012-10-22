@@ -889,9 +889,11 @@ void VarsExprsProductLattice::remapVars(const map<varID, varID>& varNameMap, con
         // with these objects.
         vector<Lattice*> newLattices;
         map<varID, int> newVarLatticeIndex;
+        
         // Fill newLattices with lattices associated with variables in the new function 
         DataflowNode funcCFGStart = cfgUtils::getFuncStartCFG(newFunc.get_definition(),filter); //TODO This function is never being used somehow
-        //Akshatha(08/12): To handle cases which do not require LiveDeadVars Analysis
+
+        //Akshatha(08/12): To handle cases which do not require LiveDeadVars Analysis        
         varIDSet newRefVars;
         if(ldva)
             newRefVars = getAllLiveVarsAt(ldva, *NodeState::getNodeState(funcCFGStart, 0), "    ");
@@ -921,7 +923,7 @@ void VarsExprsProductLattice::remapVars(const map<varID, varID>& varNameMap, con
             }
         }
         //Akshatha(08/12): End of Code changes
-        
+
         // Iterate through all the variables that are live at the top of newFunc and for each one 
         int idx=0;
         for(varIDSet::iterator it = newRefVars.begin(); it!=newRefVars.end(); it++ /*, idx++*/)
@@ -944,6 +946,7 @@ void VarsExprsProductLattice::remapVars(const map<varID, varID>& varNameMap, con
                                 newLattices.push_back(l);
                                 newVarLatticeIndex[newVar] = idx;
                                 idx++;
+                                
                                 // Erase the mapping of oldVar in varLatticeIndex
                                 varLatticeIndex.erase(oldVar);
 
@@ -956,8 +959,8 @@ void VarsExprsProductLattice::remapVars(const map<varID, varID>& varNameMap, con
                 {
                         // Check if this new variable is in fact an old variable
                         Lattice* l = getVarLattice(newVar);
-                        /*Dbg::dbg << "VarsExprsProductLattice::remapVars() l = "<<l->str("") << endl;
-                        //Dbg::dbg << "      getVarIndex(newFunc, newVar)=" << getVarIndex(newFunc, newVar) << endl;*/
+                        
+                        //Dbg::dbg << "      getVarIndex(newFunc, newVar)=" << getVarIndex(newFunc, newVar) << endl;
                         // If it is, add it at its new index
                         if(l) {
                                 //Dbg::dbg << "VarsExprsProductLattice::remapVars() l = ["<<newVar<<"] "<< l->str("") << endl;
@@ -966,6 +969,7 @@ void VarsExprsProductLattice::remapVars(const map<varID, varID>& varNameMap, con
                                 // Erase the original mapping of newVar in varLatticeIndex
                                 newVarLatticeIndex[newVar] = idx;
                                 idx++;
+               
                                 varLatticeIndex.erase(newVar);
                         // If not, add a fresh lattice for this variable
                         } else
@@ -986,6 +990,7 @@ void VarsExprsProductLattice::remapVars(const map<varID, varID>& varNameMap, con
                 ROSE_ASSERT(lattices[varIdx->second]);
                 delete lattices[varIdx->second];
         }
+      
         Dbg::dbg<<"Index :"<<idx;
         ROSE_ASSERT(newLattices.size() == newVarLatticeIndex.size());
         // Replace newVPL information with the remapped information
@@ -1163,8 +1168,8 @@ bool VarsExprsProductLattice::addVar(const varID& var, Lattice* lat)
 string VarsExprsProductLattice::str(string indent) const
 {
         //printf("VarsExprsProductLattice::str() this->allVarLattice=%p\n", this->allVarLattice);
+        
         ostringstream outs;
-
         //outs << "[VarsExprsProductLattice: n="<<n.getNode()<<" = <"<<Dbg::escape(n.getNode()->unparseToString())<<" | "<<n.getNode()->class_name()<<" | "<<n.getIndex()<<"> level="<<(getLevel()==uninitialized ? "uninitialized" : "initialized")<<endl;
         //outs << "[VarsExprsProductLattice: n="<<n.getNode()<<" level="<<(getLevel()==uninitialized ? "uninitialized" : "initialized")<<endl;
         // Liao 7/1/2012, avoid print out changing memory address info. so the string output can be used to verify correctness of analysis

@@ -7,6 +7,23 @@ using namespace std;
 #include <map>
 
 namespace dataflow {
+  
+/*****************************
+ ********** Lattice **********
+ *****************************/
+  
+// Sets the PartEdge that this Lattice's information corresponds to. 
+// Returns true if this causes the edge to change and false otherwise
+bool Lattice::setPartEdge(PartEdgePtr latPEdge) { 
+  bool modified = this->latPEdge != latPEdge;
+  this->latPEdge = latPEdge;
+  return modified;
+}
+
+// Returns the PartEdge that this Lattice's information corresponds to
+PartEdgePtr Lattice::getPartEdge()
+{ return this->latPEdge; }
+  
 /********************************************
  ************** BoolAndLattice **************
  ********************************************/
@@ -14,7 +31,7 @@ namespace dataflow {
 // returns a copy of this lattice
 BoolAndLattice* BoolAndLattice::copy() const
 {
-  return new BoolAndLattice(state, part);
+  return new BoolAndLattice(state, latPEdge);
 }
 
 // overwrites the state of this Lattice with that of that Lattice
@@ -63,7 +80,7 @@ bool BoolAndLattice::operator==(const Lattice* that) const
 // returns the current state of this object
 bool BoolAndLattice::get() const
 {
-        if (!isInitialized()) return false;
+    if (!isInitialized()) return false;
     return state;
 }
 
@@ -83,8 +100,6 @@ bool BoolAndLattice::set(bool state)
                 return oldState != this->state;
         }
 }
-
-
 
 // sets the state of this lattice to the conjunction of the BoolAndLattice's current state and the given value
 // returns true if this causes the BoolAndLattice state to change, false otherwise
@@ -140,7 +155,7 @@ const int IntMaxLattice::infinity = 32768;
 // returns a copy of this lattice
 IntMaxLattice* IntMaxLattice::copy() const
 {
-  return new IntMaxLattice(state, part);
+  return new IntMaxLattice(state, latPEdge);
 }
 
 // overwrites the state of this Lattice with that of that Lattice
@@ -296,19 +311,19 @@ string IntMaxLattice::str(string indent) const
  *** ProductLattice ***
  **********************/
 
-ProductLattice::ProductLattice(const ProductLattice& that) : Lattice(that.part)
+ProductLattice::ProductLattice(const ProductLattice& that) : Lattice(that.latPEdge)
 {
   isFinite = true;
   // level = that.level;
   init(that.lattices);
 }
 
-ProductLattice::ProductLattice(PartPtr p) : Lattice(p) {
+ProductLattice::ProductLattice(PartEdgePtr pedge) : Lattice(pedge) {
   isFinite = true;
   // level = uninitialized;
 }
 
-ProductLattice::ProductLattice(const vector<Lattice*>& lattices, PartPtr p) : Lattice(p) {
+ProductLattice::ProductLattice(const vector<Lattice*>& lattices, PartEdgePtr pedge) : Lattice(pedge) {
   isFinite = true;
   // level = uninitialized;
   init(lattices);
@@ -376,9 +391,7 @@ void ProductLattice::copy(const Lattice* that_arg)
 {
         const ProductLattice* that = dynamic_cast<const ProductLattice*>(that_arg);
   ROSE_ASSERT(that);
-#if OBSOLETE_CODE
-  level = that->level;
-#endif /* OBSOLETE_CODE */
+  // level = that->level;
   // Deallocate all the Lattices
         for(vector<Lattice*>::iterator lat=lattices.begin(); lat!=lattices.end(); ++lat)
     delete *lat;
@@ -392,14 +405,13 @@ void ProductLattice::copy(const Lattice* that_arg)
 //    replaced with their corresponding values. If a given key of ml2ml does not appear in the lattice, it must
 //    be added to the lattice and assigned a default initial value. In many cases (e.g. over-approximate sets
 //    of MemLocObjects) this may not require any actual insertions.
-// The function takes newPart, the part within which the values of ml2ml should be interpreted. It corresponds
-//    to the code region(s) to which we are remapping.
-// The function takes newPart, the part within which the values of ml2ml should be interpreted. It corresponds
-//    to the code region(s) to which we are remapping.
-Lattice* ProductLattice::remapML(const std::set<pair<MemLocObjectPtr, MemLocObjectPtr> >& ml2ml, PartPtr newPart) {
-  ProductLattice* pl = new ProductLattice(part);
+// The function takes newPEdge, the edge that points to the part within which the values of ml2ml should be 
+//    interpreted. It corresponds to the code region(s) to which we are remapping.
+// remapML must return a freshly-allocated object.
+Lattice* ProductLattice::remapML(const std::set<pair<MemLocObjectPtr, MemLocObjectPtr> >& ml2ml, PartEdgePtr newPEdge) {
+  ProductLattice* pl = new ProductLattice(latPEdge);
   for(std::vector<Lattice*>::iterator l=lattices.begin(); l!=lattices.end(); l++)
-    pl->lattices.push_back((*l)->remapML(ml2ml, newPart));
+    pl->lattices.push_back((*l)->remapML(ml2ml, newPEdge));
   return pl;
 }
 

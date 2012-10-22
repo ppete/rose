@@ -11,7 +11,7 @@
 #include "latticeFull.h"
 #include "analysis.h"
 #include "dataflow.h"
-#include "VirtualCFGIterator.h"
+#include "PartitionIterator.h"
 #include "LogicalCond.h"
 #include "printAnalysisStates.h"
 

@@ -25,13 +25,14 @@ class dottable
 
 namespace dataflow {
 class Analysis;
+class ComposedAnalysis;
 };
 
 namespace Dbg {
-  //! Generate dot graphs for an analysis: it handles intra-procedural analysis for now.
-  // For each function, a dot graph file will be generated. The CFG node will contain lattices information.
-  // The dot file will have a name like: original_full_filename_managed_func_name_cfg.dot
-  void dotGraphGenerator(dataflow::Analysis *a);
+// Generate dot graphs for an analysis: it handles intra-procedural analysis for now. 
+// For each function, a dot graph file will be generated. The CFG node will contain lattices information.
+// The dot file will have a name like: original_full_filename_managed_func_name_cfg.dot
+void dotGraphGenerator(dataflow::ComposedAnalysis *a);
 
 class dbgStream;
 
@@ -93,6 +94,7 @@ private:
         void addIndent(std::string indent);
         // Remove the most recently added indent within the current div
         void remIndent();
+        
         virtual std::streamsize xsputn(const char * s, std::streamsize n);
 
         // Sync buffer.

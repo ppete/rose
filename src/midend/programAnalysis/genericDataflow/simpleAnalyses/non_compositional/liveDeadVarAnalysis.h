@@ -210,7 +210,9 @@ class VarsExprsProductLattice: public virtual ProductLattice
 
         // The analysis that identified the variables that are live at this Dataflow node
         LiveDeadVarsAnalysis* ldva;
+       
         bool (*filter) (CFGNode cfgn);
+
         // Dataflow node that this lattice is associated with and its corresponding node state.
         DataflowNode n;
         const NodeState& state;
@@ -280,8 +282,10 @@ class VarsExprsProductLattice: public virtual ProductLattice
         // varNameMap - maps all variable names that have changed, in each mapping pair, pair->first is the
         //              old variable and pair->second is the new variable
         // func - the function that the copy Lattice will now be associated with
+
         ///*Lattice**/void remapVars(const std::map<varID, varID>& varNameMap, const Function& newFunc, bool (*f)(CFGNode));
         /*Lattice**/void remapVars(const std::map<varID, varID>& varNameMap, const Function& newFunc);
+        
         // Called by analyses to copy over from the that Lattice dataflow information into this Lattice.
         // that contains data for a set of variables and incorporateVars must overwrite the state of just
         // those variables, while leaving its state for other variables alone.

@@ -48,10 +48,10 @@ INCLUDES = $(ROSE_INCLUDES) \
 bin_PROGRAMS  = constantPropagationTest #taintedFlowAnalysisTest liveDeadVarAnalysisTest pointerAliasAnalysisTest
 # bin_PROGRAMS  = constantPropagationTest 
 
-liveDeadVarAnalysisTest_SOURCES = liveDeadVarAnalysisTest.C
+#liveDeadVarAnalysisTest_SOURCES = liveDeadVarAnalysisTest.C
 constantPropagationTest_SOURCES = constantPropagationTest.C #constantPropagation.C 
-taintedFlowAnalysisTest_SOURCES = taintedFlowAnalysis.C taintedFlowAnalysisTest.C
-pointerAliasAnalysisTest_SOURCES = pointerAliasAnalysis.C pointerAliasAnalysisTest.C
+#taintedFlowAnalysisTest_SOURCES = taintedFlowAnalysis.C taintedFlowAnalysisTest.C
+#pointerAliasAnalysisTest_SOURCES = pointerAliasAnalysis.C pointerAliasAnalysisTest.C
 
 # testCallGraph_LDADD = $(LIBS_WITH_RPATH) $(ROSE_LIBS)
 # LDADD = $(LIBS_WITH_RPATH) $(ROSE_SEPARATE_LIBS)

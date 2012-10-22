@@ -59,11 +59,11 @@ class AbstractObject : public printable
 {
   public:
   // Returns whether this object may/must be equal to o within the given Part p
-  virtual bool mayEqual(AbstractObjectPtr o, PartPtr p)=0;
-  virtual bool mustEqual(AbstractObjectPtr o, PartPtr p)=0;
+  virtual bool mayEqual(AbstractObjectPtr o, PartEdgePtr pedge)=0;
+  virtual bool mustEqual(AbstractObjectPtr o, PartEdgePtr pedge)=0;
   
   // Returns true if this object is live at the given part and false otherwise
-  virtual bool isLive(PartPtr p) const=0;
+  virtual bool isLive(PartEdgePtr pedge) const=0;
   
   // Allocates a copy of this object and returns a pointer to it
   virtual AbstractObjectPtr copyAO() const=0;
@@ -76,14 +76,19 @@ class AbstractObject : public printable
   
   // Variant of the str method that can produce information specific to the current Part.
   // Useful since AbstractObjects can change from one Part to another.
-  virtual std::string strp(PartPtr part, std::string indent="")
+  virtual std::string strp(PartEdgePtr pedge, std::string indent="")
   { return str(indent); }
 };
 
 
+/* ########################
+   ##### MemLocObject ##### 
+   ######################## */
+
 // Major types of abstract objects
 class MemLocObject;
 typedef boost::shared_ptr<MemLocObject> MemLocObjectPtr;
+extern MemLocObjectPtr NULLMemLocObject;
 
 class Scalar;
 typedef boost::shared_ptr<Scalar> ScalarPtr;
@@ -101,17 +106,17 @@ class MemLocObject : public AbstractObject
 private:
   // Returns whether this object may/must be equal to o within the given Part p
   // These methods are private to prevent analyses from calling them directly.
-  virtual bool mayEqualML(MemLocObjectPtr o, PartPtr p)=0;
-  virtual bool mustEqualML(MemLocObjectPtr o, PartPtr p)=0;
+  virtual bool mayEqualML(MemLocObjectPtr o, PartEdgePtr pedge)=0;
+  virtual bool mustEqualML(MemLocObjectPtr o, PartEdgePtr pedge)=0;
   
 public:
   // General version of mayEqual and mustEqual that implements may/must equality with respect to ExprObj
   // and uses the derived class' may/mustEqual check for all the other cases
-  bool mayEqual(MemLocObjectPtr o, PartPtr p);
-  bool mustEqual(MemLocObjectPtr o, PartPtr p);
+  bool mayEqual(MemLocObjectPtr o, PartEdgePtr pedge);
+  bool mustEqual(MemLocObjectPtr o, PartEdgePtr pedge);
   
-  bool mayEqual(AbstractObjectPtr o, PartPtr p);
-  bool mustEqual(AbstractObjectPtr o, PartPtr p);
+  bool mayEqual(AbstractObjectPtr o, PartEdgePtr pedge);
+  bool mustEqual(AbstractObjectPtr o, PartEdgePtr pedge);
   
   // Allocates a copy of this object and returns a pointer to it
   virtual MemLocObjectPtr copyML() const=0;
@@ -149,8 +154,8 @@ public:
   {}
   
   // Returns whether this object may/must be equal to o within the given Part p
-  bool mayEqual(MemLocObjectPtrPair that, PartPtr p);
-  bool mustEqual(MemLocObjectPtrPair that, PartPtr p);
+  bool mayEqual(MemLocObjectPtrPair that, PartEdgePtr pedge);
+  bool mustEqual(MemLocObjectPtrPair that, PartEdgePtr pedge);
   
   // Returns a copy of this object
   MemLocObjectPtrPair copyML() const;
@@ -166,75 +171,82 @@ public:
   
   // Variant of the str method that can produce information specific to the current Part.
   // Useful since AbstractObjects can change from one Part to another.
-  std::string strp(PartPtr part, std::string indent="");
+  std::string strp(PartEdgePtr pedge, std::string indent="");
 };
 
-class ValueObject;
-typedef boost::shared_ptr<ValueObject> ValueObjectPtr;
-class ValueObject : public AbstractObject
-{ 
+// The combination of multiple MemLocObjects. Maintains multiple MemLocObjects and responds to
+//   API calls with the most or least accurate response that its constituent objects return, depending
+//   on the value of the template parameter defaultMayEq (the default value that mayEqual would return
+//   if any constituent MemLocObject returns this value).
+// For practical purposes analyses should ensure that different instances of IntersectMemLocObject 
+//   are only compared if they include the same types of MemLocObjects in the same order. Otherwise, 
+//   the comparisons will be uselessly inaccurate.
+template <bool defaultMayEq>
+class CombinedMemLocObject : public MemLocObject
+{
   public:
+  std::list<MemLocObjectPtr> memLocs;
+  
+  CombinedMemLocObject(MemLocObjectPtr memLoc);
+  CombinedMemLocObject(const std::list<MemLocObjectPtr>& memLocs);
+  
+  void add(MemLocObjectPtr memLoc);
+  
   // Returns whether this object may/must be equal to o within the given Part p
-  virtual bool mayEqual(ValueObjectPtr o, PartPtr p)=0;
-  virtual bool mustEqual(ValueObjectPtr o, PartPtr p)=0;
-  
-  bool mayEqual(AbstractObjectPtr o, PartPtr p)
-  {
-    ValueObjectPtr vo = boost::dynamic_pointer_cast<ValueObject>(o);
-    if(vo) return mayEqual(vo, p);
-    else   return false;
-  }
-  
-  bool mustEqual(AbstractObjectPtr o, PartPtr p)
-  {
-    ValueObjectPtr vo = boost::dynamic_pointer_cast<ValueObject>(o);
-    if(vo) return mustEqual(vo, p);
-    else   return false;
-  }
-  
-  // Returns true if this object is live at the given part and false otherwise.
-  // Values are always live.
-  bool isLive(PartPtr p) const
-  { return true; }
+  bool mayEqualML(MemLocObjectPtr o, PartEdgePtr pedge);
+  bool mustEqualML(MemLocObjectPtr o, PartEdgePtr pedge);
   
   // Allocates a copy of this object and returns a pointer to it
-  virtual ValueObjectPtr copyV() const=0;
-  AbstractObjectPtr copyAO() const
-  { return copyV(); }
+  MemLocObjectPtr copyML() const;
+  
+  // Returns true if this object is live at the given part and false otherwise
+  bool isLive(PartEdgePtr pedge) const;
+  
+  std::string str(std::string indent="");
 };
+typedef CombinedMemLocObject<false> IntersectMemLocObject;
+typedef boost::shared_ptr<IntersectMemLocObject> IntersectMemLocObjectPtr;
+typedef CombinedMemLocObject<true> UnionMemLocObject;
+typedef boost::shared_ptr<UnionMemLocObject> UnionMemLocObjectPtr;
+
+/* #########################
+   ##### CodeLocObject ##### 
+   ######################### */
 
 class CodeLocObject;
 typedef boost::shared_ptr<CodeLocObject> CodeLocObjectPtr;
+extern CodeLocObjectPtr NULLCodeLocObject;
+
 class CodeLocObject : public AbstractObject
 { 
   public:
   // Returns whether this object may/must be equal to o within the given Part p
-  virtual bool mayEqualCL(CodeLocObjectPtr o, PartPtr p)=0;
-  virtual bool mustEqualCL(CodeLocObjectPtr o, PartPtr p)=0;
+  virtual bool mayEqualCL(CodeLocObjectPtr o, PartEdgePtr pedge)=0;
+  virtual bool mustEqualCL(CodeLocObjectPtr o, PartEdgePtr pedge)=0;
   
   // General version of mayEqual and mustEqual that implements may/must equality with respect to ExprObj
   // and uses the derived class' may/mustEqual check for all the other cases
   // GREG: Currently nothing interesting here since we don't support ExprObjs for CodeLocObjects
-  bool mayEqual(CodeLocObjectPtr o, PartPtr p)
+  bool mayEqual(CodeLocObjectPtr o, PartEdgePtr pedge)
   {
-    return mayEqualCL(o, p);
+    return mayEqualCL(o, pedge);
   }
-  bool mustEqual(CodeLocObjectPtr o, PartPtr p)
+  bool mustEqual(CodeLocObjectPtr o, PartEdgePtr pedge)
   {
-    return mustEqualCL(o, p);
+    return mustEqualCL(o, pedge);
   }
   
-  bool mayEqual(AbstractObjectPtr o, PartPtr p)
+  bool mayEqual(AbstractObjectPtr o, PartEdgePtr pedge)
   {
     CodeLocObjectPtr co = boost::dynamic_pointer_cast<CodeLocObject>(o);
-    if(co) return mayEqual(co, p);
+    if(co) return mayEqual(co, pedge);
     else   return false;
   }
   
-  bool mustEqual(AbstractObjectPtr o, PartPtr p)
+  bool mustEqual(AbstractObjectPtr o, PartEdgePtr pedge)
   {
     CodeLocObjectPtr co = boost::dynamic_pointer_cast<CodeLocObject>(o);
-    if(co) return mustEqual(co, p);
+    if(co) return mustEqual(co, pedge);
     else   return false;
   }
   
@@ -244,7 +256,7 @@ class CodeLocObject : public AbstractObject
   { return copyCL(); }
 };
 
-// Holds a pair of MemLocObjectPtr (one for the expression object and another for the object in memory) and provides 
+// Holds a pair of CodeLocObjectPtr (one for the expression object and another for the object in memory) and provides 
 // basic functionality to accessing them easily
 class CodeLocObjectPtrPair : public printable
 {
@@ -258,8 +270,8 @@ public:
   {}
   
   // Returns whether this object may/must be equal to o within the given Part p
-  bool mayEqual(CodeLocObjectPtrPair that, PartPtr p);
-  bool mustEqual(CodeLocObjectPtrPair that, PartPtr p);
+  bool mayEqual(CodeLocObjectPtrPair that, PartEdgePtr pedge);
+  bool mustEqual(CodeLocObjectPtrPair that, PartEdgePtr pedge);
   
   // Returns a copy of this object
   CodeLocObjectPtrPair copyCL() const;
@@ -269,8 +281,132 @@ public:
   
   // Variant of the str method that can produce information specific to the current Part.
   // Useful since AbstractObjects can change from one Part to another.
-  std::string strp(PartPtr part, std::string indent="");
+  std::string strp(PartEdgePtr pedge, std::string indent="");
 };
+
+// The combination of multiple CodeLocObjects. Maintains multiple CodeLocObjects and responds to
+//   API calls with the most or least accurate response that its constituent objects return, depending
+//   on the value of the template parameter defaultMayEq (the default value that mayEqual would return
+//   if any constituent MemLocObject returns this value).
+// For practical purposes analyses should ensure that different instances of IntersectCodeLocObject 
+//   are only compared if they include the same types of CodeLocObjects in the same order. Otherwise, 
+//   the comparisons will be uselessly inaccurate.
+template <bool defaultMayEq>
+class CombinedCodeLocObject: public CodeLocObject
+{
+  public:
+  std::list<CodeLocObjectPtr> codeLocs;
+  
+  CombinedCodeLocObject(CodeLocObjectPtr codeLoc);
+  CombinedCodeLocObject(const std::list<CodeLocObjectPtr>& codeLocs);
+  
+  void add(CodeLocObjectPtr codeLoc);
+  
+  // Returns whether this object may/must be equal to o within the given Part p
+  // These methods are private to prevent analyses from calling them directly.
+  bool mayEqualCL(CodeLocObjectPtr o, PartEdgePtr pedge);
+  bool mustEqualCL(CodeLocObjectPtr o, PartEdgePtr pedge);
+  
+  // Returns true if this object is live at the given part and false otherwise
+  bool isLive(PartEdgePtr pedge) const;
+  
+  // Allocates a copy of this object and returns a pointer to it
+  CodeLocObjectPtr copyCL() const;
+  
+  std::string str(std::string indent="");
+};
+typedef CombinedCodeLocObject<false> IntersectCodeLocObject;
+typedef boost::shared_ptr<IntersectCodeLocObject> IntersectCodeLocObjectPtr;
+typedef CombinedCodeLocObject<true> UnionCodeLocObject;
+typedef boost::shared_ptr<UnionCodeLocObject> UnionCodeLocObjectPtr;
+
+/* #######################
+   ##### ValueObject ##### 
+   ####################### */
+
+class ValueObject;
+typedef boost::shared_ptr<ValueObject> ValueObjectPtr;
+extern ValueObjectPtr NULLValueObject;
+
+class ValueObject : public AbstractObject
+{ 
+  public:
+  // Returns whether this object may/must be equal to o within the given Part p
+  virtual bool mayEqual(ValueObjectPtr o, PartEdgePtr pedge)=0;
+  virtual bool mustEqual(ValueObjectPtr o, PartEdgePtr pedge)=0;
+  
+  // Returns true if this ValueObject corresponds to a concrete value that is statically-known
+  virtual bool isConcrete()=0;
+  // Returns the type of the concrete value (if there is one)
+  virtual SgType* getConcreteType()=0;
+  // Returns the concrete value (if there is one) as an SgValueExp, which allows callers to use
+  // the normal ROSE mechanisms to decode it
+  virtual boost::shared_ptr<SgValueExp> getConcreteValue()=0;
+  
+  // Returns true if this SgValueExp is convertible into a boolean
+  static bool isValueBoolCompatible(boost::shared_ptr<SgValueExp> val);
+  
+  // Convert the value of the given SgValueExp, cast to a boolean
+  static bool SgValue2Bool(boost::shared_ptr<SgValueExp> val);
+  
+  // Returns true if the two SgValueExps correspond to the same value when cast to the given type (if t!=NULL)
+  static bool equalValueExp(SgValueExp* e1, SgValueExp* e2, SgType* t=NULL);
+  
+  // GB 2012-09-26 : Do we need to have AbstractTypeObjects to represent uncertainty about the type?
+  //                 How can we support type uncertainly for MemLocObjects?
+  
+  bool mayEqual(AbstractObjectPtr o, PartEdgePtr pedge);
+  bool mustEqual(AbstractObjectPtr o, PartEdgePtr pedge);
+  
+  // Returns true if this object is live at the given part and false otherwise.
+  // Values are always live.
+  bool isLive(PartEdgePtr pedge) const;
+  
+  // Allocates a copy of this object and returns a pointer to it
+  virtual ValueObjectPtr copyV() const=0;
+  AbstractObjectPtr copyAO() const;
+};
+
+// The combination of multiple ValueObjects. Maintains multiple ValueObjects and responds to
+//   API calls with the most or least accurate response that its constituent objects return, depending
+//   on the value of the template parameter defaultMayEq (the default value that mayEqual would return
+//   if any constituent ValueObject returns this value).
+// For practical purposes analyses should ensure that different instances of IntersectValueObject 
+//   are only compared if they include the same types of ValueObjects in the same order. Otherwise, 
+//   the comparisons will be uselessly inaccurate.
+template <bool defaultMayEq>
+class CombinedValueObject : public ValueObject
+{
+  public:
+  std::list<ValueObjectPtr> vals;
+  
+  CombinedValueObject(ValueObjectPtr val);
+  CombinedValueObject(const std::list<ValueObjectPtr>& vals);
+  
+  void add(ValueObjectPtr val);
+  
+  // Returns whether this object may/must be equal to o within the given Part p
+  // These methods are private to prevent analyses from calling them directly.
+  bool mayEqual(ValueObjectPtr o, PartEdgePtr pedge);
+  bool mustEqual(ValueObjectPtr o, PartEdgePtr pedge);
+  
+  // Returns true if this ValueObject corresponds to a concrete value that is statically-known
+  bool isConcrete();
+  // Returns the type of the concrete value (if there is one)
+  SgType* getConcreteType();
+  // Returns the concrete value (if there is one) as an SgValueExp, which allows callers to use
+  // the normal ROSE mechanisms to decode it
+  boost::shared_ptr<SgValueExp> getConcreteValue();
+  
+  // Allocates a copy of this object and returns a pointer to it
+  ValueObjectPtr copyV() const;
+  
+  std::string str(std::string indent="");
+};
+typedef CombinedValueObject<false> IntersectValueObject;
+typedef boost::shared_ptr<IntersectValueObject> IntersectValueObjectPtr;
+typedef CombinedValueObject<true> UnionValueObject;
+typedef boost::shared_ptr<UnionValueObject> UnionValueObjectPtr;
 
 //memory object that has no internal structure
 class Scalar : public virtual MemLocObject
@@ -319,10 +455,10 @@ class LabeledAggregate: public virtual MemLocObject
 {
  public:
    // number of fields
-   virtual size_t fieldCount(PartPtr part);
+   virtual size_t fieldCount(PartEdgePtr pedge);
 
    // Returns a list of field
-   virtual std::vector<boost::shared_ptr<LabeledAggregateField> > getElements(PartPtr part) const; 
+   virtual std::vector<boost::shared_ptr<LabeledAggregateField> > getElements(PartEdgePtr pedge) const; 
    // Returns true if this object and that object may/must refer to the same labeledAggregate memory object.
    //virtual bool operator == (const LabeledAggregate& that) const;
    //Total order relations (implemented by interface)
@@ -373,8 +509,8 @@ class IndexVector
    //virtual std::string str(const std::string& indent);
    virtual std::string str(std::string indent); // pretty print for the object
    // equal operator
-   virtual bool mayEqual (IndexVectorPtr other, const Part& p);
-   virtual bool mustEqual (IndexVectorPtr other, const Part& p);
+   virtual bool mayEqual (IndexVectorPtr other, PartEdgePtr pedge);
+   virtual bool mustEqual (IndexVectorPtr other, PartEdgePtr pedge);
 };
 
 #if 0 // Still not clear if users will get confused by this class
@@ -408,18 +544,18 @@ class Array: public virtual MemLocObject
 {
  public:
    // Returns a memory object that corresponds to all the elements in the given array
-   virtual MemLocObjectPtr getElements(PartPtr part);
+   virtual MemLocObjectPtr getElements(PartEdgePtr pedge);
    // Returns the memory object that corresponds to the elements described by the given abstract index, 
    // which represents one or more indexes within the array
-   virtual MemLocObjectPtr getElements(IndexVectorPtr ai, PartPtr part) ;
+   virtual MemLocObjectPtr getElements(IndexVectorPtr ai, PartEdgePtr pedge) ;
 
    // number of dimensions of the array
-   virtual size_t getNumDims(PartPtr part);
+   virtual size_t getNumDims(PartEdgePtr pedge);
 
    //--- pointer like semantics
    // support dereference of array object, similar to the dereference of pointer
    // Return the element object: array[0]
-   virtual MemLocObjectPtr getDereference(PartPtr part);
+   virtual MemLocObjectPtr getDereference(PartEdgePtr pedge);
    //virtual bool operator == (const ObjSet & that) const;
    //virtual bool operator < (const ObjSet & that) const;
 };
@@ -427,7 +563,7 @@ class Array: public virtual MemLocObject
 class Pointer: public virtual MemLocObject
 {
  public:
-   virtual MemLocObjectPtr getDereference(PartPtr part) ;
+   virtual MemLocObjectPtr getDereference(PartEdgePtr pedge) ;
    // Returns true if this pointer refers to the same abstract object as that pointer.
    virtual bool equalPoints(const Pointer & that);
    // Returns true if this object and that object may/must refer to the same pointer memory object.

@@ -30,7 +30,7 @@ class funcSideEffectUses
 public:
     // Returns the set of variables that are used in a call to the given function for which a body has not been provided.
     // The function is also provided with the Part where the function was called, as well as its state.
-    virtual std::set<MemLocObjectPtr> usedVarsInFunc(const Function& func, PartPtr p, NodeState& state)=0;
+    virtual std::set<MemLocObjectPtr> usedVarsInFunc(const Function& func, PartPtr part, NodeState& state)=0;
 };
 
 class LiveDeadMemAnalysis;
@@ -73,25 +73,29 @@ class LiveDeadMemTransfer : public IntraDFTransferVisitor
     bool isMemLocLive(SgExpression* expr);
 
 public:
-  LiveDeadMemTransfer( const Function &f,
-                       PartPtr p,
-                       NodeState& s,
-                       AbstractObjectSet& d,
-                       LiveDeadMemAnalysis* _ldma,
-                       ComposerExpr2MemLocPtr _ceml,
-                       funcSideEffectUses* fseu)
-    : IntraDFTransferVisitor(f, p, s, d),
-      liveLat(&d), ldma(_ldma), ceml(_ceml), modified(false),
-      assigned(p, AbstractObjectSet::may), used(p, AbstractObjectSet::may),
-      part(p), fseu(fseu)
+LiveDeadMemTransfer(const Function &f, PartPtr part, CFGNode cn, NodeState &s, 
+                    std::map<PartEdgePtr, LatticePtr > &dfInfo, 
+                    LiveDeadMemAnalysis* ldma,
+                    ComposerExpr2MemLocPtr ceml, funcSideEffectUses *fseu)
+    : IntraDFTransferVisitor(f, part, cn, s, dfInfo),
+    ldma(ldma), 
+    ceml(ceml), 
+    modified(false), 
+    assigned(part->inEdgeFromAny(), AbstractObjectSet::may), 
+    used(part->inEdgeFromAny(), AbstractObjectSet::may), 
+    part(part), 
+    fseu(fseu)
     {
-        if(liveDeadAnalysisDebugLevel>=1) {
-          Dbg::dbg << "LiveDeadMemTransfer: liveLat=";
-          Dbg::indent ind(liveDeadAnalysisDebugLevel, 1);
-          Dbg::dbg << liveLat->str("")<<endl;
-        }
-        // Make sure that all the lattice is initialized
-        liveLat->initialize();
+      ROSE_ASSERT(dfInfo.find(PartEdgePtr()) != dfInfo.end());
+      liveLat = dynamic_cast<AbstractObjectSet*>(*(dfInfo[PartEdgePtr()].begin()));
+      
+      if(liveDeadAnalysisDebugLevel>=1) {
+        Dbg::dbg << "LiveDeadMemTransfer: liveLat=";
+        Dbg::indent ind(liveDeadAnalysisDebugLevel, 1);
+        Dbg::dbg << liveLat->str("")<<endl;
+      }
+      // Make sure that all the lattice is initialized
+      liveLat->initialize();
     }
 
     bool finish();
@@ -101,6 +105,7 @@ public:
     void visit(SgReturnStmt *);
     void visit(SgExprStatement *);
     void visit(SgCaseOptionStmt *);
+    void visit(SgSwitchStatement *);
     void visit(SgIfStmt *);
     void visit(SgForStatement *);
     void visit(SgWhileStmt *);
@@ -117,25 +122,29 @@ protected:
 
 public:
     LiveDeadMemAnalysis(funcSideEffectUses* fseu=NULL);
+    
+    // Initializes the state of analysis lattices at the given function, part and edge into our out of the part
+    // by setting initLattices to refer to freshly-allocated Lattice objects.
+    void genInitLattice(const Function& func, PartPtr part, PartEdgePtr pedge, 
+                        std::vector<Lattice*>& initLattices);
 
-    // Generates the initial lattice state for the given dataflow node, in the given function, with the given NodeState
-    void genInitState(const Function& func, PartPtr p, const NodeState& state,
-                      std::vector<Lattice*>& initLattices, std::vector<NodeFact*>& initFacts);
-
-#if OBSOLETE_CODE
-    boost::shared_ptr<IntraDFTransferVisitor> getTransferVisitor(const Function& func, PartPtr p,
-                                                                 NodeState& state, const std::vector<Lattice*>& dfInfo)
+#if OBSOLETE_CODE        
+    boost::shared_ptr<IntraDFTransferVisitor> getTransferVisitor(
+                                                      const Function& func, PartPtr part, CFGNode cn,
+                                                      NodeState& state, 
+                                                      std::map<PartEdgePtr, std::vector<Lattice*> >& dfInfo)
     { return boost::shared_ptr<IntraDFTransferVisitor>(
-    		new LiveDeadMemTransfer(func, p, state, dfInfo,
-    		                        this, ComposerExpr2MemLocPtr(new ComposerExpr2MemLoc(*getComposer(), p, *((ComposedAnalysis*)this))),
+    		new LiveDeadMemTransfer(func, part, cn, state, dfInfo, 
+    		                        this, ComposerExpr2MemLocPtr(new ComposerExpr2MemLoc(*getComposer(), part->inEdgeFromAny(), *((ComposedAnalysis*)this))),
     		                        fseu)); }
 #endif /* OBSOLETE_CODE */
 
-    bool transfer(const Function& func, PartPtr p, NodeState& state, const std::vector<Lattice*>& dfInfo) { assert(0); return false; }
-
+    bool transfer(const Function& func, PartPtr part, CFGNode cn, NodeState& state, 
+                  std::map<PartEdgePtr, LatticePtr >& dfInfo) { assert(0); return false; }
+    
     // Maps the given SgNode to an implementation of the MemLocObject abstraction.
-    MemLocObjectPtr Expr2MemLoc(SgNode* n, PartPtr p);
-
+    MemLocObjectPtr Expr2MemLoc(SgNode* n, PartEdgePtr pedge);
+    
     // pretty print for the object
     std::string str(std::string indent="")
     { return "LiveDeadMemAnalysis"; }
@@ -151,17 +160,17 @@ class LDMemLocObject : public virtual MemLocObject
   LDMemLocObject(MemLocObjectPtr parent_, LiveDeadMemAnalysis* ldma);
   LDMemLocObject(const LDMemLocObject& that);
 
-  bool mayEqualML(MemLocObjectPtr o, PartPtr p);
-  bool mustEqualML(MemLocObjectPtr o, PartPtr p);
+  bool mayEqualML(MemLocObjectPtr o, PartEdgePtr pedge);
+  bool mustEqualML(MemLocObjectPtr o, PartEdgePtr pedge);
 
   // Returns true if this object is live at the given part and false otherwise
-  bool isLive(PartPtr p) const;
-
+  bool isLive(PartEdgePtr pedge) const;
+  
   // pretty print for the object
   std::string str(std::string indent="") const;
   std::string str(std::string indent="") { return ((const LDMemLocObject*)this)->str(indent); }
-  std::string strp(PartPtr part, std::string indent="");
-
+  std::string strp(PartEdgePtr pedge, std::string indent="");
+  
   // Allocates a copy of this object and returns a pointer to it
   MemLocObjectPtr copyML() const;
 
@@ -182,11 +191,11 @@ class LDScalar : virtual public LDMemLocObject, virtual public Scalar
    LDScalar(MemLocObjectPtr parent, LiveDeadMemAnalysis* ldma);
 
   // Implement the required functions by calling the real copies in LDMemLocObject
-  bool mayEqual(MemLocObjectPtr o, PartPtr p)  { return LDMemLocObject::mayEqual(o, p); }
-  bool mustEqual(MemLocObjectPtr o, PartPtr p) { return LDMemLocObject::mayEqual(o, p); }
+  bool mayEqual(MemLocObjectPtr o, PartEdgePtr pedge)  { return LDMemLocObject::mayEqual(o, pedge); }
+  bool mustEqual(MemLocObjectPtr o, PartEdgePtr pedge) { return LDMemLocObject::mayEqual(o, pedge); }
   std::string str(std::string indent="") const { return LDMemLocObject::str(indent); }
   std::string str(std::string indent="") { return LDMemLocObject::str(indent); }
-  std::string strp(PartPtr part, std::string indent="") { return LDMemLocObject::strp(part, indent); }
+  std::string strp(PartEdgePtr pedge, std::string indent="") { return LDMemLocObject::strp(pedge, indent); }
   MemLocObjectPtr copyML() const { return LDMemLocObject::copyML(); }
 };
 typedef boost::shared_ptr<LDScalar> LDScalarPtr;
@@ -198,11 +207,11 @@ public:
   LDFunctionMemLoc(MemLocObjectPtr parent, LiveDeadMemAnalysis* ldma);
 
   // Implement the required functions by calling the real copies in LDMemLocObject
-  bool mayEqual(MemLocObjectPtr o, PartPtr p)  { return LDMemLocObject::mayEqual(o, p); }
-  bool mustEqual(MemLocObjectPtr o, PartPtr p) { return LDMemLocObject::mayEqual(o, p); }
+  bool mayEqual(MemLocObjectPtr o, PartEdgePtr pedge)  { return LDMemLocObject::mayEqual(o, pedge); }
+  bool mustEqual(MemLocObjectPtr o, PartEdgePtr pedge) { return LDMemLocObject::mayEqual(o, pedge); }
   std::string str(std::string indent="") const { return LDMemLocObject::str(indent); }
   std::string str(std::string indent="") { return LDMemLocObject::str(indent); }
-  std::string strp(PartPtr part, std::string indent="") { return LDMemLocObject::strp(part, indent); }
+  std::string strp(PartEdgePtr pedge, std::string indent="") { return LDMemLocObject::strp(pedge, indent); }
   MemLocObjectPtr copyML() const { return LDMemLocObject::copyML(); }
 };
 typedef boost::shared_ptr<LDFunctionMemLoc> LDFunctionMemLocPtr;
@@ -214,17 +223,17 @@ class LDLabeledAggregate: virtual public LDMemLocObject, virtual public LabeledA
    LDLabeledAggregate(MemLocObjectPtr parent, LiveDeadMemAnalysis* ldma);
 
    // number of fields
-   size_t fieldCount(PartPtr part);
+   size_t fieldCount(PartEdgePtr pedge);
 
    // Returns a list of field
-   std::vector<boost::shared_ptr<LabeledAggregateField> > getElements(PartPtr part) const;
-
+   std::vector<boost::shared_ptr<LabeledAggregateField> > getElements(PartEdgePtr pedge) const; 
+   
   // Implement the required functions by calling the real copies in LDMemLocObject
-  bool mayEqual(MemLocObjectPtr o, PartPtr p)  { return LDMemLocObject::mayEqual(o, p); }
-  bool mustEqual(MemLocObjectPtr o, PartPtr p) { return LDMemLocObject::mayEqual(o, p); }
+  bool mayEqual(MemLocObjectPtr o, PartEdgePtr pedge)  { return LDMemLocObject::mayEqual(o, pedge); }
+  bool mustEqual(MemLocObjectPtr o, PartEdgePtr pedge) { return LDMemLocObject::mayEqual(o, pedge); }
   std::string str(std::string indent="") const { return LDMemLocObject::str(indent); }
   std::string str(std::string indent="") { return LDMemLocObject::str(indent); }
-  std::string strp(PartPtr part, std::string indent="") { return LDMemLocObject::strp(part, indent); }
+  std::string strp(PartEdgePtr pedge, std::string indent="") { return LDMemLocObject::strp(pedge, indent); }
   MemLocObjectPtr copyML() const { return LDMemLocObject::copyML(); }
 };
 typedef boost::shared_ptr<LDLabeledAggregate> LDLabeledAggregatePtr;
@@ -236,25 +245,25 @@ class LDArray: virtual public LDMemLocObject, virtual public Array
    LDArray(MemLocObjectPtr parent, LiveDeadMemAnalysis* ldma);
 
    // Returns a memory object that corresponds to all the elements in the given array
-   MemLocObjectPtr getElements(PartPtr part);
-   // Returns the memory object that corresponds to the elements described by the given abstract index,
+   MemLocObjectPtr getElements(PartEdgePtr pedge);
+   // Returns the memory object that corresponds to the elements described by the given abstract index, 
    // which represents one or more indexes within the array
-   MemLocObjectPtr getElements(IndexVectorPtr ai, PartPtr part);
+   MemLocObjectPtr getElements(IndexVectorPtr ai, PartEdgePtr pedge);
 
    // number of dimensions of the array
-   size_t getNumDims(PartPtr part);
+   size_t getNumDims(PartEdgePtr pedge);
 
    //--- pointer like semantics
    // support dereference of array object, similar to the dereference of pointer
    // Return the element object: array[0]
-   MemLocObjectPtr getDereference(PartPtr part);
-
+   MemLocObjectPtr getDereference(PartEdgePtr pedge);
+   
   // Implement the required functions by calling the real copies in LDMemLocObject
-  bool mayEqual(MemLocObjectPtr o, PartPtr p)  { return LDMemLocObject::mayEqual(o, p); }
-  bool mustEqual(MemLocObjectPtr o, PartPtr p) { return LDMemLocObject::mayEqual(o, p); }
+  bool mayEqual(MemLocObjectPtr o, PartEdgePtr pedge)  { return LDMemLocObject::mayEqual(o, pedge); }
+  bool mustEqual(MemLocObjectPtr o, PartEdgePtr pedge) { return LDMemLocObject::mayEqual(o, pedge); }
   std::string str(std::string indent="") const { return LDMemLocObject::str(indent); }
   std::string str(std::string indent="") { return LDMemLocObject::str(indent); }
-  std::string strp(PartPtr part, std::string indent="") { return LDMemLocObject::strp(part, indent); }
+  std::string strp(PartEdgePtr pedge, std::string indent="") { return LDMemLocObject::strp(pedge, indent); }
   MemLocObjectPtr copyML() const { return LDMemLocObject::copyML(); }
 };
 typedef boost::shared_ptr<LDArray> LDArrayPtr;
@@ -263,32 +272,32 @@ class LDPointer: virtual public LDMemLocObject, virtual public Pointer
 {
  public:
    LDPointer(MemLocObjectPtr parent, LiveDeadMemAnalysis* ldma);
-
-   MemLocObjectPtr getDereference(PartPtr part);
+   
+   MemLocObjectPtr getDereference(PartEdgePtr pedge);
    // Returns true if this pointer refers to the same abstract object as that pointer.
    bool equalPoints(const Pointer & that);
 
   // Implement the required functions by calling the real copies in LDMemLocObject
-  bool mayEqual(MemLocObjectPtr o, PartPtr p)  { return LDMemLocObject::mayEqual(o, p); }
-  bool mustEqual(MemLocObjectPtr o, PartPtr p) { return LDMemLocObject::mayEqual(o, p); }
+  bool mayEqual(MemLocObjectPtr o, PartEdgePtr pedge)  { return LDMemLocObject::mayEqual(o, pedge); }
+  bool mustEqual(MemLocObjectPtr o, PartEdgePtr pedge) { return LDMemLocObject::mayEqual(o, pedge); }
   std::string str(std::string indent="") const { return LDMemLocObject::str(indent); }
   std::string str(std::string indent="") { return LDMemLocObject::str(indent); }
-  std::string strp(PartPtr part, std::string indent="") { return LDMemLocObject::strp(part, indent); }
+  std::string strp(PartEdgePtr pedge, std::string indent="") { return LDMemLocObject::strp(pedge, indent); }
   MemLocObjectPtr copyML() const { return LDMemLocObject::copyML(); }
 };
 typedef boost::shared_ptr<LDPointer> LDPointerPtr;
 
-// Initialize vars to hold all the variables and expressions that are live at PartPtr p
-void getAllLiveMemAt(LiveDeadMemAnalysis* ldma, PartPtr p, const NodeState& state, std::set<AbstractObjectPtr>& vars, std::string indent="");
+// Initialize vars to hold all the variables and expressions that are live at PartEdgePtr pedge
+void getAllLiveMemAt(LiveDeadMemAnalysis* ldma, PartEdgePtr pedge, const NodeState& state, std::set<AbstractObjectPtr>& vars, std::string indent="");
 
-// Returns the set of variables and expressions that are live at PartPtr p
-std::set<AbstractObjectPtr> getAllLiveMemAt(LiveDeadMemAnalysis* ldma, PartPtr p, const NodeState& state, std::string indent="");
+// Returns the set of variables and expressions that are live at PartEdgePtr pedge
+std::set<AbstractObjectPtr> getAllLiveMemAt(LiveDeadMemAnalysis* ldma, PartEdgePtr pedge, const NodeState& state, std::string indent="");
 
 // Returns true if the given MemLocObject must be live at the given Part
-bool isLiveMust(MemLocObjectPtr mem, LiveDeadMemAnalysis* ldma, PartPtr p, const NodeState& state, string indent);
+bool isLiveMust(MemLocObjectPtr mem, LiveDeadMemAnalysis* ldma, PartEdgePtr pedge, const NodeState& state, string indent);
 
 // Returns true if the given MemLocObject may be live at the given Part
-bool isLiveMay(MemLocObjectPtr mem, LiveDeadMemAnalysis* ldma, PartPtr p, const NodeState& state, string indent);
+bool isLiveMay(MemLocObjectPtr mem, LiveDeadMemAnalysis* ldma, PartEdgePtr pedge, const NodeState& state, string indent);
 
 }; // namespace dataflow
 

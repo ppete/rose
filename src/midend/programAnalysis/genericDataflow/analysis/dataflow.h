@@ -113,38 +113,38 @@ class IntraProceduralDataflow : virtual public IntraProceduralAnalysis
 /// \details convenience class that stores the transfer context.
 class IntraDFTransferVisitor : public ROSE_VisitorPatternDefaultBase
 {
-protected:
+  protected:
   // Common arguments to the underlying transfer function
-  const Function& func;
-  PartPtr         part;
-  NodeState&      nodeState;
-  Lattice&        dfInfo;
+  const Function &func;
+  PartPtr part;
+  CFGNode cn;
+  NodeState &nodeState;
+  std::map<PartEdgePtr, LatticePtr >& dfInfo;
 
-public:
-
-  IntraDFTransferVisitor(const Function &f, PartPtr p, NodeState &s, Lattice& d)
-    : func(f), part(p), nodeState(s), dfInfo(d)
+  public:
+  IntraDFTransferVisitor(const Function &f, PartPtr p, CFGNode cn, NodeState &s, 
+                         std::map<PartEdgePtr, LatticePtr >& dfInfo)
+    : func(f), part(p), nodeState(s), dfInfo(dfInfo)
   { }
 
   virtual bool finish() = 0;
 };
 
-
 class IntraUnitDataflow : virtual public IntraProceduralDataflow
 {
   public:
 
-        /// \brief   the transfer function that is applied to every dataflow source node.
-        /// \param   func - the function that is being processed
-        /// \param   n - the dataflow node that is being processed
-        /// \param   state - the NodeState object that describes the state of the node, as established by earlier
-        ///          analysis passes
-        /// \param   lat - the Lattices that this transfer function operates on. The function takes these lattices
-        ///                as input and overwrites them with the result of the transfer.
-        /// \return  true, iff the result should be propagated to its children
-        /// \note    sage type sensitive implementations are encouraged to discern
-        ///          sage nodes using the visitor pattern (see convenience functions @visitor_transfer.
-        virtual bool transfer(const Function& func, PartPtr p, NodeState& state, LatticePtr lat) = 0;
+  // the transfer function that is applied to every node
+  // part - The Part that is being processed
+  // state - the NodeState object that describes the state of the node, as established by earlier
+  //   analysis passes
+  // dfInfo - The Lattices that this transfer function operates on. The function take a map of lattices, one for
+  //   each edge that departs from this part (outgoing for forward analyses and incoming for backwards)
+  //   as input and overwrites them with the result of the transfer.
+  // Returns true if any of the input lattices changed as a result of the transfer function and
+  //    false otherwise.
+  virtual bool transfer(const Function& func, PartPtr part, CFGNode cn, NodeState& state, 
+      std::map<PartEdgePtr, LatticePtr >& dfInfo)=0;
 
         private:
         /// \brief   calls the visitor based transfer functions for valid visitors
@@ -210,21 +210,21 @@ class IntraUnitDataflow : virtual public IntraProceduralDataflow
   {
     bool modified;
     IntraUnitDataflow *analysis;
-  public:
-    DefaultTransfer(const Function& func_, PartPtr p, NodeState& state_, const std::vector<Lattice*>& dfInfo_, IntraUnitDataflow *a)
-      : IntraDFTransferVisitor(func_, p, state_, dfInfo_), modified(false), analysis(a)
+    public:
+    DefaultTransfer(const Function& func, PartPtr part, CFGNode cn, NodeState& state, 
+        std::map<PartEdgePtr, LatticePtr >& dfInfo, IntraUnitDataflow *a)
+      : IntraDFTransferVisitor(func, part, cn, state, dfInfo), modified(false), analysis(a)
       { }
 
-
-    void visit(SgNode *n) { modified = analysis->transfer(func, part, nodeState, dfInfo); }
+    void visit(SgNode *n) { modified = analysis->transfer(func, part, cn, nodeState, dfInfo); }
     bool finish() { return modified; }
   };
 
 
   // \todo \pp IMO. the function getTransferVisitor is not necessary and can be removed.
-  //           Users wanting to write the analysis based on visitors can do so
-  //           in the transfer function. (This safes one memory allocation, deallocation,
-  //           and boost::shared_pointer management overhead per transfer).
+  //     Users wanting to write the analysis based on visitors can do so
+  //     in the transfer function. (This safes one memory allocation, deallocation,
+  //     and boost::shared_pointer management overhead per transfer).
     virtual boost::shared_ptr<IntraDFTransferVisitor> getTransferVisitor(const Function& func, const DataflowNode& n,
                                                                   NodeState& state, const std::vector<Lattice*>& dfInfo)
   { return boost::shared_ptr<IntraDFTransferVisitor>(new DefaultTransfer(func, n, state, dfInfo, this)); }

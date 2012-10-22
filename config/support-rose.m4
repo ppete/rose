@@ -2185,6 +2185,10 @@ projects/PolyhedralModel/projects/utils/Makefile
 projects/predicateAnalysis/Makefile
 projects/predicateAnalysis/src/Makefile
 projects/predicateAnalysis/tests/Makefile
+projects/mpiAnalOptTools/Makefile
+projects/mpiAnalOptTools/mpiToGOAL/Makefile
+projects/mpiAnalOptTools/mpiToGOAL/src/Makefile
+projects/mpiAnalOptTools/mpiToGOAL/tests/Makefile
 tests/Makefile
 tests/RunTests/Makefile
 tests/RunTests/A++Tests/Makefile

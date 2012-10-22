@@ -16,10 +16,9 @@ mpaGenericDataflow_la_sources=\
 	$(mpaGenericDataflowPath)/analysis/abstract_object.C \
 	$(mpaGenericDataflowPath)/analysis/abstract_object_map.C \
 	$(mpaGenericDataflowPath)/analysis/abstract_object_set.C \
+	$(mpaGenericDataflowPath)/analysis/partitionIterator.C \
+	$(mpaGenericDataflowPath)/analysis/partitions.C \
 	$(mpaGenericDataflowPath)/analysis/stx_analysis.C \
-	$(mpaGenericDataflowPath)/simpleAnalyses/const_prop_analysis.C \
-	$(mpaGenericDataflowPath)/simpleAnalyses/live_dead_analysis.C \
-	$(mpaGenericDataflowPath)/simpleAnalyses/ortho_array_analysis.C \
 	$(mpaGenericDataflowPath)/AnalysisDebuggingUtils.C \
 	$(mpaGenericDataflowPath)/cfgUtils/CallGraphTraverse.C \
 	$(mpaGenericDataflowPath)/cfgUtils/cfgUtils.C \
@@ -27,22 +26,28 @@ mpaGenericDataflow_la_sources=\
 	$(mpaGenericDataflowPath)/cfgUtils/VirtualCFGIterator.C \
 	$(mpaGenericDataflowPath)/genUID.C \
 	$(mpaGenericDataflowPath)/lattice/lattice.C \
-	$(mpaGenericDataflowPath)/state/functionState.C \
-	$(mpaGenericDataflowPath)/state/nodeState.C \
+	$(mpaGenericDataflowPath)/simpleAnalyses/const_prop_analysis.C \
+	$(mpaGenericDataflowPath)/simpleAnalyses/dead_path_elim_analysis.C \
+	$(mpaGenericDataflowPath)/simpleAnalyses/live_dead_analysis.C \
+	$(mpaGenericDataflowPath)/simpleAnalyses/ortho_array_analysis.C \
 	$(mpaGenericDataflowPath)/simpleAnalyses/printAnalysisStates.C \
-	$(mpaGenericDataflowPath)/simpleAnalyses/saveDotAnalysis.C 
+	$(mpaGenericDataflowPath)/simpleAnalyses/saveDotAnalysis.C \
+	$(mpaGenericDataflowPath)/state/functionState.C \
+	$(mpaGenericDataflowPath)/state/nodeState.C
 
+# ASR 08/20/2012
+# currently not compiling any of this with the new compositional framework
 #	$(mpaGenericDataflowPath)/analysis/partitionedAnalysis.C \
 #	$(mpaGenericDataflowPath)/lattice/affineInequality.C \
-	$(mpaGenericDataflowPath)/lattice/ConstrGraph.C \
+#	$(mpaGenericDataflowPath)/lattice/ConstrGraph.C \
 #	$(mpaGenericDataflowPath)/simpleAnalyses/ConstrGraphAnalysis.C \
-	$(mpaGenericDataflowPath)/simpleAnalyses/divAnalysis.C \
-	$(mpaGenericDataflowPath)/simpleAnalyses/dominatorAnalysis.C \
-	$(mpaGenericDataflowPath)/simpleAnalyses/liveDeadVarAnalysis.C \
-	$(mpaGenericDataflowPath)/simpleAnalyses/nodeConstAnalysis.C \
-	$(mpaGenericDataflowPath)/simpleAnalyses/placeUIDs.C \
-	$(mpaGenericDataflowPath)/simpleAnalyses/sequenceStructAnalysis.C \
-	$(mpaGenericDataflowPath)/simpleAnalyses/sgnAnalysis.C 
+#	$(mpaGenericDataflowPath)/simpleAnalyses/divAnalysis.C \
+#	$(mpaGenericDataflowPath)/simpleAnalyses/dominatorAnalysis.C \
+#	$(mpaGenericDataflowPath)/simpleAnalyses/liveDeadVarAnalysis.C \
+#	$(mpaGenericDataflowPath)/simpleAnalyses/nodeConstAnalysis.C \
+#	$(mpaGenericDataflowPath)/simpleAnalyses/placeUIDs.C \
+#	$(mpaGenericDataflowPath)/simpleAnalyses/sequenceStructAnalysis.C \
+#	$(mpaGenericDataflowPath)/simpleAnalyses/sgnAnalysis.C 
 
 mpaGenericDataflow_includeHeaders=\
 	$(mpaGenericDataflowPath)/analysis/analysis.h \
@@ -53,10 +58,8 @@ mpaGenericDataflow_includeHeaders=\
 	$(mpaGenericDataflowPath)/analysis/abstract_object_map.h \
 	$(mpaGenericDataflowPath)/analysis/abstract_object_set.h \
 	$(mpaGenericDataflowPath)/analysis/stx_analysis.h \
+	$(mpaGenericDataflowPath)/analysis/partitionIterator.h \
 	$(mpaGenericDataflowPath)/analysis/partitions.h \
-	$(mpaGenericDataflowPath)/simpleAnalyses/const_prop_analysis.h \
-	$(mpaGenericDataflowPath)/simpleAnalyses/live_dead_analysis.h \
-	$(mpaGenericDataflowPath)/simpleAnalyses/ortho_array_analysis.h \
 	$(mpaGenericDataflowPath)/AnalysisDebuggingUtils.h \
 	$(mpaGenericDataflowPath)/cfgUtils/baseCFGIterator.h \
 	$(mpaGenericDataflowPath)/cfgUtils/CallGraphTraverse.h \
@@ -67,24 +70,28 @@ mpaGenericDataflow_includeHeaders=\
 	$(mpaGenericDataflowPath)/genUID.h \
 	$(mpaGenericDataflowPath)/lattice/lattice.h \
 	$(mpaGenericDataflowPath)/lattice/latticeFull.h \
-	$(mpaGenericDataflowPath)/simpleAnalyses/VariableStateTransfer.h \
 	$(mpaGenericDataflowPath)/state/functionState.h \
 	$(mpaGenericDataflowPath)/state/LogicalCond.h \
 	$(mpaGenericDataflowPath)/state/nodeState.h \
+	$(mpaGenericDataflowPath)/simpleAnalyses/VariableStateTransfer.h \
+	$(mpaGenericDataflowPath)/simpleAnalyses/const_prop_analysis.h \
+	$(mpaGenericDataflowPath)/simpleAnalyses/dead_path_elim_analysis.h \
+	$(mpaGenericDataflowPath)/simpleAnalyses/live_dead_analysis.h \
+	$(mpaGenericDataflowPath)/simpleAnalyses/ortho_array_analysis.h \
 	$(mpaGenericDataflowPath)/simpleAnalyses/printAnalysisStates.h \
 	$(mpaGenericDataflowPath)/simpleAnalyses/saveDotAnalysis.h 
 
 #	$(mpaGenericDataflowPath)/analysis/partitionedAnalysis.h \
 #	$(mpaGenericDataflowPath)/lattice/affineInequality.h \
-	$(mpaGenericDataflowPath)/lattice/ConstrGraph.h \
+#	$(mpaGenericDataflowPath)/lattice/ConstrGraph.h \
 #	$(mpaGenericDataflowPath)/simpleAnalyses/ConstrGraphAnalysis.h \
-	$(mpaGenericDataflowPath)/simpleAnalyses/divAnalysis.h \
-	$(mpaGenericDataflowPath)/simpleAnalyses/dominatorAnalysis.h \
-	$(mpaGenericDataflowPath)/simpleAnalyses/liveDeadVarAnalysis.h \
-	$(mpaGenericDataflowPath)/simpleAnalyses/nodeConstAnalysis.h \
-	$(mpaGenericDataflowPath)/simpleAnalyses/placeUIDs.h \
-	$(mpaGenericDataflowPath)/simpleAnalyses/sequenceStructAnalysis.h \
-	$(mpaGenericDataflowPath)/simpleAnalyses/sgnAnalysis.h 
+#	$(mpaGenericDataflowPath)/simpleAnalyses/divAnalysis.h \
+#	$(mpaGenericDataflowPath)/simpleAnalyses/dominatorAnalysis.h \
+#	$(mpaGenericDataflowPath)/simpleAnalyses/liveDeadVarAnalysis.h \
+#	$(mpaGenericDataflowPath)/simpleAnalyses/nodeConstAnalysis.h \
+#	$(mpaGenericDataflowPath)/simpleAnalyses/placeUIDs.h \
+#	$(mpaGenericDataflowPath)/simpleAnalyses/sequenceStructAnalysis.h \
+#	$(mpaGenericDataflowPath)/simpleAnalyses/sgnAnalysis.h 
 
 mpaGenericDataflow_extraDist=\
 	$(mpaGenericDataflowPath)/CMakeLists.txt
