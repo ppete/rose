@@ -300,10 +300,10 @@ typedef boost::shared_ptr<StxCodeLocObject> StxCodeLocObjectPtr;
 
       size_t fieldCount(PartEdgePtr pedge) const {return elements.size(); };
       // Returns a list of fields
-      std::vector<boost::shared_ptr<LabeledAggregateField> > getElements(PartEdgePtr pedge) const {return elements;};
-      std::vector<boost::shared_ptr<LabeledAggregateField> >& getElements(PartEdgePtr pedge) {return elements;};
+      std::list<LabeledAggregateFieldPtr >  getElements(PartEdgePtr pedge) const {return elements;};
+      std::list<LabeledAggregateFieldPtr >& getElements(PartEdgePtr pedge) {return elements;};
     protected:
-      std::vector<boost::shared_ptr<LabeledAggregateField> > elements; 
+      std::list<LabeledAggregateFieldPtr > elements; 
   };
 
   class Array_Impl : public Array/*, public StxMemLocObject*/
@@ -364,7 +364,7 @@ typedef boost::shared_ptr<StxCodeLocObject> StxCodeLocObjectPtr;
   class IndexVector_Impl : public IndexVector
   {
     public:
-      size_t getSize() const {  return index_vector.size(); };
+      size_t getSize(PartEdgePtr pedge) const {  return index_vector.size(); };
       /*GB: Deprecating IndexSets and replacing them with ValueObjects.
       std::vector<IndexSet *> index_vector; // a vector of memory objects of named objects or temp expression objects */
       std::vector<ValueObjectPtr> index_vector; // a vector of memory objects of named objects or temp expression objects
@@ -383,13 +383,13 @@ typedef boost::shared_ptr<StxCodeLocObject> StxCodeLocObjectPtr;
   {
     public:
       LabeledAggregateField_Impl(MemLocObjectPtr f, LabeledAggregatePtr p): field (f), parent(p) {}
-      std::string getName(); // field name
+      std::string getName(PartEdgePtr pedge); // field name
       size_t getIndex(PartEdgePtr pedge); // The field's index within its parent object. The first field has index 0.
 
-      MemLocObjectPtr getField() { return field;}; // Pointer to an abstract description of the field
+      MemLocObjectPtr getField(PartEdgePtr pedge) { return field;}; // Pointer to an abstract description of the field
       void setField(MemLocObjectPtr f) {field = f;}; // Pointer to an abstract description of the field
 
-      LabeledAggregatePtr getParent() {return parent;};
+      LabeledAggregatePtr getParent(PartEdgePtr pedge) {return parent;};
       void setParent(LabeledAggregatePtr p) {parent = p; };
 
       std::string str(std::string indent) const; // pretty print for the object
@@ -558,10 +558,10 @@ typedef boost::shared_ptr<StxCodeLocObject> StxCodeLocObjectPtr;
     
     size_t fieldCount(PartEdgePtr pedge) const;
     // Returns a list of fields
-    std::vector<LabeledAggregateFieldPtr> getElements(PartEdgePtr pedge) const;
+    std::list<LabeledAggregateFieldPtr> getElements(PartEdgePtr pedge) const;
   };
   
-  class ArrayOutOfScopeObj : public Function_Impl, public OutOfScope_StxMemLocObject
+  class ArrayOutOfScopeObj : public Array_Impl, public OutOfScope_StxMemLocObject
   {
     public:
     ArrayOutOfScopeObj(SgType* t);
@@ -572,13 +572,13 @@ typedef boost::shared_ptr<StxCodeLocObject> StxCodeLocObjectPtr;
     std::string str(std::string indent) const { return "ArrayOutOfScopeObj"; }
     std::string str(std::string indent)       { return "ArrayOutOfScopeObj"; }
     
-   boost::shared_ptr<MemLocObject> getElements(PartEdgePtr pedge);
-   boost::shared_ptr<MemLocObject> getElements(IndexVectorPtr ai, PartEdgePtr pedge);
+   MemLocObjectPtr getElements(PartEdgePtr pedge);
+   MemLocObjectPtr getElements(IndexVectorPtr ai, PartEdgePtr pedge);
    size_t getNumDims(PartEdgePtr pedge);
    boost::shared_ptr<MemLocObject> getDereference(PartEdgePtr pedge);
   };
   
-  class PointerOutOfScopeObj : public Function_Impl, public OutOfScope_StxMemLocObject
+  class PointerOutOfScopeObj : public Pointer_Impl, public OutOfScope_StxMemLocObject
   {
     public:
     PointerOutOfScopeObj(SgType* t);
@@ -681,8 +681,8 @@ typedef boost::shared_ptr<StxCodeLocObject> StxCodeLocObjectPtr;
       
       // GB: 2012-08-27: should be implementing the following functions here:
       //                 Array::getElements(), getElements(IndexVectorPtr ai), getNumDims(), getDereference()
-      boost::shared_ptr<MemLocObject> getElements(PartEdgePtr pedge);
-      boost::shared_ptr<MemLocObject> getElements(IndexVectorPtr ai, PartEdgePtr pedge);
+      MemLocObjectPtr getElements(PartEdgePtr pedge);
+      MemLocObjectPtr getElements(IndexVectorPtr ai, PartEdgePtr pedge);
       size_t getNumDims(PartEdgePtr pedge);
       boost::shared_ptr<MemLocObject> getDereference(PartEdgePtr pedge);
    
@@ -705,9 +705,6 @@ typedef boost::shared_ptr<StxCodeLocObject> StxCodeLocObjectPtr;
       MemLocObjectPtr getDereference(PartEdgePtr pedge);
       // used for a pointer to an array
       MemLocObjectPtr getElements(PartEdgePtr pedge);
-      // Returns true if this pointer refers to the same abstract object as that pointer.
-      //GB: getDereference subsumes this
-      //bool equalPoints(const Pointer & that);
 
       /* GB: Deprecating the == operator. Now that some objects can contain AbstractObjects any equality test must take the current part as input.
       // Returns true if this object and that object may/must refer to the same pointer memory object.
@@ -799,7 +796,7 @@ typedef boost::shared_ptr<StxCodeLocObject> StxCodeLocObjectPtr;
   };
 
   class ArrayNamedObj;
-  class ArrayNamedObj: public Array_Impl, public NamedObj, public boost::enable_shared_from_this<ArrayNamedObj>
+  class ArrayNamedObj: public Array_Impl, public NamedObj//, public boost::enable_shared_from_this<ArrayNamedObj>
   {
     public:
       ArrayNamedObj(SgSymbol* s, SgType* t, MemLocObjectPtr p, IndexVectorPtr iv, PartEdgePtr pedge);
@@ -845,9 +842,6 @@ typedef boost::shared_ptr<StxCodeLocObject> StxCodeLocObjectPtr;
       MemLocObjectPtr getDereference(PartEdgePtr pedge);
       // used for a pointer to an array
       MemLocObjectPtr getElements(PartEdgePtr pedge);
-      // Returns true if this pointer refers to the same abstract object as that pointer.
-      //GB: getDereference subsumes this
-      //bool equalPoints(const Pointer & that);
       // Returns true if this object and that object may/must refer to the same pointer memory object.
       /* GB: Deprecating the == operator. Now that some objects can contain AbstractObjects any equality test must take the current part as input.
       bool operator == (const MemLocObject & that) const ;*/
@@ -942,8 +936,8 @@ typedef boost::shared_ptr<StxCodeLocObject> StxCodeLocObjectPtr;
       
       // GB: 2012-08-27: should be implementing the following functions here:
       //                 Array::getElements(), getElements(IndexVectorPtr ai), getNumDims(), getDereference()
-      boost::shared_ptr<MemLocObject> getElements(PartEdgePtr pedge);
-      boost::shared_ptr<MemLocObject> getElements(IndexVectorPtr ai, PartEdgePtr pedge);
+      MemLocObjectPtr getElements(PartEdgePtr pedge);
+      MemLocObjectPtr getElements(IndexVectorPtr ai, PartEdgePtr pedge);
       size_t getNumDims(PartEdgePtr pedge);
       boost::shared_ptr<MemLocObject> getDereference(PartEdgePtr pedge);
       
@@ -961,9 +955,6 @@ typedef boost::shared_ptr<StxCodeLocObject> StxCodeLocObjectPtr;
       PointerAliasedObj(const PointerAliasedObj& that): AliasedObj(that.type) {}
       MemLocObjectPtr getDereference(PartEdgePtr pedge);
       // MemLocObject * getElements() const;
-      // Returns true if this pointer refers to the same abstract object as that pointer.
-      //GB: getDereference subsumes this
-      //bool equalPoints(const Pointer & that);
       //std::set<SgType*> getType();
       /* GB: Deprecating the == operator. Now that some objects can contain AbstractObjects any equality test must take the current part as input.
       bool operator == (const MemLocObject& o2) const; */
@@ -1004,7 +995,7 @@ typedef boost::shared_ptr<StxCodeLocObject> StxCodeLocObjectPtr;
   bool isMemberVariableDeclarationSymbol(SgSymbol * s);
 
   // a helper function to fill up elements of MemLocObject p from a class/structure type
-  void fillUpElements (MemLocObject* p, std::vector<boost::shared_ptr<LabeledAggregateField> > & elements, SgClassType* c_t, PartEdgePtr pedge);
+  void fillUpElements (MemLocObject* p, std::list<boost::shared_ptr<LabeledAggregateField> > & elements, SgClassType* c_t, PartEdgePtr pedge);
 
   // convert std::vector<SgExpression*>* subscripts to IndexVectorPtr  array_index_vector
   IndexVectorPtr generateIndexVector (std::vector<SgExpression*>& subscripts);

@@ -25,10 +25,6 @@ class BoolAndLattice : public FiniteLattice
   BoolAndLattice(PartEdgePtr pedge) : Lattice(pedge), FiniteLattice(pedge)
   { state = -1; }
   
-  private:
-  BoolAndLattice(int state, PartEdgePtr pedge) : Lattice(pedge), FiniteLattice(pedge)
-  { this->state = state; }
-  
   public:
   BoolAndLattice(bool state, PartEdgePtr pedge) : Lattice(pedge), FiniteLattice(pedge)
   { this->state = state; }

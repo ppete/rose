@@ -214,7 +214,7 @@ class ChainComposer : public Composer
   list<ComposedAnalysis*> doneAnalyses;
   
   public:
-  ChainComposer(int argc, char** argv, list<ComposedAnalysis*>& analyses);
+  ChainComposer(int argc, char** argv, list<ComposedAnalysis*>& analyses, SgProject* project=NULL);
   
   //bool runAnalysis(const Function& func, NodeState* state);
   void runAnalysis();
@@ -614,8 +614,38 @@ class printDataflowInfoPass : public IntraFWDataflow
   // Initializes the state of analysis lattices, for analyses that produce the same lattices above and below each node
   void genInitLattice(const Function& func, PartPtr part, PartEdgePtr pedge, std::vector<Lattice*>& initLattices);
 
-  bool transfer(const Function& func, PartPtr p, NodeState& state, 
+  bool transfer(const Function& func, PartPtr p, CFGNode cn, NodeState& state, 
                 std::map<PartEdgePtr, std::vector<Lattice*> >& dfInfo);
+
+  // pretty print for the object
+  std::string str(std::string indent="")
+  { return "printDataflowInfoPass"; }
+};
+
+/***************************************************
+ ***            checkDataflowInfoPass            ***
+ *** Checks the results of the composed analysis ***
+ *** chain at special assert calls.              ***
+ ***************************************************/
+class checkDataflowInfoPass : public IntraFWDataflow
+{
+  private:
+  int numErrors;
+
+  public:
+  checkDataflowInfoPass() : numErrors(0) { }
+
+  int getNumErrors() const { return numErrors; }
+
+  // Initializes the state of analysis lattices, for analyses that produce the same lattices above and below each node
+  void genInitLattice(const Function& func, PartPtr part, PartEdgePtr pedge, std::vector<Lattice*>& initLattices);
+
+  bool transfer(const Function& func, PartPtr p, CFGNode cn, NodeState& state, 
+                std::map<PartEdgePtr, std::vector<Lattice*> >& dfInfo);
+
+  // pretty print for the object
+  std::string str(std::string indent="")
+  { return "checkDataflowInfoPass"; }
 };
 
 
@@ -700,8 +730,10 @@ class SetAllReturnStates : public UnstructuredPassIntraAnalysis
   bool modified;
   
   public:
+  // Information about the function's starting node
   SgFunctionParameterList* paramList;
   NodeState* paramsState;
+  //PartPtr paramsPart;
   
   public:
   SetAllReturnStates(ComposedAnalysis* analysis): UnstructuredPassIntraAnalysis(analysis) { 

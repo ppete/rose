@@ -44,7 +44,7 @@ class Lattice : public printable
   //    interpreted. It corresponds to the code region(s) to which we are remapping.
   // remapML must return a freshly-allocated object.
   virtual Lattice* remapML(const std::set<pair<MemLocObjectPtr, MemLocObjectPtr> >& ml2ml, PartEdgePtr newPEdge) {
-    return NULL;
+    return copy();
   }
   
   // Adds information about the MemLocObjects in newL to this Lattice, overwriting any information previously 

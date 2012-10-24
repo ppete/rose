@@ -274,12 +274,14 @@ void ComposedAnalysis::runAnalysis(const Function& func, NodeState* fState, bool
       
       bool modified = false;
       bool firstVisit;
-      if(!(firstVisit = (visited.find(part) == visited.end())))
+      if((firstVisit = (visited.find(part) == visited.end())))
         visited.insert(part);
       
       // The NodeState associated with this part
       NodeState* state = NodeState::getNodeState(this, part);
       //Dbg::dbg << "analysis="<<this<<"="<<((ComposedAnalysis*)this)<<"="<<str()<<" state="<<state<<"="<<state->str(this)<<endl;
+      Dbg::dbg << "state="<<endl;
+      Dbg::dbg << state->str()<<endl;
         
       map<PartEdgePtr, vector<Lattice*> >& dfInfoAnte = getLatticeAnte(state);
       // Create a local map for the post dataflow information. It will be deallocated 
@@ -370,15 +372,15 @@ void ComposedAnalysis::runAnalysis(const Function& func, NodeState* fState, bool
           
           // Set to *first the PartEdge of all the lattices stored under this edge
           for(vector<Lattice*>::iterator l=dfInfoPost[*first].begin(); l!=dfInfoPost[*first].end(); l++)
-            modified = (*l)->setPartEdge(*first) || modified;
+            (*l)->setPartEdge(*first); //modified = (*l)->setPartEdge(*first) || modified;
           
           // Now copy its value to the other descendant edges
           vector<PartEdgePtr>::iterator e=first;
           for(e++; e!=descEdges.end(); e++) {
-            NodeState::copyLatticesOW(dfInfoPost, *e, dfInfoPost, *first);
+            NodeState::copyLatticesOW(dfInfoPost, *e, dfInfoPost, *first, true);
             // Set to *e the PartEdge of all the lattices stored under this edge
             for(vector<Lattice*>::iterator l=dfInfoPost[*e].begin(); l!=dfInfoPost[*e].end(); l++)
-              modified = (*l)->setPartEdge(*e) || modified;
+              (*l)->setPartEdge(*e);//modified = (*l)->setPartEdge(*e) || modified;
           }
         // If the key has been changed
         } else {
@@ -456,6 +458,7 @@ void ComposedAnalysis::runAnalysis(const Function& func, NodeState* fState, bool
           }
           // If the next node's state gets modified as a result of the propagation, or the next node has not yet been
           // visited, add it to the processing queue.
+          Dbg::dbg << "Final modified="<<modified<<", visited="<<(visited.find(nextNode)!=visited.end())<<" nextNode="<<nextNode->str()<<endl;
           if(modified || visited.find(nextNode)==visited.end())
             curNodeIt->add(nextNode);
         }

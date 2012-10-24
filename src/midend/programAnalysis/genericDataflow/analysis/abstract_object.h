@@ -7,6 +7,7 @@
 #include <string>
 #include <cstring>
 #include <vector>
+#include <boost/enable_shared_from_this.hpp>
 
 /*TODO
  *  ====
@@ -26,25 +27,36 @@
  */
 
 /* GB 2012-09-02: DESIGN NOTE
- * All actions on and queries of AbstractObjects are done in the context of some Part. This is manifested differently
+ * All actions on and queries of AbstractObjects are done in the context of some PartEdge. This is manifested differently
  * in different scenarios.
  * AbstractObjects from prior analyses - pointers to these are used throughout client analyses and thus, they should
- *    not maintain a reference to a host Part. Since they come from completed analyses it is sufficient for callers
- *    to pass a Part into the call and for the response to be computed with respect to this part, based on the results
- *    of the prior analysis. For example, the liveness of a given MemLocObject at a given Part can be determined
- *    by looking at the lattice left behind at that Part by the live-dead analysis.
+ *    not maintain a reference to a host PartEdge. Since they come from completed analyses it is sufficient for callers
+ *    to pass a PartEdge into the call and for the response to be computed with respect to this PartEdge, based on the results
+ *    of the prior analysis. For example, the liveness of a given MemLocObject at a given PartEdge can be determined
+ *    by looking at the lattice left behind at that PartEdge by the live-dead analysis.
  * AbstractObjects being kept by current analysis - these are propagated in dataflow style throughout the CFG within
  *    a given analysis. The analysis' transfer functions should ensure that every time the meaning of an AbstractObject
- *    changes as a result of being propagated across Parts, this is reflected in the object's internal information 
- *    without maintaining an explicit dependence on the Part. This, however, is not a strict requirement since there
- *    may be syntactic information relevant to the meaning of the object that requires a reference to the origin Part.
+ *    changes as a result of being propagated across PartEdges, this is reflected in the object's internal information 
+ *    without maintaining an explicit dependence on the PartEdge. This, however, is not a strict requirement since there
+ *    may be syntactic information relevant to the meaning of the object that requires a reference to the origin PartEdge.
  * Containers that include just objects from current analysis - like above, should maintain no reference to their 
- *    source part since it is not needed. Further, the typical use-case will be to have one copy of a container for 
- *    each Part, meaning that they can maintain their identity without explicitly knowing the part
+ *    source PartEdge since it is not needed. Further, the typical use-case will be to have one copy of a container for 
+ *    each PartEdge, meaning that they can maintain their identity without explicitly knowing the PartEdge
  * Containers that include some of both types of objects (prior and current) - there should be a separate instance of
- *    these containers for each Part and each should maintain explicit reference to its host part. Thus, when it needs
- *    to provide the part to calls to functions within AbstractObjects from prior analyses, this part is always 
+ *    these containers for each PartEdge and each should maintain explicit reference to its host PartEdge. Thus, when it needs
+ *    to provide the PartEdge to calls to functions within AbstractObjects from prior analyses, this PartEdge is always 
  *    available.
+ */
+
+/* GB 2012-10-22: DESIGN NOTE
+ * When it comes to the structure of MemLocObjects (e.g. are they scalars, labeled aggregates, etc. and if so, what's 
+ * their internal structure) we need to decide how much the reported structure can change across PartEdges. Can
+ * a MemLocObject that was a Scalar in one PartEdge become an Array in another? If a Pointer dereferences to a given
+ * MemLocObject in one PartEdge, must it do the same in every other? The decision for now is to make the choice of 
+ * MemLocObject type (Scalar, FunctionName, LabeledAggregate, Array or Pointer) static in that once a MemLocObject is
+ * created, its type is fixed and does not change from one PartEdge to another. All other aspects of a MemLocObject
+ * can vary freely. Thus, methods such as MemLocObject::isScalar() do not take a PartEdge as an argument, whereas
+ * methods such as LabeledAggregate::fieldCount() do.
  */
 
 // ----------------------------
@@ -101,7 +113,7 @@ typedef boost::shared_ptr<Array> ArrayPtr;
 class Pointer;
 typedef boost::shared_ptr<Pointer> PointerPtr;
 
-class MemLocObject : public AbstractObject
+class MemLocObject : public AbstractObject, public boost::enable_shared_from_this<MemLocObject>
 { 
 private:
   // Returns whether this object may/must be equal to o within the given Part p
@@ -123,7 +135,7 @@ public:
   AbstractObjectPtr copyAO() const
   { return copyML(); }
   
-  static ScalarPtr isScalar(MemLocObjectPtr ml)
+  /*static ScalarPtr isScalar(MemLocObjectPtr ml)
   { return boost::dynamic_pointer_cast<Scalar>(ml); }
   
   static FunctionMemLocPtr isFunctionMemLoc(MemLocObjectPtr ml)
@@ -136,7 +148,22 @@ public:
   { return boost::dynamic_pointer_cast<Array>(ml); }
   
   static PointerPtr isPointer(MemLocObjectPtr ml)
-  { return boost::dynamic_pointer_cast<Pointer>(ml); }
+  { return boost::dynamic_pointer_cast<Pointer>(ml); }*/
+
+  virtual ScalarPtr isScalar()
+  { return boost::dynamic_pointer_cast<Scalar>(shared_from_this()); }
+
+  virtual FunctionMemLocPtr isFunctionMemLoc()
+  { return boost::dynamic_pointer_cast<FunctionMemLoc>(shared_from_this()); }
+
+  virtual LabeledAggregatePtr isLabeledAggregate()
+  { return boost::dynamic_pointer_cast<LabeledAggregate>(shared_from_this()); }
+
+  virtual ArrayPtr isArray()
+  { return boost::dynamic_pointer_cast<Array>(shared_from_this()); }
+
+  virtual PointerPtr isPointer()
+  { return boost::dynamic_pointer_cast<Pointer>(shared_from_this()); }
 };
 
 // Holds a pair of MemLocObjectPtr (one for the expression object and another for the object in memory) and provides 
@@ -182,13 +209,21 @@ public:
 //   are only compared if they include the same types of MemLocObjects in the same order. Otherwise, 
 //   the comparisons will be uselessly inaccurate.
 template <bool defaultMayEq>
-class CombinedMemLocObject : public MemLocObject
+class CombinedMemLocObject : public virtual MemLocObject
 {
   public:
   std::list<MemLocObjectPtr> memLocs;
   
+  public:
   CombinedMemLocObject(MemLocObjectPtr memLoc);
   CombinedMemLocObject(const std::list<MemLocObjectPtr>& memLocs);
+  
+  public:
+  // Creates a new CombinedMemLocObject. If all the sub-objects have a given type (Scalar, FunctionMemLoc, 
+  // LabeledAggregate, Array or Pointer), the created CombinedMemLocObject has hte same type. Otherwise, the
+  // created CombinedMemLocObject is an instance of the generic CombinedMemLocObject class.
+  static boost::shared_ptr<CombinedMemLocObject<defaultMayEq> > create(MemLocObjectPtr memLoc);
+  static boost::shared_ptr<CombinedMemLocObject<defaultMayEq> > create(const std::list<MemLocObjectPtr>& memLocs);
   
   void add(MemLocObjectPtr memLoc);
   
@@ -208,6 +243,8 @@ typedef CombinedMemLocObject<false> IntersectMemLocObject;
 typedef boost::shared_ptr<IntersectMemLocObject> IntersectMemLocObjectPtr;
 typedef CombinedMemLocObject<true> UnionMemLocObject;
 typedef boost::shared_ptr<UnionMemLocObject> UnionMemLocObjectPtr;
+
+
 
 /* #########################
    ##### CodeLocObject ##### 
@@ -408,6 +445,10 @@ typedef boost::shared_ptr<IntersectValueObject> IntersectValueObjectPtr;
 typedef CombinedValueObject<true> UnionValueObject;
 typedef boost::shared_ptr<UnionValueObject> UnionValueObjectPtr;
 
+/* ###########################################
+   ##### Specific Types of MemLocObjects ##### 
+   ########################################### */
+
 //memory object that has no internal structure
 class Scalar : public virtual MemLocObject
 {
@@ -436,17 +477,22 @@ typedef boost::shared_ptr<LabeledAggregateField> LabeledAggregateFieldPtr;
 class LabeledAggregateField
 {
  public:
-   virtual std::string getName(); // field name
-   virtual size_t getIndex(); // The field's index within its parent object. The first field has index 0.
+   virtual std::string getName(PartEdgePtr pedge); // field name
+   virtual size_t getIndex(PartEdgePtr pedge); // The field's index within its parent object. The first field has index 0.
 
-   virtual MemLocObjectPtr getField(); // Pointer to an abstract description of the field
-   virtual void setField(MemLocObjectPtr f); // Pointer to an abstract description of the field
+   virtual MemLocObjectPtr getField(PartEdgePtr pedge); // Pointer to an abstract description of the field
+   //virtual void setField(MemLocObjectPtr f); // Pointer to an abstract description of the field
 
-   virtual LabeledAggregatePtr getParent(); // the parent obj this field belongs to
-   virtual void setParent(LabeledAggregatePtr p) ; // the parent obj this field belongs to
+   virtual LabeledAggregatePtr getParent(PartEdgePtr pedge); // the parent obj this field belongs to
+   //virtual void setParent(LabeledAggregatePtr p) ; // the parent obj this field belongs to
 
    //virtual std::string str(const std::string& indent); // pretty print for the object
-   virtual std::string str(std::string indent); // pretty print for the object
+   virtual std::string str(std::string indent=""); // pretty print for the object
+   
+   // Variant of the str method that can produce information specific to the current Part.
+  // Useful since AbstractObjects can change from one Part to another.
+  virtual std::string strp(PartEdgePtr pedge, std::string indent="")
+  { return str(indent); }
 };
 
 
@@ -458,7 +504,7 @@ class LabeledAggregate: public virtual MemLocObject
    virtual size_t fieldCount(PartEdgePtr pedge);
 
    // Returns a list of field
-   virtual std::vector<boost::shared_ptr<LabeledAggregateField> > getElements(PartEdgePtr pedge) const; 
+   virtual std::list<LabeledAggregateFieldPtr> getElements(PartEdgePtr pedge) const; 
    // Returns true if this object and that object may/must refer to the same labeledAggregate memory object.
    //virtual bool operator == (const LabeledAggregate& that) const;
    //Total order relations (implemented by interface)
@@ -505,7 +551,7 @@ class IndexVector
 {
  public:
    // the index vector's length
-   size_t getSize();
+   size_t getSize(PartEdgePtr pedge);
    //virtual std::string str(const std::string& indent);
    virtual std::string str(std::string indent); // pretty print for the object
    // equal operator
@@ -532,8 +578,6 @@ class PointerOrArray: public MemLocObject
 // Pointer side of interfaces ---------
     // used for a pointer to non-array
    virtual MemLocObjectPtr getDereference () const;
-   // Returns true if this pointer refers to the same abstract object as that pointer.
-   virtual bool equalPoints(const PointerOrArray & that);
  
    //virtual bool operator == (const ObjSet & that) const;
    //virtual bool operator < (const ObjSet & that) const;
@@ -564,8 +608,6 @@ class Pointer: public virtual MemLocObject
 {
  public:
    virtual MemLocObjectPtr getDereference(PartEdgePtr pedge) ;
-   // Returns true if this pointer refers to the same abstract object as that pointer.
-   virtual bool equalPoints(const Pointer & that);
    // Returns true if this object and that object may/must refer to the same pointer memory object.
    //virtual bool operator == (const Pointer & that) const;
    //virtual bool operator < (const Pointer & that) const;
@@ -578,6 +620,205 @@ class Pointer: public virtual MemLocObject
    // number of dimensions of the array
    //virtual size_t getNumDims() ;  
 };
+
+/* ##################################################
+   ##### Specific Types of CombinedMemLocObject ##### 
+   ################################################## */
+
+//memory object that has no internal structure
+template <bool defaultMayEq>
+class CombinedScalar : public virtual CombinedMemLocObject<defaultMayEq>, public virtual Scalar
+{
+  /*private:
+  CombinedScalar(const std::list<MemLocObjectPtr>& memLocs) : CombinedMemLocObject<defaultMayEq>(memLocs) {}
+  
+  public:
+  // Creates a new CombinedScalar when called by CombinedMemLocObject::create. It is assumed that all the 
+  // sub-objects have type Scalar.
+  static boost::shared_ptr<CombinedScalar<defaultMayEq> > create(const std::list<MemLocObjectPtr>& memLocs, PartEdgePtr pedge)
+  { return boost::make_shared<CombinedScalar<defaultMayEq> >(memLocs); }*/
+  public:
+  CombinedScalar(const std::list<MemLocObjectPtr>& memLocs);
+  
+  std::string str(std::string indent); // pretty print for the object
+  std::string strp(PartEdgePtr pedge, std::string indent="");
+};
+
+// memory object to model function objects in memory
+template <bool defaultMayEq>
+class CombinedFunctionMemLoc: public virtual CombinedMemLocObject<defaultMayEq>, public virtual FunctionMemLoc
+{
+  /*private:
+  CombinedFunctionMemLoc(const std::list<MemLocObjectPtr>& memLocs) : CombinedMemLocObject<defaultMayEq>(memLocs) {}
+  public:
+  // Creates a new CombinedFunctionMemLoc when called by CombinedMemLocObject::create. It is assumed that all the 
+  // sub-objects have type FunctionMemLoc.
+  static boost::shared_ptr<CombinedFunctionMemLoc<defaultMayEq> > create(const std::list<MemLocObjectPtr>& memLocs, PartEdgePtr pedge)
+  { return boost::make_shared<CombinedFunctionMemLoc<defaultMayEq> >(memLocs); }*/
+  public:
+  CombinedFunctionMemLoc(const std::list<MemLocObjectPtr>& memLocs);
+  
+  std::string str(std::string indent); // pretty print for the object
+  std::string strp(PartEdgePtr pedge, std::string indent="");
+};
+
+template <bool defaultMayEq>
+class CombinedLabeledAggregateField : public LabeledAggregateField
+{
+  private:
+  //std::string name;  // This field's string name
+  //size_t index; // This field's index
+  //boost::shared_ptr<CombinedMemLocObject<defaultMayEq> > field; // The combined object that includes all of the sub-fields
+  // List of sub-fields of this combined field
+  std::list<LabeledAggregateFieldPtr> fields;
+  //LabeledAggregatePtr parent; // The Labeled Aggregate that contains this field
+  //std::string strRep; // this object's string representation
+  
+  /*CombinedLabeledAggregateField(std::string name, size_t index, std::list<LabeledAggregateFieldPtr> fields, //boost::shared_ptr<CombinedMemLocObject<defaultMayEq> > field, 
+                                LabeledAggregatePtr parent);*/
+  
+  public:
+  /*
+  // Creates a new CombinedLabeledAggregateField when called by createCombinedLabeledAggregate(). It is assumed that all the 
+  // sub-objects have type LabeledAggregateField. The function returns a CombinedLabeledAggregate if they also 
+  // have the same internal structure and a NULL shared_ptr otherwise.
+  static boost::shared_ptr<CombinedLabeledAggregateField<defaultMayEq> > create(
+                                          const std::list<LabeledAggregateFieldPtr>& fields, 
+                                          LabeledAggregatePtr parent, PartEdgePtr pedge);*/
+  
+  CombinedLabeledAggregateField(const std::list<LabeledAggregateFieldPtr>& fields);
+  
+  public:
+  std::string getName(PartEdgePtr pedge); // field name
+  size_t getIndex(PartEdgePtr pedge); // The field's index within its parent object. The first field has index 0.
+
+  MemLocObjectPtr getField(PartEdgePtr pedge); // Pointer to an abstract description of the field
+
+  LabeledAggregatePtr getParent(PartEdgePtr pedge); // the parent obj this field belongs to
+
+  std::string strp(PartEdgePtr pedge, std::string indent="");
+  std::string str(std::string indent); // pretty print for the object
+};
+
+// a memory object that contains a finite number of explicitly labeled memory objects, such as structs, classes and bitfields
+template <bool defaultMayEq>
+class CombinedLabeledAggregate: public virtual CombinedMemLocObject<defaultMayEq>, public virtual LabeledAggregate
+{
+  private:
+  /*int combinedFieldCount;
+  std::list<boost::shared_ptr<CombinedLabeledAggregateField<defaultMayEq> > > combinedFields;
+  std::string strRep;
+  
+  CombinedLabeledAggregate(size_t combinedFieldCount, 
+                           std::list<boost::shared_ptr<CombinedLabeledAggregateField<defaultMayEq> > > combinedFields,
+                           std::string strRep);*/
+  public:
+  // Creates a new CombinedLabeledAggregate when called by CombinedMemLocObject::create. It is assumed that all the 
+  // sub-objects have type LabeledAggregate. The function returns a CombinedLabeledAggregate if they also 
+  // have the same internal structure and a generic CombinedMemLocObject instance otherwise.
+  //static boost::shared_ptr<CombinedMemLocObject<defaultMayEq> > create(const std::list<MemLocObjectPtr>& memLocs, PartEdgePtr pedge);
+    
+  std::list<LabeledAggregatePtr> labAggrs;
+  CombinedLabeledAggregate(const std::list<MemLocObjectPtr>& memLocs);
+  
+  // Number of fields
+  size_t fieldCount(PartEdgePtr pedge);
+
+  // Returns a list of field
+  std::list<LabeledAggregateFieldPtr> getElements(PartEdgePtr pedge) const; 
+  
+  std::string strp(PartEdgePtr pedge, std::string indent="");
+  std::string str(std::string indent); // pretty print for the object
+};
+
+// GB 2012-10-19 - It doesn't appear that we need CombinedIndexVectors since the IndexVectors passed to getElements()
+//                 are going to be CombinedValues, not CombinedIndexVectors
+/*
+// represents d-dimensional integral vectors. It encapsulates a variety of abstract representations for such vectors 
+// such as polyhedral constraints and strided indexes.
+// TODO: we support a single multi-dimensional index for now
+template <bool defaultMayEq>
+class CombinedIndexVector
+{
+  private:
+  std::list<IndexVectorPtr> ivectors;
+  size_t combinedSize;
+  
+  CombinedIndexVector(const std::list<IndexVectorPtr>& ivectors, size_t combinedSize);
+  
+  public:
+  // Creates a new CombinedIndexVector when called by createCombinedArray. It is assumed that all the 
+  // sub-objects have type CombinedIndexVector. The function returns a CombinedIndexVector if they also 
+  // have the same internal structure and NULL otherwise.
+  boost::shared_ptr<CombinedIndexVector<defaultMayEq> > createCombinedIndexVector(const std::list<IndexVectorPtr>& ivectors);
+    
+   // the index vector's length
+   size_t getSize();
+   
+   // pretty print for the object
+   std::string str(std::string indent); 
+   
+   // equal operator
+   bool mayEqual (IndexVectorPtr other, PartEdgePtr pedge);
+   bool mustEqual (IndexVectorPtr other, PartEdgePtr pedge);
+};*/
+
+// Some programming languages don't have the concept of pointers. We provide explicit support for Array
+template <bool defaultMayEq>
+class CombinedArray: public virtual CombinedMemLocObject<defaultMayEq>, public virtual Array
+{
+  private:
+  //size_t combinedDims;
+  std::list<ArrayPtr> arrays;
+  
+  //CombinedArray(size_t combinedDims, const std::list<MemLocObjectPtr>& arrays);
+  
+  public:
+  /*// Creates a new CombinedArray when called by CombinedMemLocObject::create. It is assumed that all the 
+  // sub-objects have type Array. The function returns a CombinedArray if they also 
+  // have the same internal structure and a generic CombinedMemLocObject instance otherwise.
+  static boost::shared_ptr<CombinedMemLocObject<defaultMayEq> > create(const std::list<MemLocObjectPtr>& memLocs, PartEdgePtr pedge);*/
+    
+  CombinedArray(const std::list<MemLocObjectPtr>& memLocs);
+  
+  // Returns a memory object that corresponds to all the elements in the given array
+  MemLocObjectPtr getElements(PartEdgePtr pedge);
+  // Returns the memory object that corresponds to the elements described by the given abstract index, 
+  // which represents one or more indexes within the array
+  MemLocObjectPtr getElements(IndexVectorPtr ai, PartEdgePtr pedge) ;
+
+  // number of dimensions of the array
+  size_t getNumDims(PartEdgePtr pedge);
+
+  //--- pointer like semantics
+  // support dereference of array object, similar to the dereference of pointer
+  // Return the element object: array[0]
+  MemLocObjectPtr getDereference(PartEdgePtr pedge);
+  
+  std::string strp(PartEdgePtr pedge, std::string indent="");
+  std::string str(std::string indent); // pretty print for the object
+};
+
+template <bool defaultMayEq>
+class CombinedPointer: public virtual CombinedMemLocObject<defaultMayEq>, public virtual Pointer
+{
+  std::list<PointerPtr> pointers;
+  /*private:
+  CombinedPointer(const std::list<MemLocObjectPtr>& memLocs);
+ 
+  public:
+  // Creates a new CombinedPointer when called by CombinedMemLocObject::create. It is assumed that all the 
+  // sub-objects have type Pointer.
+  static boost::shared_ptr<CombinedPointer<defaultMayEq> > create(const std::list<MemLocObjectPtr>& memLocs, PartEdgePtr pedge);*/
+  public:
+  CombinedPointer(const std::list<MemLocObjectPtr>& memLocs);
+  
+  MemLocObjectPtr getDereference(PartEdgePtr pedge);
+  
+  std::string strp(PartEdgePtr pedge, std::string indent="");
+  std::string str(std::string indent); // pretty print for the object
+};
+
 
 }; // namespace dataflow
 

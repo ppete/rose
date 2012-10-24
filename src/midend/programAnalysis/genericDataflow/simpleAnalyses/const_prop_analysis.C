@@ -445,7 +445,7 @@ ConstantPropagationAnalysisTransfer::visit(SgLongIntVal *sgn)
 void
 ConstantPropagationAnalysisTransfer::visit(SgIntVal *sgn)
    {
-  Dbg::dbg << "ConstantPropagationAnalysisTransfer::visit() composer="<<composer<<endl;
+   Dbg::dbg << "ConstantPropagationAnalysisTransfer::visit() composer="<<composer<<endl;
    ROSE_ASSERT(sgn);
    //CPValueObjectPtr resLat = getLattice(sgn);
    CPValueObjectPtr resLat(new CPValueObject(sgn->get_value(), part->inEdgeFromAny()));
@@ -577,6 +577,12 @@ ConstantPropagationAnalysisTransfer::visit(SgMinusOp *sgn)
    setLattice(sgn, operandLat);
    }
 
+void 
+ConstantPropagationAnalysisTransfer::visit(SgCastExp *sgn)
+   {
+   setLattice(sgn, getLatticeOperand(sgn, sgn->get_operand()));
+   }
+
 // Logical Operations
 void
 ConstantPropagationAnalysisTransfer::visit(SgGreaterOrEqualOp *sgn)
@@ -643,7 +649,7 @@ void ConstantPropagationAnalysis::genInitLattice(const Function& func, PartPtr p
                                                  std::vector<Lattice*>& initLattices)
 {
   AbstractObjectMap* l = new AbstractObjectMap(new MustEqualFunctor(), 
-                                               boost::make_shared<CPValueObject>(part->inEdgeFromAny()),
+                                               boost::make_shared<CPValueObject>(pedge/*part->inEdgeFromAny()*/),
                                                pedge);
   /*Dbg::dbg << "ConstantPropagationAnalysis::initializeState, analysis="<<returning l="<<l<<" n=<"<<Dbg::escape(p.getNode()->unparseToString())<<" | "<<p.getNode()->class_name()<<" | "<<p.getIndex()<<">\n";
   Dbg::dbg << "    l="<<l->str("    ")<<endl;*/
@@ -672,20 +678,68 @@ ConstantPropagationAnalysis::getTransferVisitor(const Function& func, PartPtr pa
 ValueObjectPtr ConstantPropagationAnalysis::Expr2Val(SgNode* n, PartEdgePtr pedge)
 {
   Dbg::dbg << "ConstantPropagationAnalysis::Expr2Val(n="<<cfgUtils::SgNode2Str(n)<<", pedge="<<pedge->str()<<") this="<<this<<endl;
-  NodeState* state = NodeState::getNodeState(this, pedge->source());
-  Dbg::dbg << "state="<<state->str(this)<<endl;
-  AbstractObjectMap* cpMap = dynamic_cast<AbstractObjectMap*>(state->getLatticeBelow(this, pedge, 0));
-  ROSE_ASSERT(cpMap);
-  
-  MemLocObjectPtrPair p = composer->Expr2MemLoc(n, pedge, this);
-  Dbg::indent ind;
-  Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;p="<<p.str()<<endl;
-  Dbg::dbg << "cpMap="<<cpMap<<"="<<cpMap->str()<<endl;
-  
-  // Return the lattice associated with n's expression since that is likely to be more precise
-  // but if it is not available, used the memory object
-  return (p.expr ? boost::dynamic_pointer_cast<ValueObject>(cpMap->get(p.expr)) :
-                   boost::dynamic_pointer_cast<ValueObject>(cpMap->get(p.mem)));
+  // If pedge doesn't have wildcards
+  if(pedge->source() && pedge->target()) {
+    NodeState* state = NodeState::getNodeState(this, pedge->source());
+    Dbg::dbg << "state="<<state->str(this)<<endl;
+    AbstractObjectMap* cpMap = dynamic_cast<AbstractObjectMap*>(state->getLatticeBelow(this, pedge, 0));
+    ROSE_ASSERT(cpMap);
+    
+    MemLocObjectPtrPair p = composer->Expr2MemLoc(n, pedge, this);
+    Dbg::indent ind;
+    Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;p="<<p.str()<<endl;
+    Dbg::dbg << "cpMap="<<cpMap<<"="<<cpMap->str()<<endl;
+
+    // Return the lattice associated with n's expression since that is likely to be more precise
+    // but if it is not available, used the memory object
+    return (p.expr ? boost::dynamic_pointer_cast<ValueObject>(cpMap->get(p.expr)) :
+                     boost::dynamic_pointer_cast<ValueObject>(cpMap->get(p.mem)));
+  // If the target of this edge is a wildcard
+  } else if(pedge->source()) {
+    NodeState* state = NodeState::getNodeState(this, pedge->source());
+    //Dbg::dbg << "state="<<state->str(this)<<endl;
+    
+    // Merge the lattices along all the outgoing edges
+    map<PartEdgePtr, std::vector<Lattice*> >& e2lats = state->getLatticeBelowAllMod(this);
+    ROSE_ASSERT(e2lats.size()>=1);
+    boost::shared_ptr<CPValueObject> mergedVal = boost::make_shared<CPValueObject>(pedge);
+    for(map<PartEdgePtr, std::vector<Lattice*> >::iterator lats=e2lats.begin(); lats!=e2lats.end(); lats++) {
+      PartEdge* edgePtr = lats->first.get();
+      ROSE_ASSERT(edgePtr->source() == pedge.get()->source());
+      
+      AbstractObjectMap* cpMap = dynamic_cast<AbstractObjectMap*>(state->getLatticeBelow(this, lats->first, 0));
+      ROSE_ASSERT(cpMap);
+      
+      MemLocObjectPtrPair p = composer->Expr2MemLoc(n, pedge, this);
+      Dbg::indent ind;
+      Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;p="<<p.str()<<endl;
+      Dbg::dbg << "cpMap="<<cpMap<<"="<<cpMap->str()<<endl;
+      
+      boost::shared_ptr<CPValueObject> val = 
+              boost::dynamic_pointer_cast<CPValueObject>
+                (p.expr ? boost::dynamic_pointer_cast<ValueObject>(cpMap->get(p.expr)) :
+                          boost::dynamic_pointer_cast<ValueObject>(cpMap->get(p.mem)));
+      mergedVal->meetUpdate(val.get());
+    }
+    return mergedVal;
+  // If the source of this edge is a wildcard
+  } else if(pedge->target()) {
+    NodeState* state = NodeState::getNodeState(this, pedge->target());
+    Dbg::dbg << "state="<<state->str(this)<<endl;
+    AbstractObjectMap* cpMap = dynamic_cast<AbstractObjectMap*>(state->getLatticeAbove(this, NULLPartEdge, 0));
+    ROSE_ASSERT(cpMap);
+
+    MemLocObjectPtrPair p = composer->Expr2MemLoc(n, pedge, this);
+    Dbg::indent ind;
+    Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;p="<<p.str()<<endl;
+    Dbg::dbg << "cpMap="<<cpMap<<"="<<cpMap->str()<<endl;
+
+    // Return the lattice associated with n's expression since that is likely to be more precise
+    // but if it is not available, used the memory object
+    return (p.expr ? boost::dynamic_pointer_cast<ValueObject>(cpMap->get(p.expr)) :
+                     boost::dynamic_pointer_cast<ValueObject>(cpMap->get(p.mem)));
+  }
+  ROSE_ASSERT(0);
 }
 
 }; // namespace dataflow;

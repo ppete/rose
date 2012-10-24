@@ -217,8 +217,8 @@ MemLocObjectPtr OrthogonalArrayAnalysis::Expr2MemLoc(SgNode* n, PartEdgePtr pedg
     Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;array="<<array.strp(pedge, "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;")<<endl;
     Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;iv="<<iv->str("&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;")<<endl;
     
-    MemLocObjectPtr tmp = array.mem ? MemLocObject::isArray(array.mem)->getElements(iv, pedge) :
-                                      MemLocObject::isArray(array.expr)->getElements(iv, pedge);
+    MemLocObjectPtr tmp = array.mem ? array.mem->isArray()->getElements(iv, pedge) :
+                                      array.expr->isArray()->getElements(iv, pedge);
     //Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;result="<<tmp<<"="<<tmp.get()<<endl;
     //Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;result="<<tmp->str("&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;")<<endl;
     return tmp;

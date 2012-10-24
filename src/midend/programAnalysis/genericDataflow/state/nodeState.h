@@ -298,17 +298,23 @@ class NodeState
                        const map<PartEdgePtr, vector<Lattice*> >& dfInfoFrom);
 
   // Makes dfInfoTo[toDepartEdge] a copy of dfInfoFrom[fromDepartEdge]
+  // If adjustPEdge is true, calls Lattice::setPartEdge() on the copied lattices in dfInfoTo to associate them with this edge.
   static void copyLattices(std::map<PartEdgePtr, vector<Lattice*> >& dfInfoTo,   PartEdgePtr toDepartEdge, 
-                     const std::map<PartEdgePtr, vector<Lattice*> >& dfInfoFrom, PartEdgePtr fromDepartEdge);
+                     const std::map<PartEdgePtr, vector<Lattice*> >& dfInfoFrom, PartEdgePtr fromDepartEdge,
+                     bool adjustPEdge=false);
 
   // Makes dfInfoTo[toDepartEdge] a copy of dfInfoFrom[fromDepartEdge]. If dfInfoTo[toDepartEdge] is not initially empty, 
   // it is cleared and its Lattices are deallocated.
+  // If adjustPEdge is true, calls Lattice::setPartEdge() on the copied lattices in dfInfoTo to associate them with this edge.
   static void copyLatticesOW(map<PartEdgePtr, vector<Lattice*> >& dfInfoTo,   PartEdgePtr toDepartEdge,
-                       const map<PartEdgePtr, vector<Lattice*> >& dfInfoFrom, PartEdgePtr fromDepartEdge);
+                       const map<PartEdgePtr, vector<Lattice*> >& dfInfoFrom, PartEdgePtr fromDepartEdge, 
+                       bool adjustPEdge=false);
   
   /*public:
   void operator=(NodeState& that);*/
   public:
+  std::string str(std::string indent="");
+    
   std::string str(Analysis* analysis, std::string indent="");
   
   // Returns the string representation of the Lattices stored in the given map

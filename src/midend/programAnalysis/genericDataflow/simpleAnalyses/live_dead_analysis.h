@@ -39,7 +39,8 @@ class LiveDeadMemTransfer : public IntraDFTransferVisitor
 {
     AbstractObjectSet* liveLat;
     LiveDeadMemAnalysis* ldma;
-    ComposerExpr2MemLocPtr ceml;
+    //ComposerExpr2MemLocPtr ceml;
+    Composer* composer;
 
     bool modified;
     /*// Expressions that are assigned by the current operation
@@ -58,28 +59,30 @@ class LiveDeadMemTransfer : public IntraDFTransferVisitor
     friend class LDMAExpressionTransfer;
 
     // Note that the variable corresponding to this expression is assigned
-    void assign(SgExpression *);
-    void assign(AbstractObjectPtr mem);
+    void assign(SgNode* sgn, SgExpression *operand);
+    //void assign(AbstractObjectPtr mem);
     
     // Note that the variable corresponding to this expression is used
-    void use(SgExpression *);
-    void use(AbstractObjectPtr mem);
+    void use(SgNode *sgn, SgExpression* operand);
+    //void use(AbstractObjectPtr mem);
     // Note that the memory location denoted by the corresponding SgVarRefExp is used
     void useMem(SgVarRefExp* e);
     // Note that the memory location denoted by the corresponding SgPntrArrRefExp is used
     void useMem(SgPntrArrRefExp* e);
     
     // Returns true if the given expression is currently live and false otherwise
-    bool isMemLocLive(SgExpression* expr);
+    bool isMemLocLive(SgExpression* sgn);
+    bool isMemLocLive(SgExpression* sgn, SgExpression* operand);
 
 public:
 LiveDeadMemTransfer(const Function &f, PartPtr part, CFGNode cn, NodeState &s, 
                     std::map<PartEdgePtr, std::vector<Lattice*> > &dfInfo, 
                     LiveDeadMemAnalysis* ldma,
-                    ComposerExpr2MemLocPtr ceml, funcSideEffectUses *fseu)
+                    /*ComposerExpr2MemLocPtr ceml, */Composer* composer, funcSideEffectUses *fseu)
     : IntraDFTransferVisitor(f, part, cn, s, dfInfo),
     ldma(ldma), 
-    ceml(ceml), 
+    //ceml(ceml), 
+    composer(composer),
     modified(false), 
     assigned(part->inEdgeFromAny(), AbstractObjectSet::may), 
     used(part->inEdgeFromAny(), AbstractObjectSet::may), 
@@ -118,7 +121,7 @@ class LiveDeadMemAnalysis : public IntraBWDataflow
 {
 protected:
     funcSideEffectUses* fseu;
-    ComposerExpr2MemLocPtr ceml;
+    //ComposerExpr2MemLocPtr ceml;
     
 public:
     LiveDeadMemAnalysis(funcSideEffectUses* fseu=NULL);
@@ -134,7 +137,7 @@ public:
                                                       std::map<PartEdgePtr, std::vector<Lattice*> >& dfInfo)
     { return boost::shared_ptr<IntraDFTransferVisitor>(
     		new LiveDeadMemTransfer(func, part, cn, state, dfInfo, 
-    		                        this, ComposerExpr2MemLocPtr(new ComposerExpr2MemLoc(*getComposer(), part->inEdgeFromAny(), *((ComposedAnalysis*)this))),
+    		                        this, getComposer(), //ComposerExpr2MemLocPtr(new ComposerExpr2MemLoc(*getComposer(), part->inEdgeFromAny(), *((ComposedAnalysis*)this))),
     		                        fseu)); }
 
     bool transfer(const Function& func, PartPtr part, CFGNode cn, NodeState& state, 
@@ -224,7 +227,7 @@ class LDLabeledAggregate: virtual public LDMemLocObject, virtual public LabeledA
    size_t fieldCount(PartEdgePtr pedge);
 
    // Returns a list of field
-   std::vector<boost::shared_ptr<LabeledAggregateField> > getElements(PartEdgePtr pedge) const; 
+   std::list<LabeledAggregateFieldPtr > getElements(PartEdgePtr pedge) const; 
    
   // Implement the required functions by calling the real copies in LDMemLocObject
   bool mayEqual(MemLocObjectPtr o, PartEdgePtr pedge)  { return LDMemLocObject::mayEqual(o, pedge); }
@@ -272,8 +275,6 @@ class LDPointer: virtual public LDMemLocObject, virtual public Pointer
    LDPointer(MemLocObjectPtr parent, LiveDeadMemAnalysis* ldma);
    
    MemLocObjectPtr getDereference(PartEdgePtr pedge);
-   // Returns true if this pointer refers to the same abstract object as that pointer.
-   bool equalPoints(const Pointer & that);
    
   // Implement the required functions by calling the real copies in LDMemLocObject
   bool mayEqual(MemLocObjectPtr o, PartEdgePtr pedge)  { return LDMemLocObject::mayEqual(o, pedge); }
@@ -292,10 +293,10 @@ void getAllLiveMemAt(LiveDeadMemAnalysis* ldma, PartEdgePtr pedge, const NodeSta
 std::set<AbstractObjectPtr> getAllLiveMemAt(LiveDeadMemAnalysis* ldma, PartEdgePtr pedge, const NodeState& state, std::string indent="");
 
 // Returns true if the given MemLocObject must be live at the given Part
-bool isLiveMust(MemLocObjectPtr mem, LiveDeadMemAnalysis* ldma, PartEdgePtr pedge, const NodeState& state, string indent);
+bool isLiveMust(MemLocObjectPtr mem, LiveDeadMemAnalysis* ldma, PartEdgePtr pedge, string indent);
 
 // Returns true if the given MemLocObject may be live at the given Part
-bool isLiveMay(MemLocObjectPtr mem, LiveDeadMemAnalysis* ldma, PartEdgePtr pedge, const NodeState& state, string indent);
+bool isLiveMay(MemLocObjectPtr mem, LiveDeadMemAnalysis* ldma, PartEdgePtr pedge, string indent);
 
 }; // namespace dataflow
 

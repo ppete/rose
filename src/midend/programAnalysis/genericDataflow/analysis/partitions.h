@@ -210,7 +210,7 @@ class Part : public printable {
   // If all the CFGNodes within this part have sub-type NodeType of SgNode,
   // returns a pointer to one of them.
   template <class NodeType>
-  NodeType* mustSgNodeAny() {
+  NodeType* mustSgNodeAll() {
     std::set<CFGNode> v=CFGNodes();
     for(std::set<CFGNode>::iterator i=v.begin(); i!=v.end(); i++) {
       if(dynamic_cast<NodeType*>(i->getNode()) == NULL)  return NULL;

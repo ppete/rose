@@ -73,7 +73,7 @@ class VariableStateTransfer : public IntraDFTransferVisitor
   void setLattice(SgNode *sgn, LatticePtr lat) {
     ROSE_ASSERT(sgn);
     MemLocObjectPtrPair p = composer->Expr2MemLoc(sgn, part->inEdgeFromAny(), analysis);
-    Dbg::dbg << "setLattice() p="<<p.strp(part->inEdgeFromAny(), "&nbsp;&nbsp;&nbsp;&nbsp;")<<endl;
+    Dbg::dbg << "setLattice() edge="<<part->inEdgeFromAny()->str()<<" p="<<p.strp(part->inEdgeFromAny(), "&nbsp;&nbsp;&nbsp;&nbsp;")<<endl;
     
     setLatticeCommon(sgn, p, lat);
   }
@@ -162,6 +162,10 @@ public:
     Lattice *l = *dfInfo[NULLPartEdge].begin();
     prodLat = (dynamic_cast<AbstractObjectMap*>(l));
     ROSE_ASSERT(prodLat);
+    
+    // Adjust the edge of prodLat to correspond to the node's outgoing information 
+    /*ROSE_ASSERT(prodLat->getPartEdge()->target());
+    prodLat->setPartEdge(prodLat->getPartEdge()->target()->inEdgeFromAny());*/
   }
 
   void visit(SgAssignOp *sgn)

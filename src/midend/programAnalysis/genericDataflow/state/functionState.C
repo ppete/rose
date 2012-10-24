@@ -101,15 +101,15 @@ void FunctionState::setArgParamMap(PartPtr callPart, SgFunctionCallExp* call,
       itA!=args.end() && itP!=params.end(); 
       itA++, itP++)
   {
-    MemLocObjectPtrPair argP = composer->Expr2MemLoc(*itA, funcNode->inEdgeFromAny(), analysis);
+    MemLocObjectPtrPair argP = composer->Expr2MemLoc(*itA, funcNode->outEdgeToAny(), analysis);
     // The argument MemLoc is preferrably the argument expression but may be a memory location if the expression is not available
     MemLocObjectPtr arg;
     if(argP.expr) arg = argP.expr;
     else    arg = argP.mem;
     
-    Dbg::dbg << "argParamMap["<<arg->str()<<"]="<< composer->Expr2MemLoc(*itP, funcNode->inEdgeFromAny(), analysis).mem->str()<<endl;
+    Dbg::dbg << "argParamMap["<<arg->str()<<"]="<< composer->Expr2MemLoc(*itP, funcNode->outEdgeToAny(), analysis).mem->str()<<endl;
     argParamMap.insert(make_pair(arg,
-         composer->Expr2MemLoc(*itP, funcNode->inEdgeFromAny(), analysis).mem));
+         composer->Expr2MemLoc(*itP, funcNode->outEdgeToAny(), analysis).mem));
   }
 }
 
@@ -145,11 +145,11 @@ void FunctionState::setArgByRef2ParamMap(PartPtr callPart, SgFunctionCallExp* ca
   Dbg::dbg << "itParams MemLoc = "<<composer->Expr2MemLoc(*itParams, funcNode, analysis).strp(funcNode)<<endl;*/
   if(isSgVarRefExp(*itArgs) || isSgPntrArrRefExp(*itArgs))
     paramArgByRef2ParamMap.insert(make_pair(composer->Expr2MemLoc(*itArgs, callPart->inEdgeFromAny(), analysis).mem,
-              composer->Expr2MemLoc(*itParams, funcNode->inEdgeFromAny(), analysis).mem));
+              composer->Expr2MemLoc(*itParams, funcNode->outEdgeToAny(), analysis).mem));
   // Otherwise, use the expression MemLocObject
   else
     paramArgByRef2ParamMap.insert(make_pair(composer->Expr2MemLoc(*itArgs, callPart->inEdgeFromAny(), analysis).expr,
-              composer->Expr2MemLoc(*itParams, funcNode->inEdgeFromAny(), analysis).mem));
+              composer->Expr2MemLoc(*itParams, funcNode->outEdgeToAny(), analysis).mem));
     }
   }
   
@@ -160,7 +160,7 @@ void FunctionState::setArgByRef2ParamMap(PartPtr callPart, SgFunctionCallExp* ca
   Dbg::dbg << "declSymbol MemLoc (callPart)= "<<composer->Expr2MemLoc(func.get_declaration()->search_for_symbol_from_symbol_table(), funcNode, analysis).strp(callPart)<<endl;*/
 
   paramArgByRef2ParamMap.insert(make_pair(composer->Expr2MemLoc(call, callPart->inEdgeFromAny(), analysis).expr,
-            composer->Expr2MemLoc(func.get_declaration()->search_for_symbol_from_symbol_table(), funcNode->inEdgeFromAny(), analysis).mem));
+            composer->Expr2MemLoc(func.get_declaration()->search_for_symbol_from_symbol_table(), funcNode->outEdgeToAny(), analysis).mem));
 }
 
 // Given a map produced by setArgParamMap or setArgByRef2ParamMap, return the same map but where the key->value 

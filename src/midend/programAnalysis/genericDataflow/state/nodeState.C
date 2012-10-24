@@ -217,10 +217,11 @@ Lattice* NodeState::getLattice_ex(const LatticeMap& dfMap, Analysis* analysis,
   std::map<PartEdgePtr, std::vector<Lattice*> >::const_iterator w;
 
   if(dfMap.find((Analysis*)analysis) == dfMap.end()) {
-    Dbg::region reg(1,1, Dbg::region::topLevel, "NodeState::getLattice_ex");
+    Dbg::region reg(1,1, Dbg::region::topLevel, "NodeState::getLattice_ex: Analysis not found!");
     Dbg::dbg << "dfMap.find("<<analysis<<")!=dfMap.end() = "<<(dfMap.find((Analysis*)analysis) != dfMap.end())<<" dfMap.size()="<<dfMap.size()<<endl;
     for(LatticeMap::const_iterator i=dfMap.begin(); i!=dfMap.end(); i++)
     { Dbg::dbg << "i="<<i->first<<endl; }
+    ROSE_ASSERT(0);
   }
   /*if((a=dfMap.find((Analysis*)analysis)) != dfMap.end()) {
     Dbg::dbg << "a->second.find("<<(departEdge? departEdge->str(): "NULL")<<")!= a->second.end() = "<<(a->second.find(departEdge) != a->second.end())<<endl;
@@ -645,8 +646,9 @@ void NodeState::copyLatticesOW(map<PartEdgePtr, vector<Lattice*> >& dfInfoTo,
 }
 
 // Makes dfInfoTo[toDepartEdge] a copy of dfInfoFrom[fromDepartEdge]
+// If adjustPEdge is true, calls Lattice::setPartEdge() on the copied lattices in dfInfoTo to associate them with this edge.
 void NodeState::copyLattices(map<PartEdgePtr, vector<Lattice*> >& dfInfoTo,   PartEdgePtr toDepartEdge, 
-                       const map<PartEdgePtr, vector<Lattice*> >& dfInfoFrom, PartEdgePtr fromDepartEdge)
+                       const map<PartEdgePtr, vector<Lattice*> >& dfInfoFrom, PartEdgePtr fromDepartEdge, bool adjustPEdge)
 {
   ROSE_ASSERT(dfInfoTo.size() == dfInfoFrom.size());
   ROSE_ASSERT(dfInfoTo.find(toDepartEdge) != dfInfoTo.end());
@@ -662,13 +664,16 @@ void NodeState::copyLattices(map<PartEdgePtr, vector<Lattice*> >& dfInfoTo,   Pa
 
   for(lTo=eTo->second.begin(), lFrom=eFrom->second.begin(); lTo!=eTo->second.end(); lTo++, lFrom++) {
     (*lTo)->copy(*lFrom);
+    if(adjustPEdge)
+      // Adjust the Lattice's part edge to correspond to its new edge
+      (*lTo)->setPartEdge(toDepartEdge);
   }
 }
 
 // Makes dfInfoTo[toDepartEdge] a copy of dfInfoFrom[fromDepartEdge]. If dfInfoTo[toDepartEdge] is not initially empty, 
 // it is cleared and its Lattices are deallocated.
 void NodeState::copyLatticesOW(map<PartEdgePtr, vector<Lattice*> >& dfInfoTo,   PartEdgePtr toDepartEdge,
-                         const map<PartEdgePtr, vector<Lattice*> >& dfInfoFrom, PartEdgePtr fromDepartEdge)
+                         const map<PartEdgePtr, vector<Lattice*> >& dfInfoFrom, PartEdgePtr fromDepartEdge, bool adjustPEdge)
 {
   ROSE_ASSERT(dfInfoFrom.find(fromDepartEdge) != dfInfoFrom.end());
   
@@ -678,22 +683,47 @@ void NodeState::copyLatticesOW(map<PartEdgePtr, vector<Lattice*> >& dfInfoTo,   
   dfInfoTo[toDepartEdge].clear();
   
   map<PartEdgePtr, vector<Lattice*> >::const_iterator eFrom = dfInfoFrom.find(fromDepartEdge);
-  for(vector<Lattice*>::const_iterator lFrom=eFrom->second.begin(); lFrom!=eFrom->second.end(); lFrom++)
-    dfInfoTo[toDepartEdge].push_back((*lFrom)->copy());
+  for(vector<Lattice*>::const_iterator lFrom=eFrom->second.begin(); lFrom!=eFrom->second.end(); lFrom++) {
+    Lattice* lTo = (*lFrom)->copy();
+    if(adjustPEdge)
+      // Adjust the Lattice's part edge to correspond to its new edge
+      lTo->setPartEdge(toDepartEdge);
+    dfInfoTo[toDepartEdge].push_back(lTo);
+  }
+}
+
+string NodeState::str(string indent)
+{
+  ostringstream oss;
+  
+  oss << "[";
+  for(BoolMap::iterator i=initializedAnalyses.begin(); i!=initializedAnalyses.end(); ) {
+    oss << str(i->first, indent+"&nbsp;&nbsp;&nbsp;&nbsp;");
+    i++;
+    if(i!=initializedAnalyses.end())
+      oss << endl;
+  }
+  oss << "]";
+  
+  return oss.str();
 }
 
 string NodeState::str(Analysis* analysis, string indent)
 {
+  ostringstream analysisName;
+  /*if(dynamic_cast<ComposedAnalysis*>(analysis)) analysisName << dynamic_cast<ComposedAnalysis*>(analysis)->str();
+  else*/                                          analysisName << analysis;
+
   ostringstream oss;
   
   // If the analysis has not yet been initialized, say so
   if(initializedAnalyses.find(analysis) == initializedAnalyses.end()) {
-    oss << "[NodeState: NONE for Analysis"<<analysis<<"]\n";
+    oss << "[NodeState: NONE for Analysis"<<analysisName.str()<<"]\n";
     /*for(std::map<Analysis*, bool >::iterator a=initializedAnalyses.begin(); a!=initializedAnalyses.end(); a++)
       oss << "a="<<a->first<<endl;*/
   // If it has been initialized, stringify it
   } else {
-    oss << "[NodeState: analysis ("<<analysis<<")\n";
+    oss << "[NodeState: analysis ("<<analysisName.str()<<")\n";
     /*ROSE_ASSERT(dfInfoAbove.size() == dfInfoBelow.size());
     ROSE_ASSERT(dfInfoAbove.find(analysis) != dfInfoAbove.end());
     ROSE_ASSERT(dfInfoBelow.find(analysis) != dfInfoBelow.end());*/
