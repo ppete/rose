@@ -7,14 +7,14 @@ using namespace std;
 #include <map>
 
 namespace dataflow {
-  
+
 /*****************************
  ********** Lattice **********
  *****************************/
-  
-// Sets the PartEdge that this Lattice's information corresponds to. 
+
+// Sets the PartEdge that this Lattice's information corresponds to.
 // Returns true if this causes the edge to change and false otherwise
-bool Lattice::setPartEdge(PartEdgePtr latPEdge) { 
+bool Lattice::setPartEdge(PartEdgePtr latPEdge) {
   bool modified = this->latPEdge != latPEdge;
   this->latPEdge = latPEdge;
   return modified;
@@ -23,7 +23,12 @@ bool Lattice::setPartEdge(PartEdgePtr latPEdge) {
 // Returns the PartEdge that this Lattice's information corresponds to
 PartEdgePtr Lattice::getPartEdge()
 { return this->latPEdge; }
-  
+
+
+const PartEdgePtr Lattice::getPartEdge() const
+{ return this->latPEdge; }
+
+
 /********************************************
  ************** BoolAndLattice **************
  ********************************************/
@@ -405,7 +410,7 @@ void ProductLattice::copy(const Lattice* that_arg)
 //    replaced with their corresponding values. If a given key of ml2ml does not appear in the lattice, it must
 //    be added to the lattice and assigned a default initial value. In many cases (e.g. over-approximate sets
 //    of MemLocObjects) this may not require any actual insertions.
-// The function takes newPEdge, the edge that points to the part within which the values of ml2ml should be 
+// The function takes newPEdge, the edge that points to the part within which the values of ml2ml should be
 //    interpreted. It corresponds to the code region(s) to which we are remapping.
 // remapML must return a freshly-allocated object.
 Lattice* ProductLattice::remapML(const std::set<pair<MemLocObjectPtr, MemLocObjectPtr> >& ml2ml, PartEdgePtr newPEdge) {
@@ -544,7 +549,13 @@ bool InfiniteProductLattice::widenUpdate(const InfiniteLattice* that)
        return modified;
 }
 
-}; // using namespace
+void Lattice::copy_lattice_data(Lattice* tgt, const Lattice* src)
+{
+  tgt->good_state = src->good_state;
+  tgt->latPEdge = src->latPEdge;
+}
+
+} // using namespace
 #if WHERE_DID_THIS_CODE_GO
 
 /*******************************

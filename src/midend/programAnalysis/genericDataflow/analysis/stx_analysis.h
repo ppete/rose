@@ -48,26 +48,47 @@ class SyntacticAnalysis : virtual public IntraUndirDataflow
     return e.source();
   }
 
-  
-  // The genInitLattice, genInitFact and transfer functions are not implemented since this 
+  // The genLattice, genFacts and transfer functions are not implemented since this
   // is not a dataflow analysis.
-  
+  // \pp it seems that these functions are needed
+  Lattice* genLattice(const Function& func, PartPtr p, PartEdgePtr) /* override */
+  {
+    ROSE_ASSERT(0);
+    return nullLattice();
+  }
+
+  std::vector<NodeFact*> genFacts(const Function& func, PartPtr p) /* override */
+  {
+    ROSE_ASSERT(0);
+    return nullFacts();
+  }
+
+  void setLatticeAnte(NodeState *state, PartLattice dfInfo, bool overwrite) /* override */
+  {
+    ROSE_ASSERT(0);
+  }
+
+  void setLatticePost(NodeState *state, PartLattice dfInfo, bool overwrite) /* override */
+  {
+    ROSE_ASSERT(0);
+  }
+
   // Maps the given SgNode to an implementation of the ValueObject abstraction.
   ValueObjectPtr   Expr2Val(SgNode* e, PartEdgePtr pedge);
   static ValueObjectPtr   Expr2ValStatic(SgNode* e, PartEdgePtr pedge);
-  
+
   // Maps the given SgNode to an implementation of the MemLocObject abstraction.
   MemLocObjectPtr Expr2MemLoc(SgNode* e, PartEdgePtr pedge);
   static MemLocObjectPtr Expr2MemLocStatic(SgNode* e, PartEdgePtr pedge);
-  
+
   // Maps the given SgNode to an implementation of the Expr2CodeLoc abstraction.
   CodeLocObjectPtr Expr2CodeLoc(SgNode* e, PartEdgePtr pedge);
   static CodeLocObjectPtr Expr2CodeLocStatic(SgNode* e, PartEdgePtr pedge);
-  
+
   // Return the anchor Parts of a given function
   PartPtr GetFunctionStartPart(const Function& func);
   PartPtr GetFunctionEndPart(const Function& func);
-  
+
   // pretty print for the object
   std::string str(std::string indent="")
   { return "SyntacticAnalysis"; }
@@ -92,40 +113,40 @@ class StxPart : public Part
 {
   CFGNode n;
   bool (*filter) (CFGNode cfgn); // a filter function to decide which raw CFG node to show (if return true) or hide (otherwise)
-  
+
   friend class StxPartEdge;
-  
+
   public:
   StxPart(CFGNode n, bool (*f) (CFGNode) = defaultFilter): n(n), filter(f) {}
-  StxPart(const StxPart& part):    n(part.n), filter(part.filter) {} 
-  StxPart(const StxPartPtr& part): n(part->n), filter(part->filter) {} 
+  StxPart(const StxPart& part):    n(part.n), filter(part.filter) {}
+  StxPart(const StxPartPtr& part): n(part->n), filter(part->filter) {}
   StxPart(const StxPart& part,    bool (*f) (CFGNode) = defaultFilter): n(part.n), filter (f) {}
   StxPart(const StxPartPtr& part, bool (*f) (CFGNode) = defaultFilter): n(part->n), filter (f) {}
-        
+
   std::vector<PartEdgePtr> outEdges();
   std::vector<StxPartEdgePtr> outStxEdges();
   std::vector<PartEdgePtr> inEdges();
   std::vector<StxPartEdgePtr> inStxEdges();
   std::set<CFGNode>  CFGNodes();
-  
+
   /*
   // Let A={ set of execution prefixes that terminate at the given anchor SgNode }
   // Let O={ set of execution prefixes that terminate at anchor's operand SgNode }
   // Since to reach a given SgNode an execution must first execute all of its operands it must
   //    be true that there is a 1-1 mapping m() : O->A such that o in O is a prefix of m(o).
   // This function is the inverse of m: given the anchor node and operand as well as the
-  //    Part that denotes a subset of A (the function is called on this part), 
+  //    Part that denotes a subset of A (the function is called on this part),
   //    it returns a list of Parts that partition O.
   std::list<PartPtr> getOperandPart(SgNode* anchor, SgNode* operand);*/
-  
+
   // Returns a PartEdgePtr, where the source is a wild-card part (NULLPart) and the target is this Part
   PartEdgePtr inEdgeFromAny();
   // Returns a PartEdgePtr, where the target is a wild-card part (NULLPart) and the source is this Part
   PartEdgePtr outEdgeToAny();
-  
+
   bool operator==(const PartPtr& o) const;
   bool operator<(const PartPtr& o) const;
-  
+
   std::string str(std::string indent="");
 };
 
@@ -138,33 +159,33 @@ class StxPartEdge : public PartEdge
   StxPartEdge(CFGNode src, CFGNode tgt, bool (*f) (CFGNode) = defaultFilter): p(CFGEdge(src, tgt)), filter(f) {}
   StxPartEdge(CFGPath p, bool (*f) (CFGNode) = defaultFilter): p(p), filter(f) {}
   StxPartEdge(const StxPartEdge& dfe): p(dfe.p), filter(dfe.filter) {}
-  
+
   PartPtr source();
   PartPtr target();
-  
+
   CFGPath getPath() const { return p; }
-  
+
   // Let A={ set of execution prefixes that terminate at the given anchor SgNode }
   // Let O={ set of execution prefixes that terminate at anchor's operand SgNode }
   // Since to reach a given SgNode an execution must first execute all of its operands it must
   //    be true that there is a 1-1 mapping m() : O->A such that o in O is a prefix of m(o).
   // This function is the inverse of m: given the anchor node and operand as well as the
-  //    PartEdge that denotes a subset of A (the function is called on this PartEdge), 
+  //    PartEdge that denotes a subset of A (the function is called on this PartEdge),
   //    it returns a list of PartEdges that partition O.
   std::list<PartEdgePtr> getOperandPartEdge(SgNode* anchor, SgNode* operand);
-  
+
   // If the source Part corresponds to a conditional of some sort (if, switch, while test, etc.)
   // it must evaluate some predicate and depending on its value continue, execution along one of the
   // outgoing edges. The value associated with each outgoing edge is fixed and known statically.
-  // getPredicateValue() returns the value associated with this particular edge. Since a single 
+  // getPredicateValue() returns the value associated with this particular edge. Since a single
   // Part may correspond to multiple CFGNodes getPredicateValue() returns a map from each CFG node
-  // within its source part that corresponds to a conditional to the value of its predicate along 
+  // within its source part that corresponds to a conditional to the value of its predicate along
   // this edge.
   std::map<CFGNode, boost::shared_ptr<SgValueExp> > getPredicateValue();
-  
+
   bool operator==(const PartEdgePtr& o) const;
   bool operator<(const PartEdgePtr& o) const;
-  
+
   std::string str(std::string indent="");
 };
 
@@ -179,7 +200,7 @@ class StxValueObject : public ValueObject
 
   StxValueObject(SgNode* n);
   StxValueObject(const StxValueObject& that);
-  
+
   bool mayEqual(ValueObjectPtr o, PartEdgePtr pedge);
   bool mustEqual(ValueObjectPtr o, PartEdgePtr pedge);
 
@@ -193,7 +214,7 @@ class StxValueObject : public ValueObject
   // Returns the concrete value (if there is one) as an SgValueExp, which allows callers to use
   // the normal ROSE mechanisms to decode it
   boost::shared_ptr<SgValueExp> getConcreteValue();
-  
+
   std::string str(std::string indent) const; // pretty print for the object
   std::string str(std::string indent) { return ((const StxValueObject*)this)->str(indent); }
 
@@ -211,13 +232,13 @@ class StxCodeLocObject : public CodeLocObject
   public:
   PartEdgePtr pedge;
   SgExpression* code;
-  
+
   StxCodeLocObject(SgNode* n, PartEdgePtr pedge);
   StxCodeLocObject(const StxCodeLocObject& that);
-  
+
   bool mayEqualCL(CodeLocObjectPtr o, PartEdgePtr pedge);
   bool mustEqualCL(CodeLocObjectPtr o, PartEdgePtr pedge);
-  
+
   // Returns true if this object is live at the given part and false otherwise
   // We don't currently support scope analysis for CodeLocObjects, so we default to them all being live.
   bool isLive(PartEdgePtr pedge) const
@@ -258,10 +279,10 @@ typedef boost::shared_ptr<StxCodeLocObject> StxCodeLocObjectPtr;
   {
     protected:
     SgType* type;
-    
+
     public:
     StxMemLocObject(SgType* t);
-    
+
     // equal() should be called by mayEqualML and mustEqualML of any derived classes
     // to ensure that the in-scope or out-of-scope issues are taken into account.
     // If equal() returns defEqual or defNotEqual then mayEqualML and mustEqualML should
@@ -269,7 +290,7 @@ typedef boost::shared_ptr<StxCodeLocObject> StxCodeLocObjectPtr;
     // mustEqualML should continue more refined processing.
     typedef enum {defEqual, defNotEqual, unknown} eqType;
     eqType equal(MemLocObjectPtr that_arg, PartEdgePtr pedge);
-    
+
     SgType* getType() const {return type;}
     /*std::set<SgType*> getType() const
     {
@@ -442,16 +463,16 @@ typedef boost::shared_ptr<StxCodeLocObject> StxCodeLocObjectPtr;
 
       // this is necessary to allow derived classes to implement MemLocObject::operator==(MemLocObject&)
       bool operator== (const MemLocObject& o2) const; */
-      bool mayEqualML(MemLocObjectPtr o2, PartEdgePtr pedge); 
-      bool mustEqualML(MemLocObjectPtr o2, PartEdgePtr pedge); 
+      bool mayEqualML(MemLocObjectPtr o2, PartEdgePtr pedge);
+      bool mustEqualML(MemLocObjectPtr o2, PartEdgePtr pedge);
       bool isConstant() {return isSgValueExp(anchor_exp); } ; // if the expression object represent a constant value (SgValueExp)
 
       // Returns true if this MemLocObject is in-scope at the given part and false otherwise
       bool isLive(PartEdgePtr pedge) const;
-      
+
       virtual std::string str(std::string indent) const; // pretty print for the object
       virtual std::string str(std::string indent) { return ((const ExprObj*)this)->str(indent); }
-      
+
       virtual std::string strp(PartEdgePtr pedge, std::string indent) const; // pretty print for the object
       virtual std::string strp(PartEdgePtr pedge, std::string indent) { return ((const ExprObj*)this)->strp(pedge, indent); }
   };
@@ -483,20 +504,20 @@ typedef boost::shared_ptr<StxCodeLocObject> StxCodeLocObjectPtr;
 
       virtual std::string str(std::string indent) const; // pretty print for the object
       virtual std::string str(std::string indent) { return ((const NamedObj*)this)->str(indent); }
-      
+
       virtual std::string strp(PartEdgePtr pedge, std::string indent) const; // pretty print for the object
       virtual std::string strp(PartEdgePtr pedge, std::string indent) { return ((const NamedObj*)this)->strp(pedge, indent); }
 
       /* GB: Deprecating the == operator. Now that some objects can contain AbstractObjects any equality test must take the current part as input.
       bool operator== (const NamedObj& o2) const;*/
-      bool mayEqualML(NamedObjPtr o2, PartEdgePtr pedge); 
-      bool mustEqualML(NamedObjPtr o2, PartEdgePtr pedge); 
+      bool mayEqualML(NamedObjPtr o2, PartEdgePtr pedge);
+      bool mustEqualML(NamedObjPtr o2, PartEdgePtr pedge);
 
       /* GB: Deprecating the == operator. Now that some objects can contain AbstractObjects any equality test must take the current part as input.
       bool operator== (const MemLocObject& o2) const; */
-      bool mayEqualML(MemLocObjectPtr o2, PartEdgePtr pedge); 
-      bool mustEqualML(MemLocObjectPtr o2, PartEdgePtr pedge); 
-      
+      bool mayEqualML(MemLocObjectPtr o2, PartEdgePtr pedge);
+      bool mustEqualML(MemLocObjectPtr o2, PartEdgePtr pedge);
+
       // Returns true if this MemLocObject is in-scope at the given part and false otherwise
       bool isLive(PartEdgePtr pedge) const;
   };
@@ -522,9 +543,9 @@ typedef boost::shared_ptr<StxCodeLocObject> StxCodeLocObjectPtr;
 
       /* GB: Deprecating the == operator. Now that some objects can contain AbstractObjects any equality test must take the current part as input.
       bool operator == (const MemLocObject& o2) const; */
-      bool mayEqualML(MemLocObjectPtr o2, PartEdgePtr pedge); 
+      bool mayEqualML(MemLocObjectPtr o2, PartEdgePtr pedge);
       bool mustEqualML(MemLocObjectPtr o2, PartEdgePtr pedge);
-      
+
       // Returns true if this MemLocObject is in-scope at the given part and false otherwise
       bool isLive(PartEdgePtr pedge) const;
   };
@@ -540,7 +561,7 @@ typedef boost::shared_ptr<StxCodeLocObject> StxCodeLocObjectPtr;
     public:
     ScalarOutOfScopeObj(SgType* t);
     MemLocObjectPtr copyML() const;
-    
+
     bool mayEqualML(MemLocObjectPtr that,  PartEdgePtr pedge) { return StxMemLocObject::equal(that,  pedge) == defEqual ? true: false; }
     bool mustEqualML(MemLocObjectPtr that, PartEdgePtr pedge) { return StxMemLocObject::equal(that,  pedge) == defEqual ? true: false; }
     std::string str(std::string indent) const { return "ScalarOutOfScopeObj"; }
@@ -552,7 +573,7 @@ typedef boost::shared_ptr<StxCodeLocObject> StxCodeLocObjectPtr;
     public:
     FunctionOutOfScopeObj(SgType* t);
     MemLocObjectPtr copyML() const;
-    
+
     bool mayEqualML(MemLocObjectPtr that,  PartEdgePtr pedge) { return StxMemLocObject::equal(that,  pedge) == defEqual ? true: false; }
     bool mustEqualML(MemLocObjectPtr that, PartEdgePtr pedge) { return StxMemLocObject::equal(that,  pedge) == defEqual ? true: false; }
     std::string str(std::string indent) const { return "FunctionOutOfScopeObj"; }
@@ -564,12 +585,12 @@ typedef boost::shared_ptr<StxCodeLocObject> StxCodeLocObjectPtr;
     public:
     LabeledAggregateOutOfScopeObj(SgType* t);
     MemLocObjectPtr copyML() const;
-    
+
     bool mayEqualML(MemLocObjectPtr that,  PartEdgePtr pedge) { return StxMemLocObject::equal(that,  pedge) == defEqual ? true: false; }
     bool mustEqualML(MemLocObjectPtr that, PartEdgePtr pedge) { return StxMemLocObject::equal(that,  pedge) == defEqual ? true: false; }
     std::string str(std::string indent) const { return "LabeledAggregateOutOfScopeObj"; }
     std::string str(std::string indent)       { return "LabeledAggregateOutOfScopeObj"; }
-    
+
     size_t fieldCount(PartEdgePtr pedge) const;
     // Returns a list of fields
     std::vector<LabeledAggregateFieldPtr> getElements(PartEdgePtr pedge) const;
@@ -580,12 +601,12 @@ typedef boost::shared_ptr<StxCodeLocObject> StxCodeLocObjectPtr;
     public:
     ArrayOutOfScopeObj(SgType* t);
     MemLocObjectPtr copyML() const;
-    
+
     bool mayEqualML(MemLocObjectPtr that,  PartEdgePtr pedge) { return StxMemLocObject::equal(that,  pedge) == defEqual ? true: false; }
     bool mustEqualML(MemLocObjectPtr that, PartEdgePtr pedge) { return StxMemLocObject::equal(that,  pedge) == defEqual ? true: false; }
     std::string str(std::string indent) const { return "ArrayOutOfScopeObj"; }
     std::string str(std::string indent)       { return "ArrayOutOfScopeObj"; }
-    
+
    boost::shared_ptr<MemLocObject> getElements(PartEdgePtr pedge);
    boost::shared_ptr<MemLocObject> getElements(IndexVectorPtr ai, PartEdgePtr pedge);
    size_t getNumDims(PartEdgePtr pedge);
@@ -597,7 +618,7 @@ typedef boost::shared_ptr<StxCodeLocObject> StxCodeLocObjectPtr;
     public:
     PointerOutOfScopeObj(SgType* t);
     MemLocObjectPtr copyML() const;
-    
+
     bool mayEqualML(MemLocObjectPtr that,  PartEdgePtr pedge) { return StxMemLocObject::equal(that,  pedge) == defEqual ? true: false; }
     bool mustEqualML(MemLocObjectPtr that, PartEdgePtr pedge) { return StxMemLocObject::equal(that,  pedge) == defEqual ? true: false; }
     std::string str(std::string indent) const { return "PointerOutOfScopeObj"; }
@@ -622,15 +643,15 @@ typedef boost::shared_ptr<StxCodeLocObject> StxCodeLocObjectPtr;
       // Implement MemLocObject::operator== () at this level, through ExprObj::operator==().
       bool operator == (const MemLocObject& o2) const;*/
       // multiple inheritance, must be clear about the behavior inherited from both parents
-      
-      bool mayEqualML(MemLocObjectPtr o2, PartEdgePtr pedge); 
-      bool mustEqualML(MemLocObjectPtr o2, PartEdgePtr pedge); 
-      
+
+      bool mayEqualML(MemLocObjectPtr o2, PartEdgePtr pedge);
+      bool mustEqualML(MemLocObjectPtr o2, PartEdgePtr pedge);
+
       std::string str(std::string indent) const; // pretty print for the object
       std::string str(std::string indent) { return ((const ScalarExprObj*)this)->str(indent); }
       std::string strp(PartEdgePtr pedge, std::string indent) const; // pretty print for the object
       std::string strp(PartEdgePtr pedge, std::string indent) { return ((const ScalarExprObj*)this)->strp(pedge, indent); }
-      
+
       // Allocates a copy of this object and returns a pointer to it
       MemLocObjectPtr copyML() const;
   };
@@ -646,14 +667,14 @@ typedef boost::shared_ptr<StxCodeLocObject> StxCodeLocObjectPtr;
       /* GB: Deprecating the == operator. Now that some objects can contain AbstractObjects any equality test must take the current part as input.
       // Implement MemLocObject::operator== () at this level, through ExprObj::operator==().
       bool operator == (const MemLocObject& o2) const; */
-      bool mayEqualML(MemLocObjectPtr o2, PartEdgePtr pedge); 
-      bool mustEqualML(MemLocObjectPtr o2, PartEdgePtr pedge); 
+      bool mayEqualML(MemLocObjectPtr o2, PartEdgePtr pedge);
+      bool mustEqualML(MemLocObjectPtr o2, PartEdgePtr pedge);
 
       std::string str(std::string indent) const; // pretty print for the object
       std::string str(std::string indent) { return ((const FunctionExprObj*)this)->str(indent); }
       std::string strp(PartEdgePtr pedge, std::string indent) const; // pretty print for the object
       std::string strp(PartEdgePtr pedge, std::string indent) { return ((const FunctionExprObj*)this)->strp(pedge, indent); }
-      
+
       // Allocates a copy of this object and returns a pointer to it
       MemLocObjectPtr copyML() const;
   };
@@ -669,14 +690,14 @@ typedef boost::shared_ptr<StxCodeLocObject> StxCodeLocObjectPtr;
       /* GB: Deprecating the == operator. Now that some objects can contain AbstractObjects any equality test must take the current part as input.
       // Returns true if this object and that object may/must refer to the same labeledAggregate memory object.
       bool operator == (const MemLocObject& o2) const; */
-      bool mayEqualML(MemLocObjectPtr o2, PartEdgePtr pedge); 
-      bool mustEqualML(MemLocObjectPtr o2, PartEdgePtr pedge); 
-      
+      bool mayEqualML(MemLocObjectPtr o2, PartEdgePtr pedge);
+      bool mustEqualML(MemLocObjectPtr o2, PartEdgePtr pedge);
+
       std::string str(std::string indent) const; // pretty print for the object
       std::string str(std::string indent) { return ((const LabeledAggregateExprObj*)this)->str(indent); }
       std::string strp(PartEdgePtr pedge, std::string indent) const; // pretty print for the object
       std::string strp(PartEdgePtr pedge, std::string indent) { return ((const LabeledAggregateExprObj*)this)->strp(pedge, indent); }
-      
+
       // Allocates a copy of this object and returns a pointer to it
       MemLocObjectPtr copyML() const;
   };
@@ -690,21 +711,21 @@ typedef boost::shared_ptr<StxCodeLocObject> StxCodeLocObjectPtr;
       /* GB: Deprecating the == operator. Now that some objects can contain AbstractObjects any equality test must take the current part as input.
       //TODO other member functions still make sense?
       bool operator == (const MemLocObject& o2) const;*/
-      bool mayEqualML(MemLocObjectPtr o2, PartEdgePtr pedge); 
-      bool mustEqualML(MemLocObjectPtr o2, PartEdgePtr pedge); 
-      
+      bool mayEqualML(MemLocObjectPtr o2, PartEdgePtr pedge);
+      bool mustEqualML(MemLocObjectPtr o2, PartEdgePtr pedge);
+
       // GB: 2012-08-27: should be implementing the following functions here:
       //                 Array::getElements(), getElements(IndexVectorPtr ai), getNumDims(), getDereference()
       boost::shared_ptr<MemLocObject> getElements(PartEdgePtr pedge);
       boost::shared_ptr<MemLocObject> getElements(IndexVectorPtr ai, PartEdgePtr pedge);
       size_t getNumDims(PartEdgePtr pedge);
       boost::shared_ptr<MemLocObject> getDereference(PartEdgePtr pedge);
-   
+
       std::string str(std::string indent) const; // pretty print for the object
       std::string str(std::string indent) { return ((const ArrayExprObj*)this)->str(indent); }
       std::string strp(PartEdgePtr pedge, std::string indent) const; // pretty print for the object
       std::string strp(PartEdgePtr pedge, std::string indent) { return ((const ArrayExprObj*)this)->strp(pedge, indent); }
-      
+
       // Allocates a copy of this object and returns a pointer to it
       MemLocObjectPtr copyML() const;
   };
@@ -726,14 +747,14 @@ typedef boost::shared_ptr<StxCodeLocObject> StxCodeLocObjectPtr;
       /* GB: Deprecating the == operator. Now that some objects can contain AbstractObjects any equality test must take the current part as input.
       // Returns true if this object and that object may/must refer to the same pointer memory object.
       bool operator == (const MemLocObject& o2) const;*/
-      bool mayEqualML(MemLocObjectPtr o2, PartEdgePtr pedge); 
-      bool mustEqualML(MemLocObjectPtr o2, PartEdgePtr pedge); 
-      
+      bool mayEqualML(MemLocObjectPtr o2, PartEdgePtr pedge);
+      bool mustEqualML(MemLocObjectPtr o2, PartEdgePtr pedge);
+
       std::string str(std::string indent) const; // pretty print for the object
       std::string str(std::string indent) { return ((const PointerExprObj*)this)->str(indent); }
       std::string strp(PartEdgePtr pedge, std::string indent) const; // pretty print for the object
       std::string strp(PartEdgePtr pedge, std::string indent) { return ((const PointerExprObj*)this)->strp(pedge, indent); }
-      
+
       // Allocates a copy of this object and returns a pointer to it
       MemLocObjectPtr copyML() const;
   };
@@ -749,12 +770,12 @@ typedef boost::shared_ptr<StxCodeLocObject> StxCodeLocObjectPtr;
       //std::set<SgType*> getType();
       /* GB: Deprecating the == operator. Now that some objects can contain AbstractObjects any equality test must take the current part as input.
       bool operator == (const MemLocObject & that) const ;*/
-      bool mayEqualML(MemLocObjectPtr o2, PartEdgePtr pedge); 
-      bool mustEqualML(MemLocObjectPtr o2, PartEdgePtr pedge); 
-      
+      bool mayEqualML(MemLocObjectPtr o2, PartEdgePtr pedge);
+      bool mustEqualML(MemLocObjectPtr o2, PartEdgePtr pedge);
+
       std::string str(std::string indent) const; // pretty print for the object
       std::string str(std::string indent) { return ((const ScalarNamedObj*)this)->str(indent); }
-      
+
       std::string strp(PartEdgePtr pedge, std::string indent) const; // pretty print for the object
       std::string strp(PartEdgePtr pedge, std::string indent) { return ((const NamedObj*)this)->strp(pedge, indent); }
 
@@ -775,15 +796,15 @@ typedef boost::shared_ptr<StxCodeLocObject> StxCodeLocObjectPtr;
       //std::set<SgType*> getType();
       /* GB: Deprecating the == operator. Now that some objects can contain AbstractObjects any equality test must take the current part as input.
       bool operator == (const MemLocObject & that) const ;*/
-      bool mayEqualML(MemLocObjectPtr o2, PartEdgePtr pedge); 
-      bool mustEqualML(MemLocObjectPtr o2, PartEdgePtr pedge); 
-      
+      bool mayEqualML(MemLocObjectPtr o2, PartEdgePtr pedge);
+      bool mustEqualML(MemLocObjectPtr o2, PartEdgePtr pedge);
+
       std::string str(std::string indent) const; // pretty print for the object
       std::string str(std::string indent) { return ((const FunctionNamedObj*)this)->str(indent); }
-      
+
       std::string strp(PartEdgePtr pedge, std::string indent) const; // pretty print for the object
       std::string strp(PartEdgePtr pedge, std::string indent) { return ((const NamedObj*)this)->strp(pedge, indent); }
-      
+
       // Allocates a copy of this object and returns a pointer to it
       MemLocObjectPtr copyML() const;
   };
@@ -799,15 +820,15 @@ typedef boost::shared_ptr<StxCodeLocObject> StxCodeLocObjectPtr;
       // Returns true if this object and that object may/must refer to the same labeledAggregate memory object.
       /* GB: Deprecating the == operator. Now that some objects can contain AbstractObjects any equality test must take the current part as input.
       bool operator == (const MemLocObject & that) const ;*/
-      bool mayEqualML(MemLocObjectPtr o2, PartEdgePtr pedge); 
-      bool mustEqualML(MemLocObjectPtr o2, PartEdgePtr pedge); 
-      
+      bool mayEqualML(MemLocObjectPtr o2, PartEdgePtr pedge);
+      bool mustEqualML(MemLocObjectPtr o2, PartEdgePtr pedge);
+
       std::string str(std::string indent) const; // pretty print for the object
       std::string str(std::string indent) { return ((const LabeledAggregateNamedObj*)this)->str(indent); }
-      
+
       std::string strp(PartEdgePtr pedge, std::string indent) const; // pretty print for the object
       std::string strp(PartEdgePtr pedge, std::string indent) { return ((const NamedObj*)this)->strp(pedge, indent); }
-      
+
       // Allocates a copy of this object and returns a pointer to it
       MemLocObjectPtr copyML() const;
   };
@@ -825,8 +846,8 @@ typedef boost::shared_ptr<StxCodeLocObject> StxCodeLocObjectPtr;
       // Returns a memory object that corresponds to all the elements in the given array
       // GB 2012-08-27: This doesn't look right. The contents of an array have one less level of indirection than
       //                the array itself. You shouldn't be able to call getElements on the contents of an int array.
-      MemLocObjectPtr getElements(PartEdgePtr pedge) { return MemLocObjectPtr(this); } ; 
-      // Returns the memory object that corresponds to the elements described by the given abstract index, 
+      MemLocObjectPtr getElements(PartEdgePtr pedge) { return MemLocObjectPtr(this); } ;
+      // Returns the memory object that corresponds to the elements described by the given abstract index,
       MemLocObjectPtr getElements(IndexVectorPtr ai, PartEdgePtr pedge);
 
       // number of dimensions of the array
@@ -836,15 +857,15 @@ typedef boost::shared_ptr<StxCodeLocObject> StxCodeLocObjectPtr;
       MemLocObjectPtr getDereference(PartEdgePtr pedge);
       /* GB: Deprecating the == operator. Now that some objects can contain AbstractObjects any equality test must take the current part as input.
       bool operator == (const MemLocObject & that) const;*/
-      bool mayEqualML(MemLocObjectPtr o2, PartEdgePtr pedge); 
+      bool mayEqualML(MemLocObjectPtr o2, PartEdgePtr pedge);
       bool mustEqualML(MemLocObjectPtr o2, PartEdgePtr pedge);
-      
+
       std::string str(std::string indent) const; // pretty print for the object
       std::string str(std::string indent) { return ((const ArrayNamedObj*)this)->str(indent); }
-      
+
       std::string strp(PartEdgePtr pedge, std::string indent) const; // pretty print for the object
       std::string strp(PartEdgePtr pedge, std::string indent) { return ((const NamedObj*)this)->strp(pedge, indent); }
-      
+
       // Allocates a copy of this object and returns a pointer to it
       MemLocObjectPtr copyML() const;
   };
@@ -865,15 +886,15 @@ typedef boost::shared_ptr<StxCodeLocObject> StxCodeLocObjectPtr;
       // Returns true if this object and that object may/must refer to the same pointer memory object.
       /* GB: Deprecating the == operator. Now that some objects can contain AbstractObjects any equality test must take the current part as input.
       bool operator == (const MemLocObject & that) const ;*/
-      bool mayEqualML(MemLocObjectPtr o2, PartEdgePtr pedge); 
-      bool mustEqualML(MemLocObjectPtr o2, PartEdgePtr pedge); 
-      
+      bool mayEqualML(MemLocObjectPtr o2, PartEdgePtr pedge);
+      bool mustEqualML(MemLocObjectPtr o2, PartEdgePtr pedge);
+
       std::string str(std::string indent) const; // pretty print for the object
       std::string str(std::string indent) { return ((const PointerNamedObj*)this)->str(indent); }
-      
+
       std::string strp(PartEdgePtr pedge, std::string indent) const; // pretty print for the object
       std::string strp(PartEdgePtr pedge, std::string indent) { return ((const NamedObj*)this)->strp(pedge, indent); }
-      
+
       // Allocates a copy of this object and returns a pointer to it
       MemLocObjectPtr copyML() const;
   };
@@ -889,9 +910,9 @@ typedef boost::shared_ptr<StxCodeLocObject> StxCodeLocObjectPtr;
       //std::set<SgType*> getType();
       /* GB: Deprecating the == operator. Now that some objects can contain AbstractObjects any equality test must take the current part as input.
       bool operator == (const MemLocObject& o2) const; */
-      bool mayEqualML(MemLocObjectPtr o2, PartEdgePtr pedge); 
-      bool mustEqualML(MemLocObjectPtr o2, PartEdgePtr pedge); 
-      
+      bool mayEqualML(MemLocObjectPtr o2, PartEdgePtr pedge);
+      bool mustEqualML(MemLocObjectPtr o2, PartEdgePtr pedge);
+
       std::string str(std::string indent) const; // pretty print for the object
       std::string str(std::string indent) { return ((const ScalarAliasedObj*)this)->str(indent); }
 
@@ -907,9 +928,9 @@ typedef boost::shared_ptr<StxCodeLocObject> StxCodeLocObjectPtr;
       //std::set<SgType*> getType();
       /* GB: Deprecating the == operator. Now that some objects can contain AbstractObjects any equality test must take the current part as input.
       bool operator == (const MemLocObject& o2) const; */
-      bool mayEqualML(MemLocObjectPtr o2, PartEdgePtr pedge); 
-      bool mustEqualML(MemLocObjectPtr o2, PartEdgePtr pedge); 
-      
+      bool mayEqualML(MemLocObjectPtr o2, PartEdgePtr pedge);
+      bool mustEqualML(MemLocObjectPtr o2, PartEdgePtr pedge);
+
       std::string str(std::string indent) const; // pretty print for the object
       std::string str(std::string indent) { return ((const FunctionAliasedObj*)this)->str(indent); }
 
@@ -928,9 +949,9 @@ typedef boost::shared_ptr<StxCodeLocObject> StxCodeLocObjectPtr;
       // std::list<LabeledAggregateField*> getElements() const;
       /* GB: Deprecating the == operator. Now that some objects can contain AbstractObjects any equality test must take the current part as input.
       bool operator == (const MemLocObject& o2) const; */
-      bool mayEqualML(MemLocObjectPtr o2, PartEdgePtr pedge); 
-      bool mustEqualML(MemLocObjectPtr o2, PartEdgePtr pedge); 
-      
+      bool mayEqualML(MemLocObjectPtr o2, PartEdgePtr pedge);
+      bool mustEqualML(MemLocObjectPtr o2, PartEdgePtr pedge);
+
       std::string str(std::string indent) const; // pretty print for the object
       std::string str(std::string indent) { return ((const LabeledAggregateAliasedObj*)this)->str(indent); }
 
@@ -951,16 +972,16 @@ typedef boost::shared_ptr<StxCodeLocObject> StxCodeLocObjectPtr;
       //  getNumDims();
       /* GB: Deprecating the == operator. Now that some objects can contain AbstractObjects any equality test must take the current part as input.
       bool operator == (const MemLocObject& o2) const; */
-      bool mayEqualML(MemLocObjectPtr o2, PartEdgePtr pedge); 
-      bool mustEqualML(MemLocObjectPtr o2, PartEdgePtr pedge); 
-      
+      bool mayEqualML(MemLocObjectPtr o2, PartEdgePtr pedge);
+      bool mustEqualML(MemLocObjectPtr o2, PartEdgePtr pedge);
+
       // GB: 2012-08-27: should be implementing the following functions here:
       //                 Array::getElements(), getElements(IndexVectorPtr ai), getNumDims(), getDereference()
       boost::shared_ptr<MemLocObject> getElements(PartEdgePtr pedge);
       boost::shared_ptr<MemLocObject> getElements(IndexVectorPtr ai, PartEdgePtr pedge);
       size_t getNumDims(PartEdgePtr pedge);
       boost::shared_ptr<MemLocObject> getDereference(PartEdgePtr pedge);
-      
+
       std::string str(std::string indent) const; // pretty print for the object
       std::string str(std::string indent) { return ((const ArrayAliasedObj*)this)->str(indent); }
 
@@ -981,9 +1002,9 @@ typedef boost::shared_ptr<StxCodeLocObject> StxCodeLocObjectPtr;
       //std::set<SgType*> getType();
       /* GB: Deprecating the == operator. Now that some objects can contain AbstractObjects any equality test must take the current part as input.
       bool operator == (const MemLocObject& o2) const; */
-      bool mayEqualML(MemLocObjectPtr o2, PartEdgePtr pedge); 
-      bool mustEqualML(MemLocObjectPtr o2, PartEdgePtr pedge); 
-      
+      bool mayEqualML(MemLocObjectPtr o2, PartEdgePtr pedge);
+      bool mustEqualML(MemLocObjectPtr o2, PartEdgePtr pedge);
+
       std::string str(std::string indent) const; // pretty print for the object
       std::string str(std::string indent) { return ((const PointerAliasedObj*)this)->str(indent); }
 
@@ -996,10 +1017,10 @@ typedef boost::shared_ptr<StxCodeLocObject> StxCodeLocObjectPtr;
 
   // Create an aliased obj set from a type. It can return NULL since not all types are supported.
   MemLocObjectPtr createAliasedMemLocObject(SgType*t, PartEdgePtr pedge);  // One object per type, Type based alias analysis
-  MemLocObjectPtr createNamedMemLocObject(SgSymbol* anchor_symbol, SgType* t, PartEdgePtr pedge, MemLocObjectPtr parent, IndexVectorPtr iv); // any 
-  MemLocObjectPtr createNamedMemLocObject(SgVarRefExp* r, PartEdgePtr pedge); // create NamedMemLocObject or AliasedMemLocObject (for pointer type) from a variable reference 
+  MemLocObjectPtr createNamedMemLocObject(SgSymbol* anchor_symbol, SgType* t, PartEdgePtr pedge, MemLocObjectPtr parent, IndexVectorPtr iv); // any
+  MemLocObjectPtr createNamedMemLocObject(SgVarRefExp* r, PartEdgePtr pedge); // create NamedMemLocObject or AliasedMemLocObject (for pointer type) from a variable reference
   MemLocObjectPtr createNamedMemLocObject(SgPntrArrRefExp* r, PartEdgePtr pedge); // create NamedMemLocObject from an array element access
-  MemLocObjectPtr createExpressionMemLocObject(SgExpression* anchor_exp, SgType*t, PartEdgePtr pedge); 
+  MemLocObjectPtr createExpressionMemLocObject(SgExpression* anchor_exp, SgType*t, PartEdgePtr pedge);
   // Return true if op is an operand of the given SgNode n and false otherwise.
   bool isOperand(SgNode* n, SgExpression* op);
   // MemLocObject* createMemLocObject(SgNode*); // top level catch all case, declared in memory_object.h

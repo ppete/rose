@@ -73,22 +73,22 @@ class LiveDeadMemTransfer : public IntraDFTransferVisitor
     bool isMemLocLive(SgExpression* expr);
 
 public:
-LiveDeadMemTransfer(const Function &f, PartPtr part, CFGNode cn, NodeState &s, 
-                    std::map<PartEdgePtr, LatticePtr > &dfInfo, 
+LiveDeadMemTransfer(const Function &f, PartPtr part, CFGNode cn, NodeState &s,
+                    std::map<PartEdgePtr, LatticePtr > &dfInfo,
                     LiveDeadMemAnalysis* ldma,
                     ComposerExpr2MemLocPtr ceml, funcSideEffectUses *fseu)
     : IntraDFTransferVisitor(f, part, cn, s, dfInfo),
-    ldma(ldma), 
-    ceml(ceml), 
-    modified(false), 
-    assigned(part->inEdgeFromAny(), AbstractObjectSet::may), 
-    used(part->inEdgeFromAny(), AbstractObjectSet::may), 
-    part(part), 
+    ldma(ldma),
+    ceml(ceml),
+    modified(false),
+    assigned(part->inEdgeFromAny(), AbstractObjectSet::may),
+    used(part->inEdgeFromAny(), AbstractObjectSet::may),
+    part(part),
     fseu(fseu)
     {
       ROSE_ASSERT(dfInfo.find(PartEdgePtr()) != dfInfo.end());
-      liveLat = dynamic_cast<AbstractObjectSet*>(*(dfInfo[PartEdgePtr()].begin()));
-      
+      liveLat = dynamic_cast<AbstractObjectSet*>(dfInfo[PartEdgePtr()].get());
+
       if(liveDeadAnalysisDebugLevel>=1) {
         Dbg::dbg << "LiveDeadMemTransfer: liveLat=";
         Dbg::indent ind(liveDeadAnalysisDebugLevel, 1);
@@ -122,29 +122,29 @@ protected:
 
 public:
     LiveDeadMemAnalysis(funcSideEffectUses* fseu=NULL);
-    
+
     // Initializes the state of analysis lattices at the given function, part and edge into our out of the part
     // by setting initLattices to refer to freshly-allocated Lattice objects.
-    void genInitLattice(const Function& func, PartPtr part, PartEdgePtr pedge, 
+    void genInitLattice(const Function& func, PartPtr part, PartEdgePtr pedge,
                         std::vector<Lattice*>& initLattices);
 
-#if OBSOLETE_CODE        
+#if OBSOLETE_CODE
     boost::shared_ptr<IntraDFTransferVisitor> getTransferVisitor(
                                                       const Function& func, PartPtr part, CFGNode cn,
-                                                      NodeState& state, 
+                                                      NodeState& state,
                                                       std::map<PartEdgePtr, std::vector<Lattice*> >& dfInfo)
     { return boost::shared_ptr<IntraDFTransferVisitor>(
-    		new LiveDeadMemTransfer(func, part, cn, state, dfInfo, 
+    		new LiveDeadMemTransfer(func, part, cn, state, dfInfo,
     		                        this, ComposerExpr2MemLocPtr(new ComposerExpr2MemLoc(*getComposer(), part->inEdgeFromAny(), *((ComposedAnalysis*)this))),
     		                        fseu)); }
 #endif /* OBSOLETE_CODE */
 
-    bool transfer(const Function& func, PartPtr part, CFGNode cn, NodeState& state, 
+    bool transfer(const Function& func, PartPtr part, CFGNode cn, NodeState& state,
                   std::map<PartEdgePtr, LatticePtr >& dfInfo) { assert(0); return false; }
-    
+
     // Maps the given SgNode to an implementation of the MemLocObject abstraction.
     MemLocObjectPtr Expr2MemLoc(SgNode* n, PartEdgePtr pedge);
-    
+
     // pretty print for the object
     std::string str(std::string indent="")
     { return "LiveDeadMemAnalysis"; }
@@ -165,12 +165,12 @@ class LDMemLocObject : public virtual MemLocObject
 
   // Returns true if this object is live at the given part and false otherwise
   bool isLive(PartEdgePtr pedge) const;
-  
+
   // pretty print for the object
   std::string str(std::string indent="") const;
   std::string str(std::string indent="") { return ((const LDMemLocObject*)this)->str(indent); }
   std::string strp(PartEdgePtr pedge, std::string indent="");
-  
+
   // Allocates a copy of this object and returns a pointer to it
   MemLocObjectPtr copyML() const;
 
@@ -226,8 +226,8 @@ class LDLabeledAggregate: virtual public LDMemLocObject, virtual public LabeledA
    size_t fieldCount(PartEdgePtr pedge);
 
    // Returns a list of field
-   std::vector<boost::shared_ptr<LabeledAggregateField> > getElements(PartEdgePtr pedge) const; 
-   
+   std::vector<boost::shared_ptr<LabeledAggregateField> > getElements(PartEdgePtr pedge) const;
+
   // Implement the required functions by calling the real copies in LDMemLocObject
   bool mayEqual(MemLocObjectPtr o, PartEdgePtr pedge)  { return LDMemLocObject::mayEqual(o, pedge); }
   bool mustEqual(MemLocObjectPtr o, PartEdgePtr pedge) { return LDMemLocObject::mayEqual(o, pedge); }
@@ -246,7 +246,7 @@ class LDArray: virtual public LDMemLocObject, virtual public Array
 
    // Returns a memory object that corresponds to all the elements in the given array
    MemLocObjectPtr getElements(PartEdgePtr pedge);
-   // Returns the memory object that corresponds to the elements described by the given abstract index, 
+   // Returns the memory object that corresponds to the elements described by the given abstract index,
    // which represents one or more indexes within the array
    MemLocObjectPtr getElements(IndexVectorPtr ai, PartEdgePtr pedge);
 
@@ -257,7 +257,7 @@ class LDArray: virtual public LDMemLocObject, virtual public Array
    // support dereference of array object, similar to the dereference of pointer
    // Return the element object: array[0]
    MemLocObjectPtr getDereference(PartEdgePtr pedge);
-   
+
   // Implement the required functions by calling the real copies in LDMemLocObject
   bool mayEqual(MemLocObjectPtr o, PartEdgePtr pedge)  { return LDMemLocObject::mayEqual(o, pedge); }
   bool mustEqual(MemLocObjectPtr o, PartEdgePtr pedge) { return LDMemLocObject::mayEqual(o, pedge); }
@@ -272,7 +272,7 @@ class LDPointer: virtual public LDMemLocObject, virtual public Pointer
 {
  public:
    LDPointer(MemLocObjectPtr parent, LiveDeadMemAnalysis* ldma);
-   
+
    MemLocObjectPtr getDereference(PartEdgePtr pedge);
    // Returns true if this pointer refers to the same abstract object as that pointer.
    bool equalPoints(const Pointer & that);

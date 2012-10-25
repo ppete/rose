@@ -28,170 +28,171 @@ enum DPELevel {bottom=0, dead=1, live=2};
 class DeadPathElimPart : public Part, public boost::enable_shared_from_this<DeadPathElimPart>
 {
   private:
-  
+
   // The part (implemented by a server analysis) that this object is wrapping with live/dead status
   PartPtr base;
-    
+
   DPELevel level;
-  
+
   friend class DeadPathElimPartEdge;
   friend class DeadPathElimTransfer;
-  
+
   // The DeadPathElimAnalysis that created this part
   DeadPathElimAnalysis* analysis;
-  
+
   public:
   DeadPathElimPart(PartPtr base, DeadPathElimAnalysis* analysis, DPELevel level);
   DeadPathElimPart(const DeadPathElimPart& that);
-  
+
   private:
   PartPtr getBase() { return base; }
   void setBase(PartPtr newBase) { base = newBase; }
-  
+
   public:
   // -------------------------------------------
   // Functions that need to be defined for Parts
   // -------------------------------------------
-  
+
   std::vector<PartEdgePtr> outEdges();
   std::vector<PartEdgePtr> inEdges();
   std::set<CFGNode> CFGNodes();
-  
+
   /*
   // Let A={ set of execution prefixes that terminate at the given anchor SgNode }
   // Let O={ set of execution prefixes that terminate at anchor's operand SgNode }
   // Since to reach a given SgNode an execution must first execute all of its operands it must
   //    be true that there is a 1-1 mapping m() : O->A such that o in O is a prefix of m(o).
   // This function is the inverse of m: given the anchor node and operand as well as the
-  //    Part that denotes a subset of A (the function is called on this part), 
+  //    Part that denotes a subset of A (the function is called on this part),
   //    it returns a list of Parts that partition O.
   std::list<PartPtr> getOperandPart(SgNode* anchor, SgNode* operand);*/
-  
+
   // Returns a PartEdgePtr, where the source is a wild-card part (NULLPart) and the target is this Part
   PartEdgePtr inEdgeFromAny();
 
   // Returns a PartEdgePtr, where the target is a wild-card part (NULLPart) and the source is this Part
   PartEdgePtr outEdgeToAny();
-  
+
   bool operator==(const PartPtr& o) const;
   bool operator<(const PartPtr& o)  const;
-  
+
   // Pretty print for the object
   std::string str(std::string indent="");
 }; // class DeadPathElimPart
 
 class DeadPathElimPartEdge : public FiniteLattice, public PartEdge {
-  
+
   // The edge (implemented by a server analysis) that this object is wrapping with live/dead status
   //PartEdgePtr baseEdge;
-  
+
   // The part that this object is wrapping with live/dead status
   DeadPathElimPartPtr src;
   DeadPathElimPartPtr tgt;
-  
+
   // For edges from parts that contain CFGNodes that correspond to conditionals (if, switch, while test, etc.)
   // records a mapping from these CFGNodes to the value outcome that leads control along this edge.
   std::map<CFGNode, boost::shared_ptr<SgValueExp> > predVals;
-  
+
   DPELevel level;
-  
+
   // The DeadPathElimAnalysis that created this part edge
   DeadPathElimAnalysis* analysis;
- 
-  friend class DeadPathElimPart; 
+
+  friend class DeadPathElimPart;
   friend class DeadPathElimTransfer;
-  
+
   public:
   /* GB 2012-10-15 - Commented out because this constructor makes it difficult to set the lattice of the created edge
-  DeadPathElimPartEdge(DeadPathElimPartPtr src, DeadPathElimPartPtr tgt, 
+  DeadPathElimPartEdge(DeadPathElimPartPtr src, DeadPathElimPartPtr tgt,
                        PartEdgePtr baseEdge, DeadPathElimAnalysis* analysis);*/
-  
-  // Constructor to be used when constructing the edges (e.g. from genInitLattice()).  
+
+  // Constructor to be used when constructing the edges (e.g. from genInitLattice()).
   DeadPathElimPartEdge(PartEdgePtr baseEdge, DeadPathElimAnalysis* analysis, DPELevel level);
-  
+
   // Constructor to be used when traversing the part graph created by the DeadPathElimAnalysis, after
   // all the DeadPathElimPartEdges have been constructed and stored in NodeStates.
   DeadPathElimPartEdge(PartEdgePtr baseEdge, DeadPathElimAnalysis* analysis);
-  
+
   DeadPathElimPartEdge(const DeadPathElimPartEdge& that);
-  
+
   PartPtr source();
   PartPtr target();
-  
+
   // Let A={ set of execution prefixes that terminate at the given anchor SgNode }
   // Let O={ set of execution prefixes that terminate at anchor's operand SgNode }
   // Since to reach a given SgNode an execution must first execute all of its operands it must
   //    be true that there is a 1-1 mapping m() : O->A such that o in O is a prefix of m(o).
   // This function is the inverse of m: given the anchor node and operand as well as the
-  //    PartEdge that denotes a subset of A (the function is called on this PartEdge), 
+  //    PartEdge that denotes a subset of A (the function is called on this PartEdge),
   //    it returns a list of PartEdges that partition O.
   std::list<PartEdgePtr> getOperandPartEdge(SgNode* anchor, SgNode* operand);
-  
+
   // If the source Part corresponds to a conditional of some sort (if, switch, while test, etc.)
   // it must evaluate some predicate and depending on its value continue, execution along one of the
   // outgoing edges. The value associated with each outgoing edge is fixed and known statically.
-  // getPredicateValue() returns the value associated with this particular edge. Since a single 
+  // getPredicateValue() returns the value associated with this particular edge. Since a single
   // Part may correspond to multiple CFGNodes getPredicateValue() returns a map from each CFG node
-  // within its source part that corresponds to a conditional to the value of its predicate along 
-  // this edge. 
+  // within its source part that corresponds to a conditional to the value of its predicate along
+  // this edge.
   std::map<CFGNode, boost::shared_ptr<SgValueExp> > getPredicateValue();
-  
+
   // Adds a mapping from a CFGNode to the outcome of its predicate
   void mapPred2Val(CFGNode n, boost::shared_ptr<SgValueExp> val);
-  
+
   // Empties out the mapping of CFGNodes to the outcomes of their predicates
   void clearPred2Val();
-    
+
   bool operator==(const PartEdgePtr& o) const;
   bool operator<(const PartEdgePtr& o)  const;
-  
+
   // Pretty print for the object
   std::string str(std::string indent="");
-  
+
   public:
   // ----------------------------------------------
   // Functions that need to be defined for Lattices
   // ----------------------------------------------
   void initialize();
-  
+  void clear() {} // \todo \pp
+
   // Returns a copy of this lattice
-  Lattice* copy() const;
-  
+  DeadPathElimPartEdge* copy() const;
+
   // Overwrites the state of "this" Lattice with "that" Lattice
-  void copy(Lattice* that);
-  
-  bool operator==(Lattice* that) /*const*/;
-  
-// Called by analyses to transfer this lattice's contents from across function scopes from a caller function 
-  //    to a callee's scope and vice versa. If this this lattice maintains any information on the basis of 
-  //    individual MemLocObjects these mappings must be converted, with MemLocObjects that are keys of the ml2ml 
+  void copy(const Lattice* that);
+
+  bool operator==(const Lattice* that) const;
+
+// Called by analyses to transfer this lattice's contents from across function scopes from a caller function
+  //    to a callee's scope and vice versa. If this this lattice maintains any information on the basis of
+  //    individual MemLocObjects these mappings must be converted, with MemLocObjects that are keys of the ml2ml
   //    replaced with their corresponding values. If a given key of ml2ml does not appear in the lattice, it must
-  //    be added to the lattice and assigned a default initial value. In many cases (e.g. over-approximate sets 
-  //    of MemLocObjects) this may not require any actual insertions. If the value of a given ml2ml mapping is 
-  //    NULL (empty boost::shared_ptr), any information for MemLocObjects that must-equal to the key should be 
+  //    be added to the lattice and assigned a default initial value. In many cases (e.g. over-approximate sets
+  //    of MemLocObjects) this may not require any actual insertions. If the value of a given ml2ml mapping is
+  //    NULL (empty boost::shared_ptr), any information for MemLocObjects that must-equal to the key should be
   //    deleted.
-  // The function takes newPEdge, the edge that points to the part within which the values of ml2ml should be 
+  // The function takes newPEdge, the edge that points to the part within which the values of ml2ml should be
   //    interpreted. It corresponds to the code region(s) to which we are remapping.
   // remapML must return a freshly-allocated object.
   Lattice* remapML(const std::set<pair<MemLocObjectPtr, MemLocObjectPtr> >& ml2ml, PartEdgePtr newPEdge);
-  
-  // Adds information about the MemLocObjects in newL to this Lattice, overwriting any information previously 
+
+  // Adds information about the MemLocObjects in newL to this Lattice, overwriting any information previously
   //    maintained in this lattice about them.
   // Returns true if the Lattice state is modified and false otherwise.
   bool replaceML(Lattice* newL);
-  
+
   // Computes the meet of this and that and saves the result in this
   // Returns true if this causes this to change and false otherwise
-  bool meetUpdate(Lattice* that);
-  
+  bool meetUpdate(const Lattice* that);
+
   // Set this Lattice object to represent the set of all possible execution prefixes.
   // Return true if this causes the object to change and false otherwise.
   bool setToFull();
-  
+
   // Set this Lattice object to represent the of no execution prefixes (empty set)
   // Return true if this causes the object to change and false otherwise.
   bool setToEmpty();
-  
+
   // Set this Lattice object to represent a dead part
   bool setToDead();
 };
@@ -202,49 +203,59 @@ class DeadPathElimPartEdge : public FiniteLattice, public PartEdge {
 
 class DeadPathElimTransfer : public IntraDFTransferVisitor
 {
-  DeadPathElimAnalysis* dpea;
-  PartPtr part;
-  CFGNode cn;
-  bool modified;
+  public:
+    typedef NodeState::PartLattice PartLattice;
+
+  private:
+    DeadPathElimAnalysis* dpea;
+    PartPtr part;
+    CFGNode cn;
+    bool modified;
 
   public:
-  DeadPathElimTransfer(const Function &f, PartPtr part, CFGNode cn, NodeState &s, std::map<PartEdgePtr, std::vector<Lattice*> > &d, 
-                       DeadPathElimAnalysis* dpea);
+    DeadPathElimTransfer(const Function &f, PartPtr part, CFGNode cn, NodeState& s, PartLattice& d,
+                         DeadPathElimAnalysis* dpea);
 
-  bool finish();
+    bool finish();
 
-  void visit(SgIfStmt *sgn);
-  void visit(SgNode *sgn);
+    void visit(SgIfStmt *sgn);
+    void visit(SgNode *sgn);
 };
 
 class DeadPathElimAnalysis : public IntraFWDataflow
 {
   protected:
-   
+
   public:
   DeadPathElimAnalysis();
-  
+
   // Initializes the state of analysis lattices at the given function, part and edge into our out of the part
   // by setting initLattices to refer to freshly-allocated Lattice objects.
-  void genInitLattice(const Function& func, PartPtr part, PartEdgePtr pedge, 
+#if OBSOLETE_CODE
+  void genInitLattice(const Function& func, PartPtr part, PartEdgePtr pedge,
                       std::vector<Lattice*>& initLattices);
-  
-  bool transfer(const Function& func, PartPtr part, CFGNode cn, NodeState& state, 
-                std::map<PartEdgePtr, std::vector<Lattice*> >& dfInfo);
-  
-  boost::shared_ptr<IntraDFTransferVisitor> getTransferVisitor(const Function& func, PartPtr part, CFGNode cn, 
+
+  bool transfer(const Function& func, PartPtr part, CFGNode cn, NodeState& state,
+                PartLattice& dfInfo);
+
+  boost::shared_ptr<IntraDFTransferVisitor> getTransferVisitor(const Function& func, PartPtr part, CFGNode cn,
                                                                NodeState& state, map<PartEdgePtr, vector<Lattice*> >& dfInfo);
-  
+#endif /*OBSOLETE_CODE*/
+
+  bool transfer(const Function& func, PartPtr part, CFGNode cn, NodeState& state, PartLattice& dfInfo) /* override */;
+
+  DeadPathElimPartEdge*  genLattice(const Function& func, PartPtr part, PartEdgePtr pedge) /* override */;
+  std::vector<NodeFact*> genFacts  (const Function& func, PartPtr p) /* override */;
+
   // Return the anchor Parts of a given function
   PartPtr GetFunctionStartPart(const Function& func);
   PartPtr GetFunctionEndPart(const Function& func);
-  
+
   // Pretty print for the object
   std::string str(std::string indent="")
   { return "DeadPathElimAnalysis"; }
 };
 
-}; //namespace dataflow
+} //namespace dataflow
 
 #endif	/* DEAD_PATH_ELIM_ANALYSIS_H */
-

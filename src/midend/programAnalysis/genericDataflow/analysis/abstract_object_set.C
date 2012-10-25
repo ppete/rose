@@ -20,7 +20,7 @@ bool AbstractObjectSet::insert(AbstractObjectPtr that)
   ROSE_ASSERT(that);
 
   // Do not insert mappings for dead keys
-  if(!that->isLive(latPEdge)) { 
+  if(!that->isLive(latPEdge)) {
     if(AbstractObjectSetDebugLevel>=1) Dbg::dbg << "<b>AbstractObjectSet::insert() WARNING: attempt to insert dead element "<<that->strp(latPEdge)<<"<\b>"<<endl;
     return false;
   }
@@ -166,8 +166,8 @@ AbstractObjectSet* AbstractObjectSet::copy() const
 // overwrites the state of this Lattice with that of that Lattice
 void AbstractObjectSet::copy(const Lattice* thatL)
 {
-  Lattice::copy(thatL);
-  
+  Lattice::copy_lattice_data(this, thatL);
+
   try {
     const AbstractObjectSet& that = dynamic_cast<const AbstractObjectSet&>(*thatL);
     isFull = that.isFull;
@@ -185,10 +185,10 @@ void AbstractObjectSet::copy(const Lattice* thatL)
 //    of MemLocObjects) this may not require any actual insertions. If the value of a given ml2ml mapping is
 //    NULL (empty boost::shared_ptr), any information for MemLocObjects that must-equal to the key should be
 //    deleted.
-// The function takes newPEdge, the edge that points to the part within which the values of ml2ml should be 
+// The function takes newPEdge, the edge that points to the part within which the values of ml2ml should be
 //    interpreted. It corresponds to the code region(s) to which we are remapping.
 // remapML must return a freshly-allocated object.
-// In must mode for each MemLocObject o in the set, if there exist any pairs <old, new> in ml2ml such that 
+// In must mode for each MemLocObject o in the set, if there exist any pairs <old, new> in ml2ml such that
 //    o mustEquals old, then new will be included in the final set.
 // May mode is the same, except if for some pair <old, new> old mayEquals o but not mustEquals o then new is
 //    included in the final set but o is not removed.

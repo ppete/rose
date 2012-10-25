@@ -3,7 +3,7 @@
 
 namespace dataflow {
 
-printAnalysisStates::printAnalysisStates(ComposedAnalysis* creator, vector<int>& factNames, vector<int>& latticeNames, ab latSide) : 
+printAnalysisStates::printAnalysisStates(ComposedAnalysis* creator, vector<int>& factNames, vector<int>& latticeNames, ab latSide) :
 UnstructuredPassIntraAnalysis(creator), latticeNames(latticeNames), factNames(factNames), latSide(latSide)
 { }
 
@@ -23,16 +23,22 @@ void printAnalysisStates::visit(const Function& func, PartPtr part, NodeState& s
     else
       Dbg::dbg << "    fact"<<*it<<" = None\n";
   }
-  
+
+#if OBSOLETE_CODE
   for(vector<int>::iterator it = latticeNames.begin(); it!=latticeNames.end(); it++)
   {
-    Lattice* lat;
-    if(latSide==above) lat = state.getLatticeAbove((Analysis*)analysis, *it);
-    else         lat = state.getLatticeBelow((Analysis*)analysis, *it);
-    if(lat)
-      Dbg::dbg << "    lattice"<<*it<<" = \n"<<lat->str("    ")<<"\n";
+#endif /* OBSOLETE_CODE */
+    ConstLatticePtr lat = (latSide==above ? state.getLatticeAbove((Analysis*)analysis)
+                                          : state.getLatticeBelow((Analysis*)analysis));
+
+    if(lat.get())
+      Dbg::dbg << "    lattice = \n"<<lat->str("    ")<<"\n";
     else
-      Dbg::dbg << "    lattice"<<*it<<" = None\n";
+      Dbg::dbg << "    lattice = None\n";
+
+#if OBSOLETE_CODE
   }
+#endif /* OBSOLETE_CODE */
 }
-}; // namespace dataflow
+
+} // namespace dataflow

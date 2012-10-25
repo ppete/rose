@@ -50,12 +50,12 @@ class IntraProceduralDataflow : virtual public IntraProceduralAnalysis
 ///     ...
 /// };
 /// \endcode
-        virtual Lattice* genLattice(const Function& func, PartPtr p, const NodeState& state) = 0;
+        virtual Lattice* genLattice(const Function& func, PartPtr p, PartEdgePtr) = 0;
 
         // \pp shall we provide an empty default implementation, which seems
         //     to be the most common case?
         /// generates the initial node facts
-        virtual std::vector<NodeFact*> genFacts(const Function& func, PartPtr p, const NodeState& state) = 0;
+        virtual std::vector<NodeFact*> genFacts(const Function& func, PartPtr p) = 0;
 
         // Set of functions that have already been visited by this analysis, used
         // to make sure that the dataflow state of previously-visited functions is
@@ -122,7 +122,7 @@ class IntraDFTransferVisitor : public ROSE_VisitorPatternDefaultBase
   std::map<PartEdgePtr, LatticePtr >& dfInfo;
 
   public:
-  IntraDFTransferVisitor(const Function &f, PartPtr p, CFGNode cn, NodeState &s, 
+  IntraDFTransferVisitor(const Function &f, PartPtr p, CFGNode cn, NodeState &s,
                          std::map<PartEdgePtr, LatticePtr >& dfInfo)
     : func(f), part(p), nodeState(s), dfInfo(dfInfo)
   { }
@@ -133,43 +133,43 @@ class IntraDFTransferVisitor : public ROSE_VisitorPatternDefaultBase
 class IntraUnitDataflow : virtual public IntraProceduralDataflow
 {
   public:
+    typedef NodeState::PartLattice PartLattice;
 
-  // the transfer function that is applied to every node
-  // part - The Part that is being processed
-  // state - the NodeState object that describes the state of the node, as established by earlier
-  //   analysis passes
-  // dfInfo - The Lattices that this transfer function operates on. The function take a map of lattices, one for
-  //   each edge that departs from this part (outgoing for forward analyses and incoming for backwards)
-  //   as input and overwrites them with the result of the transfer.
-  // Returns true if any of the input lattices changed as a result of the transfer function and
-  //    false otherwise.
-  virtual bool transfer(const Function& func, PartPtr part, CFGNode cn, NodeState& state, 
-      std::map<PartEdgePtr, LatticePtr >& dfInfo)=0;
+    // the transfer function that is applied to every node
+    // part - The Part that is being processed
+    // state - the NodeState object that describes the state of the node, as established by earlier
+    //   analysis passes
+    // dfInfo - The Lattices that this transfer function operates on. The function take a map of lattices, one for
+    //   each edge that departs from this part (outgoing for forward analyses and incoming for backwards)
+    //   as input and overwrites them with the result of the transfer.
+    // Returns true if any of the input lattices changed as a result of the transfer function and
+    //    false otherwise.
+    virtual bool transfer( const Function& func, PartPtr part, CFGNode cn, NodeState& state, PartLattice& dfInfo ) = 0;
 
-        private:
-        /// \brief   calls the visitor based transfer functions for valid visitors
-        /// \details function family discerns valid visitors from invalid ones
-        /// \todo    add auxiliary overload to print clear error message for non-visitor objects
-        /// \note    FOR INTERNAL USE ONLY
-        void _vis_transfer(ROSE_VisitorPattern& vis, PartPtr p)
-        {
-          p.getNode()->accept(vis);
-        }
+  private:
+    /// \brief   calls the visitor based transfer functions for valid visitors
+    /// \details function family discerns valid visitors from invalid ones
+    /// \todo    add auxiliary overload to print clear error message for non-visitor objects
+    /// \note    FOR INTERNAL USE ONLY
+    void _visTransfer(ROSE_VisitorPattern& vis, CFGNode cn)
+    {
+      cn.getNode()->accept(vis);
+    }
 
-        /// \overload
-        /// \details  calls the finish function implemented for IntraDFTransferVisitor
-        ///           after the transfer took place.
-        /// \note     FOR INTERNAL USE ONLY
-        void _vis_transfer(IntraDFTransferVisitor& vis, PartPtr p)
-        {
-          _vis_transfer(static_cast<ROSE_VisitorPattern&>(vis), p);
+    /// \overload
+    /// \details  calls the finish function implemented for IntraDFTransferVisitor
+    ///           after the transfer took place.
+    /// \note     FOR INTERNAL USE ONLY
+    void _visTransfer(IntraDFTransferVisitor& vis, CFGNode cn)
+    {
+      _visTransfer(static_cast<ROSE_VisitorPattern&>(vis), cn);
 
-          // IntraDFTransferVisitor expect the finish function to be called
-          //   sometimes used to write back the results
-          vis.finish();
-        }
+      // IntraDFTransferVisitor expect the finish function to be called
+      //   sometimes used to write back the results
+      vis.finish();
+    }
 
-        protected:
+  protected:
 
 /// \brief   calls the visitor object @vis with the sage node wrapped by @n.
 /// \tparam  RoseVisitor a type derived from ROSE_VisitorPattern
@@ -187,20 +187,20 @@ class IntraUnitDataflow : virtual public IntraProceduralDataflow
 /// \todo \c++11 unify both visitor_transfer functions into one taking the
 ///              visitor as rvalue
         template <class RoseVisitor>
-        RoseVisitor visitor_transfer(const RoseVisitor& vis, PartPtr p)
+        RoseVisitor visitor_transfer(const RoseVisitor& vis, CFGNode cn)
         {
           RoseVisitor vis_copy(vis);
 
-          _vis_transfer(vis_copy, p);
+          _visTransfer(vis_copy, cn);
           return vis_copy;
         }
 
         /// \overload
         /// \brief calls the visitor object @vis with the sage node wrapped by @n.
         template <class RoseVisitor>
-        RoseVisitor& visitor_transfer(RoseVisitor& vis, PartPtr p)
+        RoseVisitor& visitor_transfer(RoseVisitor& vis, CFGNode cn)
         {
-          _vis_transfer(vis, p);
+          _visTransfer(vis, cn);
           return vis;
         }
 
@@ -211,7 +211,7 @@ class IntraUnitDataflow : virtual public IntraProceduralDataflow
     bool modified;
     IntraUnitDataflow *analysis;
     public:
-    DefaultTransfer(const Function& func, PartPtr part, CFGNode cn, NodeState& state, 
+    DefaultTransfer(const Function& func, PartPtr part, CFGNode cn, NodeState& state,
         std::map<PartEdgePtr, LatticePtr >& dfInfo, IntraUnitDataflow *a)
       : IntraDFTransferVisitor(func, part, cn, state, dfInfo), modified(false), analysis(a)
       { }
@@ -337,6 +337,7 @@ class IntraUniDirectionalDataflow : public IntraUnitDataflow
 
       public:
 
+#if OBSOLETE_CODE
         using IntraUnitDataflow::transfer; // do not hide the inherited transfer
 
         /// \brief   the transfer function that is applied to every control flow edge.
@@ -359,17 +360,16 @@ class IntraUniDirectionalDataflow : public IntraUnitDataflow
         virtual bool transfer(const Function& func, const DataflowEdge& e, NodeState& state, LatticePtr dfInfo);
 
       private:
-
         /// encapsulates transfer function invocation along edges
         void edge_transfer(const Function& func, PartPtr p, NodeState& state, LatticePtr dfInfo, VirtualCFG::dataflowIterator* it);
 
         /// encapsulates transfer function invocation for nodes
         void node_transfer(const Function& func, PartPtr p, NodeState& state, LatticePtr dfInfo, VirtualCFG::dataflowIterator* it);
-
       protected:
         /// returns true, iff the transfer functions should get invoked
         ///   on CFG edges, false otherwise (i.e., CFG nodes)
         virtual bool edgeSensitiveAnalysis() const;
+#endif /* OBSOLETE_CODE */
 };
 
 /* Forward Intra-Procedural Dataflow Analysis */

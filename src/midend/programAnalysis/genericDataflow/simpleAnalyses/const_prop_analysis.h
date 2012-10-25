@@ -34,7 +34,7 @@ class CPValueObject : public FiniteLattice, public ValueObject
   private:
   // this object's current level in the lattice: (bottom, valKnown, divKnown, top)
   short level;
-  
+
   public:
   // The different levels of this lattice
   // no information is known about the value of the variable
@@ -56,12 +56,12 @@ class CPValueObject : public FiniteLattice, public ValueObject
   // Do we need a default constructor?
   explicit
   CPValueObject(PartEdgePtr pedge);
-  
+
   // This constructor builds a constant value lattice.
   CPValueObject(int v, PartEdgePtr pedge);
-  
+
   CPValueObject(short level, int v, PartEdgePtr pedge);
-  
+
   // Do we need th copy constructor?
   CPValueObject(const CPValueObject & X);
 
@@ -104,10 +104,10 @@ class CPValueObject : public FiniteLattice, public ValueObject
   std::string str(std::string indent="") const;
   std::string str(std::string indent="") { return ((const CPValueObject*)this)->str(indent); }
   std::string strp(PartEdgePtr pedge, std::string indent="") const;
-    
+
   bool mayEqual(ValueObjectPtr o, PartEdgePtr pedge);
   bool mustEqual(ValueObjectPtr o, PartEdgePtr pedge);
-  
+
   // Allocates a copy of this object and returns a pointer to it
   ValueObjectPtr copyV() const;
 
@@ -120,8 +120,8 @@ class CPValueObject : public FiniteLattice, public ValueObject
   // Returns the concrete value (if there is one) as an SgValueExp, which allows callers to use
   // the normal ROSE mechanisms to decode it
   boost::shared_ptr<SgValueExp> getConcreteValue();
-  
-  /* Don't have good idea how to represent a finite number of options 
+
+  /* Don't have good idea how to represent a finite number of options
   virtual bool isFiniteSet()=0;
   virtual set<AbstractObj> getValueSet()=0;*/
 
@@ -132,28 +132,26 @@ typedef boost::shared_ptr<CPValueObject> CPValueObjectPtr;
 
 class ConstantPropagationAnalysis : virtual public IntraFWDataflow
 {
-  protected:
   //static std::map<varID, Lattice*> constVars;
   //AbstractObjectMap constVars;
-
   public:
-  ConstantPropagationAnalysis();
 
-#if OBSOLETE_CODE  
+#if OBSOLETE_CODE
+  ConstantPropagationAnalysis();
   // Initializes the state of analysis lattices at the given function, part and edge into our out of the part
   // by setting initLattices to refer to freshly-allocated Lattice objects.
-  void genInitLattice(const Function& func, PartPtr part, PartEdgePtr pedge, 
+  void genInitLattice(const Function& func, PartPtr part, PartEdgePtr pedge,
                       std::vector<Lattice*>& initLattices);
 #endif /* OBSOLETE_CODE */
-  
+
   boost::shared_ptr<ValueObject> Expr2Val(SgNode* n, PartEdgePtr pedge);
 
-  AbstractObjectMap*     genLattice (const Function& func, PartPtr p, const NodeState& state);
-  std::vector<NodeFact*> genFacts   (const Function& func, PartPtr p, const NodeState& state);
+  AbstractObjectMap*     genLattice (const Function& func, PartPtr part, PartEdgePtr pedge) /* override */;
+  std::vector<NodeFact*> genFacts   (const Function& func, PartPtr p) /* override */;
 
-  bool transfer(const Function& func, PartPtr part, CFGNode cn, NodeState& state, std::map<PartEdgePtr, LatticePtr >& dfInfo);
-  
-  
+  bool transfer(const Function& func, PartPtr part, CFGNode cn, NodeState& state, PartLattice& dfInfo) /* override */;
+
+
   // pretty print for the object
   std::string str(std::string indent="") const
   { return "ConstantPropagationAnalysis"; }
@@ -178,7 +176,7 @@ class ConstantPropagationAnalysisTransfer : public VariableStateTransfer<CPValue
    void transferMultiplicative(CPValueObjectPtr arg1Lat, CPValueObjectPtr arg2Lat, CPValueObjectPtr resLat);
    void transferDivision(CPValueObjectPtr arg1Lat, CPValueObjectPtr arg2Lat, CPValueObjectPtr resLat);
    void transferMod(CPValueObjectPtr arg1Lat, CPValueObjectPtr arg2Lat, CPValueObjectPtr resLat);
-   void transferLogical(CPValueObjectPtr arg1Lat, CPValueObjectPtr arg2Lat, 
+   void transferLogical(CPValueObjectPtr arg1Lat, CPValueObjectPtr arg2Lat,
                         CPValueObjectPtr resLat, SgExpression* expr);
    public:
    //  void visit(SgNode *);
@@ -218,11 +216,11 @@ class ConstantPropagationAnalysisTransfer : public VariableStateTransfer<CPValue
    void visit(SgNotEqualOp *sgn);
    void visit(SgAndOp *sgn);
    void visit(SgOrOp *sgn);
-   
+
    bool finish();
-   
-   ConstantPropagationAnalysisTransfer(const Function& func, PartPtr part, CFGNode cn, NodeState& state, 
-                                       std::map<PartEdgePtr, LatticePtr >& dfInfo, 
+
+   ConstantPropagationAnalysisTransfer(const Function& func, PartPtr part, CFGNode cn, NodeState& state,
+                                       std::map<PartEdgePtr, LatticePtr >& dfInfo,
                                        Composer* composer, ConstantPropagationAnalysis* analysis);
 };
 
