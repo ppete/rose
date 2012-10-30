@@ -88,13 +88,13 @@ bool MemLocObjectPtrPair::isScalar()
   // At least one of expr or mem have to be non-NULL
   assert(expr || mem);
   if(expr && mem) {
-    bool exprScalar = MemLocObject::isScalar(expr);
-    bool memScalar  = MemLocObject::isScalar(mem);
+    bool exprScalar = expr->isScalar();
+    bool memScalar  = mem->isScalar();
     assert(exprScalar == memScalar);
     return exprScalar;
   }
-  if(expr) return MemLocObject::isScalar(expr) ? true: false;
-  if(mem)  return MemLocObject::isScalar(mem) ? true: false;
+  if(expr) return expr->isScalar() ? true: false;
+  if(mem)  return mem->isScalar() ? true: false;
   ROSE_ASSERT(0);
 }
 
@@ -103,13 +103,13 @@ bool MemLocObjectPtrPair::isFunctionMemLoc()
   // At least one of expr or mem have to be non-NULL
   assert(expr || mem);
   if(expr && mem) {
-    bool exprScalar = MemLocObject::isFunctionMemLoc(expr);
-    bool memScalar  = MemLocObject::isFunctionMemLoc(mem);
+    bool exprScalar = expr->isFunctionMemLoc();
+    bool memScalar  = mem->isFunctionMemLoc();
     assert(exprScalar == memScalar);
     return exprScalar;
   }
-  if(expr) return MemLocObject::isFunctionMemLoc(expr) ? true: false;
-  if(mem)  return MemLocObject::isFunctionMemLoc(mem) ? true: false;
+  if(expr) return expr->isFunctionMemLoc() ? true: false;
+  if(mem)  return mem->isFunctionMemLoc() ? true: false;
   ROSE_ASSERT(0);
 }
 
@@ -118,13 +118,13 @@ bool MemLocObjectPtrPair::isLabeledAggregate()
   // At least one of expr or mem have to be non-NULL
   assert(expr || mem);
   if(expr && mem) {
-    bool exprScalar = MemLocObject::isLabeledAggregate(expr);
-    bool memScalar  = MemLocObject::isLabeledAggregate(mem);
+    bool exprScalar = expr->isLabeledAggregate();
+    bool memScalar  = mem->isLabeledAggregate();
     assert(exprScalar == memScalar);
     return exprScalar;
   }
-  if(expr) return MemLocObject::isLabeledAggregate(expr) ? true: false;
-  if(mem)  return MemLocObject::isLabeledAggregate(mem) ? true: false;
+  if(expr) return expr->isLabeledAggregate() ? true: false;
+  if(mem)  return mem->isLabeledAggregate() ? true: false;
   ROSE_ASSERT(0);
 }
 
@@ -133,13 +133,13 @@ bool MemLocObjectPtrPair::isArray()
   // At least one of expr or mem have to be non-NULL
   assert(expr || mem);
   if(expr && mem) {
-    bool exprScalar = MemLocObject::isArray(expr);
-    bool memScalar  = MemLocObject::isArray(mem);
+    bool exprScalar = expr->isArray();
+    bool memScalar  = mem->isArray();
     assert(exprScalar == memScalar);
     return exprScalar;
   }
-  if(expr) return MemLocObject::isArray(expr) ? true: false;
-  if(mem)  return MemLocObject::isArray(mem) ? true: false;
+  if(expr) return expr->isArray() ? true: false;
+  if(mem)  return mem->isArray() ? true: false;
   ROSE_ASSERT(0);
 }
 
@@ -148,13 +148,13 @@ bool MemLocObjectPtrPair::isPointer()
   // At least one of expr or mem have to be non-NULL
   assert(expr || mem);
   if(expr && mem) {
-    bool exprScalar = MemLocObject::isPointer(expr);
-    bool memScalar  = MemLocObject::isPointer(mem);
+    bool exprScalar = expr->isPointer();
+    bool memScalar  = mem->isPointer();
     assert(exprScalar == memScalar);
     return exprScalar;
   }
-  if(expr) return MemLocObject::isPointer(expr) ? true: false;
-  if(mem)  return MemLocObject::isPointer(mem) ? true: false;
+  if(expr) return expr->isPointer() ? true: false;
+  if(mem)  return mem->isPointer() ? true: false;
   ROSE_ASSERT(0);
 }
 
@@ -163,7 +163,10 @@ std::string MemLocObjectPtrPair::str(std::string indent)
 { 
   ostringstream oss;
   oss << "[";
-  if(expr) oss << "expr=" << expr->str(indent) << endl;
+  if(expr) {
+    oss << "expr=" << expr->str(indent);
+    if(mem) oss << endl;
+  }
   if(mem) {
     if(expr) oss << indent;
     oss << "mem="  << mem->str(indent);
@@ -196,6 +199,69 @@ CombinedMemLocObject<defaultMayEq>::CombinedMemLocObject(MemLocObjectPtr memLoc)
 
 template <bool defaultMayEq>
 CombinedMemLocObject<defaultMayEq>::CombinedMemLocObject(const std::list<MemLocObjectPtr>& memLocs) : memLocs(memLocs) {}
+
+// Creates a new CombinedMemLocObject. If all the sub-objects have a given type (Scalar, FunctionMemLoc, 
+// LabeledAggregate, Array or Pointer), the created CombinedMemLocObject has hte same type. Otherwise, the
+// created CombinedMemLocObject is an instance of the generic CombinedMemLocObject class.
+template <bool defaultMayEq>
+boost::shared_ptr<CombinedMemLocObject<defaultMayEq> > CombinedMemLocObject<defaultMayEq>::create(MemLocObjectPtr memLoc)
+{
+  list<MemLocObjectPtr> memLocs; memLocs.push_back(memLoc);
+
+/*       if(memLoc->isScalar())           return CombinedScalar<defaultMayEq>::create(memLocs);
+  else if(memLoc->isFunctionMemLoc())   return CombinedFunctionMemLoc<defaultMayEq>::create(memLocs);
+  else if(memLoc->isLabeledAggregate()) return CombinedLabeledAggregate<defaultMayEq>::create(memLocs);
+  else if(memLoc->isArray())            return CombinedArray<defaultMayEq>::create(memLocs);
+  else if(memLoc->isPointer())          return CombinedPointer<defaultMayEq>::create(memLocs);*/
+  
+       if(memLoc->isScalar())           return boost::make_shared<CombinedScalar<defaultMayEq> >(memLocs);
+  else if(memLoc->isFunctionMemLoc())   return boost::make_shared<CombinedFunctionMemLoc<defaultMayEq> >(memLocs);
+  else if(memLoc->isLabeledAggregate()) return boost::make_shared<CombinedLabeledAggregate<defaultMayEq> >(memLocs);
+  else if(memLoc->isArray())            return boost::make_shared<CombinedArray<defaultMayEq> >(memLocs);
+  else if(memLoc->isPointer())          return boost::make_shared<CombinedPointer<defaultMayEq> >(memLocs);
+
+  
+  Dbg::dbg << "<font color=\"$#ff0000\">"<<memLoc->str()<<"</font>"<<endl;
+  ROSE_ASSERT(0);
+}
+
+template <bool defaultMayEq>
+boost::shared_ptr<CombinedMemLocObject<defaultMayEq> > CombinedMemLocObject<defaultMayEq>::create(const std::list<MemLocObjectPtr>& memLocs)
+{
+  // Determine if all the sub-memory locations are all the same type
+  int allScalar=1, allFunctionMemLoc=1, allLabeledAggregate=1, allArray=1, allPointer=1;
+  for(std::list<MemLocObjectPtr>::const_iterator ml=memLocs.begin(); ml!=memLocs.end(); ml++) {
+    if(!(*ml)->isScalar())           allScalar           = 0;
+    if(!(*ml)->isFunctionMemLoc())   allFunctionMemLoc   = 0;
+    if(!(*ml)->isLabeledAggregate()) allLabeledAggregate = 0;
+    if(!(*ml)->isArray())            allArray            = 0;
+    if(!(*ml)->isPointer())          allPointer          = 0;
+    
+    Dbg::dbg << "CombinedMemLocObject<"<<defaultMayEq<<">::create() ml="<<(*ml)->str()<<endl;
+  }
+  // Either all memLocs have the same one type or they're different
+  ROSE_ASSERT(allScalar+allFunctionMemLoc+allLabeledAggregate+allArray+allPointer==0 ||
+              allScalar+allFunctionMemLoc+allLabeledAggregate+allArray+allPointer==1);
+  
+  Dbg::dbg << "CombinedMemLocObject<"<<defaultMayEq<<">::create() allScalar="<<allScalar<<" allFunctionMemLoc="<<allFunctionMemLoc<<" allLabeledAggregate="<<allLabeledAggregate<<" allArray="<<allArray<<" allPointer="<<allPointer<<endl;
+  
+  // If they're all the same type, create a combined object of the appropriate type
+/*       if(allScalar)           return CombinedScalar<defaultMayEq>::create(memLocs);
+  else if(allFunctionMemLoc)   return CombinedFunctionMemLoc<defaultMayEq>::create(memLocs);
+  else if(allLabeledAggregate) return CombinedLabeledAggregate<defaultMayEq>::create(memLocs);
+  else if(allArray)            return CombinedArray<defaultMayEq>::create(memLocs);
+  else if(allPointer)          return CombinedPointer<defaultMayEq>::create(memLocs);*/
+  
+       if(allScalar)           return boost::make_shared<CombinedScalar<defaultMayEq> >(memLocs);
+  else if(allFunctionMemLoc)   return boost::make_shared<CombinedFunctionMemLoc<defaultMayEq> >(memLocs);
+  else if(allLabeledAggregate) return boost::make_shared<CombinedLabeledAggregate<defaultMayEq> >(memLocs);
+  else if(allArray)            return boost::make_shared<CombinedArray<defaultMayEq> >(memLocs);
+  else if(allPointer)          return boost::make_shared<CombinedPointer<defaultMayEq> >(memLocs);
+  
+  // Otherwise, create a generic CombinedMemLocObject
+  Dbg::dbg << "Returning generic"<<endl;
+  return boost::make_shared<CombinedMemLocObject<defaultMayEq> >(memLocs);
+}
 
 template <bool defaultMayEq>
 void CombinedMemLocObject<defaultMayEq>::add(MemLocObjectPtr memLoc) {
@@ -290,6 +356,10 @@ static void exampleCombinedMemLocObjects(MemLocObjectPtr ml, std::list<MemLocObj
   UnionMemLocObject     exampleUnionObject(ml);
   IntersectMemLocObject exampleIntersectObject2(mls);
   UnionMemLocObject     exampleUnionObject2(mls);
+  boost::shared_ptr<UnionMemLocObject> r1 = UnionMemLocObject::create(ml);
+  boost::shared_ptr<UnionMemLocObject> r2 = UnionMemLocObject::create(mls);
+  boost::shared_ptr<IntersectMemLocObject> r3 = IntersectMemLocObject::create(ml);
+  boost::shared_ptr<IntersectMemLocObject> r4 = IntersectMemLocObject::create(mls);
   exampleCombinedMemLocObjects2(ml, mls, exampleIntersectObject, exampleUnionObject, exampleIntersectObject2, exampleUnionObject2);
 }
 static void exampleCombinedMemLocObjects2(MemLocObjectPtr ml, std::list<MemLocObjectPtr> mls, IntersectMemLocObject& i, UnionMemLocObject& u, IntersectMemLocObject& i2, UnionMemLocObject& u2)
@@ -494,7 +564,6 @@ bool ValueObject::isValueBoolCompatible(boost::shared_ptr<SgValueExp> val)
 // Convert the value of the given SgValueExp, cast to a boolean
 bool ValueObject::SgValue2Bool(boost::shared_ptr<SgValueExp> val)
 {
-  bool ret;
        if(isSgCharVal(val.get()))                return isSgCharVal(val.get())->get_value();
   else if(isSgBoolValExp(val.get()))             return isSgBoolValExp(val.get())->get_value();
   else if(isSgEnumVal(val.get()))                return isSgEnumVal(val.get())->get_value();
@@ -717,9 +786,9 @@ static void exampleCombinedValueObjects2(ValueObjectPtr val, std::list<ValueObje
    ##### LabeledAggregate ##### 
    ############################ */
 
-std::vector<boost::shared_ptr<LabeledAggregateField> > LabeledAggregate::getElements(PartEdgePtr pedge) const 
+std::list<boost::shared_ptr<LabeledAggregateField> > LabeledAggregate::getElements(PartEdgePtr pedge) const 
 {
-  std::vector<boost::shared_ptr<LabeledAggregateField> > rt;
+  std::list<boost::shared_ptr<LabeledAggregateField> > rt;
   cerr<<"Error. Direct call to base class's getElements() is not allowed."<<endl;
   ROSE_ASSERT (false);
   return rt;
@@ -752,14 +821,14 @@ size_t LabeledAggregate::fieldCount(PartEdgePtr pedge)
    ##### LabeledAggregateField ##### 
    ################################# */
 
-std::string LabeledAggregateField::getName()
+std::string LabeledAggregateField::getName(PartEdgePtr pedge)
 {
  cerr<<"Error. Direct call to base class's getName() is not allowed."<<endl;
  ROSE_ASSERT (false);
  return "";  
 }
 
-MemLocObjectPtr LabeledAggregateField::getField()
+MemLocObjectPtr LabeledAggregateField::getField(PartEdgePtr pedge)
 {
 
  cerr<<"Error. Direct call to base class's getField() is not allowed."<<endl;
@@ -767,7 +836,7 @@ MemLocObjectPtr LabeledAggregateField::getField()
  MemLocObjectPtr p;
  return p;
 }
-size_t LabeledAggregateField::getIndex()
+size_t LabeledAggregateField::getIndex(PartEdgePtr pedge)
 {
 
   cerr<<"Error. Direct call to base class's getIndex() is not allowed."<<endl;
@@ -785,19 +854,19 @@ std::string LabeledAggregateField::str(std::string indent)
  return "";  
 }
 
-void LabeledAggregateField::setField(MemLocObjectPtr f)
+/*void LabeledAggregateField::setField(MemLocObjectPtr f)
 {
   cerr<<"Error. Direct call to base class's setField() is not allowed."<<endl;
   ROSE_ASSERT (false);
-}
+}*/
 
-void LabeledAggregateField::setParent(boost::shared_ptr<LabeledAggregate> p)
+/*void LabeledAggregateField::setParent(boost::shared_ptr<LabeledAggregate> p)
 {
  cerr<<"Error. Direct call to base class's setParent() is not allowed."<<endl;
  ROSE_ASSERT (false);
-}
+}*/
 
-boost::shared_ptr<LabeledAggregate> LabeledAggregateField::getParent()
+boost::shared_ptr<LabeledAggregate> LabeledAggregateField::getParent(PartEdgePtr pedge)
 {
   cerr<<"Error. Direct call to base class's getParent() is not allowed."<<endl;
   ROSE_ASSERT (false);
@@ -892,11 +961,698 @@ MemLocObjectPtr Pointer::getDereference(PartEdgePtr pedge)
   return p;
 }
 
-bool Pointer::equalPoints( const Pointer & that)
-{
-  cerr<<"Error. Direct call to base class (Pointer)'s equalPoints( ) is not allowed."<<endl;
-  ROSE_ASSERT (false);
-  return false;
+/* ##################################################
+   ##### Specific Types of CombinedMemLocObject ##### 
+   ################################################## */
+
+/* ##########################
+   ##### CombinedScalar #####
+   ########################## */
+
+template <bool defaultMayEq>
+CombinedScalar<defaultMayEq>::CombinedScalar(const std::list<MemLocObjectPtr>& memLocs) : 
+    CombinedMemLocObject<defaultMayEq>(memLocs) {}
+
+// pretty print for the object
+template <bool defaultMayEq>
+std::string CombinedScalar<defaultMayEq>::str(std::string indent) {
+  // Collect the string representations of the sub-fields
+  ostringstream oss;
+  oss << "["<<(defaultMayEq? "UnionScal" : "IntersectScal")<<": ";
+  for(list<MemLocObjectPtr>::iterator ml=CombinedMemLocObject<defaultMayEq>::memLocs.begin(); ml!=CombinedMemLocObject<defaultMayEq>::memLocs.end(); ) {
+    oss << (*ml)->str(indent+"&nbsp;&nbsp;&nbsp;&nbsp;");
+    ml++;
+    if(ml!=CombinedMemLocObject<defaultMayEq>::memLocs.end()) oss << endl;
+  }
+  oss << "]";
+  
+  return oss.str();
 }
 
+template <bool defaultMayEq>
+std::string CombinedScalar<defaultMayEq>::strp(PartEdgePtr pedge, std::string indent) {
+  // Collect the string representations of the sub-fields
+  ostringstream oss;
+  oss << "["<<(defaultMayEq? "UnionScal" : "IntersectScal")<<": ";
+  for(list<MemLocObjectPtr>::iterator ml=CombinedMemLocObject<defaultMayEq>::memLocs.begin(); ml!=CombinedMemLocObject<defaultMayEq>::memLocs.end(); ) {
+    oss << (*ml)->strp(pedge, indent+"&nbsp;&nbsp;&nbsp;&nbsp;");
+    ml++;
+    if(ml!=CombinedMemLocObject<defaultMayEq>::memLocs.end()) oss << endl;
+  }
+  oss << "]";
+  
+  return oss.str();
+}
+
+/* ################################## 
+   ##### CombinedFunctionMemLoc ##### 
+   ################################## */
+
+template <bool defaultMayEq>
+CombinedFunctionMemLoc<defaultMayEq>::CombinedFunctionMemLoc(const std::list<MemLocObjectPtr>& memLocs) : 
+    CombinedMemLocObject<defaultMayEq>(memLocs) {}
+
+// pretty print for the object
+template <bool defaultMayEq>
+std::string CombinedFunctionMemLoc<defaultMayEq>::str(std::string indent) {
+  // Collect the string representations of the sub-fields
+  ostringstream oss;
+  oss << "["<<(defaultMayEq? "UnionFML" : "IntersectFML")<<": ";
+  for(list<MemLocObjectPtr>::iterator ml=CombinedMemLocObject<defaultMayEq>::memLocs.begin(); ml!=CombinedMemLocObject<defaultMayEq>::memLocs.end(); ) {
+    oss << (*ml)->str(indent+"&nbsp;&nbsp;&nbsp;&nbsp;");
+    ml++;
+    if(ml!=CombinedMemLocObject<defaultMayEq>::memLocs.end()) oss << endl;
+  }
+  oss << "]";
+  
+  return oss.str();
+}
+
+template <bool defaultMayEq>
+std::string CombinedFunctionMemLoc<defaultMayEq>::strp(PartEdgePtr pedge, std::string indent) {
+  // Collect the string representations of the sub-fields
+  ostringstream oss;
+  oss << "["<<(defaultMayEq? "UnionFML" : "IntersectFML")<<": ";
+  for(list<MemLocObjectPtr>::iterator ml=CombinedMemLocObject<defaultMayEq>::memLocs.begin(); ml!=CombinedMemLocObject<defaultMayEq>::memLocs.end(); ) {
+    oss << (*ml)->strp(pedge, indent+"&nbsp;&nbsp;&nbsp;&nbsp;");
+    ml++;
+    if(ml!=CombinedMemLocObject<defaultMayEq>::memLocs.end()) oss << endl;
+  }
+  oss << "]";
+  
+  return oss.str();
+}
+
+
+/* #########################################
+   ##### CombinedLabeledAggregateField #####
+   ######################################### */
+/*
+template <bool defaultMayEq>
+CombinedLabeledAggregateField<defaultMayEq>::CombinedLabeledAggregateField(string name, size_t index, 
+        //boost::shared_ptr<CombinedMemLocObject<defaultMayEq> > field, 
+        std::list<LabeledAggregateFieldPtr> fields,
+        LabeledAggregatePtr parent)
+  : name(name), index(index), fields(fields), parent(parent)
+{}
+
+// Creates a new CombinedLabeledAggregateField when called by CombinedLabeledAggregate::create(). It is assumed that all the 
+// sub-objects have type LabeledAggregateField. The function returns a CombinedLabeledAggregate if they also 
+// have the same internal structure and a NULL shared_ptr otherwise.
+template <bool defaultMayEq>
+boost::shared_ptr<CombinedLabeledAggregateField<defaultMayEq> > 
+  CombinedLabeledAggregateField<defaultMayEq>::create(
+                                        const std::list<LabeledAggregateFieldPtr>& fields, LabeledAggregatePtr parent, 
+                                        PartEdgePtr pedge)
+{
+  // Determine whether all sub-fields have the same name and if so, record it
+  string name="";
+  int numSameName=0;
+  for(std::list<LabeledAggregateFieldPtr>::const_iterator f=fields.begin(); f!=fields.end(); f++) {
+    if(numSameName==0) name = (*f)->getName(); 
+    else if(name!=(*f)->getName(pedge)) break;
+    numSameName++;
+  }
+  
+  // If all sub-fields have the same name
+  if(numSameName == fields.size()) {
+    // Determine whether all sub-fields have the same index and if so, record it
+    size_t index=0;
+    int numSameIndex=0;
+    for(std::list<LabeledAggregateFieldPtr>::const_iterator f=fields.begin(); f!=fields.end(); f++) {
+      if(numSameIndex==0) index = (*f)->getIndex(); 
+      else if(index!=(*f)->getIndex()) break;
+      numSameIndex++;
+    }
+
+    if(numSameIndex == fields.size()) {
+      return boost::make_shared<CombinedLabeledAggregate<defaultMayEq> >(name, index, fields, str, parent);
+    }
+  }
+  
+  // If the sub-fields are not compatible, return NULL
+  boost::shared_ptr<CombinedLabeledAggregateField<defaultMayEq> > N;
+  return N;
+}*/
+
+template <bool defaultMayEq>
+CombinedLabeledAggregateField<defaultMayEq>::CombinedLabeledAggregateField(const std::list<LabeledAggregateFieldPtr>& fields)
+  : fields(fields)
+{}
+
+// field name
+template <bool defaultMayEq>
+std::string CombinedLabeledAggregateField<defaultMayEq>::getName(PartEdgePtr pedge) {
+  string name="";
+  size_t numSameName=0;
+  for(std::list<LabeledAggregateFieldPtr>::const_iterator f=fields.begin(); f!=fields.end(); f++) {
+    if(numSameName==0) name = (*f)->getName(pedge); 
+    else if(name!=(*f)->getName(pedge)) break;
+    numSameName++;
+  }
+  
+  // All the sub-field lists must have the same structure
+  ROSE_ASSERT(numSameName == fields.size());
+  
+  return name;
+}
+
+// The field's index within its parent object. The first field has index 0.  
+template <bool defaultMayEq>
+size_t CombinedLabeledAggregateField<defaultMayEq>::getIndex(PartEdgePtr pedge) { 
+  // Determine whether all sub-fields have the same index and if so, return it
+  size_t index=0;
+  size_t numSameIndex=0;
+  for(std::list<LabeledAggregateFieldPtr>::const_iterator f=fields.begin(); f!=fields.end(); f++) {
+    if(numSameIndex==0) index = (*f)->getIndex(pedge); 
+    else if(index!=(*f)->getIndex(pedge)) break;
+    numSameIndex++;
+  }
+
+  // All the sub-field lists must have the same structure
+  ROSE_ASSERT(numSameIndex == fields.size());
+  
+  return index;  
+}
+
+// Pointer to an abstract description of the field
+template <bool defaultMayEq>
+MemLocObjectPtr CombinedLabeledAggregateField<defaultMayEq>::getField(PartEdgePtr pedge) { 
+  // Collect together the MemLocObjectPtrs that represent the field and turn them into a CombinedMemLocObject
+  list<MemLocObjectPtr> memLocs;
+  for(std::list<LabeledAggregateFieldPtr>::iterator f=fields.begin(); f!=fields.end(); f++)
+    memLocs.push_back((*f)->getField(pedge));
+  
+  return CombinedMemLocObject<defaultMayEq>::create(memLocs);
+}
+
+// the parent obj this field belongs to
+template <bool defaultMayEq>
+LabeledAggregatePtr CombinedLabeledAggregateField<defaultMayEq>::getParent(PartEdgePtr pedge) 
+{ 
+  // Collect together the MemLocObjectPtrs that represent the field and turn them into a CombinedMemLocObject
+  list<MemLocObjectPtr> memLocs;
+  for(std::list<LabeledAggregateFieldPtr>::iterator f=fields.begin(); f!=fields.end(); f++)
+    memLocs.push_back((*f)->getParent(pedge));
+  
+  MemLocObjectPtr parent = CombinedMemLocObject<defaultMayEq>::create(memLocs);
+  ROSE_ASSERT(parent->isLabeledAggregate());
+  return parent->isLabeledAggregate();
+}
+
+// pretty print for the object
+template <bool defaultMayEq>
+std::string CombinedLabeledAggregateField<defaultMayEq>::str(std::string indent) {
+  // Collect the string representations of the sub-fields
+  ostringstream oss;
+  oss << "["<<(defaultMayEq? "UnionLAF" : "IntersectLAF")<<": ";
+  for(std::list<LabeledAggregateFieldPtr>::iterator f=fields.begin(); f!=fields.end(); ) {
+    oss << (*f)->str(indent+"&nbsp;&nbsp;&nbsp;&nbsp;");
+    f++;
+    if(f!=fields.end()) oss << endl;
+  }
+  oss << "]";
+  
+  return oss.str();
+}
+
+template <bool defaultMayEq>
+std::string CombinedLabeledAggregateField<defaultMayEq>::strp(PartEdgePtr pedge, std::string indent) {
+  // Collect the string representations of the sub-fields
+  ostringstream oss;
+  oss << "["<<(defaultMayEq? "UnionLAF" : "IntersectLAF")<<": ";
+  for(std::list<LabeledAggregateFieldPtr>::iterator f=fields.begin(); f!=fields.end(); ) {
+    oss << (*f)->strp(pedge, indent+"&nbsp;&nbsp;&nbsp;&nbsp;");
+    f++;
+    if(f!=fields.end()) oss << endl;
+  }
+  oss << "]";
+  
+  return oss.str();
+}
+
+
+/* ####################################
+   ##### CombinedLabeledAggregate #####
+   #################################### */
+
+/*template <bool defaultMayEq>
+CombinedLabeledAggregate<defaultMayEq>::CombinedLabeledAggregate(
+                           size_t combinedFieldCount, 
+                           std::list<boost::shared_ptr<CombinedLabeledAggregateField<defaultMayEq> > > combinedFields,
+                           string strRep) :
+        combinedFieldCount(combinedFieldCount), combinedFields(combinedFields), strRep(strRep)
+{ }
+
+template <bool defaultMayEq>
+boost::shared_ptr<CombinedMemLocObject<defaultMayEq> >
+  CombinedLabeledAggregate<defaultMayEq>::create(const std::list<MemLocObjectPtr>& memLocs)
+{
+  // Determine if all the sub-labeled aggregates have the same internal structure
+  
+  // First check if the number of fields is the same
+  
+  
+  // If the numver of fields is the same in all memory locations in memLocs
+  if(numSameFieldCount == memLocs.size()) {
+    list<boost::shared_ptr<CombinedLabeledAggregateField<defaultMayEq> > > combinedFields;
+    
+    // For each field of the aggregate this is a list of fields from each sub-ml from memLocs;
+    vector<list<LabeledAggregateFieldPtr> > fields2ml;
+
+    // Get the fields from each memory location in memLocs
+    for(std::list<MemLocObjectPtr>::iterator ml=memLocs.begin(); ml!=memLocs.end(); ml++) {
+      list<LabeledAggregateFieldPtr> curMLElements = (*ml)->isLabeledAggregate()->getElements();
+      int i=0;
+      for(list<LabeledAggregateFieldPtr>::iterator f=mlFields.begin(); f!=mlFields.end(); f++, i++) {
+        fields2ml[i].push_back(*f);
+      }
+    }
+
+    // From each of these field lists attempt to construct a CombinedLabeledAggregateField
+    for(vector<list<LabeledAggregateFieldPtr> >::iterator fml=fields2ml.begin(); fml!=fields2ml.end(); fml++) {
+      boost::shared_ptr<CombinedLabeledAggregateField<defaultMayEq> > comboField =
+        CombinedLabeledAggregateField<defaultMayEq>::create(*fml, 
+            boost::dynamic_pointer_cast<boost::shared_ptr<CombinedLabeledAggregate<defaultMayEq> > >(shared_from_this()));
+      // If this CombinedLabeledAggregateField was successfully created (same field in all memory location in memLocs),
+      // add it to combinedFields
+      if(comboField) combinedFields.push_back(field);
+      else      break;
+    }
+  
+    // If we've successfully created CombinedLabeledAggregateFields for all the fields in all the memory locations in memLocs
+    if(combinedFields.size() == fields2ml.size()) {
+      // Compute this object's string representation
+      ostringstream oss;
+      oss << "["<<(defaultMayEq? "UnionLA" : "IntersectLA")<<": ";
+      
+      for(vector<list<LabeledAggregateFieldPtr> >::iterator fml=fields2ml.begin(); fml!=fields2ml.end(); ) {
+        oss << fml->str();
+        if(fml!=fields2ml.end()) oss << endl;
+        fml++;
+      }
+      oss << "]";
+      return boost::make_shared<CombinedLabeledAggregate<defaultMayEq> >(combinedFieldCount, combinedFields, oss.str());
+    }
+  }
+  
+  // If there is any inconsistency between the memory locations in memlocs, return a generic CombinedMemLocObject object
+  return boost::make_shared<CombinedMemLocObject<defaultMayEq> >(memLocs);
+}*/
+
+template <bool defaultMayEq>
+CombinedLabeledAggregate<defaultMayEq>::CombinedLabeledAggregate(const list<MemLocObjectPtr>& memLocs) : 
+    CombinedMemLocObject<defaultMayEq>(memLocs)
+{
+  for(list<MemLocObjectPtr>::const_iterator ml=memLocs.begin(); ml!=memLocs.end(); ml++) {
+    ROSE_ASSERT((*ml)->isLabeledAggregate());
+    labAggrs.push_back((*ml)->isLabeledAggregate());
+  }
+}
+
+template <bool defaultMayEq>
+size_t CombinedLabeledAggregate<defaultMayEq>::fieldCount(PartEdgePtr pedge)
+{
+  // Make sure that the number of fields is the same in all sub-LabeledAggregates and record the common value
+  size_t combinedFieldCount=0;
+  size_t numSameFieldCount=0;
+  for(list<LabeledAggregatePtr>::const_iterator la=labAggrs.begin(); la!=labAggrs.end(); la++) {
+    if(combinedFieldCount==0) combinedFieldCount=(*la)->fieldCount(pedge);
+    else if(combinedFieldCount != (*la)->fieldCount(pedge)) break;
+    numSameFieldCount++;
+  }
+  
+  // All the sub-aggregates must have the same structure
+  ROSE_ASSERT(numSameFieldCount == labAggrs.size());
+  
+  return combinedFieldCount;
+}
+
+// Returns a list of field
+template <bool defaultMayEq>
+list<LabeledAggregateFieldPtr> CombinedLabeledAggregate<defaultMayEq>::getElements(PartEdgePtr pedge) const
+{
+  list<LabeledAggregateFieldPtr> combinedFields;
+    
+  // The vector contains an entry for each field of the CombinedLabeledAggregate, and this entry contains a list
+  // of LabeledAggregateField objects for that field, one from each sub-aggregate in labAggrs.
+  vector<list<LabeledAggregateFieldPtr> > fields2aggr;
+
+  // Get the fields from each LabeledAggregate  in labAggrs
+  for(list<LabeledAggregatePtr>::const_iterator la=labAggrs.begin(); la!=labAggrs.end(); la++) {
+    list<LabeledAggregateFieldPtr> curMLElements = (*la)->getElements(pedge);
+    int i=0;
+    for(list<LabeledAggregateFieldPtr>::iterator f=curMLElements.begin(); f!=curMLElements.end(); f++, i++) {
+      fields2aggr[i].push_back(*f);
+    }
+  }
+
+  // From each of these field lists attempt to construct a CombinedLabeledAggregateField
+  for(vector<list<LabeledAggregateFieldPtr> >::iterator fml=fields2aggr.begin(); fml!=fields2aggr.end(); fml++) {
+    /*boost::shared_ptr<CombinedLabeledAggregateField<defaultMayEq> > comboField =
+      CombinedLabeledAggregateField<defaultMayEq>::create(*fml, 
+          boost::dynamic_pointer_cast<boost::shared_ptr<CombinedLabeledAggregate<defaultMayEq> > >(shared_from_this()),
+          pedge);
+    // If this CombinedLabeledAggregateField was successfully created (same field in all memory location in memLocs),
+    // add it to combinedFields
+    if(comboField) combinedFields.push_back(field);
+    else      break;*/
+    
+    combinedFields.push_back(boost::shared_ptr<LabeledAggregateField>(boost::make_shared<CombinedLabeledAggregateField<defaultMayEq> >(*fml)));
+  }
+
+  // All the fields must have the same structure
+  //ROSE_ASSERT(combinedFields.size() == fields2aggr.size());
+  
+  return combinedFields;
+}
+
+// pretty print for the object
+template <bool defaultMayEq>
+std::string CombinedLabeledAggregate<defaultMayEq>::str(std::string indent)
+{
+  ostringstream oss;
+  oss << "["<<(defaultMayEq? "UnionLA" : "IntersectLA")<<"]";
+  return oss.str();
+}
+
+template <bool defaultMayEq>
+std::string CombinedLabeledAggregate<defaultMayEq>::strp(PartEdgePtr pedge, std::string indent)
+{ 
+  // Compute this object's string representation
+  ostringstream oss;
+  oss << "["<<(defaultMayEq? "UnionLA" : "IntersectLA")<<": ";
+
+  list<LabeledAggregateFieldPtr> elements = getElements(pedge);
+  for(list<LabeledAggregateFieldPtr>::iterator e=elements.begin(); e!=elements.end(); ) {
+    oss << (*e)->strp(pedge, indent+"&nbsp;&nbsp;&nbsp;&nbsp;");
+    e++;
+    if(e!=elements.end()) oss << endl;
+  }
+  oss << "]";
+  return oss.str();
+}
+
+// GB 2012-10-19 - It doesn't appear that we need CombinedIndexVectors since the IndexVectors passed to getElements()
+//                 are going to be CombinedValues, not CombinedIndexVectors
+/* ###############################
+   ##### CombinedIndexVector #####
+   ############################### * /
+
+template <bool defaultMayEq>
+CombinedIndexVector<defaultMayEq>::CombinedIndexVector(const std::list<IndexVectorPtr>& ivectors, int combinedSize) : 
+        ivectors(ivectors), combinedSize(combinedSize)
+{}
+
+// Creates a new CombinedIndexVector when called by createCombinedArray. It is assumed that all the 
+// sub-objects have type CombinedIndexVector. The function returns a CombinedIndexVector if they also 
+// have the same internal structure and NULL otherwise.
+template <bool defaultMayEq>
+boost::shared_ptr<CombinedIndexVector<defaultMayEq> > 
+  CombinedIndexVector<defaultMayEq>::createCombinedIndexVector(const std::list<IndexVectorPtr>& ivectors)
+{
+  // Determine if all the sub-index vectors have the same internal structure
+  
+  // Check if the size of all the vectors is the same
+  size_t combinedSize=0;
+  int numSameSize=0;
+  for(std::list<IndexVectorPtr>::const_iterator iv=ivectors.begin(); iv!=ivectors.end(); iv++) {
+    ROSE_ASSERT();
+    if(combinedSize==-1) combinedSize=(*iv)->getSize();
+    else if(combinedSize != (*iv)->getSize()) break;
+    numSameSize++;
+  }
+
+  // If all the index vectors have the same size
+  if(numSameSize == ivectors.size()) {
+    return boost::make_shared<CombinedIndexVector<defaultMayEq> >(ivectors, combinedSize);
+  }
+  
+  // If the sub-index vectors are not compatible, return NULL
+  boost::shared_ptr<CombinedIndexVector<defaultMayEq> > N;
+  return N;
 }; // namespace dataflow
+
+
+// the index vector's length
+template <bool defaultMayEq>
+size_t CombinedIndexVector<defaultMayEq>::getSize()
+{ return combinedSize; }
+
+// pretty print for the object
+template <bool defaultMayEq>
+std::string CombinedIndexVector<defaultMayEq>::str(std::string indent)
+{
+  // Collect the string representations of the sub-fields
+  ostringstream oss;
+  oss << "["<<(defaultMayEq? "UnionCIV" : "IntersectCIV")<<": ";
+  for(std::list<IndexVectorPtr>::const_iterator iv=ivectors.begin(); iv!=ivectors.end(); iv++) {
+    oss << f->str();
+    if(f!=fields.end()) oss << endl;
+    f++;
+  }
+  oss << "]";
+  
+  return oss.str();
+}
+
+// equal operator
+template <bool defaultMayEq>
+bool CombinedIndexVector<defaultMayEq>::mayEqual (IndexVectorPtr other, PartEdgePtr pedge)
+{
+  // If the two combination objects include different numbers of sub-index vectors, say that they may be equal since 
+  // we can't be sure either way.
+  if(ivectors.size() != that->ivectors.size()) return true;
+  
+  // Compare all the pairs of IndexVEctors in ivectors and that.ivectors, returning defaultMayEq if any pair
+  // returns defaultMayEq since we're looking for the tightest (if defaultMayEq=false) / loosest (if defaultMayEq=true) 
+  // answer that any MemLocObject in memLocs can give
+  for(std::list<IndexVectorPtr>::iterator thisIt=ivectors.begin(), thatIt=that->ivectors.begin(); 
+      thisIt!=ivectors.end(); thisIt++, thatIt++)
+  {
+    if((*thisIt)->mayEqual(*thatIt, pedge) == defaultMayEq) return defaultMayEq;
+  }
+  
+  return !defaultMayEq;
+}
+
+template <bool defaultMayEq>
+bool CombinedIndexVector<defaultMayEq>::mustEqual (IndexVectorPtr other, PartEdgePtr pedge)
+{
+  // If the two combination objects include different numbers of IndexVectors, say that they are not must equal since 
+  // we can't be sure either way.
+  if(ivectors.size() != that->ivectors.size()) return false;
+  
+  // Compare all the pairs of IndexVectors in ivectors and that.ivectors, returning !defaultMayEq if any pair
+  // returns !defaultMayEqual since we're looking for the tightest answer that any IndexVector in ivectors can give
+  for(std::list<IndexVectorPtr>::iterator thisIt=ivectors.begin(), thatIt=that->ivectors.begin(); 
+      thisIt!=ivectors.end(); thisIt++, thatIt++)
+  {
+    if((*thisIt)->mustEqual(*thatIt, pedge) == !defaultMayEq) return !defaultMayEq;
+  }
+  
+  return defaultMayEq;  
+}*/
+
+/* #########################
+   ##### CombinedArray #####
+   ######################### */
+
+/*template <bool defaultMayEq>
+CombinedArray<defaultMayEq>::CombinedArray(size_t combinedDims, const std::list<MemLocObjectPtr>& arrays) :
+    combinedDims(combinedDims), arrays(arrays)
+{}
+
+// Creates a new CombinedArray when called by createCombinedMemLocObject. It is assumed that all the 
+// sub-objects have type Array. The function returns a CombinedArray if they also 
+// have the same internal structure and a generic CombinedMemLocObject instance otherwise.
+template <bool defaultMayEq>
+boost::shared_ptr<CombinedMemLocObject<defaultMayEq> >
+  CombinedArray<defaultMayEq>::create(const std::list<MemLocObjectPtr>& memLocs)
+{
+  // Determine if all the sub-arrays have the same internal structure
+  
+  // First check if the number of dimensions is the same
+  size_t combinedDims=0;
+  int numSameDims=0;
+  for(std::list<MemLocObjectPtr>::iterator ml=memLocs.begin(); ml!=memLocs.end(); ml++) {
+    ROSE_ASSERT((*ml)->isArray());
+    if(combinedDims==-1) combinedDims=(*ml)->isArray()->getNumDims();
+    else if(combinedDims != (*ml)->isArray()->getNumDims()) break;
+    numSameDims++;
+  }
+  
+  // If the number of fields is the same in all memory locations in memLocs
+  if(numSameDims == memLocs.size())
+    return boost::make_shared<CombinedArray<defaultMayEq> >(combinedDims, memLocs);
+  
+  // If there is any inconsistency between the memory locations in memlocs, return a generic CombinedMemLocObject object
+  return boost::make_shared<CombinedMemLocObject<defaultMayEq> >(memLocs);
+}*/
+
+template <bool defaultMayEq>
+CombinedArray<defaultMayEq>::CombinedArray(const list<MemLocObjectPtr>& memLocs) : 
+    CombinedMemLocObject<defaultMayEq>(memLocs)
+{
+  for(list<MemLocObjectPtr>::const_iterator ml=memLocs.begin(); ml!=memLocs.end(); ml++) {
+    ROSE_ASSERT((*ml)->isArray());
+    arrays.push_back((*ml)->isArray());
+  }
+}
+
+// Returns a memory object that corresponds to all the elements in the given array
+template <bool defaultMayEq>
+MemLocObjectPtr CombinedArray<defaultMayEq>::getElements(PartEdgePtr pedge)
+{
+  list<MemLocObjectPtr> elements;
+  for(list<ArrayPtr>::iterator a=arrays.begin(); a!=arrays.end(); a++)
+    elements.push_back((*a)->getElements(pedge));
+  
+  return CombinedMemLocObject<defaultMayEq>::create(elements);
+}
+
+// Returns the memory object that corresponds to the elements described by the given abstract index, 
+// which represents one or more indexes within the array
+template <bool defaultMayEq>
+MemLocObjectPtr CombinedArray<defaultMayEq>::getElements(IndexVectorPtr ai, PartEdgePtr pedge)
+{
+  list<MemLocObjectPtr> elements;
+  for(list<ArrayPtr>::iterator a=arrays.begin(); a!=arrays.end(); a++)
+    elements.push_back((*a)->getElements(ai, pedge));
+  
+  return CombinedMemLocObject<defaultMayEq>::create(elements);
+}
+
+// number of dimensions of the array
+template <bool defaultMayEq>
+size_t CombinedArray<defaultMayEq>::getNumDims(PartEdgePtr pedge)
+{ 
+  // Make sure that the number of dimensions is the same in all sub-Arrays and record the common value
+  size_t combinedDims=0;
+  size_t numSameDims=0;
+  for(std::list<ArrayPtr>::iterator a=arrays.begin(); a!=arrays.end(); a++) {
+    if(combinedDims==0) combinedDims=(*a)->getNumDims(pedge);
+    else if(combinedDims != (*a)->getNumDims(pedge)) break;
+    numSameDims++;
+  }
+  
+  // All the sub-arrays must have the same structure
+  ROSE_ASSERT(numSameDims == arrays.size());
+  
+  return combinedDims;
+}
+
+//--- pointer like semantics
+// support dereference of array object, similar to the dereference of pointer
+// Return the element object: array[0]
+template <bool defaultMayEq>
+MemLocObjectPtr CombinedArray<defaultMayEq>::getDereference(PartEdgePtr pedge)
+{
+  list<MemLocObjectPtr> elements;
+  for(list<ArrayPtr>::iterator a=arrays.begin(); a!=arrays.end(); a++)
+    elements.push_back((*a)->getDereference(pedge));
+  
+  return CombinedMemLocObject<defaultMayEq>::create(elements);
+}
+
+// pretty print for the object
+template <bool defaultMayEq>
+std::string CombinedArray<defaultMayEq>::str(std::string indent) {
+  // Collect the string representations of the sub-fields
+  ostringstream oss;
+  oss << "["<<(defaultMayEq? "UnionArr" : "IntersectArr")<<": ";
+  for(list<ArrayPtr>::iterator a=arrays.begin(); a!=arrays.end(); ) {
+    oss << (*a)->str(indent+"&nbsp;&nbsp;&nbsp;&nbsp;");
+    a++;
+    if(a!=arrays.end()) oss << endl;
+  }
+  oss << "]";
+  
+  return oss.str();
+}
+
+template <bool defaultMayEq>
+std::string CombinedArray<defaultMayEq>::strp(PartEdgePtr pedge, std::string indent) {
+  // Collect the string representations of the sub-fields
+  ostringstream oss;
+  oss << "["<<(defaultMayEq? "UnionArr" : "IntersectArr")<<": ";
+  for(list<ArrayPtr>::iterator a=arrays.begin(); a!=arrays.end(); ) {
+    oss << (*a)->strp(pedge, indent+"&nbsp;&nbsp;&nbsp;&nbsp;");
+    a++;
+    if(a!=arrays.end()) oss << endl;
+  }
+  oss << "]";
+  
+  return oss.str();
+}
+
+
+/* ###########################
+   ##### CombinedPointer #####
+   ########################### */
+
+/*template <bool defaultMayEq>
+CombinedPointer<defaultMayEq>::CombinedPointer(const std::list<MemLocObjectPtr>& pointers) : pointers(pointers)
+{}
+
+template <bool defaultMayEq>
+boost::shared_ptr<CombinedPointer<defaultMayEq> > 
+  CombinedPointer<defaultMayEq>::create(const std::list<MemLocObjectPtr>& memLocs)
+{
+  // There is no consistency check for pointers and it is assumed that all members of memLocs are pointers 
+  // so we just create the object
+  return boost::make_shared<CombinedPointer<defaultMayEq> >(memLocs);
+}*/
+
+template <bool defaultMayEq>
+CombinedPointer<defaultMayEq>::CombinedPointer(const list<MemLocObjectPtr>& memLocs) : 
+    CombinedMemLocObject<defaultMayEq>(memLocs)
+{
+  for(list<MemLocObjectPtr>::const_iterator ml=memLocs.begin(); ml!=memLocs.end(); ml++) {
+    ROSE_ASSERT((*ml)->isPointer());
+    pointers.push_back((*ml)->isPointer());
+  }
+}
+
+template <bool defaultMayEq>
+MemLocObjectPtr CombinedPointer<defaultMayEq>::getDereference(PartEdgePtr pedge)
+{
+  list<MemLocObjectPtr> elements;
+  for(list<PointerPtr>::iterator p=pointers.begin(); p!=pointers.end(); p++)
+    elements.push_back((*p)->getDereference(pedge));
+  
+  return CombinedMemLocObject<defaultMayEq>::create(elements);
+}
+
+// pretty print for the object
+template <bool defaultMayEq>
+std::string CombinedPointer<defaultMayEq>::str(std::string indent) {
+  // Collect the string representations of the sub-fields
+  ostringstream oss;
+  oss << "["<<(defaultMayEq? "UnionPtr" : "IntersectPtr")<<": ";
+  for(list<PointerPtr>::iterator p=pointers.begin(); p!=pointers.end(); ) {
+    oss << (*p)->str(indent+"&nbsp;&nbsp;&nbsp;&nbsp;");
+    p++;
+    if(p!=pointers.end()) oss << endl;
+  }
+  oss << "]";
+  
+  return oss.str();
+}
+
+template <bool defaultMayEq>
+std::string CombinedPointer<defaultMayEq>::strp(PartEdgePtr pedge, std::string indent) {
+  // Collect the string representations of the sub-fields
+  ostringstream oss;
+  oss << "["<<(defaultMayEq? "UnionPtr" : "IntersectPtr")<<": ";
+  for(list<PointerPtr>::iterator p=pointers.begin(); p!=pointers.end(); ) {
+    oss << (*p)->strp(pedge, indent+"&nbsp;&nbsp;&nbsp;&nbsp;");
+    p++;
+    if(p!=pointers.end()) oss << endl;
+  }
+  oss << "]";
+  
+  return oss.str();
+}
+
+} //namespace dataflow

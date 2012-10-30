@@ -858,9 +858,9 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
   //
   // TODO: build the connection between SgVarRefExp and the created NamedObj and support fast lookup!
 
-  std::string LabeledAggregateField_Impl::getName()
+  std::string LabeledAggregateField_Impl::getName(PartEdgePtr pedge)
   {
-    MemLocObjectPtr f = getField();
+    MemLocObjectPtr f = getField(pedge);
     boost::shared_ptr<NamedObj> nn = boost::dynamic_pointer_cast<NamedObj>(f);
     assert(nn);
     return nn->getName(); 
@@ -868,15 +868,15 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
 
   size_t LabeledAggregateField_Impl::getIndex(PartEdgePtr pedge)
   {
-    LabeledAggregatePtr parent = getParent();
-    std::vector<LabeledAggregateFieldPtr > elements = parent->getElements(pedge);
-    size_t i=0;
-    for (i=0; i<elements.size(); i++)
-    {
-      if (this == elements[i].get())
-        break;
+    LabeledAggregatePtr parent = getParent(pedge);
+    list<LabeledAggregateFieldPtr > elements = parent->getElements(pedge);
+    int i=0;
+    for(list<LabeledAggregateFieldPtr >::iterator e=elements.begin(); e!=elements.end(); e++) {
+      if(this == (*e).get())
+        return i;
+      i++;
     }
-    assert (i !=  elements.size()); // must find it! 
+    ROSE_ASSERT(0); // must find it! 
     return i;
   }
 
@@ -1010,7 +1010,14 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
     /*return SageInterface::getEnclosingStatement(anchor_exp) == 
            SageInterface::getEnclosingStatement(part.getNode());*/    
     //boost::function<bool (SgExpression*, const CFGNode&)> enc1 = &enc;
-    return pedge->target()->mapCFGNodeANY<bool>(boost::bind(enc, anchor_exp, _1));
+
+    // GB 2012-10-18 - I'm not sure what to do here about edges with wildcard sources or targets.
+    //                 It seems like to be fully general we need to say that something is live if it is live at
+    //                 any source and any destination, meaning that we need consider all the outcomes of a wildcard.
+    //                 For example, what happens when an edge may cross a scope boundary for one but not all
+    //                 of the wildcard outcomes?
+    return (pedge->source() ? pedge->source()->mapCFGNodeANY<bool>(boost::bind(enc, anchor_exp, _1)): false) ||
+           (pedge->target() ? pedge->target()->mapCFGNodeANY<bool>(boost::bind(enc, anchor_exp, _1)): false);
     
     /*struct enc { public: bool op(SgExpression* anchor_exp, const CFGNode& n) {
       return SageInterface::getEnclosingStatement(anchor_exp) == 
@@ -1125,7 +1132,7 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
     
   size_t LabeledAggregateOutOfScopeObj::fieldCount(PartEdgePtr pedge) const { ROSE_ASSERT(false); return 0; /*Need to implement field count based on type*/ };
   // Returns a list of fields
-  std::vector<LabeledAggregateFieldPtr> LabeledAggregateOutOfScopeObj::getElements(PartEdgePtr pedge) const {
+  std::list<LabeledAggregateFieldPtr> LabeledAggregateOutOfScopeObj::getElements(PartEdgePtr pedge) const {
     ROSE_ASSERT(false); /*Need to implement getElements based on type*/
   }
   
@@ -1133,10 +1140,10 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
   ArrayOutOfScopeObj::ArrayOutOfScopeObj(SgType* t) : OutOfScope_StxMemLocObject(t) {}
   MemLocObjectPtr ArrayOutOfScopeObj::copyML() const { return boost::make_shared<ArrayOutOfScopeObj>(*this); }
     
-  boost::shared_ptr<MemLocObject> ArrayOutOfScopeObj::getElements(PartEdgePtr pedge) { ROSE_ASSERT(false); /*Need to implement based on type*/ };
-  boost::shared_ptr<MemLocObject> ArrayOutOfScopeObj::getElements(IndexVectorPtr ai, PartEdgePtr pedge) { ROSE_ASSERT(false); /*Need to implement based on type*/ };
+  MemLocObjectPtr ArrayOutOfScopeObj::getElements(PartEdgePtr pedge) { ROSE_ASSERT(false); /*Need to implement based on type*/ };
+  MemLocObjectPtr ArrayOutOfScopeObj::getElements(IndexVectorPtr ai, PartEdgePtr pedge) { ROSE_ASSERT(false); /*Need to implement based on type*/ };
   size_t ArrayOutOfScopeObj::getNumDims(PartEdgePtr pedge) { ROSE_ASSERT(false); /*Need to implement based on type*/ };
-  boost::shared_ptr<MemLocObject> ArrayOutOfScopeObj::getDereference(PartEdgePtr pedge) { ROSE_ASSERT(false); /*Need to implement based on type*/ };
+  MemLocObjectPtr ArrayOutOfScopeObj::getDereference(PartEdgePtr pedge) { ROSE_ASSERT(false); /*Need to implement based on type*/ };
  
   // ----- PointerOutOfScopeObj -----
   PointerOutOfScopeObj::PointerOutOfScopeObj(SgType* t) : OutOfScope_StxMemLocObject(t) {}
@@ -1261,10 +1268,10 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
 
   // GB: 2012-08-27: should be implementing the following functions here:
   //                 Array::getElements(), getElements(IndexVectorPtr ai), getNumDims(), getDereference()
-  boost::shared_ptr<MemLocObject> ArrayExprObj::getElements(PartEdgePtr pedge) { ROSE_ASSERT(false); /*Need to implement based on type*/ };
-  boost::shared_ptr<MemLocObject> ArrayExprObj::getElements(IndexVectorPtr ai, PartEdgePtr pedge) { ROSE_ASSERT(false); /*Need to implement based on type*/ };
+  MemLocObjectPtr ArrayExprObj::getElements(PartEdgePtr pedge) { ROSE_ASSERT(false); /*Need to implement based on type*/ };
+  MemLocObjectPtr ArrayExprObj::getElements(IndexVectorPtr ai, PartEdgePtr pedge) { ROSE_ASSERT(false); /*Need to implement based on type*/ };
   size_t ArrayExprObj::getNumDims(PartEdgePtr pedge) { ROSE_ASSERT(false); /*Need to implement based on type*/ };
-  boost::shared_ptr<MemLocObject> ArrayExprObj::getDereference(PartEdgePtr pedge) { ROSE_ASSERT(false); /*Need to implement based on type*/ };
+  MemLocObjectPtr ArrayExprObj::getDereference(PartEdgePtr pedge) { ROSE_ASSERT(false); /*Need to implement based on type*/ };
   
   //------------------
   /*std::set<SgType*> PointerExprObj::getType()
@@ -1290,16 +1297,6 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
     assert (false);
     return rt;
   }
-
-  // Returns true if this pointer refers to the same abstract object as that pointer.
-  //GB: getDereference subsumes this
-  /*bool  PointerExprObj::equalPoints (Pointer & that)
-  {
-    // type based: same base type, sa
-    SgType* this_type = *(this->getType().begin()); 
-    SgType* that_type = *(that.getType().begin());
-    return (this_type == that_type);
-  }*/
 
   /* GB: Deprecating the == operator. Now that some objects can contain AbstractObjects any equality test must take the current part as input.
   bool PointerExprObj::operator == (const MemLocObject& o2) const
@@ -1394,7 +1391,7 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
     rt += indent;
     /*for (size_t i =0; i< fieldCount(); i++)
     {
-      rt += "\t" + (getElements())[i]->str(indent+"    ") + "\n";
+      rt += "&nbsp;&nbsp;&nbsp;&nbsp;" + (getElements())[i]->str(indent+"    ") + "\n";
     }*/
     return rt; 
   }
@@ -1406,10 +1403,10 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
       rt += " "+ ExprObj::str(indent+"    ");
       rt += "   with " + StringUtility::numberToString(fieldCount(pedge)) + " fields:\n";
       rt += indent;
-      for (size_t i =0; i< fieldCount(pedge); i++)
-      {
-        rt += "\t" + (getElements(pedge))[i]->str(indent+"    ") + "\n";
-      }
+      list<LabeledAggregateFieldPtr> elements = getElements(pedge);
+      int i=0;
+      for(list<LabeledAggregateFieldPtr>::iterator e=elements.begin(); e!=elements.end(); e++, i++)
+        rt += "&nbsp;&nbsp;&nbsp;&nbsp;" + (*e)->strp(pedge, indent+"    ") + "\n";
     } else {
       rt += "OUT-OF-SCOPE";
     }
@@ -1663,7 +1660,14 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
       } else
         anchorFD = NULL;
       
-      return pedge->target()->mapCFGNodeANY<bool>(boost::bind(&matchAnchorPart, anchorFD, _1));
+      //Dbg::dbg << "anchor_symbol="<<cfgUtils::SgNode2Str(anchor_symbol)<<" pedge="<<pedge->str()<<endl;
+      // GB 2012-10-18 - I'm not sure what to do here about edges with wildcard sources or targets.
+      //                 It seems like to be fully general we need to say that something is live if it is live at
+      //                 any source and any destination, meaning that we need consider all the outcomes of a wildcard.
+      //                 For example, what happens when an edge may cross a scope boundary for one but not all
+      //                 of the wildcard outcomes?
+      return (pedge->source() ? pedge->source()->mapCFGNodeANY<bool>(boost::bind(&matchAnchorPart, anchorFD, _1)) : false) ||
+             (pedge->target() ? pedge->target()->mapCFGNodeANY<bool>(boost::bind(&matchAnchorPart, anchorFD, _1)) : false);
     } else
       return false;
  
@@ -1730,9 +1734,9 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
     bool rt = false;
 
     bool has_diff_element = false;
-    if (this->getSize() == other_impl->getSize()) 
+    if (this->getSize(pedge) == other_impl->getSize(pedge)) 
     { // same size, no different element
-      for (size_t i =0; i< other_impl->getSize(); i++)
+      for (size_t i =0; i< other_impl->getSize(pedge); i++)
       {
         if (!(this->index_vector[i]->mayEqual(other_impl->index_vector[i], pedge)))
         {
@@ -1758,9 +1762,9 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
     bool rt = false;
       
     bool has_diff_element = false;
-    if (this->getSize() == other_impl->getSize()) 
+    if (this->getSize(pedge) == other_impl->getSize(pedge)) 
     { // same size, no different element
-      for (size_t i =0; i< other_impl->getSize(); i++)
+      for (size_t i =0; i< other_impl->getSize(pedge); i++)
       {
         if (!(this->index_vector[i]->mustEqual(other_impl->index_vector[i], pedge)))
         {
@@ -1919,16 +1923,6 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
     
   }
 
-  // Returns true if this pointer refers to the same abstract object as that pointer.
-  //GB: getDereference subsumes this
-  /*bool  PointerNamedObj::equalPoints (Pointer & that)
-  {
-    // type based: same base type, sa
-    SgType* this_type = *(this->getType().begin()); 
-    SgType* that_type = *(that.getType().begin());
-    return (this_type == that_type);
-  }*/
-
   /* GB: Deprecating the == operator. Now that some objects can contain AbstractObjects any equality test must take the current part as input.
   bool PointerNamedObj::operator == (const MemLocObject& o2) const
   {
@@ -1964,7 +1958,7 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
   
   // a helper function to fill up std::vector<LabeledAggregateField*>  from a class/structure type
   // TODO handle static members,they should be treated as global variables , not instances
-  void fillUpElements(MemLocObject* p, std::vector<LabeledAggregateFieldPtr > & elements, SgClassType* c_t, PartEdgePtr pedge)
+  void fillUpElements(MemLocObject* p, std::list<LabeledAggregateFieldPtr > & elements, SgClassType* c_t, PartEdgePtr pedge)
   {
     assert (p!= NULL);
     boost::shared_ptr<LabeledAggregate> lp = 
@@ -2041,7 +2035,7 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
     //rt += "   with " + StringUtility::numberToString(fieldCount()) + " fields:\n";
     /*for (size_t i =0; i< fieldCount(); i++)
     {
-      rt += indent + "\t" + (getElements())[i]->str(indent+"    ") + "\n";
+      rt += indent + "&nbsp;&nbsp;&nbsp;&nbsp;" + (getElements())[i]->str(indent+"    ") + "\n";
     }*/
     return rt; 
   }
@@ -2052,10 +2046,10 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
     if(isLive(pedge)) {
       rt += " "+ NamedObj::str(indent);
       rt += "   with " + StringUtility::numberToString(fieldCount(pedge)) + " fields:\n";
-      for (size_t i =0; i< fieldCount(pedge); i++)
-      {
-        rt += indent + "\t" + (getElements(pedge))[i]->str(indent+"    ") + "\n";
-      }
+      list<LabeledAggregateFieldPtr> elements = getElements(pedge);
+      int i=0;
+      for(list<LabeledAggregateFieldPtr>::iterator e=elements.begin(); e!=elements.end(); e++, i++)
+        rt += indent + "&nbsp;&nbsp;&nbsp;&nbsp;" + (*e)->strp(pedge, indent+"    ") + "\n";
     } else {
       rt += "OUT-OF-SCOPE";
     }
@@ -2128,7 +2122,7 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
     //rt += "   with " + StringUtility::numberToString(getNumDims(part)) + " dimensions";
 /*     for (size_t i =0; i< fieldCount(); i++)
      {
-       rt += "\t" + (getElements())[i]->str(indent+"    ") + "\n";
+       rt += "&nbsp;&nbsp;&nbsp;&nbsp;" + (getElements())[i]->str(indent+"    ") + "\n";
      }
 */
     return rt; 
@@ -2413,16 +2407,7 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
   // Allocates a copy of this object and returns a pointer to it
   MemLocObjectPtr ScalarAliasedObj::copyML() const
   { return boost::make_shared<ScalarAliasedObj>(*this); }
-
-  // Returns true if this pointer refers to the same abstract object as that pointer.
-  //GB: getDereference subsumes this
-  /*bool PointerAliasedObj::equalPoints(const Pointer & that)
-  {
-    SgType* this_type = *(this->getType().begin()); 
-    SgType* that_type = *(that.getType().begin());
-    return (this_type == that_type);
-  }*/
-  
+ 
   /* GB: Deprecating the == operator. Now that some objects can contain AbstractObjects any equality test must take the current part as input.
   bool FunctionAliasedObj::operator == (const MemLocObject& o2) const
   {
@@ -2489,8 +2474,8 @@ CodeLocObjectPtr StxCodeLocObject::copyCL() const
 
   // GB: 2012-08-27: should be implementing the following functions here:
   //                 Array::getElements(), getElements(IndexVectorPtr ai), getNumDims(), getDereference()
-  boost::shared_ptr<MemLocObject> ArrayAliasedObj::getElements(PartEdgePtr pedge) { ROSE_ASSERT(false); /*Need to implement based on type*/ };
-  boost::shared_ptr<MemLocObject> ArrayAliasedObj::getElements(IndexVectorPtr ai, PartEdgePtr pedge) { ROSE_ASSERT(false); /*Need to implement based on type*/ };
+  MemLocObjectPtr ArrayAliasedObj::getElements(PartEdgePtr pedge) { ROSE_ASSERT(false); /*Need to implement based on type*/ };
+  MemLocObjectPtr ArrayAliasedObj::getElements(IndexVectorPtr ai, PartEdgePtr pedge) { ROSE_ASSERT(false); /*Need to implement based on type*/ };
   size_t ArrayAliasedObj::getNumDims(PartEdgePtr pedge) { ROSE_ASSERT(false); /*Need to implement based on type*/ };
   boost::shared_ptr<MemLocObject> ArrayAliasedObj::getDereference(PartEdgePtr pedge) { ROSE_ASSERT(false); /*Need to implement based on type*/ };
 

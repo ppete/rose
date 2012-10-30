@@ -3,7 +3,7 @@
 #include <boost/bind.hpp>
 #include <boost/mem_fn.hpp>
 #include <boost/make_shared.hpp>
-
+  
 namespace dataflow {
 int constantPropagationAnalysisDebugLevel = 2;
 
@@ -45,10 +45,10 @@ CPValueObject::getValue() const
 
 short
 CPValueObject::getLevel() const
-   {
-     return level;
-   }
-
+{
+   return level;
+}
+  
 bool
 CPValueObject::setValue(int x)
  {
@@ -156,44 +156,32 @@ CPValueObject::meetUpdate(const Lattice* X)
       return true;
     }
     else
-    {   //  3. const value: missing the cases of meeting bottom and top ??
-               if (this->level == constantValue && that->level == unknownValue)
                   {
+      //  3. const value: missing the cases of meeting bottom and top ??
+      if (this->level == constantValue && that->level == unknownValue) {
         return false;
-                  }
-                 else
-                  {
-                    if (this->level == constantValue && that->level == constantValue)
-                       {
-                         if (this->value == that->value)
-                            {
+      } else {
+        if (this->level == constantValue && that->level == constantValue) {
+          if (this->value == that->value) {
             return false;
-                            }
-                           else
-                            {
+          } else {
              this->level = top;
              return true;
            }
-        }
-        else // 4.  undefinedValue  is not covered ???
-        {
-                         if (this->level == bottom) // 1. can only go up: must be the value of that lattice since this lattice is already the bottom
-                            {
+        } else { 
+          // 4.  undefinedValue  is not covered ???
+          if (this->level == bottom) { 
+            // 1. can only go up: must be the value of that lattice since this lattice is already the bottom
             this->level = that->level;
             this->value = that->value;
 
             return (that->level != bottom);
-                            }
-                           else
-                            {
-                              if (this->level == top) //5.  already at the top. Cannot go up further.
-                                 {
+           } else {
+            if (this->level == top) { 
+              //5.  already at the top. Cannot go up further.
                return false;
-                                 }
-                                else
-                                 {
-                                   if (that->level == top)
-                                      {
+             } else {
+               if (that->level == top) {
                  bool modified = this->level != top;
                  this->level = top;
                  return modified;
@@ -231,7 +219,7 @@ CPValueObject::str(string indent) const
 
 string
 CPValueObject::strp(PartEdgePtr pedge, string indent) const
-{
+{    
   ostringstream outs;
   if(level == bottom)
     outs << "[bottom]";
@@ -283,7 +271,7 @@ boost::shared_ptr<SgValueExp> CPValueObject::getConcreteValue()
   ROSE_ASSERT(isConcrete());
   return boost::shared_ptr<SgValueExp>(SageBuilder::buildIntVal(value));
 }
-
+  
 /*string CPValueObject::str(const string& indent)
 {
   ostringstream outs;
@@ -295,7 +283,7 @@ boost::shared_ptr<SgValueExp> CPValueObject::getConcreteValue()
     outs << indent << "[level: constantValue, val = "<<value<<"]";
   else if(level == top)
     outs << indent << "[level: top]";
-
+  
   return outs.str();
 }*/
 
@@ -322,7 +310,7 @@ ConstantPropagationAnalysisTransfer::transferArith(SgBinaryOp *sgn, TransferOp t
    transferArith(sgn, boost::mem_fn(transferOp));
    }
 
-void
+void 
 ConstantPropagationAnalysisTransfer::transferIncrement(SgUnaryOp *sgn)
    {
    CPValueObjectPtr arg1Lat, arg2Lat, resLat;
@@ -337,94 +325,94 @@ ConstantPropagationAnalysisTransfer::transferIncrement(SgUnaryOp *sgn)
 void
 ConstantPropagationAnalysisTransfer::transferAdditive(CPValueObjectPtr arg1Lat, CPValueObjectPtr arg2Lat, CPValueObjectPtr resLat, bool isAddition)
    {
-     if (arg1Lat->getLevel() == CPValueObject::bottom || arg2Lat->getLevel() == CPValueObject::bottom)
-        {
-          updateModified(resLat->setLevel(CPValueObject::bottom));
-        }
-       else
-        {
-          // Both knownValue
-          if(arg1Lat->getLevel() == CPValueObject::constantValue && arg2Lat->getLevel() == CPValueObject::constantValue)
-             {
-               updateModified(resLat->setValue(isAddition ? arg1Lat->getValue() + arg2Lat->getValue() : arg1Lat->getValue() - arg2Lat->getValue()));
-             }
-            else
-             {
-               // Else => Top
-               updateModified(resLat->setLevel(CPValueObject::top));
-             }
-        }
+   if (arg1Lat->getLevel() == CPValueObject::bottom || arg2Lat->getLevel() == CPValueObject::bottom)
+      {
+      updateModified(resLat->setLevel(CPValueObject::bottom));
+      }
+     else 
+      {
+      // Both knownValue
+      if(arg1Lat->getLevel() == CPValueObject::constantValue && arg2Lat->getLevel() == CPValueObject::constantValue) 
+         {
+         updateModified(resLat->setValue(isAddition ? arg1Lat->getValue() + arg2Lat->getValue() : arg1Lat->getValue() - arg2Lat->getValue()));
+         }
+        else
+         {
+         // Else => Top
+         updateModified(resLat->setLevel(CPValueObject::top));
+         }
+      }
    }
 
 
 void
 ConstantPropagationAnalysisTransfer::transferMultiplicative(CPValueObjectPtr arg1Lat, CPValueObjectPtr arg2Lat, CPValueObjectPtr resLat)
    {
-     if (arg1Lat->getLevel() == CPValueObject::bottom || arg2Lat->getLevel() == CPValueObject::bottom)
-        {
-          updateModified(resLat->setLevel(CPValueObject::bottom));
-        }
-       else
-        {
-       // Both knownValue
-          if(arg1Lat->getLevel() == CPValueObject::constantValue && arg2Lat->getLevel() == CPValueObject::constantValue)
-             {
-               updateModified(resLat->setValue(arg1Lat->getValue() * arg2Lat->getValue()));
-             }
-            else
-             {
-            // Else => Top
-               updateModified(resLat->setLevel(CPValueObject::top));
-             }
-        }
+   if (arg1Lat->getLevel() == CPValueObject::bottom || arg2Lat->getLevel() == CPValueObject::bottom)
+      {
+      updateModified(resLat->setLevel(CPValueObject::bottom));
+      }
+     else 
+      {
+     // Both knownValue
+      if(arg1Lat->getLevel() == CPValueObject::constantValue && arg2Lat->getLevel() == CPValueObject::constantValue) 
+         {
+         updateModified(resLat->setValue(arg1Lat->getValue() * arg2Lat->getValue()));
+         }
+        else
+         {
+        // Else => Top
+         updateModified(resLat->setLevel(CPValueObject::top));
+         }
+      }
    }
 
 void
 ConstantPropagationAnalysisTransfer::transferDivision(CPValueObjectPtr arg1Lat, CPValueObjectPtr arg2Lat, CPValueObjectPtr resLat)
    {
-     if (arg1Lat->getLevel() == CPValueObject::bottom || arg2Lat->getLevel() == CPValueObject::bottom)
-        {
-          updateModified(resLat->setLevel(CPValueObject::bottom));
-        }
-       else
-        {
-       // Both knownValue
-          if(arg1Lat->getLevel() == CPValueObject::constantValue && arg2Lat->getLevel() == CPValueObject::constantValue)
-             {
-               updateModified(resLat->setValue(arg1Lat->getValue() / arg2Lat->getValue()));
-             }
-            else
-             {
-            // Else => Top
-               updateModified(resLat->setLevel(CPValueObject::top));
-             }
-        }
+   if (arg1Lat->getLevel() == CPValueObject::bottom || arg2Lat->getLevel() == CPValueObject::bottom)
+      {
+      updateModified(resLat->setLevel(CPValueObject::bottom));
+      }
+     else 
+      {
+     // Both knownValue
+      if(arg1Lat->getLevel() == CPValueObject::constantValue && arg2Lat->getLevel() == CPValueObject::constantValue) 
+         {
+         updateModified(resLat->setValue(arg1Lat->getValue() / arg2Lat->getValue()));
+         }
+        else
+         {
+        // Else => Top
+         updateModified(resLat->setLevel(CPValueObject::top));
+         }
+      }
    }
 
 void
 ConstantPropagationAnalysisTransfer::transferMod(CPValueObjectPtr arg1Lat, CPValueObjectPtr arg2Lat, CPValueObjectPtr resLat)
    {
-     if (arg1Lat->getLevel() == CPValueObject::bottom || arg2Lat->getLevel() == CPValueObject::bottom)
-        {
-          updateModified(resLat->setLevel(CPValueObject::bottom));
-        }
-       else
-        {
-       // Both knownValue
-          if(arg1Lat->getLevel() == CPValueObject::constantValue && arg2Lat->getLevel() == CPValueObject::constantValue)
-             {
-               updateModified(resLat->setValue(arg1Lat->getValue() % arg2Lat->getValue()));
-             }
-            else
-             {
-            // Else => Top
-               updateModified(resLat->setLevel(CPValueObject::top));
-             }
-        }
+   if (arg1Lat->getLevel() == CPValueObject::bottom || arg2Lat->getLevel() == CPValueObject::bottom)
+      {
+      updateModified(resLat->setLevel(CPValueObject::bottom));
+      }
+     else 
+      {
+     // Both knownValue
+      if(arg1Lat->getLevel() == CPValueObject::constantValue && arg2Lat->getLevel() == CPValueObject::constantValue) 
+         {
+         updateModified(resLat->setValue(arg1Lat->getValue() % arg2Lat->getValue()));
+         }
+        else
+         {
+        // Else => Top
+         updateModified(resLat->setLevel(CPValueObject::top));
+         }
+      }
    }
 
 void
-ConstantPropagationAnalysisTransfer::transferLogical(CPValueObjectPtr arg1Lat, CPValueObjectPtr arg2Lat,
+ConstantPropagationAnalysisTransfer::transferLogical(CPValueObjectPtr arg1Lat, CPValueObjectPtr arg2Lat, 
                                                      CPValueObjectPtr resLat, SgExpression* expr)
 {
   if (arg1Lat->getLevel() == CPValueObject::bottom || arg2Lat->getLevel() == CPValueObject::bottom)
@@ -580,22 +568,27 @@ ConstantPropagationAnalysisTransfer::visit(SgMinusMinusOp *sgn)
 
 // Unary Operations
 void
-ConstantPropagationAnalysisTransfer::visit(SgUnaryAddOp* sgn)
-{
-  getLatticeOperand(sgn, sgn->get_operand());
-  lattice_type l;
-  setLattice(sgn, l);
-}
+ConstantPropagationAnalysisTransfer::visit(SgUnaryAddOp *sgn)
+   {
+   setLattice(sgn, getLatticeOperand(sgn, sgn->get_operand()));
+   }
 
 void
 ConstantPropagationAnalysisTransfer::visit(SgMinusOp *sgn)
-{
-  CPValueObjectPtr operandLat = getLatticeOperand(sgn, sgn->get_operand());
+   {
+   CPValueObjectPtr operandLat = getLatticeOperand(sgn, sgn->get_operand());
 
-  // This fixes up the value if it is relevant (where level is neither top not bottom).
-  operandLat->setValue(-operandLat->getValue());
-  setLattice(sgn, operandLat);
-}
+   // This fixes up the value if it is relevant (where level is neither top not bottom).
+   operandLat->setValue(-operandLat->getValue());
+   
+   setLattice(sgn, operandLat);
+   }
+
+void 
+ConstantPropagationAnalysisTransfer::visit(SgCastExp *sgn)
+   {
+   setLattice(sgn, getLatticeOperand(sgn, sgn->get_operand()));
+   }
 
 // Logical Operations
 void
@@ -637,7 +630,7 @@ ConstantPropagationAnalysisTransfer::finish()
    }
 
 ConstantPropagationAnalysisTransfer::ConstantPropagationAnalysisTransfer(
-          const Function& func, PartPtr part, CFGNode cn, NodeState& state,
+          const Function& func, PartPtr part, CFGNode cn, NodeState& state, 
           PartLattice& dfInfo,
           Composer* composer, ConstantPropagationAnalysis* analysis)
    : VariableStateTransfer<CPValueObject>( func, state, dfInfo,
@@ -660,10 +653,10 @@ ConstantPropagationAnalysis::ConstantPropagationAnalysis()
 
 // Initializes the state of analysis lattices at the given function, part and edge into our out of the part
 // by setting initLattices to refer to freshly-allocated Lattice objects.
-void ConstantPropagationAnalysis::genInitLattice(const Function& func, PartPtr part, PartEdgePtr pedge,
+void ConstantPropagationAnalysis::genInitLattice(const Function& func, PartPtr part, PartEdgePtr pedge, 
                                                  std::vector<Lattice*>& initLattices)
 {
-  AbstractObjectMap* l = new AbstractObjectMap(new MustEqualFunctor(),
+  AbstractObjectMap* l = new AbstractObjectMap(new MustEqualFunctor(), 
                                                boost::make_shared<CPValueObject>(part->inEdgeFromAny()),
                                                pedge);
   /*Dbg::dbg << "ConstantPropagationAnalysis::initializeState, analysis="<<returning l="<<l<<" n=<"<<Dbg::escape(p.getNode()->unparseToString())<<" | "<<p.getNode()->class_name()<<" | "<<p.getIndex()<<">\n";
@@ -689,17 +682,17 @@ ConstantPropagationAnalysis::genFacts(const Function& func, PartPtr p)
 }
 
 
-
+  
 bool
 ConstantPropagationAnalysis::transfer(const Function& func, PartPtr part, CFGNode cn, NodeState& state, PartLattice& dfInfo)
-{
+   {
   visitor_transfer(ConstantPropagationAnalysisTransfer(func, part, cn, state, dfInfo, getComposer(), this), cn);
   return true;
-}
+   }
 
 #if OBSOLETE_CODE
 boost::shared_ptr<IntraDFTransferVisitor>
-ConstantPropagationAnalysis::getTransferVisitor(const Function& func, PartPtr part, CFGNode cn, NodeState& state,
+ConstantPropagationAnalysis::getTransferVisitor(const Function& func, PartPtr part, CFGNode cn, NodeState& state, 
                                                 std::map<PartEdgePtr, std::vector<Lattice*> >& dfInfo)
    {
   // Why is the boost shared pointer used here?
@@ -711,19 +704,69 @@ ConstantPropagationAnalysis::getTransferVisitor(const Function& func, PartPtr pa
 ValueObjectPtr ConstantPropagationAnalysis::Expr2Val(SgNode* n, PartEdgePtr pedge)
 {
   Dbg::dbg << "ConstantPropagationAnalysis::Expr2Val(n="<<cfgUtils::SgNode2Str(n)<<", pedge="<<pedge->str()<<") this="<<this<<endl;
-  NodeState* state = NodeState::getNodeState(this, pedge->source());
-  Dbg::dbg << "state="<<state->str(this)<<endl;
-  LatticePtr cpMapPtr = state->getLatticeBelowMod(this, pedge);
-  AbstractObjectMap& cpMap = dynamic_cast<AbstractObjectMap&>(*cpMapPtr.get());
-  MemLocObjectPtrPair p = composer->Expr2MemLoc(n, pedge, this);
-  Dbg::indent ind;
-  Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;p="<<p.str()<<endl;
-  Dbg::dbg << "cpMap="<<(&cpMap)<<"="<<cpMap.str()<<endl;
+  // If pedge doesn't have wildcards
+  if(pedge->source() && pedge->target()) {
+    NodeState* state = NodeState::getNodeState(this, pedge->source());
+    Dbg::dbg << "state="<<state->str(this)<<endl;
+    LatticePtr cpMapPtr = state->getLatticeBelowMod(this, pedge);
+    AbstractObjectMap& cpMap = dynamic_cast<AbstractObjectMap&>(*cpMapPtr.get());
+    MemLocObjectPtrPair p = composer->Expr2MemLoc(n, pedge, this);
+    Dbg::indent ind;
+    Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;p="<<p.str()<<endl;
+    Dbg::dbg << "cpMap="<<(&cpMap)<<"="<<cpMap.str()<<endl;
+  
+    // Return the lattice associated with n's expression since that is likely to be more precise
+    // but if it is not available, used the memory object
+    return (p.expr ? boost::dynamic_pointer_cast<ValueObject>(cpMap.get(p.expr)) :
+                     boost::dynamic_pointer_cast<ValueObject>(cpMap.get(p.mem)));
 
-  // Return the lattice associated with n's expression since that is likely to be more precise
-  // but if it is not available, used the memory object
-  return (p.expr ? boost::dynamic_pointer_cast<ValueObject>(cpMap.get(p.expr)) :
-                   boost::dynamic_pointer_cast<ValueObject>(cpMap.get(p.mem)));
+
+  // If the target of this edge is a wildcard
+  } else if(pedge->source()) {
+    NodeState* state = NodeState::getNodeState(this, pedge->source());
+    //Dbg::dbg << "state="<<state->str(this)<<endl;
+    
+    // Merge the lattices along all the outgoing edges
+    map<PartEdgePtr, std::vector<Lattice*> >& e2lats = state->getLatticeBelowAllMod(this);
+    ROSE_ASSERT(e2lats.size()>=1);
+    boost::shared_ptr<CPValueObject> mergedVal = boost::make_shared<CPValueObject>(pedge);
+    for(map<PartEdgePtr, std::vector<Lattice*> >::iterator lats=e2lats.begin(); lats!=e2lats.end(); lats++) {
+      PartEdge* edgePtr = lats->first.get();
+      ROSE_ASSERT(edgePtr->source() == pedge.get()->source());
+      
+      AbstractObjectMap* cpMap = dynamic_cast<AbstractObjectMap*>(state->getLatticeBelow(this, lats->first, 0));
+      ROSE_ASSERT(cpMap);
+      
+      MemLocObjectPtrPair p = composer->Expr2MemLoc(n, pedge, this);
+      Dbg::indent ind;
+      Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;p="<<p.str()<<endl;
+      Dbg::dbg << "cpMap="<<cpMap<<"="<<cpMap->str()<<endl;
+      
+      boost::shared_ptr<CPValueObject> val = 
+              boost::dynamic_pointer_cast<CPValueObject>
+                (p.expr ? boost::dynamic_pointer_cast<ValueObject>(cpMap->get(p.expr)) :
+                          boost::dynamic_pointer_cast<ValueObject>(cpMap->get(p.mem)));
+      mergedVal->meetUpdate(val.get());
+    }
+    return mergedVal;
+  // If the source of this edge is a wildcard
+  } else if(pedge->target()) {
+    NodeState* state = NodeState::getNodeState(this, pedge->target());
+    Dbg::dbg << "state="<<state->str(this)<<endl;
+    AbstractObjectMap* cpMap = dynamic_cast<AbstractObjectMap*>(state->getLatticeAbove(this, NULLPartEdge, 0));
+    ROSE_ASSERT(cpMap);
+
+    MemLocObjectPtrPair p = composer->Expr2MemLoc(n, pedge, this);
+    Dbg::indent ind;
+    Dbg::dbg << "&nbsp;&nbsp;&nbsp;&nbsp;p="<<p.str()<<endl;
+    Dbg::dbg << "cpMap="<<cpMap<<"="<<cpMap->str()<<endl;
+
+    // Return the lattice associated with n's expression since that is likely to be more precise
+    // but if it is not available, used the memory object
+    return (p.expr ? boost::dynamic_pointer_cast<ValueObject>(cpMap->get(p.expr)) :
+                     boost::dynamic_pointer_cast<ValueObject>(cpMap->get(p.mem)));
+  }
+  ROSE_ASSERT(0);
 }
 
 } // namespace dataflow;

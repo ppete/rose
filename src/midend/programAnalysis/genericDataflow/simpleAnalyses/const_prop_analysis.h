@@ -207,6 +207,7 @@ class ConstantPropagationAnalysisTransfer : public VariableStateTransfer<CPValue
    // Unary Operations
    void visit(SgUnaryAddOp *sgn);
    void visit(SgMinusOp *sgn);
+   void visit(SgCastExp *sgn);
    // Logical Operations
    void visit(SgGreaterOrEqualOp *sgn);
    void visit(SgGreaterThanOp *sgn);

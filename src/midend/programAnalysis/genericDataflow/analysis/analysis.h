@@ -46,6 +46,8 @@ class Analysis
     // Inter-procedural analysis will copy the filter from its intra-procedural analysis during the call to its constructor.
     bool (*filter) (CFGNode cfgn); 
     Analysis(bool (*f)(CFGNode) = defaultFilter):filter(f) {}
+
+    //virtual void method_to_enable_polymorphism() {}
 };
 
 class InterProceduralAnalysis;
